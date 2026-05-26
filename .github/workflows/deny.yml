@@ -40,4 +40,7 @@ jobs:
       - name: Install cargo-deny
         run: cargo install cargo-deny --version 0.18.5 --locked
       - name: Run cargo deny
-        run: cargo deny check bans licenses sources advisories
+        # `advisories` is intentionally excluded; cargo-deny cannot parse
+        # CVSS 4.0 entries in the RustSec DB yet (issue #804). The
+        # `audit.yml` workflow covers advisories via `rustsec/audit-check`.
+        run: cargo deny check bans licenses sources

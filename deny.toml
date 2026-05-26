@@ -9,10 +9,11 @@ all-features = true
 [output]
 feature-depth = 1
 
-[advisories]
-version = 2
-ignore = []
-yanked = "deny"
+# Advisories are covered by `cargo audit` in `.github/workflows/audit.yml`,
+# not here. Reason: cargo-deny's advisory loader (as of 0.19.0) cannot parse
+# CVSS 4.0 entries in the RustSec DB — see
+# https://github.com/EmbarkStudios/cargo-deny/issues/804. Until that lands,
+# we run advisory scanning only via the `rustsec/audit-check` action.
 
 [licenses]
 version = 2

@@ -11,14 +11,17 @@ The propositional ops we need at the calculus surface — `bottom`, `join`,
 `app-IFC` rule (which takes the join of labels) bind to the right targets.
 -/
 
-import PortcullisCoreImport
+-- Direct import of nucleus's Aeneas-generated capability types. The 165
+-- nucleus Lean theorems on this lattice (HeytingAlgebra, GaloisConnection,
+-- declassification proofs) apply to DLC's `Label` wholesale through this
+-- alias — no fresh formalization.
+import PortcullisCore.Types
 
 namespace DLC
 
-/-- A DLC IFC label. Aliased to nucleus's `CapabilityLattice`; M1.Q4.a
-established this binding so the lattice infrastructure (Heyting algebra,
-Galois connections, declassification proofs) imports directly. -/
-abbrev Label := DLC.IFC.LabelImpl
+/-- A DLC IFC label. Aliased to nucleus's `CapabilityLattice` (13-dim).
+M1.Q4.a established this binding. -/
+abbrev Label := portcullis_core.CapabilityLattice
 
 namespace Label
 

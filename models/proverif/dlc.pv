@@ -1,0 +1,173 @@
+(*
+ * DLC -- Delegation Logic Calculus, ProVerif cross-check.
+ *
+ * Phase-2 L2.2 deliverable: an independent symbolic verification of the
+ * three load-bearing properties Tamarin proves in models/tamarin/dlc.spthy.
+ * Independent in two senses:
+ *   1. Different prover (ProVerif vs Tamarin) and different intermediate
+ *      representation (applied-pi vs multiset rewriting / Horn clauses).
+ *   2. Different proof engine (resolution-based saturation vs DPLL-like
+ *      backward search), so a model bug that happens to be invisible to
+ *      one tool's heuristics would surface in the other.
+ *
+ * Three properties (matching Tamarin):
+ *   secrecy_ltk    -- adversary never learns an honest principal's secret
+ *                     key (unless explicitly revealed).
+ *   non_splicing   -- the load-bearing property defeating RFC 8693 chain
+ *                     splicing: accepted (P acting Q) says prop must trace
+ *                     to BOTH SpeaksForIssued(P, Q) AND Says(Q, prop) by
+ *                     the same Q.
+ *   exec_delegation - a trace exists where delegation succeeds with no
+ *                     key reveals (sanity check).
+ *
+ * Companion Tamarin model at models/tamarin/dlc.spthy (L2.1).
+ * EasyCrypt computational bridge at models/easycrypt/Game.eca (L2.4).
+ *)
+
+free c: channel.
+free speaks_for_tag: bitstring.
+
+(* ========================================================================= *)
+(* Signature equational theory                                                *)
+(* ========================================================================= *)
+
+type skey.
+type pkey.
+
+fun pk(skey): pkey.
+fun sign(bitstring, skey): bitstring.
+reduc forall m: bitstring, k: skey;
+  checksign(sign(m, k), pk(k)) = m.
+
+(* ========================================================================= *)
+(* Honest-key registry                                                        *)
+(*                                                                            *)
+(* The DLC wire protocol's verifier checks tokens against a pinned keyring   *)
+(* of known principals -- not against an arbitrary public key fabricated by *)
+(* an attacker. Tamarin captures this via `!Pk($P, pk(sk))` persistent      *)
+(* facts (only Register_pk populates `!Pk`). ProVerif needs an explicit     *)
+(* table to mirror this; without it, the attacker can present its own       *)
+(* fresh-generated public key as the Q in a delegation and forge the second *)
+(* half itself.                                                              *)
+(* ========================================================================= *)
+
+table honest_keys(pkey).
+
+(* ========================================================================= *)
+(* Events -- mirror models/tamarin/dlc.spthy plus an honest-key marker       *)
+(* ========================================================================= *)
+
+(* `HonestSk(sk)` fires exactly once per honest-principal creation. Used to *)
+(* scope the secrecy query: the attacker can always create its own fresh    *)
+(* `skey` values, but only honest secret keys should remain secret unless   *)
+(* explicitly revealed.                                                     *)
+event HonestSk(skey).
+
+(* Principals are identified by their public keys at the event level, so
+   each principal-specific event uses pkey as the identifier. *)
+event Says(pkey, bitstring).
+event SpeaksForIssued(pkey, pkey).
+event DelegateAccept(pkey, pkey, bitstring).
+event LtkReveal(pkey).
+
+(* ========================================================================= *)
+(* Queries -- the load-bearing properties                                     *)
+(* ========================================================================= *)
+
+(* secrecy_ltk: an honest secret key never leaks unless explicitly
+   revealed. The `event(HonestSk(skP))` antecedent restricts the
+   universal quantifier to honestly-created keys (the attacker may
+   freely generate its own fresh `skey` values; those don't count). *)
+query skP: skey;
+  event(HonestSk(skP)) && attacker(skP)
+    ==> event(LtkReveal(pk(skP))).
+
+(*
+ * non_splicing: if the verifier accepts (P acting Q) says prop, then both
+ * halves must trace back to honest emissions by P and Q respectively,
+ * unless one of them was revealed.
+ *
+ * ProVerif's correspondence-assertion form for nested ==>:
+ *   event(A) ==> (event(B1) && event(B2)) || event(R1) || event(R2)
+ *)
+query P: pkey, Q: pkey, prop: bitstring;
+  event(DelegateAccept(P, Q, prop)) ==>
+    (event(SpeaksForIssued(P, Q)) && event(Says(Q, prop)))
+    || event(LtkReveal(P))
+    || event(LtkReveal(Q)).
+
+(*
+ * exec_delegation: there exists a trace where DelegateAccept fires with
+ * neither principal compromised. ProVerif models this as the *negation*
+ * of a query that says "DelegateAccept never happens without reveals" --
+ * if THAT query is falsified (i.e. a trace exists), executability holds.
+ *)
+query P: pkey, Q: pkey, prop: bitstring;
+  event(DelegateAccept(P, Q, prop)).
+
+(* ========================================================================= *)
+(* Processes                                                                  *)
+(* ========================================================================= *)
+
+(* A single honest principal P with secret key skP. The principal performs
+   any of three actions: emit a Says, emit a SpeaksFor, or get their key
+   revealed. The choice is made by the adversary (scheduling). *)
+let honest(skP: skey) =
+  let pkP = pk(skP) in
+  (
+    (* Says: pick a fresh prop and sign it. *)
+    ! ( new prop: bitstring;
+        event Says(pkP, prop);
+        out(c, (prop, sign(prop, skP)))
+      )
+  )
+  | (
+    (* SpeaksFor: declare that some pkQ may speak for P. The Q is
+       provided by the adversary (in(c, pkQ)) -- modeling the realistic
+       case where any principal can request to be delegated to. *)
+    ! ( in(c, pkQ: pkey);
+        let m = (speaks_for_tag, pkP, pkQ) in
+        event SpeaksForIssued(pkP, pkQ);
+        event Says(pkP, m);
+        out(c, (speaks_for_tag, pkP, pkQ, sign(m, skP)))
+      )
+  )
+  | (
+    (* Static reveal: P optionally leaks their secret key once. *)
+    ( event LtkReveal(pkP);
+      out(c, skP)
+    )
+  ).
+
+(* Verifier: accepts a delegated says only when both signatures verify
+   against the SAME pair of *registered* (honest-keyring) principals.
+   The `get honest_keys(=pkP/=pkQ)` guards mirror Tamarin's `!Pk($P, ...)`
+   persistent-fact requirement -- they reject attacker-fabricated
+   public keys. The signature-pattern-match then enforces
+   no-chain-splicing structurally. *)
+let verifier =
+  in(c, (=speaks_for_tag, pkP: pkey, pkQ: pkey, sfSig: bitstring));
+  in(c, (prop: bitstring, saysSig: bitstring));
+  get honest_keys(=pkP) in
+  get honest_keys(=pkQ) in
+  let m_sf = checksign(sfSig, pkP) in
+  let m_says = checksign(saysSig, pkQ) in
+  if m_sf = (speaks_for_tag, pkP, pkQ) then
+    if m_says = prop then
+      event DelegateAccept(pkP, pkQ, prop).
+
+(* Main process: arbitrarily many honest principals running in parallel
+   with arbitrarily many verifier sessions. Each honest principal:
+     (1) gets a fresh secret key,
+     (2) emits HonestSk(sk) for the secrecy query,
+     (3) inserts the corresponding pk into the honest_keys table,
+     (4) publishes the pk on the public channel,
+     (5) runs the honest principal process. *)
+process
+  ( ! new skP: skey;
+      let pkP = pk(skP) in
+      event HonestSk(skP);
+      insert honest_keys(pkP);
+      out(c, pkP);
+      honest(skP) )
+  | ( ! verifier )

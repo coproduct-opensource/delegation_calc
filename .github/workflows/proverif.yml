@@ -1,0 +1,97 @@
+name: ProVerif
+
+# Runs the DLC ProVerif cross-check (L2.2).
+# Mirrors models/tamarin/dlc.spthy properties via an independent symbolic
+# prover. Catches model bugs that happen to slip past one tool's heuristics.
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "models/proverif/**"
+      - ".github/workflows/proverif.yml"
+  pull_request:
+    paths:
+      - "models/proverif/**"
+      - ".github/workflows/proverif.yml"
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    name: proverif on dlc.pv
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Cache opam state
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
+        with:
+          path: |
+            ~/.opam
+          key: opam-proverif-${{ runner.os }}-2.05
+
+      - name: Install opam + ProVerif
+        run: |
+          sudo apt-get update
+          # libgtk2.0-dev is required by lablgtk (transitive proverif dep).
+          # pkg-config is required by conf-pkg-config.
+          sudo apt-get install -y opam libgtk2.0-dev pkg-config
+          opam init -y --disable-sandboxing --bare
+          eval $(opam env)
+          opam switch list | grep -q "default " || opam switch create default 4.14.1
+          eval $(opam env)
+          # --assume-depexts: don't reprompt for system packages we just
+          # installed via apt above.
+          opam install -y --assume-depexts proverif
+          eval $(opam env)
+          # ProVerif has no --version flag; its banner prints on -help.
+          # Capture just the first line as the version readout.
+          proverif -help 2>&1 | head -1 || true
+
+      - name: Run ProVerif on dlc.pv
+        run: |
+          eval $(opam env)
+          cd models/proverif
+          proverif dlc.pv 2>&1 | tee prove.log
+
+          # ProVerif reports `RESULT <query> is true` or `is false` per
+          # query. For correspondence assertions (secrecy_ltk,
+          # non_splicing) we require `is true`. For the existence query
+          # `not event(DelegateAccept)` we require `is false` (because a
+          # falsified negation means the event IS reachable -- the
+          # standard ProVerif idiom for existence queries).
+          ok=1
+          if ! grep -qE "^RESULT event\(HonestSk.*attacker.*is true" prove.log; then
+            echo "::error::secrecy_ltk did not prove"
+            ok=0
+          fi
+          if ! grep -qE "^RESULT event\(DelegateAccept.*SpeaksForIssued.*is true" prove.log; then
+            echo "::error::non_splicing did not prove"
+            ok=0
+          fi
+          if ! grep -qE "^RESULT not event\(DelegateAccept.*is false" prove.log; then
+            echo "::error::exec_delegation did not show reachability"
+            ok=0
+          fi
+          # Generic catch-all: any unexpected `cannot be proved` is a failure.
+          if grep -E "^RESULT.*cannot be proved" prove.log; then
+            echo "::error::ProVerif could not prove a query"
+            ok=0
+          fi
+          [ "$ok" = "1" ] || exit 1
+          echo "All three queries match expected outcomes."
+
+      - name: Upload ProVerif output
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: proverif-output
+          path: models/proverif/*.log
+          if-no-files-found: warn

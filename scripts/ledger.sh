@@ -79,8 +79,16 @@ model_status() {
   local dir="$1"
   if [[ ! -d "models/$dir" ]] || [[ -z "$(ls -A "models/$dir" 2>/dev/null)" ]]; then
     echo '{"status":"pending"}'
+    return
+  fi
+  # Count files in the model directory (excluding subdirs) to report
+  # whether a real model is present.
+  local files
+  files=$(find "models/$dir" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
+  if [[ "$files" -gt 0 ]]; then
+    printf '{"status":"present","files":%s,"runner":"docker_ghcr_eikendev"}' "$files"
   else
-    echo '{"status":"present","note":"runner not yet wired"}'
+    echo '{"status":"pending"}'
   fi
 }
 

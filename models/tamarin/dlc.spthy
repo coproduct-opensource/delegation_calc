@@ -1,0 +1,172 @@
+/*
+ * DLC — Delegation Logic Calculus symbolic model.
+ *
+ * Tamarin model of the DLC wire protocol. Phase-2 deliverable L2.1
+ * (symbolic-model fidelity, per the plan). Three classes of agent action
+ * are modeled:
+ *
+ *   1. Affirmation:  principal p produces  ⟨φ, σ_p⟩  where σ_p = Sign_{sk(p)}(φ).
+ *   2. SpeaksFor:    principal p produces a says-token whose proposition is
+ *                    "q may speak on behalf of p".
+ *   3. Delegation:   a verifier accepts (p ⊓ q) says φ  iff it sees
+ *                       — a SpeaksFor token from p naming q
+ *                       — a Says token from q over φ
+ *                    against the same pinned public keys.
+ *
+ * The load-bearing security property is NonSplicing — exactly the property
+ * that defeats the RFC 8693 chain-splicing vulnerability (IETF March-2026
+ * thread): if a verifier accepts a delegated claim, both halves of the
+ * chain must be the *same* q. This is enforced structurally by the
+ * rule's signature-pattern-match.
+ *
+ * Adversary model: full Dolev-Yao + static long-term-key reveal. Adaptive
+ * corruption is Phase-2-stretch per spec/threat-model.md §1.
+ *
+ * Companion ProVerif cross-check at models/proverif/dlc.pv (L2.2).
+ * EasyCrypt computational bridge at models/easycrypt/Game.eca (L2.4).
+ */
+
+theory DLC
+begin
+
+builtins: signing
+
+// =========================================================================
+// Key registration — each principal P has a long-term Ed25519 keypair
+// =========================================================================
+
+rule Register_pk:
+    [ Fr(~sk) ]
+  -->
+    [ !Ltk($P, ~sk), !Pk($P, pk(~sk)), Out(pk(~sk)) ]
+
+/*
+ * Static long-term-key reveal. Models a principal whose secret key is
+ * disclosed to the adversary at protocol start.
+ */
+rule Reveal_ltk:
+    [ !Ltk($P, sk) ]
+  --[ LtkReveal($P) ]->
+    [ Out(sk) ]
+
+// =========================================================================
+// Says — principal P signs a proposition (the DLC `says-I` rule's wire form)
+// =========================================================================
+
+/*
+ * The `says-I` wire form: P signs a fresh proposition φ. We use Fr(~prop)
+ * to model the proposition as a fresh symbolic value; the calculus's
+ * proof-of-φ is abstracted as φ itself for the symbolic analysis.
+ */
+rule Says:
+    [ Fr(~prop), !Ltk($P, sk) ]
+  --[ Says($P, ~prop) ]->
+    [ Out(<~prop, sign(~prop, sk)>) ]
+
+// =========================================================================
+// SpeaksFor — principal P signs the proposition "Q speaks for P"
+// =========================================================================
+
+/*
+ * A SpeaksFor token is a particular shape of says: the inner proposition
+ * declares that Q may act on P's behalf. The 'speaks_for' tag distinguishes
+ * this from a plain says.
+ */
+rule SpeaksFor_Issue:
+    [ !Ltk($P, sk) ]
+  --[ SpeaksForIssued($P, $Q) ]->
+    [ Out(<'speaks_for', $P, $Q, sign(<'speaks_for', $P, $Q>, sk)>) ]
+
+// =========================================================================
+// Delegate — verifier accepts (P ⊓ Q) says φ
+//
+// The rule's input patterns enforce the no-chain-splicing property: both
+// signatures must verify against THE SAME pair of principals (P and Q).
+// An attacker cannot mix-and-match a SpeaksFor from P→Q with a Says from
+// some other q' ≠ Q because the rule pattern requires the same $Q.
+// =========================================================================
+
+rule Delegate_Accept:
+    [
+      // SpeaksFor token by P naming Q
+      In(<'speaks_for', $P, $Q, sign(<'speaks_for', $P, $Q>, skP)>)
+    , // Says token by Q over the proposition prop
+      In(<prop, sign(prop, skQ)>)
+    , // The public keys must match the signing keys (Tamarin enforces this
+      // via the equational theory on pk/sign/verify).
+      !Pk($P, pk(skP))
+    , !Pk($Q, pk(skQ))
+    ]
+  --[
+      DelegateAccept($P, $Q, prop)
+    , UsedSpeaksFor($P, $Q)
+    , UsedSays($Q, prop)
+    ]->
+    [ ]
+
+// =========================================================================
+// Lemmas — the four T2-bridging properties from spec/threat-model.md §7
+// =========================================================================
+
+/*
+ * Lemma 1 — Secrecy of long-term keys.
+ *
+ * The adversary never derives an honest principal's secret key. The
+ * antecedent restricts to traces where P's key was *not* explicitly
+ * revealed (via Reveal_ltk).
+ */
+lemma secrecy_ltk:
+  all-traces
+  "All P sk #i #j.
+       KU(sk) @ #i & !Ltk(P, sk) @ #j
+    ==>
+       (Ex #r. LtkReveal(P) @ #r)"
+
+/*
+ * Lemma 2 — Authentication of plain Says.
+ *
+ * If a Says-message is observed (KU(sign(prop, sk))), the corresponding
+ * principal must have issued it, unless their key was revealed.
+ */
+lemma auth_says:
+  all-traces
+  "All P prop sig #i.
+       KU(sig) @ #i & sig = sign(prop, sk) & !Ltk(P, sk) @ #i
+    ==>
+       (Ex #j. Says(P, prop) @ #j & j < i)
+       | (Ex #r. LtkReveal(P) @ #r & r < i)"
+
+/*
+ * Lemma 3 — NonSplicing (the load-bearing property).
+ *
+ * If the verifier accepts (P ⊓ Q) says prop, then BOTH of these must have
+ * happened: P issued a SpeaksFor naming Q, AND Q issued a Says over prop.
+ * No mismatched q' ≠ Q is admissible. Unless one of P or Q was revealed.
+ *
+ * This is the property that defeats RFC 8693 chain-splicing.
+ */
+lemma non_splicing:
+  all-traces
+  "All P Q prop #i.
+       DelegateAccept(P, Q, prop) @ #i
+    ==>
+       ( (Ex #j. SpeaksForIssued(P, Q) @ #j & j < i)
+       & (Ex #k. Says(Q, prop) @ #k & k < i) )
+       | (Ex #r. LtkReveal(P) @ #r & r < i)
+       | (Ex #r. LtkReveal(Q) @ #r & r < i)"
+
+/*
+ * Lemma 4 — Executability (sanity check).
+ *
+ * A trace exists where a delegation is accepted with no key reveals.
+ * If this lemma fails, the model has a structural defect that prevents
+ * the protocol from running at all.
+ */
+lemma exec_delegation:
+  exists-trace
+  "Ex P Q prop #i.
+       DelegateAccept(P, Q, prop) @ #i
+     & not (Ex #r. LtkReveal(P) @ #r)
+     & not (Ex #r. LtkReveal(Q) @ #r)"
+
+end

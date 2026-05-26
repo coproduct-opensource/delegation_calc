@@ -1,33 +1,45 @@
 //! Typing judgments and contexts.
 //!
-//! The four mutually recursive judgments of DLC:
-//!   - `Γ ⊢ M : φ`            — logical typing
-//!   - `Γ ⊢ p says M : p says φ` — affirmation typing
-//!   - `Γ ⊢ M ▷ M'`           — small-step reduction
-//!   - `Γ ⊢_K M : φ`          — cryptographic typing under keyring K
-//!
-//! The rules themselves are frozen in `spec/typing-rules.md` and mirrored in
-//! `lean/DLC/Judgment.lean`. This module is the Rust counterpart that Aeneas
-//! translates back to Lean for the Rust↔Lean bridge.
+//! `Ctx`, `KeyRing`, and `RuleName` mirror the Lean encoding in
+//! `lean/DLC/Judgment.lean`. The Rust verifier's case analysis dispatches on
+//! `RuleName` so the rule index is stable across both languages.
 
 use alloc::vec::Vec;
 
 use crate::principal::KeyRecord;
 use crate::syntax::{Prop, Term};
 
-/// A typing context. Hypotheses are pairs of (variable index, proposition).
-/// Linear hypotheses are a multiset; the substructural rules of the calculus
-/// enforce single-use.
+/// A typing context. Additive hypotheses are re-usable; linear hypotheses are
+/// single-use. Substructural rules of DLC enforce single-use via the multiset
+/// shape of `linear`.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Context {
+pub struct Ctx {
     /// Non-linear (additive) hypotheses, available for arbitrary use.
     pub additive: Vec<Prop>,
     /// Linear hypotheses, available for exactly one use.
     pub linear: Vec<Prop>,
 }
 
-/// A keyring binds principal identities to their public keys, threading the
-/// cryptographic-typing judgment `⊢_K`.
+impl Ctx {
+    /// The empty context.
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
+    /// Push an additive hypothesis.
+    pub fn cons_a(mut self, phi: Prop) -> Self {
+        self.additive.insert(0, phi);
+        self
+    }
+
+    /// Push a linear hypothesis.
+    pub fn cons_l(mut self, phi: Prop) -> Self {
+        self.linear.insert(0, phi);
+        self
+    }
+}
+
+/// A keyring threads the cryptographic-typing judgment `⊢_K`.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct KeyRing {
     /// Known public keys, indexed by principal id.
@@ -38,9 +50,59 @@ pub struct KeyRing {
 #[derive(Clone, Debug)]
 pub struct TypingProblem {
     /// The context.
-    pub ctx: Context,
+    pub ctx: Ctx,
     /// The candidate proof term.
     pub term: Term,
     /// The proposition being claimed.
     pub prop: Prop,
+}
+
+/// Enumeration of the named typing rules from `spec/typing-rules.md`.
+///
+/// Stable index used by both the Lean `Deriv` constructors and the Rust
+/// verifier's match arms. New rules append; never insert.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum RuleName {
+    /// `var-A` — additive variable lookup.
+    VarA,
+    /// `var-L` — linear variable lookup.
+    VarL,
+    /// `weaken-A` — additive weakening.
+    WeakenA,
+    /// `imp-I` — implication introduction.
+    ImpI,
+    /// `imp-E` — implication elimination.
+    ImpE,
+    /// `and-I` — additive conjunction introduction.
+    AndI,
+    /// `and-Eₗ` — left projection.
+    AndEL,
+    /// `and-Eᵣ` — right projection.
+    AndER,
+    /// `says-I` — affirmation introduction (carries a signature).
+    SaysI,
+    /// `says-E` — affirmation elimination (let-binds the proof).
+    SaysE,
+    /// `delegate` — chain composition.
+    Delegate,
+    /// `attenuate` — narrow an affirmation along provable implication.
+    Attenuate,
+    /// `lift` — IFC label introduction.
+    Lift,
+    /// `app-IFC` — application takes the join of labels.
+    AppIFC,
+    /// `declassify` — controlled label lowering, requires witness.
+    Declassify,
+    /// `box-I` — obligation-attached proposition introduction.
+    BoxI,
+    /// `discharge` — consume an obligation.
+    Discharge,
+    /// `now` — proof of `now < τ` from a time anchor.
+    Now,
+    /// `within-I` — `◇_τ` introduction.
+    WithinI,
+    /// `within-E` — `◇_τ` elimination.
+    WithinE,
+    /// `verify` — cryptographic-typing bridge rule.
+    Verify,
 }

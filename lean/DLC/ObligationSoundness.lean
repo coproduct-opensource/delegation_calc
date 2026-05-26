@@ -53,23 +53,73 @@ def pendingObligations : Term → List Obligation
   | Term.letSays _ s b          => pendingObligations s ++ pendingObligations b
   | Term.sfExtract m            => pendingObligations m
 
-/-! ## T4 — statement only (proof closes at M1.Q3.d). -/
+/-! ## Helper lemmas for T4 — partial closure (M1.Q3.d in progress).
 
-/-- T4 — obligation soundness across reduction.
+The load-bearing claim is **non-introduction**: reduction never invents
+an obligation that wasn't syntactically present beforehand. Formally:
 
-Plain English: a reduction step never silently drops an obligation. Every
-obligation present in `M` is either still present in `M'`, or was the
-specific obligation discharged by this step. The proof is by induction over
-the small-step relation, using the substitution lemma to handle the β cases.
+  `∀ o, o ∈ pendingObligations M' → o ∈ pendingObligations M`
 
-The `Multiset` upgrade and the formal “discharged at this step” relation
-land alongside the proof closure at M1.Q3.d. -/
+This is weaker than full multiset preservation (DLC's current redexes
+don't discharge obligations — `Discharge` is a normal form at the head;
+multiplicity-tracking discharge is the M3 product-line layer). It IS
+enough to prove that *runtime never gains an unexpected obligation*,
+which is the load-bearing security property. -/
+
+/-- `shift` preserves the syntactic obligation list — the function walks
+sub-terms, and shifting only adjusts de-Bruijn indices, never producing
+or consuming obligations. -/
+theorem pendingObligations_shift (t : Term) (delta cutoff : Nat) :
+    pendingObligations (shift t delta cutoff) = pendingObligations t := by
+  induction t generalizing cutoff with
+  | var i =>
+    -- `shift (Term.var i) delta cutoff` is a conditional; both branches
+    -- evaluate to a `Term.var _` whose pendingObligations is `[]`.
+    unfold shift
+    split <;> rfl
+  | lam _ _ ih => simp [shift, pendingObligations, ih]
+  | app _ _ ihF ihX => simp [shift, pendingObligations, ihF, ihX]
+  | sign _ _ _ ih => simp [shift, pendingObligations, ih]
+  | verify _ _ _ ih => simp [shift, pendingObligations, ih]
+  | delegate _ _ ihM ihN => simp [shift, pendingObligations, ihM, ihN]
+  | attenuate _ _ ih => simp [shift, pendingObligations, ih]
+  | discharge _ _ ihM ihN => simp [shift, pendingObligations, ihM, ihN]
+  | liftLabel _ _ ih => simp [shift, pendingObligations, ih]
+  | declassify _ _ _ ihM ihπ => simp [shift, pendingObligations, ihM, ihπ]
+  | now _ => simp [shift, pendingObligations]
+  | withinIntro _ _ ih => simp [shift, pendingObligations, ih]
+  | pair _ _ ihA ihB => simp [shift, pendingObligations, ihA, ihB]
+  | fst _ ih => simp [shift, pendingObligations, ih]
+  | snd _ ih => simp [shift, pendingObligations, ih]
+  | inl _ _ ih => simp [shift, pendingObligations, ih]
+  | inr _ _ ih => simp [shift, pendingObligations, ih]
+  | case _ _ _ ihS ihL ihR => simp [shift, pendingObligations, ihS, ihL, ihR]
+  | tensorIntro _ _ ihA ihB => simp [shift, pendingObligations, ihA, ihB]
+  | letTensor _ _ ihS ihB => simp [shift, pendingObligations, ihS, ihB]
+  | letSays _ _ _ ihS ihB => simp [shift, pendingObligations, ihS, ihB]
+  | sfExtract _ ih => simp [shift, pendingObligations, ih]
+
+/-! ## T4 — statement closed, proof body deferred.
+
+The non-introduction direction of T4 is what we'd ship in a closed form:
+
+  `∀ M M' o, step M = some M' → o ∈ pendingObligations M' → o ∈ pendingObligations M`
+
+The proof structure is case analysis over `step`'s 7 productive redexes,
+with the β / case / letTensor / letSays cases delegating to a
+`pendingObligations_substAt_subset` lemma (substitution doesn't introduce
+obligations). That sub-lemma proves by 21-case induction on the body.
+
+The structural skeleton was written and pushed; tactic-level details
+(injection unfolding, nested-cases shape, if-split on hypothesis) need
+iterative refinement under Lean 4.28 + Mathlib semantics. Tracking as
+M1.Q3.d follow-up — `pendingObligations_shift` (proven above) is the
+non-trivial structural pre-requisite. -/
+
+/-- T4 — Obligation soundness statement (non-introduction direction). -/
 def T4_ObligationSoundnessStatement : Prop :=
-  ∀ (M M' : Term),
-    step M = some M' →
-    -- The real statement: `pendingObligations M' ⊆ pendingObligations M`
-    -- up to one removed obligation that the step discharged. Placeholder
-    -- shape per CLAUDE.md (no sorry).
-    M = M ∧ M' = M'
+  ∀ (M M' : Term), step M = some M' →
+    ∀ (o : Obligation),
+      o ∈ pendingObligations M' → o ∈ pendingObligations M
 
 end DLC

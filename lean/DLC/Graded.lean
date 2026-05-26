@@ -55,7 +55,7 @@ def map {α β : Type} (f : α → β) (g : Graded α) : Graded β :=
 
 /-- Sequence: append additional consumption. -/
 def consume {α : Type} (g : Graded α) (extra : DpBudget) : Graded α :=
-  ⟨g.value, g.grade.saturatingAddextra⟩
+  ⟨g.value, g.grade.saturatingAdd extra⟩
 
 end Graded
 
@@ -74,6 +74,6 @@ def GradedIdentityLawStatement : Prop :=
 def GradedAssociativityLawStatement : Prop :=
   ∀ {α : Type} (a : α) (x y : DpBudget),
     ((Graded.pure a).consume x).consume y =
-    (Graded.pure a).consume (x.saturatingAddy)
+    (Graded.pure a).consume (x.saturatingAdd y)
 
 end DLC

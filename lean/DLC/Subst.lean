@@ -91,10 +91,10 @@ statement over all terms) is left for the M1.Q2.a proof closure pass. -/
 namespace SubstChecks
 
 /-- `subst (var 0) (var 3) = var 3`. -/
-example : subst (Term.var 0) (Term.var 3) = Term.var 3 := by decide
+example : subst (Term.var 0) (Term.var 3) = Term.var 3 := rfl
 
 /-- `subst (var 1) v = var 0` — free variable decrements. -/
-example : subst (Term.var 1) (Term.var 99) = Term.var 0 := by decide
+example : subst (Term.var 1) (Term.var 99) = Term.var 0 := rfl
 
 end SubstChecks
 

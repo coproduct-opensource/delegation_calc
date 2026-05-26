@@ -29,7 +29,10 @@ inductive Prop' : Type where
   | within : TimeBound → Prop' → Prop'
   | tensor : Prop' → Prop' → Prop'
   | lolli : Prop' → Prop' → Prop'
-  deriving Repr, DecidableEq
+  -- No `deriving Repr, DecidableEq` here: the constituent `Label` (alias for
+  -- nucleus's Aeneas-generated `portcullis_core.CapabilityLattice`) does not
+  -- carry derived instances. Equalities that need to be computed land via
+  -- targeted `Decidable` instances at the use sites where they're needed.
 
 /-- A cryptographic signature carried by `Sign` and `Verify` terms. -/
 structure Signature where
@@ -53,6 +56,9 @@ inductive Term : Type where
   | declassify : Label → Term → Term → Term
   | now : TimeBound → Term
   | withinIntro : TimeBound → Term → Term
-  deriving Repr, DecidableEq
+  -- No `deriving Repr, DecidableEq` here: the constituent `Label` (alias for
+  -- nucleus's Aeneas-generated `portcullis_core.CapabilityLattice`) does not
+  -- carry derived instances. Equalities that need to be computed land via
+  -- targeted `Decidable` instances at the use sites where they're needed.
 
 end DLC

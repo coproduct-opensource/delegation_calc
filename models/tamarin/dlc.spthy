@@ -66,10 +66,19 @@ rule Says:
 
 // A SpeaksFor token is a particular shape of says: the inner proposition
 // declares that Q may act on P's behalf. The 'speaks_for' tag
-// distinguishes this from a plain says.
+// distinguishes it from a plain says, but at the trace level it IS a
+// says-affirmation, so the rule emits BOTH events.
+//
+// Without the Says event here, Tamarin finds a self-delegation splice
+// where an attacker re-feeds a SpeaksFor output as the Says half of a
+// Delegate_Accept (with P = Q). The dual emission closes that gap by
+// making SpeaksFor a proper sub-case of Says at the lemma level.
 rule SpeaksFor_Issue:
     [ !Ltk($P, sk) ]
-  --[ SpeaksForIssued($P, $Q) ]->
+  --[
+      SpeaksForIssued($P, $Q)
+    , Says($P, <'speaks_for', $P, $Q>)
+    ]->
     [ Out(<'speaks_for', $P, $Q, sign(<'speaks_for', $P, $Q>, sk)>) ]
 
 // =========================================================================

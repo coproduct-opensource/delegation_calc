@@ -53,7 +53,7 @@ the first ten (var, weakening, implication, conjunction, says). -/
 inductive Deriv : Ctx → Term → Prop' → Type where
   /-- `var-A` — additive variable lookup. -/
   | varA (Γ : Ctx) (i : Nat) (φ : Prop')
-      (h : Γ.additive.get? i = some φ) :
+      (h : Γ.additive[i]? = some φ) :
       Deriv Γ (Term.var i) φ
 
   /-- `var-L` — linear variable lookup. The context must contain the

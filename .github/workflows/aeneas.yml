@@ -1,0 +1,65 @@
+name: Aeneas Drift
+
+# Verifies the Aeneas-generated Lean translation of `crates/dlc-core` matches
+# the committed `lean/DLC/Aeneas/` output. A non-clean diff is a soundness
+# break: T1 would prove a Lean function no longer corresponding to the Rust.
+#
+# Until M1.Q1.d wires the pipeline, the script is a no-op pass.
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "crates/dlc-core/**"
+      - "lean/DLC/Aeneas/**"
+      - "scripts/aeneas-translate.sh"
+      - "scripts/check-drift.sh"
+      - ".github/workflows/aeneas.yml"
+  pull_request:
+    paths:
+      - "crates/dlc-core/**"
+      - "lean/DLC/Aeneas/**"
+      - "scripts/aeneas-translate.sh"
+      - "scripts/check-drift.sh"
+      - ".github/workflows/aeneas.yml"
+  # Weekly canary catches Charon / Aeneas toolchain drift.
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Pin the toolchain bundle used to generate the committed Lean code. When
+# regenerating, bump these AND run scripts/aeneas-translate.sh in a single PR
+# so the committed Lean stays in lock-step with the toolchain pin.
+env:
+  CHARON_NIGHTLY: nightly-2026-02-07
+  AENEAS_RELEASE: build-2026.03.29.102514-1180be60c7a0e642cb442bfe90fe5cd8c1bb853f
+
+jobs:
+  drift:
+    name: Aeneas Rust → Lean drift
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Install Rust nightly for Charon
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
+        with:
+          toolchain: ${{ env.CHARON_NIGHTLY }}
+          components: rustc-dev,llvm-tools-preview,rust-src
+
+      - name: Cache Charon target dir
+        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2.9.1
+        with:
+          workspaces: crates/dlc-core
+          key: charon-${{ env.CHARON_NIGHTLY }}-${{ env.AENEAS_RELEASE }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      # Charon and Aeneas binaries will be installed here once the pipeline
+      # is wired at M1.Q1.d. For now the drift check is a passing no-op
+      # (mirrors the ledger's `aeneas_drift: {"clean": true}` placeholder).
+      - name: Run drift check
+        run: bash scripts/check-drift.sh

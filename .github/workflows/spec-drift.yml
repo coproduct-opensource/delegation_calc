@@ -1,0 +1,35 @@
+name: Spec Drift
+
+# Confirms that every rule named in `spec/typing-rules.md` has a corresponding
+# entry in `crates/dlc-core/src/judgment.rs::RuleName`. Catches the case where
+# someone adds a rule to the spec but forgets the Rust mirror (or vice versa).
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "spec/typing-rules.md"
+      - "crates/dlc-core/src/judgment.rs"
+      - "lean/DLC/Judgment.lean"
+      - "scripts/check-spec-drift.sh"
+      - ".github/workflows/spec-drift.yml"
+  pull_request:
+    paths:
+      - "spec/typing-rules.md"
+      - "crates/dlc-core/src/judgment.rs"
+      - "lean/DLC/Judgment.lean"
+      - "scripts/check-spec-drift.sh"
+      - ".github/workflows/spec-drift.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    name: Spec ↔ Rust ↔ Lean rule index
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Check rule-index consistency
+        run: bash scripts/check-spec-drift.sh

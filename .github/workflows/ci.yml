@@ -1,0 +1,95 @@
+name: CI
+
+# Runs on every push to main and every PR. The four jobs here are the
+# baseline: format, lint, test, and the LOC-budget gate on the verifier.
+# Lean, Aeneas, and the verification ledger live in their own workflows.
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606 # v1
+        with:
+          components: rustfmt
+          cache: true
+      - name: cargo fmt
+        run: cargo fmt --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606 # v1
+        with:
+          components: clippy
+          cache: true
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606 # v1
+        with:
+          cache: true
+      - name: cargo test
+        run: cargo test --workspace
+
+  loc-budget:
+    name: dlc-verifier LOC budget (<2000)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Install tokei
+        run: cargo install tokei --version 12.1.2 --locked
+      - name: Run LOC budget gate
+        run: bash scripts/check-loc-budget.sh
+
+  no-std-check:
+    name: dlc-core no_std build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606 # v1
+        with:
+          target: thumbv7em-none-eabihf
+          cache: true
+      - name: Build dlc-core for embedded target
+        # This is what protects the Aeneas translatability of dlc-core: if
+        # any std-only API slips in, this build breaks before Aeneas does.
+        run: cargo build -p dlc-core --target thumbv7em-none-eabihf
+
+  wasm-build:
+    name: dlc-verifier-wasm
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606 # v1
+        with:
+          target: wasm32-unknown-unknown
+          cache: true
+      - name: cargo build dlc-verifier-wasm
+        run: cargo build -p dlc-verifier-wasm --target wasm32-unknown-unknown --release

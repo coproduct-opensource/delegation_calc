@@ -9,9 +9,9 @@
 #![forbid(unsafe_code)]
 
 pub mod ed25519;
+pub mod signed_term;
 pub mod time_anchor;
 pub mod transparency;
-pub mod signed_term;
 
 /// Errors that arise during cryptographic realization.
 #[derive(Debug, thiserror::Error)]

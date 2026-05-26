@@ -12,5 +12,5 @@ publish = false
 path = "src/lib.rs"
 
 [dependencies]
-dlc-core = { path = "../dlc-core" }
-dlc-verifier = { path = "../dlc-verifier" }
+dlc-core = { path = "../dlc-core", version = "0.0.1" }
+dlc-verifier = { path = "../dlc-verifier", version = "0.0.1" }

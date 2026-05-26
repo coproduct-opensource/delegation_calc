@@ -1,0 +1,46 @@
+name: cargo-deny
+
+# License-policy + duplicate-version + advisory gate. Configuration in
+# `deny.toml` at the repo root.
+#
+# We install cargo-deny directly (rather than using EmbarkStudios/
+# cargo-deny-action) because the action's docker image bundles a cargo-deny
+# version that pre-dates CVSS 4.0 support, and the RustSec advisory DB now
+# ships CVSS-4.0 entries (e.g. RUSTSEC-2026-0076) which the older binary
+# rejects with a parse error.
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "**/Cargo.toml"
+      - "Cargo.lock"
+      - "deny.toml"
+      - ".github/workflows/deny.yml"
+  pull_request:
+    paths:
+      - "**/Cargo.toml"
+      - "Cargo.lock"
+      - "deny.toml"
+      - ".github/workflows/deny.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  deny:
+    name: cargo deny check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606 # v1
+        with:
+          cache: true
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --version 0.18.5 --locked
+      - name: Run cargo deny
+        # `advisories` is intentionally excluded; cargo-deny cannot parse
+        # CVSS 4.0 entries in the RustSec DB yet (issue #804). The
+        # `audit.yml` workflow covers advisories via `rustsec/audit-check`.
+        run: cargo deny check bans licenses sources

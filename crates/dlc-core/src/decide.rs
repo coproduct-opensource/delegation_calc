@@ -11,8 +11,8 @@
 //!   * `var-A`, `var-L`     — variable lookup
 //!   * `imp-I` / `imp-E`    — implication
 //!   * `says-I` / `says-E`  — affirmation (cryptographic check stubbed; T2
-//!                            closure brings the keyring-threading version
-//!                            in `dlc-crypto::decide_with_keyring`)
+//!     closure brings the keyring-threading version in
+//!     `dlc-crypto::decide_with_keyring`)
 //!
 //! Out of fragment (Q3+): modal `□_O`, `◇_τ`, IFC labels, linear `⊗`/`⊸`,
 //! `delegate`, `attenuate`, `discharge`, IFC propagation. The function

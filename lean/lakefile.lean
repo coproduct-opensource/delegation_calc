@@ -21,13 +21,11 @@ require mathlib from git
   "https://github.com/leanprover-community/mathlib4.git" @ "v4.28.0-rc1"
 
 -- Re-export the verified IFC label algebra from nucleus's portcullis-core.
--- DLC's IFC labels ARE nucleus's PermissionLattice; no fresh formalization.
+-- DLC's IFC labels ARE nucleus's CapabilityLattice; no fresh formalization.
 --
--- Wired in at M1.Q4.a — until then `lean/PortcullisCoreImport.lean` is a
--- placeholder so the Lean build does not depend on a sibling clone of the
--- `nucleus` repository. Re-enabling this `require` is the gating change for
--- M1.Q4.a; CI's `lean.yml` job picks up the dependency automatically.
--- require portcullisCore from "../../nucleus/crates/portcullis-core/lean"
+-- The relative path requires nucleus to be checked out as a sibling clone.
+-- CI (.github/workflows/lean.yml) does this via a parallel checkout step.
+require portcullisCore from "../../nucleus/crates/portcullis-core/lean"
 
 -- DLC core library — syntax, judgments, reduction, substitution.
 lean_lib «DLC» where
@@ -40,7 +38,8 @@ lean_lib «DLC» where
     `DLC.Time,
     `DLC.Subst,
     `DLC.Reduce,
-    `DLC.Graded
+    `DLC.Graded,
+    `DLC.IndexedMonad
   ]
 
 -- The four headline theorems live in dedicated libs so `lake build` can run

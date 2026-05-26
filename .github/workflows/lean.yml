@@ -3,8 +3,12 @@ name: Lean 4
 # Builds the DLC Lean libraries: hand-written syntax/judgment modules plus
 # the four-theorem files. Soundness checks: forbid `sorry` and print axioms.
 #
-# The cross-repo dependency on nucleus's `portcullisCore` is *not* enabled
-# until M1.Q4.a; CI does not check out nucleus.
+# M1.Q4.a wired in the cross-repo dependency on nucleus's `portcullisCore`.
+# The job checks out `coproduct-opensource/nucleus` as a sibling at
+# `../nucleus`, matching `lean/lakefile.lean`'s `require portcullisCore from
+# "../../nucleus/crates/portcullis-core/lean"`. The nucleus pin is `main`;
+# breakages from upstream surface via Aeneas drift and Lean build CI before
+# they land in a merged DLC change.
 
 on:
   push:
@@ -33,6 +37,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          path: delegation_calc
+
+      # Sibling clone of nucleus for the lakefile's relative-path `require
+      # portcullisCore from "../../nucleus/...".  Pinned to `main` for now;
+      # bumping to a specific commit hash is a follow-up once nucleus tags
+      # the version DLC's Lean image is verified against.
+      - name: Check out nucleus (sibling)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          repository: coproduct-opensource/nucleus
+          path: nucleus
+          ref: main
 
       - name: Install elan (Lean toolchain manager)
         run: |
@@ -41,31 +58,31 @@ jobs:
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
       - name: Verify pinned toolchain
-        working-directory: lean
+        working-directory: delegation_calc/lean
         run: lean --version
 
       - name: Cache Lake / Mathlib build artifacts
         uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
         with:
           path: |
-            lean/.lake
+            delegation_calc/lean/.lake
             ~/.elan
             ~/.cache/mathlib
-          key: lean-${{ runner.os }}-${{ hashFiles('lean/lean-toolchain', 'lean/lakefile.lean', 'lean/lake-manifest.json') }}
+          key: lean-${{ runner.os }}-${{ hashFiles('delegation_calc/lean/lean-toolchain', 'delegation_calc/lean/lakefile.lean', 'delegation_calc/lean/lake-manifest.json') }}
           restore-keys: |
             lean-${{ runner.os }}-
 
       # Mathlib's prebuilt .olean cache trims a ~1h cold compile to ~5min.
       - name: Fetch Mathlib cache (prebuilt oleans)
-        working-directory: lean
+        working-directory: delegation_calc/lean
         run: lake exe cache get || true
 
       - name: lake build DLC
-        working-directory: lean
+        working-directory: delegation_calc/lean
         run: lake build DLC
 
       - name: lake build per-theorem libraries
-        working-directory: lean
+        working-directory: delegation_calc/lean
         run: |
           for lib in Decidability Correspondence NonInterference ObligationSoundness ProtocolCorrespondence; do
             echo "::group::lake build $lib"
@@ -77,14 +94,14 @@ jobs:
         # Matches `:= sorry` or `:= by sorry` only — comments containing the
         # word "sorry" do not trip the gate (ledger.sh uses the same regex).
         run: |
-          if grep -rEn '(:=[[:space:]]+sorry|:=[[:space:]]+by[[:space:]]+sorry)' lean/DLC/ --include='*.lean'; then
+          if grep -rEn '(:=[[:space:]]+sorry|:=[[:space:]]+by[[:space:]]+sorry)' delegation_calc/lean/DLC/ --include='*.lean'; then
             echo "::error::Lean proofs contain `sorry` — soundness gate failed."
             exit 1
           fi
           echo "No sorry — soundness gate passes."
 
       - name: Print axioms for each headline theorem
-        working-directory: lean
+        working-directory: delegation_calc/lean
         run: |
           # Production: per-theorem `#print axioms` + diff against
           # expected-axioms.json. Until the theorems are inhabited, this

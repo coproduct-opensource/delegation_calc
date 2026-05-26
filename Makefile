@@ -49,8 +49,14 @@ tamarin:
 	fi
 
 proverif:
-	@echo "proverif runner not yet wired (Phase 2 — L2.2)"
-	@exit 0
+	@if command -v proverif >/dev/null 2>&1; then \
+	  cd models/proverif && proverif dlc.pv; \
+	else \
+	  echo "proverif not on PATH — install via:"; \
+	  echo "  opam install proverif"; \
+	  echo "  brew install proverif  (macOS via homebrew)"; \
+	  exit 1; \
+	fi
 
 easycrypt:
 	@echo "easycrypt runner not yet wired (Phase 2 — L2.4)"

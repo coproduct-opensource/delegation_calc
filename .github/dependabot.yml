@@ -1,0 +1,27 @@
+version: 2
+updates:
+  # Keep all third-party GitHub Actions SHA-pinned and current.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+  # Rust workspace deps. Weekly cadence to balance freshness with churn.
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 8
+    labels:
+      - "dependencies"
+      - "rust"
+    # Group patch updates so unrelated minor bumps don't flood the PR list.
+    groups:
+      patch-updates:
+        update-types: ["patch"]

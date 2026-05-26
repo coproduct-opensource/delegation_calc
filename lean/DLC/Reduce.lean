@@ -46,11 +46,10 @@ namespace ReduceChecks
 /-- β: identity applied to `Var 5` reduces to `Var 5`. -/
 example :
     step (Term.app (Term.lam (Prop'.atom 0) (Term.var 0)) (Term.var 5))
-      = some (Term.var 5) := by
-  decide
+      = some (Term.var 5) := rfl
 
 /-- Var is a normal form. -/
-example : step (Term.var 0) = none := by decide
+example : step (Term.var 0) = none := rfl
 
 end ReduceChecks
 

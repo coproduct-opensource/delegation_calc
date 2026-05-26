@@ -4,9 +4,16 @@
 of whether to depend on the *Metatheory* Lean 4 library for DLC's subject-
 reduction, confluence, and strong-normalization proofs.
 
-**Recommendation: import as a Phase-1 dependency, evaluation-status pending
-review of the published Lakefile at the project's adoption point (target:
-M1.Q3 end).**
+**Recommendation: fallback adopted (May 2026).** The published arXiv abstract
+does not link to a GitHub repo, Zenodo archive, or institutional code-hosting
+URL. The paper announces "10,367 lines of code and 497 fully mechanized
+theorems" but the artifact is not, as of May 2026, publicly downloadable.
+
+DLC therefore **rolls its own** substitution-composition lemma and confluence
+machinery, deferring the Metatheory import to a follow-up if/when the
+repository becomes available. The work is bounded — substitution composition
+is ~1 page of Lean for our STLC-with-modalities backbone — and avoids tying
+DLC's CI to an unpublished upstream.
 
 ---
 
@@ -68,9 +75,23 @@ backbone.
   rolling our own substitution composition is the fallback (~weeks, not
   months — Aeneas-translatable code without proofs).
 
-## Decision
+## Decision (revised)
 
-**Adopt at M1.Q4.a alongside the nucleus PortcullisCore re-export.**
+**Roll own substitution-composition machinery.** Reasons:
+1. Upstream artifact is not publicly hosted as of May 2026.
+2. The bounded scope (substitution composition for our specific Term enum) is
+   a few hundred lines of Lean — much less than the months we'd save if the
+   full Metatheory library applied directly.
+3. CI cannot pin to a phantom commit; depending on an unpublished repo would
+   make our build non-reproducible.
+
+We retain the **option** to import Metatheory later if the authors publish.
+Until then, the proof-closure tasks proceed without it, taking the fallback
+path noted at the bottom of this document.
+
+### Previous decision (superseded)
+
+Adopt at M1.Q4.a alongside the nucleus PortcullisCore re-export.
 
 Reasoning: Q4 is when the cross-repo imports get wired into the lakefile
 anyway. Bundling the Metatheory import with the PortcullisCore re-export

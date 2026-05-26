@@ -78,14 +78,10 @@ inductive Deriv : Ctx → Term → Prop' → Type where
       (dN : Deriv { additive := Γₐ, linear := Γ₂ } N φ) :
       Deriv { additive := Γₐ, linear := Γ₁ ++ Γ₂ } (Term.app M N) ψ
 
-  /-- `and-I` — additive conjunction introduction. Requires empty linear ctx
-  for the simple form. -/
-  | andI (Γₐ : List Prop') (φ ψ : Prop') (M N : Term)
-      (dM : Deriv { additive := Γₐ, linear := [] } M φ)
-      (dN : Deriv { additive := Γₐ, linear := [] } N ψ) :
-      Deriv { additive := Γₐ, linear := [] }
-            (Term.app M N)  -- placeholder term shape; refine at Q3
-            (Prop'.and φ ψ)
+  -- Note: `andI` (with the correct `Term.pair` shape) lives further
+  -- below, alongside the additive product / coproduct elim and intro
+  -- constructors added by #41. The placeholder Q2 form (which used
+  -- `Term.app` as a stand-in before `Term.pair` existed) is removed.
 
   /-- `says-I` — affirmation introduction with embedded signature carrier.
   This is the T2 seam: the rule requires a signature, but verification is
@@ -166,6 +162,72 @@ inductive Deriv : Ctx → Term → Prop' → Type where
   | withinE (Γ : Ctx) (τ : TimeBound) (φ : Prop') (M : Term)
       (d : Deriv Γ M (Prop'.within τ φ)) :
       Deriv Γ M φ
+
+  /-- `and-I` — additive conjunction introduction. -/
+  | andI (Γₐ : List Prop') (φ ψ : Prop') (M N : Term)
+      (dM : Deriv { additive := Γₐ, linear := [] } M φ)
+      (dN : Deriv { additive := Γₐ, linear := [] } N ψ) :
+      Deriv { additive := Γₐ, linear := [] }
+            (Term.pair M N) (Prop'.and φ ψ)
+
+  /-- `and-Eₗ` — left projection. -/
+  | andEL (Γ : Ctx) (φ ψ : Prop') (M : Term)
+      (d : Deriv Γ M (Prop'.and φ ψ)) :
+      Deriv Γ (Term.fst M) φ
+
+  /-- `and-Eᵣ` — right projection. -/
+  | andER (Γ : Ctx) (φ ψ : Prop') (M : Term)
+      (d : Deriv Γ M (Prop'.and φ ψ)) :
+      Deriv Γ (Term.snd M) ψ
+
+  /-- `or-I` left injection — produces `φ ∨ ψ` from a proof of `φ`. The
+  unused disjunct `ψ` is carried explicitly in the term (matches the
+  spec's `inl_ψ`). -/
+  | orI_L (Γ : Ctx) (φ ψ : Prop') (M : Term)
+      (d : Deriv Γ M φ) :
+      Deriv Γ (Term.inl ψ M) (Prop'.or φ ψ)
+
+  /-- `or-I` right injection. -/
+  | orI_R (Γ : Ctx) (φ ψ : Prop') (M : Term)
+      (d : Deriv Γ M ψ) :
+      Deriv Γ (Term.inr φ M) (Prop'.or φ ψ)
+
+  /-- `or-E` — case elimination. Both branches must produce the same
+  result type χ. -/
+  | orE (Γₐ : List Prop') (φ ψ χ : Prop') (S L R : Term)
+      (dS : Deriv { additive := Γₐ, linear := [] } S (Prop'.or φ ψ))
+      (dL : Deriv { additive := φ :: Γₐ, linear := [] } L χ)
+      (dR : Deriv { additive := ψ :: Γₐ, linear := [] } R χ) :
+      Deriv { additive := Γₐ, linear := [] }
+            (Term.case S L R) χ
+
+  /-- `tensor-I` — multiplicative conjunction introduction. The linear
+  context splits across the two operands. -/
+  | tensorI (Γₐ : List Prop') (Γ₁ Γ₂ : List Prop') (φ ψ : Prop') (M N : Term)
+      (dM : Deriv { additive := Γₐ, linear := Γ₁ } M φ)
+      (dN : Deriv { additive := Γₐ, linear := Γ₂ } N ψ) :
+      Deriv { additive := Γₐ, linear := Γ₁ ++ Γ₂ }
+            (Term.tensorIntro M N) (Prop'.tensor φ ψ)
+
+  /-- `tensor-E` — `let x⊗y = S in B` binds two linear hypotheses. -/
+  | tensorE (Γₐ : List Prop') (Γ₁ Γ₂ : List Prop') (φ ψ χ : Prop') (S B : Term)
+      (dS : Deriv { additive := Γₐ, linear := Γ₁ } S (Prop'.tensor φ ψ))
+      (dB : Deriv { additive := Γₐ, linear := ψ :: φ :: Γ₂ } B χ) :
+      Deriv { additive := Γₐ, linear := Γ₁ ++ Γ₂ }
+            (Term.letTensor S B) χ
+
+  /-- `says-extract` — explicit let-binder form of `says-E`. -/
+  | letSaysE (Γₐ : List Prop') (Γ₁ Γ₂ : List Prop') (p : Principal)
+             (φ ψ : Prop') (S B : Term)
+      (dS : Deriv { additive := Γₐ, linear := Γ₁ } S (Prop'.says p φ))
+      (dB : Deriv { additive := φ :: Γₐ, linear := Γ₂ } B ψ) :
+      Deriv { additive := Γₐ, linear := Γ₁ ++ Γ₂ }
+            (Term.letSays p S B) (Prop'.says p ψ)
+
+  /-- `sf-extract` — extract a speaks-for from `p says (q ⇒ p)`. -/
+  | sfExtractE (Γ : Ctx) (p q : Principal) (M : Term)
+      (d : Deriv Γ M (Prop'.says p (Prop'.speaksFor q p))) :
+      Deriv Γ (Term.sfExtract M) (Prop'.speaksFor q p)
 
 /-! ## A first round-trip sanity check.
 

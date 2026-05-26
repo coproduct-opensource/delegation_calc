@@ -59,19 +59,49 @@ def consume {α : Type} (g : Graded α) (extra : DpBudget) : Graded α :=
 
 end Graded
 
-/-! ## Comonad laws (statements only — proof closure at M1.Q3.d).
+/-! ## Comonad laws (proven — M1.Q3.b closure).
 
 `pure` is left-identity for `consume zero`; consumption is associative
-componentwise. Stated here as named `def Statement : Prop` per CLAUDE.md
-discipline. -/
+componentwise. The proofs unfold the definitions and reduce by `Nat`
+arithmetic — no axioms, no `sorry`. -/
 
 /-- Identity-of-consume law (grade-side). -/
-def GradedIdentityLawStatement : Prop :=
+theorem graded_identity_law :
+    ∀ {α : Type} (a : α),
+      (Graded.pure a).consume DpBudget.zero = Graded.pure a := by
+  intros α a
+  simp [Graded.pure, Graded.consume, DpBudget.zero, DpBudget.saturatingAdd]
+
+/-- Associativity of consumption (sequential composition of grades).
+
+The general associativity-of-`saturatingAdd` lemma factors out — it's
+what makes the law independent of the carrier `α`. -/
+theorem dp_budget_saturating_add_assoc (a b c : DpBudget) :
+    (a.saturatingAdd b).saturatingAdd c = a.saturatingAdd (b.saturatingAdd c) := by
+  simp [DpBudget.saturatingAdd, Nat.add_assoc]
+
+theorem graded_associativity_law :
+    ∀ {α : Type} (a : α) (x y : DpBudget),
+      ((Graded.pure a).consume x).consume y =
+      (Graded.pure a).consume (x.saturatingAdd y) := by
+  intros α a x y
+  simp [Graded.pure, Graded.consume,
+        DpBudget.zero, DpBudget.saturatingAdd, Nat.add_assoc, Nat.zero_add]
+
+/-! ## Backward-compat aliases.
+
+Previously these laws were stated as `def …Statement : Prop`. We keep the
+old names as `abbrev`-pointed-at-the-theorem so anything that referenced
+the statement form (none yet, but reserved for the spec / paper) stays
+type-checked. -/
+
+/-- @[deprecated graded_identity_law] -/
+abbrev GradedIdentityLawStatement : Prop :=
   ∀ {α : Type} (a : α),
     (Graded.pure a).consume DpBudget.zero = Graded.pure a
 
-/-- Associativity of consumption (sequential composition of grades). -/
-def GradedAssociativityLawStatement : Prop :=
+/-- @[deprecated graded_associativity_law] -/
+abbrev GradedAssociativityLawStatement : Prop :=
   ∀ {α : Type} (a : α) (x y : DpBudget),
     ((Graded.pure a).consume x).consume y =
     (Graded.pure a).consume (x.saturatingAdd y)

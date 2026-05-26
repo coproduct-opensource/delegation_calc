@@ -1,0 +1,61 @@
+# DLC Makefile — wraps the verification ledger and common dev tasks.
+#
+# `make ledger` is the artifact. Everything else delegates to cargo, lake, or
+# tool-specific entry points.
+
+.PHONY: help ledger build test fmt clippy lean tamarin proverif easycrypt drift loc clean
+
+help:
+	@echo "DLC make targets:"
+	@echo "  ledger     -- run all checks and emit ledger.json"
+	@echo "  build      -- cargo build --workspace"
+	@echo "  test       -- cargo test --workspace"
+	@echo "  fmt        -- cargo fmt && lean fmt (when wired)"
+	@echo "  clippy     -- cargo clippy --workspace --all-targets"
+	@echo "  lean       -- cd lean && lake build"
+	@echo "  tamarin    -- run models/tamarin/*.spthy"
+	@echo "  proverif   -- run models/proverif/*.pv"
+	@echo "  easycrypt  -- run models/easycrypt/*.eca"
+	@echo "  drift      -- check Aeneas Rust↔Lean drift"
+	@echo "  loc        -- print dlc-verifier LOC vs 2000 budget"
+
+ledger:
+	@bash scripts/ledger.sh
+
+build:
+	cargo build --workspace
+
+test:
+	cargo test --workspace
+
+fmt:
+	cargo fmt --all
+
+clippy:
+	cargo clippy --workspace --all-targets -- -D warnings
+
+lean:
+	cd lean && lake build
+
+tamarin:
+	@echo "tamarin runner not yet wired (Phase 2 — L2.1)"
+	@exit 0
+
+proverif:
+	@echo "proverif runner not yet wired (Phase 2 — L2.2)"
+	@exit 0
+
+easycrypt:
+	@echo "easycrypt runner not yet wired (Phase 2 — L2.4)"
+	@exit 0
+
+drift:
+	@bash scripts/check-drift.sh 2>/dev/null || echo "drift check not yet wired (M1.Q1.d)"
+
+loc:
+	@find crates/dlc-verifier/src -name '*.rs' -exec wc -l {} + | tail -1
+
+clean:
+	cargo clean
+	rm -f ledger.json
+	cd lean 2>/dev/null && rm -rf .lake build || true

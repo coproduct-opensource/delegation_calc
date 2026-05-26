@@ -1,0 +1,45 @@
+# Rust
+/target
+**/target
+**/*.rs.bk
+Cargo.lock.bak
+
+# Lean / Lake
+**/.lake
+**/lakefile.olean
+**/build
+
+# Aeneas / Charon
+*.llbc
+*.cfim
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Models output
+models/tamarin/proofs/*.proof.spthy
+models/proverif/results/*.out
+models/easycrypt/*.ec.bak
+
+# Ledger output
+ledger.json
+.ledger-cache/
+
+# Paper artifacts
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.bbl
+paper/*.blg
+paper/main.pdf
+
+# WASM build
+*.wasm
+pkg/

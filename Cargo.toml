@@ -1,0 +1,64 @@
+[workspace]
+members = [
+    "crates/dlc-core",
+    "crates/dlc-crypto",
+    "crates/dlc-protocol",
+    "crates/dlc-verifier",
+    "crates/dlc-verifier-wasm",
+    "crates/dlc-cli",
+    "crates/dlc-bench",
+    "crates/dlc-fuzz",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+authors = ["Coproduct <hello@coproduct.dev>"]
+repository = "https://github.com/coproduct-dev/delegation_calc"
+homepage = "https://dlc.coproduct.dev"
+documentation = "https://docs.rs/dlc-core"
+
+[workspace.dependencies]
+# Crypto (matches nucleus pins where possible)
+ed25519-dalek = { version = "2", default-features = false }
+sha2 = { version = "0.11", default-features = false }
+ciborium = "0.2"
+coset = "0.3"
+
+# Diagnostics
+thiserror = "2"
+anyhow = "1"
+
+# Async / runtime (only for non-core crates)
+tokio = { version = "1.52", features = ["rt", "rt-multi-thread", "macros"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Bench / fuzz
+criterion = "0.5"
+libfuzzer-sys = "0.4"
+
+# Nucleus integration (path deps; absolute paths kept here so the workspace
+# stays self-contained while a sibling clone of `nucleus` exists)
+portcullis-core = { path = "../nucleus/crates/portcullis-core" }
+portcullis = { path = "../nucleus/crates/portcullis" }
+nucleus-identity = { path = "../nucleus/crates/nucleus-identity" }
+nucleus-lineage = { path = "../nucleus/crates/nucleus-lineage" }
+
+[workspace.lints.clippy]
+# dlc-core must remain Aeneas/Charon-translatable. The crate-level lints in
+# crates/dlc-core/src/lib.rs forbid the AST surfaces (trait objects, async,
+# complex lifetimes) that Aeneas cannot translate.
+all = { level = "warn", priority = -1 }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = true

@@ -1,0 +1,17 @@
+[package]
+name = "dlc-verifier"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reference DLC proof checker — hard <2000 LOC budget"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+dlc-core = { path = "../dlc-core" }
+dlc-crypto = { path = "../dlc-crypto" }
+dlc-protocol = { path = "../dlc-protocol" }
+thiserror = { workspace = true }

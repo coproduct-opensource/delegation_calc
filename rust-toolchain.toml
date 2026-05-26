@@ -1,0 +1,8 @@
+[toolchain]
+# Pinned above nucleus's 1.80 floor because transitive deps (block-buffer 0.12,
+# coset 0.3, etc.) now require edition2024, which stabilized in Rust 1.85.
+# Charon/Aeneas advanced their toolchain support past 1.85 in early 2026, so
+# this pin remains drift-compatible with nucleus's pipeline.
+channel = "1.85"
+components = ["rustfmt", "clippy", "rust-src"]
+targets = ["wasm32-unknown-unknown"]

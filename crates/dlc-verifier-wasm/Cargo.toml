@@ -1,0 +1,17 @@
+[package]
+name = "dlc-verifier-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "wasm32-unknown-unknown cdylib wrapper for the DLC verifier"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[dependencies]
+dlc-verifier = { path = "../dlc-verifier" }
+# wasm-bindgen is added at M3.M21 when the WASM bundle is wired in. Held back
+# from Week-1 so the workspace builds on stable hosts without wasm targets.

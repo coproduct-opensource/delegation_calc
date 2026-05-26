@@ -1,0 +1,17 @@
+[package]
+name = "dlc-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Delegation Logic Calculus — logic kernel (Aeneas-translatable, zero-dep)"
+
+[lib]
+path = "src/lib.rs"
+
+# dlc-core is the Aeneas-translation target. It MUST stay zero-dep apart from
+# `core` and `alloc`. The four headline theorems (T1–T4) are stated about the
+# Lean image of this crate, so any drift here is a soundness break.
+[dependencies]

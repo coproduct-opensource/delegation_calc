@@ -1,0 +1,18 @@
+[package]
+name = "dlc-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "`dlc` CLI for issuing and verifying DLC proof terms"
+
+[[bin]]
+name = "dlc"
+path = "src/main.rs"
+
+[dependencies]
+dlc-core = { path = "../dlc-core" }
+dlc-crypto = { path = "../dlc-crypto" }
+dlc-protocol = { path = "../dlc-protocol" }
+dlc-verifier = { path = "../dlc-verifier" }

@@ -1,0 +1,19 @@
+[package]
+name = "dlc-crypto"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Cryptographic realization for DLC: Ed25519, VDF, drand, transparency"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+dlc-core = { path = "../dlc-core" }
+ed25519-dalek = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+# Phase 3 brings in nucleus-identity + nucleus-lineage; held back from the
+# Week-1 stub to keep `cargo check` fast and uncoupled.

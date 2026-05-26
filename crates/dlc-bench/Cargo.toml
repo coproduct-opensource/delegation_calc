@@ -1,0 +1,19 @@
+[package]
+name = "dlc-bench"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Criterion benches verifying T1's O(|M| · log |Γ|) complexity bound"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+dlc-core = { path = "../dlc-core" }
+dlc-verifier = { path = "../dlc-verifier" }
+
+[dev-dependencies]
+criterion = { workspace = true }

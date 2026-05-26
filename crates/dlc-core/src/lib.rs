@@ -22,6 +22,7 @@
 extern crate alloc;
 
 pub mod decide;
+pub mod graded;
 pub mod ifc;
 pub mod judgment;
 pub mod obligation;

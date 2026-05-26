@@ -143,24 +143,41 @@ Stated as Tamarin lemma targets, to be filled in by Phase-2:
 
 These four become the load-bearing Tamarin lemmas. T2 in Lean reflects them.
 
-## 8. Open questions for sign-off
+## 8. Modeling choices made for the L2.1 Tamarin bootstrap
 
-Items to resolve with Cremers before writing any `.spthy`:
+These are the design choices made in `models/tamarin/dlc.spthy` at L2.1
+bootstrap (Phase-2 entry). Each is a decision Cremers's M2.M7 review will
+either ratify or revise.
 
-1. **Equational theory.** Should hash equations include `length`-axioms? The
-   default `tamarin` builtin is fine for symbolic soundness; check if drand's
-   BLS aggregation requires custom equations.
-2. **Restriction-based unique action filter** — needed to encode "one
-   signature per term"? Probably yes, for `says-I` Tamarin facts.
-3. **Source lemmas vs auto-sources.** Auto-sources often fails on agent-
-   delegation traces; expect to write source lemmas by hand.
-4. **Honest principal modeling.** Static set declared at protocol start, vs.
-   "honest until corrupted in trace" predicate. Cremers's preferred idiom
-   wins.
+1. **Equational theory.** Default `signing` builtin only. drand BLS
+   aggregation and VDF anchors are NOT modeled at L2.1 — `◇_τ` is treated
+   as a freshly-produced principal-bound nonce. Adding the BLS equational
+   theory is a follow-up if Cremers prefers it for the time-bound proofs.
+2. **No restrictions yet.** The bootstrap model relies on the
+   signature-pattern-match in `Delegate_Accept` to enforce
+   no-chain-splicing. A `restriction Unique_Signature` may be needed once
+   we add Says-rule weakening to permit repeated affirmations.
+3. **Auto-sources is left on.** If `tamarin-prover --prove` reports
+   incomplete proofs that auto-sources can't close, hand-written source
+   lemmas land as a follow-up commit.
+4. **Static honest set.** `LtkReveal` events fire only at the trace
+   start; we do NOT model adaptive corruption (per §1 of this doc).
+5. **Proposition as fresh nonce.** The wire form of a says-token contains
+   the proposition; we model the proposition as a fresh symbolic value
+   (`Fr(~prop)`). The DLC proof term is abstracted away — its content is
+   irrelevant for the symbolic security properties (Auth, Secrecy,
+   NonSplicing). The proof-of-φ structure is what Lean's `Deriv` models;
+   the wire form is what Tamarin models.
 
----
+## 9. Tamarin model — L2.1 sign-off checklist
 
-**Sign-off (target M2.M7):**
-- [ ] Reviewed by Cas Cremers
-- [ ] No outstanding items in §8
-- [ ] Tamarin lemma targets in §7 finalized
+The `models/tamarin/dlc.spthy` model encodes four properties matching §7.
+
+- [x] **Secrecy of long-term keys** — `lemma secrecy_ltk`.
+- [x] **Authentication of Says** — `lemma auth_says`.
+- [x] **NonSplicing of delegation chains** — `lemma non_splicing` (the
+      load-bearing property).
+- [x] **Executability sanity check** — `lemma exec_delegation`.
+- [ ] Reviewed by Cas Cremers (target M2.M7).
+- [ ] ProVerif cross-check (`models/proverif/dlc.pv`) — L2.2.
+- [ ] EasyCrypt computational bridge (`models/easycrypt/Game.eca`) — L2.4.

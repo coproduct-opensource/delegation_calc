@@ -38,8 +38,15 @@ lean:
 	cd lean && lake build
 
 tamarin:
-	@echo "tamarin runner not yet wired (Phase 2 — L2.1)"
-	@exit 0
+	@if command -v tamarin-prover >/dev/null 2>&1; then \
+	  cd models/tamarin && tamarin-prover --prove dlc.spthy; \
+	else \
+	  echo "tamarin-prover not on PATH — install via:"; \
+	  echo "  brew install --HEAD tamarin-prover/tap/tamarin-prover  (macOS)"; \
+	  echo "  docker run --rm -v \$$(pwd)/models/tamarin:/work -w /work \\\\"; \
+	  echo "    ghcr.io/eikendev/tamarin-prover:latest tamarin-prover --prove dlc.spthy"; \
+	  exit 1; \
+	fi
 
 proverif:
 	@echo "proverif runner not yet wired (Phase 2 — L2.2)"

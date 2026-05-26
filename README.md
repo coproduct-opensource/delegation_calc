@@ -1,5 +1,13 @@
 # DLC — Delegation Logic Calculus
 
+[![CI](https://github.com/coproduct-opensource/delegation_calc/actions/workflows/ci.yml/badge.svg)](https://github.com/coproduct-opensource/delegation_calc/actions/workflows/ci.yml)
+[![Lean 4](https://github.com/coproduct-opensource/delegation_calc/actions/workflows/lean.yml/badge.svg)](https://github.com/coproduct-opensource/delegation_calc/actions/workflows/lean.yml)
+[![Aeneas Drift](https://github.com/coproduct-opensource/delegation_calc/actions/workflows/aeneas.yml/badge.svg)](https://github.com/coproduct-opensource/delegation_calc/actions/workflows/aeneas.yml)
+[![Ledger](https://github.com/coproduct-opensource/delegation_calc/actions/workflows/ledger.yml/badge.svg)](https://github.com/coproduct-opensource/delegation_calc/actions/workflows/ledger.yml)
+[![Audit](https://github.com/coproduct-opensource/delegation_calc/actions/workflows/audit.yml/badge.svg)](https://github.com/coproduct-opensource/delegation_calc/actions/workflows/audit.yml)
+[![OSSF Scorecard](https://api.scorecard.dev/projects/github.com/coproduct-opensource/delegation_calc/badge)](https://scorecard.dev/viewer/?uri=github.com/coproduct-opensource/delegation_calc)
+
+
 A decidable modal-linear-temporal authorization logic in which proof terms are
 **simultaneously** logical proofs, cryptographic witnesses, IFC labels, and
 obligation ledgers. The artifact unifies three lineages that have so far been

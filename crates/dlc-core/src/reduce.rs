@@ -52,12 +52,9 @@ pub fn step(term: &Term) -> Option<Term> {
         // discharge-β: discharge(box(M, _), N) ▷ M, where `box(M, _)` is
         // encoded as Discharge with the obligation-evidence in the second
         // arg. Production: when we add the explicit `box` constructor at
-        // Q3, this rule rewrites to consume the obligation. Week-1 stub.
-        Term::Discharge(m, _n) => match m.as_ref() {
-            // Future: match `Box(inner, obligation)` once that constructor
-            // exists. For now `discharge` over a non-box is a normal form.
-            _ => None,
-        },
+        // Q3, this rule rewrites to consume the obligation. Week-1 stub:
+        // a `discharge` over a non-box is a normal form.
+        Term::Discharge(_m, _n) => None,
 
         // within-β: openWithin(within(M, τ)) ▷ M. We currently model
         // `openWithin` as application of an identity wrapper; explicit
@@ -112,10 +109,7 @@ mod tests {
     fn beta_under_binder() {
         let kk = Term::Lam(
             Box::new(Prop::Atom(0)),
-            Box::new(Term::Lam(
-                Box::new(Prop::Atom(1)),
-                Box::new(Term::Var(0)),
-            )),
+            Box::new(Term::Lam(Box::new(Prop::Atom(1)), Box::new(Term::Var(0)))),
         );
         let v = Term::Var(7);
         let app = Term::App(Box::new(kk), Box::new(v));
@@ -136,8 +130,7 @@ mod tests {
         let inner_proof = Term::Var(0);
         let sig_q = ed25519_stub_sig();
 
-        let m_sign_p =
-            Term::Sign(p.clone(), Box::new(Term::Var(99)), ed25519_stub_sig());
+        let m_sign_p = Term::Sign(p.clone(), Box::new(Term::Var(99)), ed25519_stub_sig());
         let n_sign_q = Term::Sign(q.clone(), Box::new(inner_proof.clone()), sig_q.clone());
 
         let delegated = Term::Delegate(Box::new(m_sign_p), Box::new(n_sign_q));

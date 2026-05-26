@@ -7,9 +7,9 @@
 
 #![forbid(unsafe_code)]
 
-pub mod wire;
-pub mod export_tamarin;
 pub mod export_proverif;
+pub mod export_tamarin;
+pub mod wire;
 
 /// Errors during wire encoding / decoding.
 #[derive(Debug, thiserror::Error)]

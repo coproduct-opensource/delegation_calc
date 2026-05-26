@@ -21,12 +21,12 @@
 
 extern crate alloc;
 
-pub mod syntax;
-pub mod judgment;
-pub mod principal;
-pub mod ifc;
-pub mod obligation;
-pub mod time;
-pub mod subst;
-pub mod reduce;
 pub mod decide;
+pub mod ifc;
+pub mod judgment;
+pub mod obligation;
+pub mod principal;
+pub mod reduce;
+pub mod subst;
+pub mod syntax;
+pub mod time;

@@ -22,7 +22,12 @@ require mathlib from git
 
 -- Re-export the verified IFC label algebra from nucleus's portcullis-core.
 -- DLC's IFC labels ARE nucleus's PermissionLattice; no fresh formalization.
-require portcullisCore from "../../nucleus/crates/portcullis-core/lean"
+--
+-- Wired in at M1.Q4.a — until then `lean/PortcullisCoreImport.lean` is a
+-- placeholder so the Lean build does not depend on a sibling clone of the
+-- `nucleus` repository. Re-enabling this `require` is the gating change for
+-- M1.Q4.a; CI's `lean.yml` job picks up the dependency automatically.
+-- require portcullisCore from "../../nucleus/crates/portcullis-core/lean"
 
 -- DLC core library — syntax, judgments, reduction, substitution.
 lean_lib «DLC» where

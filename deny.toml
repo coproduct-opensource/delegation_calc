@@ -1,0 +1,53 @@
+# cargo-deny — license + ban + advisory policy for delegation_calc.
+#
+# Run locally:  cargo deny check
+# Run in CI:    .github/workflows/deny.yml
+
+[graph]
+all-features = true
+
+[output]
+feature-depth = 1
+
+[advisories]
+version = 2
+ignore = []
+yanked = "deny"
+
+[licenses]
+version = 2
+# Allow-list of OSI-approved licenses compatible with MIT/Apache-2.0 dual-license.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "CC0-1.0",
+    "Unlicense",
+]
+confidence-threshold = 0.93
+
+[[licenses.clarify]]
+crate = "ring"
+expression = "MIT AND ISC AND OpenSSL"
+license-files = [
+    { path = "LICENSE", hash = 0xbd0eed23 },
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# A workspace member depending on `dlc-core` MUST go via the path dep so the
+# Aeneas-pinned version is used; an indirect crates.io pull would break T1's
+# Rust↔Lean correspondence.
+deny = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

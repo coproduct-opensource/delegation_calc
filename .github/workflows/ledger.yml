@@ -1,0 +1,47 @@
+name: Verification Ledger
+
+# Aggregator workflow. Runs `scripts/ledger.sh` and publishes `ledger.json`
+# as a workflow artifact (and as a release artifact on tags).
+#
+# Reproducible under `nix run .#ledger` — once the Nix flake lands at M1.Q3,
+# the artifact this workflow produces is byte-identical to the local run.
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  merge_group:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ledger:
+    name: Emit ledger.json
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606 # v1
+        with:
+          cache: true
+      - name: Install tokei
+        run: cargo install tokei --version 12.1.2 --locked
+      - name: Run ledger
+        run: bash scripts/ledger.sh
+
+      - name: Upload ledger artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ledger-json
+          path: ledger.json
+          if-no-files-found: error
+
+      - name: Attach to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8 # v2.3.2
+        with:
+          files: ledger.json

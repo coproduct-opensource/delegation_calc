@@ -48,9 +48,7 @@ pub fn shift(term: &Term, delta: i32, cutoff: u32) -> Term {
             Box::new(shift(m, delta, cutoff)),
             Box::new(shift(n, delta, cutoff)),
         ),
-        Term::Attenuate(m, psi) => {
-            Term::Attenuate(Box::new(shift(m, delta, cutoff)), psi.clone())
-        }
+        Term::Attenuate(m, psi) => Term::Attenuate(Box::new(shift(m, delta, cutoff)), psi.clone()),
         Term::Discharge(m, n) => Term::Discharge(
             Box::new(shift(m, delta, cutoff)),
             Box::new(shift(n, delta, cutoff)),
@@ -62,9 +60,7 @@ pub fn shift(term: &Term, delta: i32, cutoff: u32) -> Term {
             Box::new(shift(pi, delta, cutoff)),
         ),
         Term::Now(t) => Term::Now(t.clone()),
-        Term::WithinIntro(t, m) => {
-            Term::WithinIntro(t.clone(), Box::new(shift(m, delta, cutoff)))
-        }
+        Term::WithinIntro(t, m) => Term::WithinIntro(t.clone(), Box::new(shift(m, delta, cutoff))),
     }
 }
 
@@ -80,34 +76,26 @@ pub fn subst(body: &Term, value: &Term) -> Term {
 
 fn subst_at(body: &Term, value: &Term, depth: u32) -> Term {
     match body {
-        Term::Var(i) => {
-            if *i == depth {
-                // Hit. Lift the value's free indices over the surrounding
-                // binders we descended through.
-                shift(value, depth as i32, 0)
-            } else if *i > depth {
-                // Was a free variable; close one binder by decrementing.
-                Term::Var(*i - 1)
-            } else {
-                // Bound by an inner binder.
-                Term::Var(*i)
-            }
-        }
+        Term::Var(i) => match (*i).cmp(&depth) {
+            // Hit. Lift the value's free indices over the surrounding
+            // binders we descended through.
+            core::cmp::Ordering::Equal => shift(value, depth as i32, 0),
+            // Was a free variable; close one binder by decrementing.
+            core::cmp::Ordering::Greater => Term::Var(*i - 1),
+            // Bound by an inner binder.
+            core::cmp::Ordering::Less => Term::Var(*i),
+        },
         Term::Lam(p, inner) => Term::Lam(p.clone(), Box::new(subst_at(inner, value, depth + 1))),
         Term::App(f, x) => Term::App(
             Box::new(subst_at(f, value, depth)),
             Box::new(subst_at(x, value, depth)),
         ),
-        Term::Sign(p, m, sig) => Term::Sign(
-            p.clone(),
-            Box::new(subst_at(m, value, depth)),
-            sig.clone(),
-        ),
-        Term::Verify(p, m, sig) => Term::Verify(
-            p.clone(),
-            Box::new(subst_at(m, value, depth)),
-            sig.clone(),
-        ),
+        Term::Sign(p, m, sig) => {
+            Term::Sign(p.clone(), Box::new(subst_at(m, value, depth)), sig.clone())
+        }
+        Term::Verify(p, m, sig) => {
+            Term::Verify(p.clone(), Box::new(subst_at(m, value, depth)), sig.clone())
+        }
         Term::Delegate(m, n) => Term::Delegate(
             Box::new(subst_at(m, value, depth)),
             Box::new(subst_at(n, value, depth)),
@@ -119,9 +107,7 @@ fn subst_at(body: &Term, value: &Term, depth: u32) -> Term {
             Box::new(subst_at(m, value, depth)),
             Box::new(subst_at(n, value, depth)),
         ),
-        Term::LiftLabel(l, m) => {
-            Term::LiftLabel(l.clone(), Box::new(subst_at(m, value, depth)))
-        }
+        Term::LiftLabel(l, m) => Term::LiftLabel(l.clone(), Box::new(subst_at(m, value, depth))),
         Term::Declassify(l, m, pi) => Term::Declassify(
             l.clone(),
             Box::new(subst_at(m, value, depth)),
@@ -144,10 +130,7 @@ mod tests {
     /// isn't there.
     #[test]
     fn identity_lambda_unchanged() {
-        let id = Term::Lam(
-            Box::new(Prop::Atom(0)),
-            Box::new(Term::Var(0)),
-        );
+        let id = Term::Lam(Box::new(Prop::Atom(0)), Box::new(Term::Var(0)));
         let value = Term::Var(7);
         let result = subst(&id, &value);
         assert_eq!(
@@ -175,10 +158,7 @@ mod tests {
     /// Shifting a closed term by any delta is a no-op.
     #[test]
     fn shift_closed_lambda_is_noop() {
-        let id = Term::Lam(
-            Box::new(Prop::Atom(0)),
-            Box::new(Term::Var(0)),
-        );
+        let id = Term::Lam(Box::new(Prop::Atom(0)), Box::new(Term::Var(0)));
         let shifted = shift(&id, 5, 0);
         assert_eq!(shifted, id);
     }
@@ -194,10 +174,7 @@ mod tests {
     #[test]
     fn subst_under_binder_lifts_value() {
         // Body: λ. Var(1)  (a use of the outer var-zero, one binder deep)
-        let body = Term::Lam(
-            Box::new(Prop::Atom(0)),
-            Box::new(Term::Var(1)),
-        );
+        let body = Term::Lam(Box::new(Prop::Atom(0)), Box::new(Term::Var(1)));
         // Value: a free Var(0)
         let value = Term::Var(0);
         // After subst, body's outer var 0 (i.e. the inner Var(1)) becomes the

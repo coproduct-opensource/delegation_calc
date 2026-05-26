@@ -60,14 +60,33 @@ jobs:
           eval $(opam env)
           cd models/proverif
           proverif dlc.pv 2>&1 | tee prove.log
-          if grep -E "^RESULT.*is false" prove.log; then
-            echo "::error::ProVerif reported false query"
-            exit 1
+
+          # ProVerif reports `RESULT <query> is true` or `is false` per
+          # query. For correspondence assertions (secrecy_ltk,
+          # non_splicing) we require `is true`. For the existence query
+          # `not event(DelegateAccept)` we require `is false` (because a
+          # falsified negation means the event IS reachable -- the
+          # standard ProVerif idiom for existence queries).
+          ok=1
+          if ! grep -qE "^RESULT event\(HonestSk.*attacker.*is true" prove.log; then
+            echo "::error::secrecy_ltk did not prove"
+            ok=0
           fi
+          if ! grep -qE "^RESULT event\(DelegateAccept.*SpeaksForIssued.*is true" prove.log; then
+            echo "::error::non_splicing did not prove"
+            ok=0
+          fi
+          if ! grep -qE "^RESULT not event\(DelegateAccept.*is false" prove.log; then
+            echo "::error::exec_delegation did not show reachability"
+            ok=0
+          fi
+          # Generic catch-all: any unexpected `cannot be proved` is a failure.
           if grep -E "^RESULT.*cannot be proved" prove.log; then
             echo "::error::ProVerif could not prove a query"
-            exit 1
+            ok=0
           fi
+          [ "$ok" = "1" ] || exit 1
+          echo "All three queries match expected outcomes."
 
       - name: Upload ProVerif output
         if: always()

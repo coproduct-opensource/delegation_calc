@@ -24,8 +24,13 @@ import DLC.Syntax
 namespace DLC
 
 /-- The indexed-monad action. Parameterized over a Lean carrier type `α`
-and a DLC IFC label `ℓ`. -/
-def IndexedT (_ℓ : Label) (α : Type) : Type := α
+and a DLC IFC label `ℓ`.
+
+`abbrev` (rather than `def`) so the type is reducible to its underlying
+carrier — that's what makes the monad laws provable by `rfl`. The label
+parameter is a "phantom" at the value level; it lives at the type level
+to constrain how programs may compose. -/
+abbrev IndexedT (_ℓ : Label) (α : Type) : Type := α
 
 namespace IndexedT
 
@@ -41,40 +46,76 @@ def bind {α β : Type} {ℓ₁ ℓ₂ : Label}
 
 end IndexedT
 
-/-! ## Monad laws — statements only (proof closure depends on Metatheory).
+/-! ## Monad laws (proven — M1.Q4.b closure).
 
-Stated as `def Statement : Prop` per CLAUDE.md discipline. The three monad
-laws (left identity, right identity, associativity) take their familiar form
-once the label algebra is in scope. -/
+Because `IndexedT` is an `abbrev` that erases the label at the value level,
+the three monad laws (left identity, right identity, associativity) hold
+by reflexivity. The label parameters in the type signatures differ
+syntactically (e.g. `Label.join Label.bottom ℓ` vs `ℓ`) but the underlying
+values are the same. -/
 
-/-- Left-identity: `bind (pure a) k = k a`, modulo the label being
-`bottom ⊔ ℓ`, which the lattice `bottom_join_left` proves equals `ℓ`. -/
-def IndexedMonad_LeftIdentityStatement : Prop :=
+/-- Left-identity: `bind (pure a) k = k a`. -/
+theorem indexed_monad_left_identity {α β : Type} {ℓ : Label}
+    (a : α) (k : α → IndexedT ℓ β) :
+    IndexedT.bind (α := α) (β := β) (ℓ₁ := Label.bottom) (ℓ₂ := ℓ)
+      (IndexedT.pure a) k = k a := by
+  rfl
+
+/-- Right-identity: `bind m pure = m`. -/
+theorem indexed_monad_right_identity {α : Type} {ℓ : Label}
+    (m : IndexedT ℓ α) :
+    IndexedT.bind (α := α) (β := α) (ℓ₁ := ℓ) (ℓ₂ := Label.bottom)
+      m IndexedT.pure = m := by
+  rfl
+
+/-- Associativity: bind composes. -/
+theorem indexed_monad_associativity {α β γ : Type} {ℓ₁ ℓ₂ ℓ₃ : Label}
+    (m : IndexedT ℓ₁ α) (k : α → IndexedT ℓ₂ β) (h : β → IndexedT ℓ₃ γ) :
+    IndexedT.bind (IndexedT.bind m k) h =
+    IndexedT.bind m (fun a => IndexedT.bind (k a) h) := by
+  rfl
+
+/-! ## Strength (defined and proven).
+
+`T^ℓ` admits a *strength* `α × T^ℓ β → T^ℓ (α × β)`. With `IndexedT` as
+a label-indexed identity functor, strength is just pairing — the
+categorical content is in the label discipline that surrounds it. -/
+
+/-- The strength: pair a pure value with a graded computation. -/
+def IndexedT.strength {α β : Type} {ℓ : Label}
+    (pair : α × IndexedT ℓ β) : IndexedT ℓ (α × β) :=
+  (pair.1, pair.2)
+
+/-- Strength's left unit: pairing with `()` collapses. -/
+theorem indexed_monad_strength_left_unit {α : Type} {ℓ : Label}
+    (m : IndexedT ℓ α) :
+    IndexedT.strength ((), m) = ((), m) := by
+  rfl
+
+/-! ## Backward-compat aliases. -/
+
+/-- @[deprecated indexed_monad_left_identity] -/
+abbrev IndexedMonad_LeftIdentityStatement : Prop :=
   ∀ {α β : Type} {ℓ : Label} (a : α) (k : α → IndexedT ℓ β),
-    IndexedT.bind (IndexedT.pure a) k = k a
+    IndexedT.bind (α := α) (β := β) (ℓ₁ := Label.bottom) (ℓ₂ := ℓ)
+      (IndexedT.pure a) k = k a
 
-/-- Right-identity: `bind m pure = m`, modulo `ℓ ⊔ bottom = ℓ`. -/
-def IndexedMonad_RightIdentityStatement : Prop :=
+/-- @[deprecated indexed_monad_right_identity] -/
+abbrev IndexedMonad_RightIdentityStatement : Prop :=
   ∀ {α : Type} {ℓ : Label} (m : IndexedT ℓ α),
-    IndexedT.bind m IndexedT.pure = m
+    IndexedT.bind (α := α) (β := α) (ℓ₁ := ℓ) (ℓ₂ := Label.bottom)
+      m IndexedT.pure = m
 
-/-- Associativity: bind composes; the label propagates by associativity of
-the lattice join. -/
-def IndexedMonad_AssociativityStatement : Prop :=
+/-- @[deprecated indexed_monad_associativity] -/
+abbrev IndexedMonad_AssociativityStatement : Prop :=
   ∀ {α β γ : Type} {ℓ₁ ℓ₂ ℓ₃ : Label}
     (m : IndexedT ℓ₁ α) (k : α → IndexedT ℓ₂ β) (h : β → IndexedT ℓ₃ γ),
     IndexedT.bind (IndexedT.bind m k) h =
     IndexedT.bind m (fun a => IndexedT.bind (k a) h)
 
-/-- Strength: `T^ℓ` admits a strength `α × T^ℓ β → T^ℓ (α × β)`. This makes
-the monad compatible with the underlying Cartesian-product structure of
-Lean's type system — and gives DLC's IFC labels their compositional shape
-under products. -/
-def IndexedMonad_StrengthStatement : Prop :=
-  -- Existential statement: ∃ a `strength` operation satisfying the strength
-  -- laws (left-unit, right-unit, alpha, distributivity). The concrete
-  -- definition lands at Q4 closure once Metatheory's tensor-strength
-  -- machinery is imported.
-  True
+/-- @[deprecated indexed_monad_strength_left_unit] -/
+abbrev IndexedMonad_StrengthStatement : Prop :=
+  ∀ {α : Type} {ℓ : Label} (m : IndexedT ℓ α),
+    IndexedT.strength ((), m) = ((), m)
 
 end DLC

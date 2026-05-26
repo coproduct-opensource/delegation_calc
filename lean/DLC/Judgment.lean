@@ -78,14 +78,10 @@ inductive Deriv : Ctx → Term → Prop' → Type where
       (dN : Deriv { additive := Γₐ, linear := Γ₂ } N φ) :
       Deriv { additive := Γₐ, linear := Γ₁ ++ Γ₂ } (Term.app M N) ψ
 
-  /-- `and-I` — additive conjunction introduction. Requires empty linear ctx
-  for the simple form. -/
-  | andI (Γₐ : List Prop') (φ ψ : Prop') (M N : Term)
-      (dM : Deriv { additive := Γₐ, linear := [] } M φ)
-      (dN : Deriv { additive := Γₐ, linear := [] } N ψ) :
-      Deriv { additive := Γₐ, linear := [] }
-            (Term.app M N)  -- placeholder term shape; refine at Q3
-            (Prop'.and φ ψ)
+  -- Note: `andI` (with the correct `Term.pair` shape) lives further
+  -- below, alongside the additive product / coproduct elim and intro
+  -- constructors added by #41. The placeholder Q2 form (which used
+  -- `Term.app` as a stand-in before `Term.pair` existed) is removed.
 
   /-- `says-I` — affirmation introduction with embedded signature carrier.
   This is the T2 seam: the rule requires a signature, but verification is

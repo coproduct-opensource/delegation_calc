@@ -41,6 +41,17 @@ def pendingObligations : Term → List Obligation
       pendingObligations m ++ pendingObligations π
   | Term.now _                  => []
   | Term.withinIntro _ m        => pendingObligations m
+  | Term.pair a b               => pendingObligations a ++ pendingObligations b
+  | Term.fst a                  => pendingObligations a
+  | Term.snd a                  => pendingObligations a
+  | Term.inl _ a                => pendingObligations a
+  | Term.inr _ a                => pendingObligations a
+  | Term.case s l r             =>
+      pendingObligations s ++ pendingObligations l ++ pendingObligations r
+  | Term.tensorIntro a b        => pendingObligations a ++ pendingObligations b
+  | Term.letTensor s b          => pendingObligations s ++ pendingObligations b
+  | Term.letSays _ s b          => pendingObligations s ++ pendingObligations b
+  | Term.sfExtract m            => pendingObligations m
 
 /-! ## T4 — statement only (proof closes at M1.Q3.d). -/
 

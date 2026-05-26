@@ -72,7 +72,11 @@ or consuming obligations. -/
 theorem pendingObligations_shift (t : Term) (delta cutoff : Nat) :
     pendingObligations (shift t delta cutoff) = pendingObligations t := by
   induction t generalizing cutoff with
-  | var _ => simp [shift, pendingObligations]
+  | var i =>
+    -- `shift (Term.var i) delta cutoff` is a conditional; both branches
+    -- evaluate to a `Term.var _` whose pendingObligations is `[]`.
+    unfold shift
+    split <;> rfl
   | lam _ _ ih => simp [shift, pendingObligations, ih]
   | app _ _ ihF ihX => simp [shift, pendingObligations, ihF, ihX]
   | sign _ _ _ ih => simp [shift, pendingObligations, ih]

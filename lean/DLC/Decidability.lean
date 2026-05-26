@@ -49,6 +49,16 @@ def Term.isInCalculus : Term → Bool
   | Term.declassify _ m π   => m.isInCalculus && π.isInCalculus
   | Term.now _              => true
   | Term.withinIntro _ m    => m.isInCalculus
+  | Term.pair a b           => a.isInCalculus && b.isInCalculus
+  | Term.fst a              => a.isInCalculus
+  | Term.snd a              => a.isInCalculus
+  | Term.inl _ a            => a.isInCalculus
+  | Term.inr _ a            => a.isInCalculus
+  | Term.case s l r         => s.isInCalculus && l.isInCalculus && r.isInCalculus
+  | Term.tensorIntro a b    => a.isInCalculus && b.isInCalculus
+  | Term.letTensor s b      => s.isInCalculus && b.isInCalculus
+  | Term.letSays _ s b      => s.isInCalculus && b.isInCalculus
+  | Term.sfExtract m        => m.isInCalculus
 
 /-! ## T1 — Statement only (proof closes at M1.Q2.d for the prop fragment). -/
 

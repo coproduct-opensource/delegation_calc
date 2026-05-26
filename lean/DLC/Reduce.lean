@@ -23,9 +23,33 @@ def step : Term → Option Term
   | Term.delegate (Term.sign p _ _) (Term.sign q inner sig') =>
       some (Term.sign (Principal.acting p q) inner sig')
 
+  -- and-Eₗ-β: π₁ ⟨a, _⟩ ▷ a
+  | Term.fst (Term.pair a _) => some a
+
+  -- and-Eᵣ-β: π₂ ⟨_, b⟩ ▷ b
+  | Term.snd (Term.pair _ b) => some b
+
+  -- or-E-β-left: case (inl _ a) of x ⇒ left | y ⇒ _ ▷ left[a/x]
+  | Term.case (Term.inl _ a) left _ => some (subst left a)
+
+  -- or-E-β-right: symmetric.
+  | Term.case (Term.inr _ a) _ right => some (subst right a)
+
+  -- tensor-E-β / let-tensor: `let x⊗y = a⊗b in body ▷ body[a/x, b/y]`.
+  -- The body has two bound variables; we substitute twice (outer first).
+  | Term.letTensor (Term.tensorIntro a b) body =>
+      some (subst (subst body a) b)
+
+  -- says-extract / let-says: `let ⟨x⟩_p = ⟨m, _⟩_p in body ▷ body[m/x]`.
+  | Term.letSays p (Term.sign p' m _) body =>
+      if p = p' then some (subst body m) else none
+
+  -- sf-extract reduction: `sfExtract (⟨m, _⟩_p)` exposes `m` (the
+  -- speaks-for proposition's witness).
+  | Term.sfExtract (Term.sign _ m _) => some m
+
   -- Other constructors at head are normal forms. attenuate, discharge,
-  -- withinIntro are normal forms in this kernel; their elimination logic
-  -- lives in the verifier (the calculus's `verify` rule), not here.
+  -- withinIntro normalize through `verify` rather than the head reducer.
   | _ => none
 
 /-- Iterate `step` up to `fuel` steps, returning the final term and the step

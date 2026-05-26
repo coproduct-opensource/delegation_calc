@@ -44,6 +44,24 @@ def shift : Term → Nat → Nat → Term
   | Term.now t, _, _ => Term.now t
   | Term.withinIntro t m, delta, cutoff =>
       Term.withinIntro t (shift m delta cutoff)
+  | Term.pair a b, delta, cutoff =>
+      Term.pair (shift a delta cutoff) (shift b delta cutoff)
+  | Term.fst a, delta, cutoff => Term.fst (shift a delta cutoff)
+  | Term.snd a, delta, cutoff => Term.snd (shift a delta cutoff)
+  | Term.inl p a, delta, cutoff => Term.inl p (shift a delta cutoff)
+  | Term.inr p a, delta, cutoff => Term.inr p (shift a delta cutoff)
+  | Term.case scrut left right, delta, cutoff =>
+      Term.case (shift scrut delta cutoff)
+                (shift left  delta (cutoff + 1))
+                (shift right delta (cutoff + 1))
+  | Term.tensorIntro a b, delta, cutoff =>
+      Term.tensorIntro (shift a delta cutoff) (shift b delta cutoff)
+  | Term.letTensor scrut body, delta, cutoff =>
+      Term.letTensor (shift scrut delta cutoff) (shift body delta (cutoff + 2))
+  | Term.letSays p scrut body, delta, cutoff =>
+      Term.letSays p (shift scrut delta cutoff) (shift body delta (cutoff + 1))
+  | Term.sfExtract m, delta, cutoff =>
+      Term.sfExtract (shift m delta cutoff)
 
 /-- Substitute `value` for the variable at de-Bruijn index `depth` in `body`,
 decrementing free variables above `depth` to close the binder. -/
@@ -76,6 +94,24 @@ def substAt : Term → Term → Nat → Term
   | Term.now t, _, _ => Term.now t
   | Term.withinIntro t m, value, depth =>
       Term.withinIntro t (substAt m value depth)
+  | Term.pair a b, value, depth =>
+      Term.pair (substAt a value depth) (substAt b value depth)
+  | Term.fst a, value, depth => Term.fst (substAt a value depth)
+  | Term.snd a, value, depth => Term.snd (substAt a value depth)
+  | Term.inl p a, value, depth => Term.inl p (substAt a value depth)
+  | Term.inr p a, value, depth => Term.inr p (substAt a value depth)
+  | Term.case scrut left right, value, depth =>
+      Term.case (substAt scrut value depth)
+                (substAt left  value (depth + 1))
+                (substAt right value (depth + 1))
+  | Term.tensorIntro a b, value, depth =>
+      Term.tensorIntro (substAt a value depth) (substAt b value depth)
+  | Term.letTensor scrut body, value, depth =>
+      Term.letTensor (substAt scrut value depth) (substAt body value (depth + 2))
+  | Term.letSays p scrut body, value, depth =>
+      Term.letSays p (substAt scrut value depth) (substAt body value (depth + 1))
+  | Term.sfExtract m, value, depth =>
+      Term.sfExtract (substAt m value depth)
 
 /-- Substitute `value` for the variable at de-Bruijn index 0 in `body`. -/
 def subst (body value : Term) : Term :=

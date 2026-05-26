@@ -71,6 +71,42 @@ pub enum Term {
     Now(TimeBound),
     /// Within-modality introduction.
     WithinIntro(TimeBound, Box<Term>),
+
+    // --- Additive product (and) ---
+    /// `⟨M, N⟩` — additive conjunction introduction (`and-I`).
+    Pair(Box<Term>, Box<Term>),
+    /// `π₁ M` — left projection (`and-Eₗ`).
+    Fst(Box<Term>),
+    /// `π₂ M` — right projection (`and-Eᵣ`).
+    Snd(Box<Term>),
+
+    // --- Additive coproduct (or) ---
+    /// `inl_ψ M` — left injection for `φ ∨ ψ` (`or-I`-left).
+    /// The carried proposition is the *other* disjunct (the one we're
+    /// declaring not to be the case here); explicit so type inference is
+    /// strictly bottom-up.
+    Inl(Box<Prop>, Box<Term>),
+    /// `inr_φ M` — right injection for `φ ∨ ψ` (`or-I`-right).
+    Inr(Box<Prop>, Box<Term>),
+    /// `case M of inl x ⇒ N | inr y ⇒ P` — disjunction elimination
+    /// (`or-E`). The first branch binds the left disjunct's witness; the
+    /// second binds the right's.
+    Case(Box<Term>, Box<Term>, Box<Term>),
+
+    // --- Multiplicative product (tensor) ---
+    /// `M ⊗ N` — linear tensor introduction (`tensor-I`).
+    TensorIntro(Box<Term>, Box<Term>),
+    /// `let x⊗y = M in N` — linear tensor elimination (`tensor-E`).
+    /// Binds two linear hypotheses simultaneously.
+    LetTensor(Box<Term>, Box<Term>),
+
+    // --- Says elimination as an explicit let ---
+    /// `let ⟨x⟩_p = M in N` — `says-E` / `says-extract` as an explicit
+    /// binder rather than abusing `App`.
+    LetSays(Principal, Box<Term>, Box<Term>),
+    /// `sfExtract(M)` — `sf-extract`: from `p says (q ⇒ p)` extract
+    /// `q ⇒ p`. Trusts the principal's affirmation.
+    SfExtract(Box<Term>),
 }
 
 /// A cryptographic signature carried by `Sign` and `Verify` terms.

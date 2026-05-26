@@ -40,12 +40,16 @@ jobs:
       - name: Install opam + ProVerif
         run: |
           sudo apt-get update
-          sudo apt-get install -y opam
+          # libgtk2.0-dev is required by lablgtk (transitive proverif dep).
+          # pkg-config is required by conf-pkg-config.
+          sudo apt-get install -y opam libgtk2.0-dev pkg-config
           opam init -y --disable-sandboxing --bare
           eval $(opam env)
           opam switch list | grep -q "default " || opam switch create default 4.14.1
           eval $(opam env)
-          opam install -y proverif
+          # --assume-depexts: don't reprompt for system packages we just
+          # installed via apt above.
+          opam install -y --assume-depexts proverif
           eval $(opam env)
           proverif --version
 

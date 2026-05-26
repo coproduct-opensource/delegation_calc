@@ -1,0 +1,72 @@
+name: ProVerif
+
+# Runs the DLC ProVerif cross-check (L2.2).
+# Mirrors models/tamarin/dlc.spthy properties via an independent symbolic
+# prover. Catches model bugs that happen to slip past one tool's heuristics.
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "models/proverif/**"
+      - ".github/workflows/proverif.yml"
+  pull_request:
+    paths:
+      - "models/proverif/**"
+      - ".github/workflows/proverif.yml"
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    name: proverif on dlc.pv
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Cache opam state
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
+        with:
+          path: |
+            ~/.opam
+          key: opam-proverif-${{ runner.os }}-2.05
+
+      - name: Install opam + ProVerif
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y opam
+          opam init -y --disable-sandboxing --bare
+          eval $(opam env)
+          opam switch list | grep -q "default " || opam switch create default 4.14.1
+          eval $(opam env)
+          opam install -y proverif
+          eval $(opam env)
+          proverif --version
+
+      - name: Run ProVerif on dlc.pv
+        run: |
+          eval $(opam env)
+          cd models/proverif
+          proverif dlc.pv 2>&1 | tee prove.log
+          if grep -E "^RESULT.*is false" prove.log; then
+            echo "::error::ProVerif reported false query"
+            exit 1
+          fi
+          if grep -E "^RESULT.*cannot be proved" prove.log; then
+            echo "::error::ProVerif could not prove a query"
+            exit 1
+          fi
+
+      - name: Upload ProVerif output
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: proverif-output
+          path: models/proverif/*.log
+          if-no-files-found: warn

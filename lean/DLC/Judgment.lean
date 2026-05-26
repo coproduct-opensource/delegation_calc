@@ -23,7 +23,8 @@ upgrades to `Multiset` so the substructural rules become clean. -/
 structure Ctx where
   additive : List Prop'
   linear   : List Prop'
-  deriving Repr
+  -- `Prop'` carries `Label`, which is nucleus's Aeneas-generated
+  -- `CapabilityLattice` and does not derive `Repr`. Skip the derive.
 
 namespace Ctx
 

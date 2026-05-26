@@ -105,4 +105,24 @@ pub enum RuleName {
     WithinE,
     /// `verify` — cryptographic-typing bridge rule.
     Verify,
+
+    // --- Q4 follow-up: additive and linear connectives ---
+    /// `or-I` — disjunction introduction (left or right).
+    OrI,
+    /// `or-E` — disjunction elimination (case).
+    OrE,
+    /// `tensor-I` — linear conjunction introduction.
+    TensorI,
+    /// `tensor-E` — linear conjunction elimination (let-tensor).
+    TensorE,
+    /// `lolli-I` — linear implication introduction (shares syntax with `imp-I`).
+    LolliI,
+    /// `lolli-E` — linear implication elimination (shares syntax with `imp-E`).
+    LolliE,
+    /// `let-tensor` — alias / reduction form of `tensor-E`.
+    LetTensor,
+    /// `says-extract` — explicit let-binder form of `says-E`.
+    SaysExtract,
+    /// `sf-extract` — extract a speaks-for from `p says (q ⇒ p)`.
+    SfExtract,
 }

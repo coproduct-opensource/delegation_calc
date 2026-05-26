@@ -183,6 +183,95 @@ pub fn infer(ctx: &Ctx, term: &Term) -> Option<Prop> {
             let m_ty = infer(ctx, m)?;
             Some(Prop::Within(tau.clone(), Box::new(m_ty)))
         }
+
+        // and-I: ⟨M, N⟩ : φ ∧ ψ
+        Term::Pair(a, b) => {
+            let a_ty = infer(ctx, a)?;
+            let b_ty = infer(ctx, b)?;
+            Some(Prop::And(Box::new(a_ty), Box::new(b_ty)))
+        }
+
+        // and-Eₗ: π₁ M from M : φ ∧ ψ
+        Term::Fst(m) => match infer(ctx, m)? {
+            Prop::And(phi, _) => Some(*phi),
+            _ => None,
+        },
+
+        // and-Eᵣ: π₂ M from M : φ ∧ ψ
+        Term::Snd(m) => match infer(ctx, m)? {
+            Prop::And(_, psi) => Some(*psi),
+            _ => None,
+        },
+
+        // or-I-left: inl_ψ M : φ ∨ ψ, where M : φ.
+        Term::Inl(other, m) => {
+            let phi = infer(ctx, m)?;
+            Some(Prop::Or(Box::new(phi), Box::new((**other).clone())))
+        }
+
+        // or-I-right: inr_φ M : φ ∨ ψ, where M : ψ.
+        Term::Inr(other, m) => {
+            let psi = infer(ctx, m)?;
+            Some(Prop::Or(Box::new((**other).clone()), Box::new(psi)))
+        }
+
+        // or-E: case M of inl x ⇒ N | inr y ⇒ P. The two branches must
+        // infer the same type, which we then return.
+        Term::Case(scrut, left, right) => {
+            let (phi, psi) = match infer(ctx, scrut)? {
+                Prop::Or(p, q) => (*p, *q),
+                _ => return None,
+            };
+            let left_ctx = ctx.clone().cons_a(phi);
+            let right_ctx = ctx.clone().cons_a(psi);
+            let left_ty = infer(&left_ctx, left)?;
+            let right_ty = infer(&right_ctx, right)?;
+            if left_ty == right_ty {
+                Some(left_ty)
+            } else {
+                None
+            }
+        }
+
+        // tensor-I: M ⊗ N : φ ⊗ ψ. Linear-context splitting is not enforced
+        // here; the checker assumes the caller arranged the linear context
+        // appropriately. The Lean Deriv constructors capture the linearity.
+        Term::TensorIntro(a, b) => {
+            let a_ty = infer(ctx, a)?;
+            let b_ty = infer(ctx, b)?;
+            Some(Prop::Tensor(Box::new(a_ty), Box::new(b_ty)))
+        }
+
+        // tensor-E: let x⊗y = M in N. Binds two linear hypotheses.
+        Term::LetTensor(scrut, body) => {
+            let (phi, psi) = match infer(ctx, scrut)? {
+                Prop::Tensor(p, q) => (*p, *q),
+                _ => return None,
+            };
+            let extended = ctx.clone().cons_l(phi).cons_l(psi);
+            infer(&extended, body)
+        }
+
+        // says-extract: let ⟨x⟩_p = M in N. Bind the underlying proof.
+        Term::LetSays(principal, scrut, body) => {
+            let inner = match infer(ctx, scrut)? {
+                Prop::Says(p, phi) if p == *principal => *phi,
+                _ => return None,
+            };
+            let extended = ctx.clone().cons_a(inner);
+            infer(&extended, body)
+        }
+
+        // sf-extract: from `p says (q ⇒ p)` extract `q ⇒ p`.
+        Term::SfExtract(m) => match infer(ctx, m)? {
+            Prop::Says(p_outer, inner) => match *inner {
+                Prop::SpeaksFor(q, p_inner) if p_inner == p_outer => {
+                    Some(Prop::SpeaksFor(q, p_inner))
+                }
+                _ => None,
+            },
+            _ => None,
+        },
     }
 }
 
@@ -381,6 +470,127 @@ mod tests {
         // doesn't enforce the linearity, that's the Q4.d follow-up.
         let term = Term::Discharge(Box::new(Term::Var(0)), Box::new(Term::Var(0)));
         let prob = problem(ctx, term, atom(0));
+        assert!(decide_pure(&prob));
+    }
+
+    /// and-I: `⟨M, N⟩` produces `φ ∧ ψ`.
+    #[test]
+    fn pair_produces_and() {
+        // cons_a pushes at index 0, so after these two pushes:
+        //   index 0 = atom(0), index 1 = atom(1)
+        let ctx = Ctx::empty().cons_a(atom(1)).cons_a(atom(0));
+        let term = Term::Pair(Box::new(Term::Var(0)), Box::new(Term::Var(1)));
+        let expected = Prop::And(Box::new(atom(0)), Box::new(atom(1)));
+        let prob = problem(ctx, term, expected);
+        assert!(decide_pure(&prob));
+    }
+
+    /// and-Eₗ + and-Eᵣ: round-trip through Fst/Snd.
+    #[test]
+    fn pair_fst_snd_round_trip() {
+        let ctx = Ctx::empty().cons_a(atom(1)).cons_a(atom(0));
+        let pair = Term::Pair(Box::new(Term::Var(0)), Box::new(Term::Var(1)));
+        // π₁ ⟨Var 0, Var 1⟩ : atom(0)
+        let fst_term = Term::Fst(Box::new(pair.clone()));
+        let fst_prob = problem(ctx.clone(), fst_term, atom(0));
+        assert!(decide_pure(&fst_prob));
+
+        // π₂ ⟨Var 0, Var 1⟩ : atom(1)
+        let snd_term = Term::Snd(Box::new(pair));
+        let snd_prob = problem(ctx, snd_term, atom(1));
+        assert!(decide_pure(&snd_prob));
+    }
+
+    /// or-I left: `inl_ψ M` produces `φ ∨ ψ`.
+    #[test]
+    fn inl_produces_or_left() {
+        let ctx = Ctx::empty().cons_a(atom(0));
+        let term = Term::Inl(Box::new(atom(1)), Box::new(Term::Var(0)));
+        let expected = Prop::Or(Box::new(atom(0)), Box::new(atom(1)));
+        let prob = problem(ctx, term, expected);
+        assert!(decide_pure(&prob));
+    }
+
+    /// or-I right symmetric.
+    #[test]
+    fn inr_produces_or_right() {
+        let ctx = Ctx::empty().cons_a(atom(1));
+        let term = Term::Inr(Box::new(atom(0)), Box::new(Term::Var(0)));
+        let expected = Prop::Or(Box::new(atom(0)), Box::new(atom(1)));
+        let prob = problem(ctx, term, expected);
+        assert!(decide_pure(&prob));
+    }
+
+    /// or-E: case eliminates a disjunction; both branches must agree.
+    #[test]
+    fn case_eliminates_or() {
+        let ctx = Ctx::empty().cons_a(Prop::Or(Box::new(atom(0)), Box::new(atom(0))));
+        // case (Var 0) of inl x ⇒ x | inr y ⇒ y. Both yield atom(0).
+        let case = Term::Case(
+            Box::new(Term::Var(0)),
+            Box::new(Term::Var(0)), // bound: inl-witness shadows outer
+            Box::new(Term::Var(0)), // bound: inr-witness shadows outer
+        );
+        let prob = problem(ctx, case, atom(0));
+        assert!(decide_pure(&prob));
+    }
+
+    /// or-E rejects branches that disagree.
+    #[test]
+    fn case_rejects_disagreeing_branches() {
+        let ctx = Ctx::empty().cons_a(Prop::Or(Box::new(atom(0)), Box::new(atom(1))));
+        let case = Term::Case(
+            Box::new(Term::Var(0)),
+            Box::new(Term::Var(0)), // : atom(0)
+            Box::new(Term::Var(0)), // : atom(1)
+        );
+        let prob = problem(ctx, case, atom(0));
+        assert!(!decide_pure(&prob));
+    }
+
+    /// tensor-I: M ⊗ N : φ ⊗ ψ.
+    #[test]
+    fn tensor_intro_produces_tensor() {
+        let ctx = Ctx::empty().cons_a(atom(1)).cons_a(atom(0));
+        let term = Term::TensorIntro(Box::new(Term::Var(0)), Box::new(Term::Var(1)));
+        let expected = Prop::Tensor(Box::new(atom(0)), Box::new(atom(1)));
+        let prob = problem(ctx, term, expected);
+        assert!(decide_pure(&prob));
+    }
+
+    /// says-extract: `let ⟨x⟩_p = M in N` extracts the underlying proof.
+    #[test]
+    fn let_says_binds_inner_proof() {
+        let p = Principal::Atom(PrincipalId([9u8; 32]));
+        let sig = Signature {
+            alg: 0,
+            bytes: vec![0u8; 64],
+        };
+        // Context: hyp : p says atom(0)
+        let says_prop = Prop::Says(p.clone(), Box::new(atom(0)));
+        let ctx = Ctx::empty().cons_a(says_prop);
+        // let ⟨x⟩_p = Var 0 in x  --  via LetSays(p, scrut, body=Var(0))
+        // Note: scrut is Var(0) referring to the existing additive hyp.
+        let _signed = Term::Sign(p.clone(), Box::new(Term::Var(0)), sig);
+        let term = Term::LetSays(
+            p,
+            Box::new(Term::Var(0)),
+            Box::new(Term::Var(0)), // inner: bound to atom(0)
+        );
+        let prob = problem(ctx, term, atom(0));
+        assert!(decide_pure(&prob));
+    }
+
+    /// sf-extract: from `p says (q ⇒ p)` extract `q ⇒ p`.
+    #[test]
+    fn sf_extract_pulls_speaks_for() {
+        let p = Principal::Atom(PrincipalId([1u8; 32]));
+        let q = Principal::Atom(PrincipalId([2u8; 32]));
+        let sf = Prop::SpeaksFor(q.clone(), p.clone());
+        let says_sf = Prop::Says(p, Box::new(sf.clone()));
+        let ctx = Ctx::empty().cons_a(says_sf);
+        let term = Term::SfExtract(Box::new(Term::Var(0)));
+        let prob = problem(ctx, term, sf);
         assert!(decide_pure(&prob));
     }
 

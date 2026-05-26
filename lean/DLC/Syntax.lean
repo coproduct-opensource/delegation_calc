@@ -56,6 +56,20 @@ inductive Term : Type where
   | declassify : Label → Term → Term → Term
   | now : TimeBound → Term
   | withinIntro : TimeBound → Term → Term
+  -- Additive product (`and`)
+  | pair : Term → Term → Term
+  | fst : Term → Term
+  | snd : Term → Term
+  -- Additive coproduct (`or`)
+  | inl : Prop' → Term → Term
+  | inr : Prop' → Term → Term
+  | case : Term → Term → Term → Term
+  -- Multiplicative product (linear tensor)
+  | tensorIntro : Term → Term → Term
+  | letTensor : Term → Term → Term
+  -- Says-elimination forms
+  | letSays : Principal → Term → Term → Term
+  | sfExtract : Term → Term
   -- No `deriving Repr, DecidableEq` here: the constituent `Label` (alias for
   -- nucleus's Aeneas-generated `portcullis_core.CapabilityLattice`) does not
   -- carry derived instances. Equalities that need to be computed land via

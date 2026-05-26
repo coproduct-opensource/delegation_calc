@@ -61,6 +61,43 @@ pub fn shift(term: &Term, delta: i32, cutoff: u32) -> Term {
         ),
         Term::Now(t) => Term::Now(t.clone()),
         Term::WithinIntro(t, m) => Term::WithinIntro(t.clone(), Box::new(shift(m, delta, cutoff))),
+
+        // Additive product
+        Term::Pair(a, b) => Term::Pair(
+            Box::new(shift(a, delta, cutoff)),
+            Box::new(shift(b, delta, cutoff)),
+        ),
+        Term::Fst(a) => Term::Fst(Box::new(shift(a, delta, cutoff))),
+        Term::Snd(a) => Term::Snd(Box::new(shift(a, delta, cutoff))),
+
+        // Additive coproduct
+        Term::Inl(p, a) => Term::Inl(p.clone(), Box::new(shift(a, delta, cutoff))),
+        Term::Inr(p, a) => Term::Inr(p.clone(), Box::new(shift(a, delta, cutoff))),
+        Term::Case(scrut, left, right) => Term::Case(
+            Box::new(shift(scrut, delta, cutoff)),
+            // `case` branches bind one new variable each
+            Box::new(shift(left, delta, cutoff + 1)),
+            Box::new(shift(right, delta, cutoff + 1)),
+        ),
+
+        // Multiplicative product
+        Term::TensorIntro(a, b) => Term::TensorIntro(
+            Box::new(shift(a, delta, cutoff)),
+            Box::new(shift(b, delta, cutoff)),
+        ),
+        Term::LetTensor(scrut, body) => Term::LetTensor(
+            Box::new(shift(scrut, delta, cutoff)),
+            // let-tensor binds two new variables
+            Box::new(shift(body, delta, cutoff + 2)),
+        ),
+
+        // Says elimination forms
+        Term::LetSays(p, scrut, body) => Term::LetSays(
+            p.clone(),
+            Box::new(shift(scrut, delta, cutoff)),
+            Box::new(shift(body, delta, cutoff + 1)),
+        ),
+        Term::SfExtract(m) => Term::SfExtract(Box::new(shift(m, delta, cutoff))),
     }
 }
 
@@ -117,6 +154,37 @@ fn subst_at(body: &Term, value: &Term, depth: u32) -> Term {
         Term::WithinIntro(t, m) => {
             Term::WithinIntro(t.clone(), Box::new(subst_at(m, value, depth)))
         }
+
+        Term::Pair(a, b) => Term::Pair(
+            Box::new(subst_at(a, value, depth)),
+            Box::new(subst_at(b, value, depth)),
+        ),
+        Term::Fst(a) => Term::Fst(Box::new(subst_at(a, value, depth))),
+        Term::Snd(a) => Term::Snd(Box::new(subst_at(a, value, depth))),
+
+        Term::Inl(p, a) => Term::Inl(p.clone(), Box::new(subst_at(a, value, depth))),
+        Term::Inr(p, a) => Term::Inr(p.clone(), Box::new(subst_at(a, value, depth))),
+        Term::Case(scrut, left, right) => Term::Case(
+            Box::new(subst_at(scrut, value, depth)),
+            Box::new(subst_at(left, value, depth + 1)),
+            Box::new(subst_at(right, value, depth + 1)),
+        ),
+
+        Term::TensorIntro(a, b) => Term::TensorIntro(
+            Box::new(subst_at(a, value, depth)),
+            Box::new(subst_at(b, value, depth)),
+        ),
+        Term::LetTensor(scrut, body) => Term::LetTensor(
+            Box::new(subst_at(scrut, value, depth)),
+            Box::new(subst_at(body, value, depth + 2)),
+        ),
+
+        Term::LetSays(p, scrut, body) => Term::LetSays(
+            p.clone(),
+            Box::new(subst_at(scrut, value, depth)),
+            Box::new(subst_at(body, value, depth + 1)),
+        ),
+        Term::SfExtract(m) => Term::SfExtract(Box::new(subst_at(m, value, depth))),
     }
 }
 

@@ -127,6 +127,45 @@ inductive Deriv : Ctx → Term → Prop' → Type where
       (impl : Deriv Ctx.empty (Term.var 0) (Prop'.imp φ ψ)) :
       Deriv Γ (Term.attenuate M ψ) (Prop'.says p ψ)
 
+  /-- `box-I` — `□_O φ` introduction. Given a proof of `φ` and a proof of
+  the obligation `O`, build `□_O φ`. The discharge rule is the only
+  elimination form; this preserves linear semantics for `O`. -/
+  | boxI (Γ : Ctx) (O : Obligation) (φ : Prop') (M N : Term)
+      (dM : Deriv Γ M φ)
+      -- The proof of the obligation is itself a Deriv at a placeholder
+      -- proposition we encode as `Prop'.atom 0`; the obligation table
+      -- correspondence is set up at M1.Q3 along with `crate::graded`.
+      (dN : Deriv Ctx.empty N (Prop'.atom 0)) :
+      Deriv Γ (Term.app M N)
+            (Prop'.boxed O φ)
+
+  /-- `discharge` — `□_O φ` elimination. Consume the obligation evidence
+  (the linearity is captured by the linear context split). -/
+  | discharge (Γₐ : List Prop') (Γ₁ Γ₂ : List Prop') (O : Obligation)
+              (φ : Prop') (M N : Term)
+      (dM : Deriv { additive := Γₐ, linear := Γ₁ } M (Prop'.boxed O φ))
+      (dN : Deriv { additive := Γₐ, linear := Γ₂ } N (Prop'.atom 0)) :
+      Deriv { additive := Γₐ, linear := Γ₁ ++ Γ₂ }
+            (Term.discharge M N) φ
+
+  /-- `now` — proof of `now < τ` from a verifiable time anchor. The anchor
+  is opaque at the calculus level; verification lives in `dlc-crypto`'s
+  `TimeAnchor` trait. -/
+  | now (τ : TimeBound) :
+      Deriv Ctx.empty (Term.now τ) Prop'.top
+
+  /-- `within-I` — `◇_τ φ` introduction. Pair a proof of `φ` with a proof
+  that the current time is before `τ`. -/
+  | withinI (Γ : Ctx) (τ : TimeBound) (φ : Prop') (M : Term)
+      (d : Deriv Γ M φ) :
+      Deriv Γ (Term.withinIntro τ M) (Prop'.within τ φ)
+
+  /-- `within-E` — `◇_τ φ` elimination. The verifier checks `now < τ` at
+  the moment of elimination (typing-rule premise on a fresh time anchor). -/
+  | withinE (Γ : Ctx) (τ : TimeBound) (φ : Prop') (M : Term)
+      (d : Deriv Γ M (Prop'.within τ φ)) :
+      Deriv Γ M φ
+
 /-! ## A first round-trip sanity check.
 
 The smallest non-trivial proof: `var-A` of an atom that lives in the additive

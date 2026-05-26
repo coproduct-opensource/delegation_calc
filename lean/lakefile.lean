@@ -39,7 +39,8 @@ lean_lib «DLC» where
     `DLC.Obligation,
     `DLC.Time,
     `DLC.Subst,
-    `DLC.Reduce
+    `DLC.Reduce,
+    `DLC.Graded
   ]
 
 -- The four headline theorems live in dedicated libs so `lake build` can run

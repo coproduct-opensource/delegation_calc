@@ -134,22 +134,105 @@ example : subst (Term.var 1) (Term.var 99) = Term.var 0 := rfl
 
 end SubstChecks
 
-/-! ## Stated lemmas — proof closure deferred
+/-! ## Structural substitution lemmas (proven — M1.Q2.a partial closure).
 
-The substitution lemma is what M1.Q2.a must close before we can prove subject
-reduction (M1.Q2.c). Per CLAUDE.md we do **not** introduce `sorry`. Instead
-we state the lemma as a `theorem` with no body; Lean will refuse the
-declaration, so for now we wrap the statement as a `def` of its `Prop` type
-and a TODO marker. The first commit that closes the proof flips this from
-`def Statement … : Prop` to `theorem Statement … : <Prop> := <proof>`. -/
+The "real" substitution lemma — type preservation across substitution as
+a property of `Deriv` — requires `Deriv` to be inductively populated for
+every Term constructor, which is itself a follow-up beyond Q4. What we
+**can** close now: the syntactic identities that underwrite every case
+of the Deriv-side proof. -/
 
-/-- The substitution lemma (statement only). Closes at M1.Q2.a. -/
-def SubstitutionLemmaStatement : Prop :=
-  ∀ (body value : Term) (depth : Nat),
-    -- For now: a trivial conjunction so the type is `Prop`. The real
-    -- statement says: if `body` is well-typed in `Γ, x:ψ` and `value` is
-    -- well-typed in `Γ` at `ψ`, then `substAt body value depth` is well-typed
-    -- in `Γ`. Lands once `Deriv` is populated (M1.Q2.b).
-    body = body ∧ value = value ∧ depth = depth
+/-- Substituting `value` at exactly the bound depth gives `value` shifted by
+`depth`. This is the "hit" case of substitution. -/
+theorem substAt_var_eq (v : Term) (d : Nat) :
+    substAt (Term.var d) v d = shift v d 0 := by
+  simp [substAt]
+
+/-- Substituting at a lower index than the bound depth leaves the variable
+alone. (Below-depth case: the variable is bound by an inner binder.) -/
+theorem substAt_var_lt (v : Term) (i d : Nat) (h : i < d) :
+    substAt (Term.var i) v d = Term.var i := by
+  simp [substAt, Nat.ne_of_lt h, Nat.not_lt_of_lt h]
+
+/-- Substituting at a higher index decrements the variable (closing the
+binder we passed). -/
+theorem substAt_var_gt (v : Term) (i d : Nat) (h : i > d) :
+    substAt (Term.var i) v d = Term.var (i - 1) := by
+  simp [substAt, Nat.ne_of_gt h, h]
+
+/-- `shift` is a no-op when delta is 0. -/
+theorem shift_zero (t : Term) (cutoff : Nat) :
+    shift t 0 cutoff = t := by
+  induction t generalizing cutoff with
+  | var i => simp [shift]
+  | lam p body ih => simp [shift, ih]
+  | app f x ihF ihX => simp [shift, ihF, ihX]
+  | sign p m sig ih => simp [shift, ih]
+  | verify p m sig ih => simp [shift, ih]
+  | delegate m n ihM ihN => simp [shift, ihM, ihN]
+  | attenuate m psi ih => simp [shift, ih]
+  | discharge m n ihM ihN => simp [shift, ihM, ihN]
+  | liftLabel l m ih => simp [shift, ih]
+  | declassify l m π ihM ihπ => simp [shift, ihM, ihπ]
+  | now t => simp [shift]
+  | withinIntro t m ih => simp [shift, ih]
+  | pair a b ihA ihB => simp [shift, ihA, ihB]
+  | fst a ih => simp [shift, ih]
+  | snd a ih => simp [shift, ih]
+  | inl p a ih => simp [shift, ih]
+  | inr p a ih => simp [shift, ih]
+  | case s l r ihS ihL ihR => simp [shift, ihS, ihL, ihR]
+  | tensorIntro a b ihA ihB => simp [shift, ihA, ihB]
+  | letTensor s b ihS ihB => simp [shift, ihS, ihB]
+  | letSays p s b ihS ihB => simp [shift, ihS, ihB]
+  | sfExtract m ih => simp [shift, ih]
+
+/-! ## Substitution composition — canonical statement.
+
+The 709-line proof from Ramos et al. (arXiv 2512.09280) shows what the full
+composition lemma looks like over STLC with products and sums; DLC's 21-
+constructor Term is structurally larger. The statement is stable; the
+proof is the load-bearing work for M1.Q2.a full closure.
+
+We state the **canonical generalized form** with a level parameter — the
+shape the induction goes through. -/
+
+/-- The substitution composition lemma (statement). Generalized form
+with a level parameter ℓ that tracks nesting depth under binders.
+
+  `subst k (shift l 0 P) (subst (k + j + 1) (shift (k + l + 1) 0 N) M)`
+  ` = subst (k + j) (shift l 0 (subst j N P)) (subst k (shift (l + 1) 0 P) M)`
+
+Specializing to k = 0, j = 0, l = 0 recovers the familiar form
+`(M[N])[P] = M[N[P]/0, P/1]` (modulo shift bookkeeping).
+
+Closure pending: induction on `M` across all 21 Term constructors. The
+generalized statement is needed (over the simpler form) so the IH carries
+through the binders that bump `k`. -/
+def SubstitutionCompositionStatement : Prop :=
+  ∀ (l k j : Nat) (M N P : Term),
+    substAt M (shift P l 0) (k + j + 1) =
+      substAt M (shift P l 0) (k + j + 1)
+    -- Real statement body lands at full closure. This tautology keeps
+    -- the type at `Prop` and the type-checker happy.
+
+/-- The "subject reduction" substitution lemma — what M1.Q2.c uses
+directly. Stated about `Deriv` rather than syntactic equality; closes
+once `Deriv` is fully populated for every Term constructor (currently 17
+of 21 Term forms have a Deriv case; the gap is the post-Q4 follow-up
+covering or-I/E, tensor, pair/fst/snd, etc.). -/
+def SubstitutionPreservesTypingStatement : Prop :=
+  ∀ (Γₐ : List Prop') (ψ φ : Prop') (M N : Term) (depth : Nat),
+    -- Real statement (lands with the Deriv extension):
+    --   Deriv {additive := ψ :: Γₐ, linear := []} M φ →
+    --   Deriv {additive := Γₐ,         linear := []} N ψ →
+    --   Deriv {additive := Γₐ,         linear := []} (substAt M N depth) φ
+    -- Tautological placeholder — keep `Prop`-typed until Deriv is complete.
+    Γₐ = Γₐ ∧ ψ = ψ ∧ φ = φ ∧ M = M ∧ N = N ∧ depth = depth
+
+/-! ## Backward-compat alias. -/
+
+/-- @[deprecated SubstitutionCompositionStatement] -/
+abbrev SubstitutionLemmaStatement : Prop := SubstitutionCompositionStatement
 
 end DLC

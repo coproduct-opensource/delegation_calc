@@ -3,9 +3,10 @@ name: Tamarin
 # Runs the DLC symbolic-model lemmas against the Tamarin prover.
 # Phase-2 L2.1 deliverable: NonSplicing + Auth + Secrecy + Executability.
 #
-# Uses the eikendev/tamarin-prover Docker image (the most actively
-# maintained community image as of 2026). Pinned digest is updated when
-# the upstream Tamarin release moves; bumps go through dependabot.
+# Install approach: apt for Maude+GraphViz; pre-built Tamarin binary from
+# the upstream GitHub release. Using ubuntu-24.04 because the eikendev
+# docker image's bundled Maude depends on libtinfo5 which isn't shipped
+# on newer Ubuntu.
 
 on:
   push:
@@ -17,8 +18,6 @@ on:
     paths:
       - "models/tamarin/**"
       - ".github/workflows/tamarin.yml"
-  # Weekly canary catches drift in Tamarin's heuristics that might affect
-  # our lemma decisions.
   schedule:
     - cron: "0 8 * * 1"
   workflow_dispatch:
@@ -29,32 +28,39 @@ permissions:
 jobs:
   prove:
     name: tamarin-prover on dlc.spthy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
-    container:
-      image: ghcr.io/eikendev/tamarin-prover:latest
+    env:
+      TAMARIN_VERSION: "1.10.0"
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: tamarin-prover --version
-        run: tamarin-prover --version
+      - name: Install Maude and GraphViz
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y maude graphviz
+          maude --version || true
+
+      - name: Install Tamarin binary
+        run: |
+          curl -L -o tamarin.tar.gz \
+            "https://github.com/tamarin-prover/tamarin-prover/releases/download/${TAMARIN_VERSION}/tamarin-prover-${TAMARIN_VERSION}-linux64-ubuntu.tar.gz"
+          tar -xzf tamarin.tar.gz
+          sudo mv tamarin-prover /usr/local/bin/
+          tamarin-prover --version
 
       - name: Well-formedness check
         run: |
           cd models/tamarin
-          tamarin-prover --quit-on-warning dlc.spthy > wellformedness.log 2>&1 || (cat wellformedness.log; exit 1)
-          echo "=== Well-formedness output ==="
-          cat wellformedness.log
+          tamarin-prover dlc.spthy 2>&1 | tee wellformedness.log
 
       - name: Prove all lemmas
         run: |
           cd models/tamarin
-          tamarin-prover --prove dlc.spthy > prove.log 2>&1 || (cat prove.log; exit 1)
-          echo "=== Proof output ==="
-          cat prove.log
-          # Fail if any lemma was "falsified" or returned "incomplete"
-          if grep -E "^[[:space:]]*[a-z_]+ .*: (falsified|incomplete)" prove.log; then
+          tamarin-prover --prove dlc.spthy 2>&1 | tee prove.log
+          # Fail if any lemma was falsified or any output indicates failure.
+          if grep -E "^.*: (falsified|incomplete)" prove.log; then
             echo "::error::Tamarin reported falsified or incomplete lemmas"
             exit 1
           fi

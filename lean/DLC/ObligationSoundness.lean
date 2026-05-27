@@ -326,15 +326,186 @@ theorem pendingObligations_substAt_subset (body : Term) :
     unfold pendingObligations at hmem
     exact ih value depth o hmem
 
-/-! ## T4 — statement; full closure on a follow-up PR.
+/-! ## T4 — Proven (non-introduction direction).
 
-`t4_no_new_obligation` (the step-case analysis using
-`pendingObligations_substAt_subset`) goes on a follow-up PR to keep this
-one focused on the substitution sub-lemma alone. The non-introduction
-direction of T4 will then be `proven`. -/
+The case analysis over `step`'s 7 productive redexes uses
+`pendingObligations_substAt_subset` for the four substitution-style
+redexes (β, case, letTensor, letSays) and direct list-membership
+arithmetic for the three rearrangement redexes (delegate, fst/snd,
+sfExtract). The remaining 14 outer constructors contradict the
+`step M = some M'` hypothesis. -/
 
-/-- T4 — Obligation soundness statement (non-introduction direction). -/
-def T4_ObligationSoundnessStatement : Prop :=
+/-- T4 — Reduction never introduces a new obligation. -/
+theorem t4_no_new_obligation
+    (M M' : Term) (h : step M = some M') :
+    ∀ (o : Obligation),
+      o ∈ pendingObligations M' → o ∈ pendingObligations M := by
+  intro o hmem
+  cases M with
+  | var _ => simp [step] at h
+  | lam _ _ => simp [step] at h
+  | app f x =>
+    -- β is the only productive sub-case; all other f shapes give none.
+    cases f with
+    | lam _ body =>
+      -- step (app (lam _ body) x) = some (subst body x)
+      -- so by injection, M' = subst body x.
+      simp only [step] at h
+      -- h : some (subst body x) = some M'
+      -- Inject: M' = subst body x. We rewrite hmem using the equality.
+      have hM' : M' = subst body x := by
+        have := Option.some.inj h
+        exact this.symm
+      rw [hM'] at hmem
+      -- hmem : o ∈ pendingObligations (subst body x)
+      -- subst body x = substAt body x 0 by defn of subst.
+      have hsub : o ∈ pendingObligations (substAt body x 0) := hmem
+      rcases pendingObligations_substAt_subset body x 0 o hsub with hB | hX
+      · show o ∈ pendingObligations body ++ pendingObligations x
+        exact List.mem_append.mpr (Or.inl hB)
+      · show o ∈ pendingObligations body ++ pendingObligations x
+        exact List.mem_append.mpr (Or.inr hX)
+    | _ => simp [step] at h
+  | sign _ _ _ => simp [step] at h
+  | verify _ _ _ => simp [step] at h
+  | delegate m n =>
+    -- delegate-β: only fires when both m and n are signs.
+    cases m with
+    | sign p _ _ =>
+      cases n with
+      | sign q inner sig' =>
+        -- step (delegate (sign p _ _) (sign q inner sig'))
+        --   = some (sign (acting p q) inner sig')
+        simp only [step] at h
+        have hM' : M' = Term.sign (Principal.acting p q) inner sig' :=
+          (Option.some.inj h).symm
+        rw [hM'] at hmem
+        -- hmem : o ∈ pendingObligations (Term.sign _ inner _)
+        --      = pendingObligations inner
+        show o ∈ pendingObligations (Term.sign p _ _) ++
+                  pendingObligations (Term.sign q inner sig')
+        exact List.mem_append.mpr (Or.inr hmem)
+      | _ => simp [step] at h
+    | _ => simp [step] at h
+  | attenuate _ _ => simp [step] at h
+  | discharge _ _ => simp [step] at h
+  | liftLabel _ _ => simp [step] at h
+  | declassify _ _ _ => simp [step] at h
+  | now _ => simp [step] at h
+  | withinIntro _ _ => simp [step] at h
+  | pair _ _ => simp [step] at h
+  | fst t =>
+    cases t with
+    | pair a b =>
+      -- step (fst (pair a b)) = some a, so M' = a.
+      simp only [step] at h
+      have hM' : M' = a := (Option.some.inj h).symm
+      rw [hM'] at hmem
+      -- hmem : o ∈ pendingObligations a
+      show o ∈ pendingObligations a ++ pendingObligations b
+      exact List.mem_append.mpr (Or.inl hmem)
+    | _ => simp [step] at h
+  | snd t =>
+    cases t with
+    | pair a b =>
+      simp only [step] at h
+      have hM' : M' = b := (Option.some.inj h).symm
+      rw [hM'] at hmem
+      show o ∈ pendingObligations a ++ pendingObligations b
+      exact List.mem_append.mpr (Or.inr hmem)
+    | _ => simp [step] at h
+  | inl _ _ => simp [step] at h
+  | inr _ _ => simp [step] at h
+  | case scrut left right =>
+    -- Two productive sub-cases: scrut = inl _ a or inr _ a.
+    cases scrut with
+    | inl _ a =>
+      -- step (case (inl _ a) left right) = some (subst left a)
+      simp only [step] at h
+      have hM' : M' = subst left a := (Option.some.inj h).symm
+      rw [hM'] at hmem
+      have hsub : o ∈ pendingObligations (substAt left a 0) := hmem
+      rcases pendingObligations_substAt_subset left a 0 o hsub with hL | hA
+      · -- o was in left's obligations -- goes into the (S ++ L) ++ R slot via (left of outer)
+        show o ∈ (pendingObligations (Term.inl _ a) ++ pendingObligations left) ++ pendingObligations right
+        exact List.mem_append.mpr (Or.inl (List.mem_append.mpr (Or.inr hL)))
+      · -- o was in a's obligations; a is inside (inl _ a) so it goes via the scrutinee
+        show o ∈ (pendingObligations (Term.inl _ a) ++ pendingObligations left) ++ pendingObligations right
+        -- pendingObligations (Term.inl _ a) = pendingObligations a
+        exact List.mem_append.mpr (Or.inl (List.mem_append.mpr (Or.inl hA)))
+    | inr _ a =>
+      simp only [step] at h
+      have hM' : M' = subst right a := (Option.some.inj h).symm
+      rw [hM'] at hmem
+      have hsub : o ∈ pendingObligations (substAt right a 0) := hmem
+      rcases pendingObligations_substAt_subset right a 0 o hsub with hR | hA
+      · show o ∈ (pendingObligations (Term.inr _ a) ++ pendingObligations left) ++ pendingObligations right
+        exact List.mem_append.mpr (Or.inr hR)
+      · show o ∈ (pendingObligations (Term.inr _ a) ++ pendingObligations left) ++ pendingObligations right
+        exact List.mem_append.mpr (Or.inl (List.mem_append.mpr (Or.inl hA)))
+    | _ => simp [step] at h
+  | tensorIntro _ _ => simp [step] at h
+  | letTensor scrut body =>
+    cases scrut with
+    | tensorIntro a b =>
+      -- step (letTensor (tensorIntro a b) body) = some (subst (subst body a) b)
+      simp only [step] at h
+      have hM' : M' = subst (subst body a) b := (Option.some.inj h).symm
+      rw [hM'] at hmem
+      -- hmem : o ∈ pendingObligations (substAt (substAt body a 0) b 0)
+      have hsub : o ∈ pendingObligations (substAt (substAt body a 0) b 0) := hmem
+      rcases pendingObligations_substAt_subset (substAt body a 0) b 0 o hsub with hBodyA | hB
+      · -- o was in the substituted-body, recurse
+        rcases pendingObligations_substAt_subset body a 0 o hBodyA with hBody | hA
+        · -- o in body
+          show o ∈ pendingObligations (Term.tensorIntro a b) ++ pendingObligations body
+          exact List.mem_append.mpr (Or.inr hBody)
+        · -- o in a (inside tensorIntro)
+          show o ∈ pendingObligations (Term.tensorIntro a b) ++ pendingObligations body
+          exact List.mem_append.mpr (Or.inl
+            (show o ∈ pendingObligations a ++ pendingObligations b from
+              List.mem_append.mpr (Or.inl hA)))
+      · -- o in b (inside tensorIntro)
+        show o ∈ pendingObligations (Term.tensorIntro a b) ++ pendingObligations body
+        exact List.mem_append.mpr (Or.inl
+          (show o ∈ pendingObligations a ++ pendingObligations b from
+            List.mem_append.mpr (Or.inr hB)))
+    | _ => simp [step] at h
+  | letSays p scrut body =>
+    cases scrut with
+    | sign p' m _ =>
+      -- step (letSays p (sign p' m _) body) = if p = p' then some (subst body m) else none
+      simp only [step] at h
+      split at h
+      · -- p = p' case
+        have hM' : M' = subst body m := (Option.some.inj h).symm
+        rw [hM'] at hmem
+        have hsub : o ∈ pendingObligations (substAt body m 0) := hmem
+        rcases pendingObligations_substAt_subset body m 0 o hsub with hBody | hM
+        · show o ∈ pendingObligations (Term.sign p' m _) ++ pendingObligations body
+          exact List.mem_append.mpr (Or.inr hBody)
+        · -- o was in m (inside sign p' m _), so in pendingObligations of scrut
+          show o ∈ pendingObligations (Term.sign p' m _) ++ pendingObligations body
+          exact List.mem_append.mpr (Or.inl hM)
+      · -- p ≠ p' case: step returned none, contradicts hypothesis.
+        simp at h
+    | _ => simp [step] at h
+  | sfExtract t =>
+    cases t with
+    | sign _ m _ =>
+      -- step (sfExtract (sign _ m _)) = some m
+      simp only [step] at h
+      have hM' : M' = m := (Option.some.inj h).symm
+      rw [hM'] at hmem
+      -- hmem : o ∈ pendingObligations m
+      -- goal : o ∈ pendingObligations (Term.sfExtract (Term.sign _ m _))
+      --       = pendingObligations (Term.sign _ m _) = pendingObligations m
+      exact hmem
+    | _ => simp [step] at h
+
+/-- T4 — Obligation soundness statement (non-introduction direction).
+Kept as `abbrev` aliasing the proved theorem's statement. -/
+abbrev T4_ObligationSoundnessStatement : Prop :=
   ∀ (M M' : Term), step M = some M' →
     ∀ (o : Obligation),
       o ∈ pendingObligations M' → o ∈ pendingObligations M

@@ -124,13 +124,23 @@ inductive Deriv : Ctx → Term → Prop' → Type where
 
   /-- `attenuate` — narrow a `p says φ` to a `p says ψ`, requiring that `ψ`
   follows from `φ` and that the IFC label of `ψ` is below `φ`'s. The label
-  side-condition lives in `DLC.IFCLabel` and is added at M1.Q4.a. -/
-  | attenuate (Γ : Ctx) (p : Principal) (φ ψ : Prop') (M : Term)
+  side-condition lives in `DLC.IFCLabel` and is added at M1.Q4.a.
+
+  The provability side-condition `φ ⊃ ψ` is internalized via the deduction
+  theorem: a derivation of `ψ` in a context with `φ` as the sole hypothesis
+  is propositionally equivalent to a derivation of `φ ⊃ ψ` in the empty
+  context. The witness term `N` is the proof of `ψ` from `φ`; it lives
+  separately from the main subject `M` (which is the `says p φ` carrier).
+
+  Earlier the premise was `Deriv Ctx.empty (Term.var 0) (Prop'.imp φ ψ)`,
+  which was uninhabited (`Term.var 0` in `Ctx.empty` has no var to bind).
+  Adding `N` as a constructor parameter and weakening the premise context
+  to `consA φ Ctx.empty` (a singleton additive hypothesis) makes the
+  premise inhabited whenever `φ ⊢ ψ` holds — exactly when attenuation
+  should be admissible. -/
+  | attenuate (Γ : Ctx) (p : Principal) (φ ψ : Prop') (M N : Term)
       (d : Deriv Γ M (Prop'.says p φ))
-      -- Side condition `φ ⊃ ψ` is provability, decidable for the propositional
-      -- fragment via T1's `decide_pure`. Carried here as an explicit
-      -- additional Deriv premise.
-      (impl : Deriv Ctx.empty (Term.var 0) (Prop'.imp φ ψ)) :
+      (impl : Deriv (Ctx.consA φ Ctx.empty) N ψ) :
       Deriv Γ (Term.attenuate M ψ) (Prop'.says p ψ)
 
   /-- `box-I` — `□_O φ` introduction. Given a proof of `φ` and a proof of

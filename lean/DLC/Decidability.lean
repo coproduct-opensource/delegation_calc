@@ -322,16 +322,15 @@ theorem t1_propositional_soundness (M : Term) :
     have hprop' : m.isPropositional = true := by
       simp [Term.isPropositional] at hprop; exact hprop
     unfold decideLean at hdec
-    -- Outer match on decideLean Γ m; must be some (Prop'.says p' inner).
     split at hdec
     · rename_i p' inner hm
-      -- hdec : (if decide (p = p') then some inner else none) = some φ
       by_cases hp : p = p'
       · rw [if_pos (decide_eq_true_iff.mpr hp)] at hdec
+        -- hdec : some inner = some φ. Extract equalities without subst
+        -- (both inner and φ are free vars; subst direction is ambiguous).
         have hinner : inner = φ := Option.some.inj hdec
-        subst hinner
-        subst hp
-        -- ihm gives Nonempty (Deriv ... m (Prop'.says p φ))
+        -- Rewrite hm to talk about p and φ instead of p' and inner.
+        rw [← hp, hinner] at hm
         have ⟨dM⟩ := ihm Γₐ (Prop'.says p φ) hprop' hm
         exact ⟨Deriv.verifyE _ p φ m sig dM⟩
       · rw [if_neg (by simpa using hp)] at hdec
@@ -802,8 +801,7 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
       by_cases hp : p = p'
       · rw [if_pos (decide_eq_true_iff.mpr hp)] at hdec
         have hinner : inner = φ := Option.some.inj hdec
-        subst hinner
-        subst hp
+        rw [← hp, hinner] at hm
         exact PropDeriv.verifyE _ p φ m sig (ihm _ _ hm)
       · rw [if_neg (by simpa using hp)] at hdec
         cases hdec

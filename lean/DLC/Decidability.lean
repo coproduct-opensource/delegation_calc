@@ -514,19 +514,20 @@ theorem t1_propositional_soundness (M : Term) :
         cases hL : decideLean { additive := α :: Γₐ, linear := [] } l with
         | none =>
           unfold decideLean at hdec
-          rw [hS] at hdec
-          simp [Ctx.consA, hL] at hdec
+          simp only [Ctx.consA] at hdec
+          rw [hS, hL] at hdec
+          simp at hdec
         | some χL =>
           cases hR : decideLean { additive := β :: Γₐ, linear := [] } r with
           | none =>
             unfold decideLean at hdec
-            rw [hS] at hdec
-            simp [Ctx.consA, hL, hR] at hdec
+            simp only [Ctx.consA] at hdec
+            rw [hS, hL, hR] at hdec
+            simp at hdec
           | some χR =>
             unfold decideLean at hdec
-            rw [hS] at hdec
             simp only [Ctx.consA] at hdec
-            rw [hL, hR] at hdec
+            rw [hS, hL, hR] at hdec
             -- hdec : (if Prop'.beq χL χR then some χL else none) = some φ
             by_cases hbeq : Prop'.beq χL χR = true
             · rw [if_pos hbeq] at hdec
@@ -1091,16 +1092,7 @@ theorem t1_propositional_completeness :
     -- decideLean of Term.case matches on scrutinee = some (or φ ψ), then
     -- checks branch types via Prop'.beq χ χ which is refl-true.
     unfold decideLean
-    rw [ihS]
-    -- IHs ihL and ihR give: decideLean (consA φ Γ) L = some χ
-    -- and decideLean (consA ψ Γ) R = some χ. We need to massage to
-    -- consA's expanded form.
-    have hL : decideLean { additive := φ :: Γₐ, linear := [] } L = some χ := by
-      simpa [Ctx.consA] using ihL
-    have hR : decideLean { additive := ψ :: Γₐ, linear := [] } R = some χ := by
-      simpa [Ctx.consA] using ihR
-    rw [hL, hR]
-    simp [Prop'.beq_refl]
+    simp only [ihS, Ctx.consA, ihL, ihR, Prop'.beq_refl, if_true]
 
 /-! ## Inversion lemmas — the term shape determines the constructor.
 
@@ -1324,19 +1316,20 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
         cases hL : decideLean { additive := α :: Γₐ, linear := [] } l with
         | none =>
           unfold decideLean at hdec
-          rw [hS] at hdec
-          simp [Ctx.consA, hL] at hdec
+          simp only [Ctx.consA] at hdec
+          rw [hS, hL] at hdec
+          simp at hdec
         | some χL =>
           cases hR : decideLean { additive := β :: Γₐ, linear := [] } r with
           | none =>
             unfold decideLean at hdec
-            rw [hS] at hdec
-            simp [Ctx.consA, hL, hR] at hdec
+            simp only [Ctx.consA] at hdec
+            rw [hS, hL, hR] at hdec
+            simp at hdec
           | some χR =>
             unfold decideLean at hdec
-            rw [hS] at hdec
             simp only [Ctx.consA] at hdec
-            rw [hL, hR] at hdec
+            rw [hS, hL, hR] at hdec
             by_cases hbeq : Prop'.beq χL χR = true
             · rw [if_pos hbeq] at hdec
               have hφ : χL = φ := Option.some.inj hdec

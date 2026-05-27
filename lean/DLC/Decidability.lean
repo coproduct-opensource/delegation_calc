@@ -613,33 +613,35 @@ theorem t1_propositional_soundness (M : Term) :
     have hprop' := hprop
     simp [Term.isPropositional] at hprop'
     obtain ⟨hpropM, hpropN⟩ := hprop'
+    -- Use simp to peel decideLean fully, leveraging propagation of all
+    -- the cases through Lean's simp+iota reduction. This avoids the
+    -- compound case-tag issue with nested by_cases.
     cases hM : decideLean { additive := Γₐ, linear := [] } m with
     | none => simp [decideLean, hM] at hdec
     | some tyM =>
-      cases tyM
-      case «says» m_principal m_inner =>
-        cases m_inner
-        case speaksFor q_outer p_outer =>
-          by_cases hpp : p_outer = m_principal
-          · cases hN : decideLean { additive := Γₐ, linear := [] } n with
-            | none => simp [decideLean, hM, hN, hpp] at hdec
-            | some tyN =>
-              cases tyN
-              case «says» n_principal n_inner =>
-                by_cases hqn : q_outer = n_principal
-                · have hφ : Prop'.says (Principal.acting p_outer n_principal) n_inner = φ := by
-                    simpa [decideLean, hM, hN, hpp, hqn] using hdec
-                  rw [← hφ]
-                  have ⟨dM⟩ := ihm Γₐ (Prop'.says m_principal (Prop'.speaksFor q_outer p_outer)) hpropM hM
-                  have ⟨dN⟩ := ihn Γₐ (Prop'.says n_principal n_inner) hpropN hN
-                  rw [← hpp] at dM
-                  rw [← hqn] at dN
-                  exact ⟨Deriv.delegate Γₐ [] [] p_outer q_outer n_inner m n dM dN⟩
-                · simp [decideLean, hM, hN, hpp, hqn] at hdec
-              all_goals (simp [decideLean, hM, hN, hpp] at hdec)
-          · simp [decideLean, hM, hpp] at hdec
-        all_goals (simp [decideLean, hM] at hdec)
-      all_goals (simp [decideLean, hM] at hdec)
+      cases hN : decideLean { additive := Γₐ, linear := [] } n with
+      | none => simp [decideLean, hM, hN] at hdec
+      | some tyN =>
+        -- Now use simp to fully reduce. If the principal/structure
+        -- conditions hold, hdec gives us the result type.
+        simp only [decideLean, hM, hN] at hdec
+        -- Pattern-match on the Prop' shapes via match in tactic mode.
+        match tyM, tyN, hdec with
+        | Prop'.says m_p (Prop'.speaksFor q_outer p_outer),
+          Prop'.says n_p n_inner, hdec' =>
+          by_cases hpp : p_outer = m_p
+          · by_cases hqn : q_outer = n_p
+            · have hφ : Prop'.says (Principal.acting p_outer n_p) n_inner = φ := by
+                simpa [hpp, hqn] using hdec'
+              rw [← hφ]
+              have ⟨dM⟩ := ihm Γₐ (Prop'.says m_p (Prop'.speaksFor q_outer p_outer)) hpropM hM
+              have ⟨dN⟩ := ihn Γₐ (Prop'.says n_p n_inner) hpropN hN
+              rw [← hpp] at dM
+              rw [← hqn] at dN
+              exact ⟨Deriv.delegate Γₐ [] [] p_outer q_outer n_inner m n dM dN⟩
+            · simp [hpp, hqn] at hdec'
+          · simp [hpp] at hdec'
+        | _, _, hdec' => simp at hdec'
   -- All non-propositional constructors are rejected by `isPropositional`:
   -- isPropositional returns false, so the hypothesis is contradictory.
   all_goals (intro Γₐ φ hprop hdec; simp [Term.isPropositional] at hprop)
@@ -1181,14 +1183,10 @@ noncomputable def propDeriv_subject_reduction
       | sign _ inner sig' =>
         simp [step] at h
         subst h
-        -- dM : PropDeriv Γₐ (sign ...) (says p (speaksFor q p))
-        -- dN : PropDeriv Γₐ (sign q inner sig') (says q φ)
-        -- After inversion: dM_inner is the speaksFor proof; dN_inner is inner's φ.
         cases dN with
         | saysI _ _ _ _ _ dInnerN =>
-          -- dInnerN : PropDeriv Γₐ inner φ.
-          -- Goal: PropDeriv Γₐ (sign (acting p q) inner sig') (says (acting p q) φ).
-          exact PropDeriv.saysI _ (Principal.acting p q) φ inner sig' dInnerN
+          -- Use `_` for principals: Lean infers from the goal's type.
+          exact PropDeriv.saysI _ _ φ inner sig' dInnerN
       | _ => simp [step] at h
     | _ => simp [step] at h
 
@@ -1576,29 +1574,25 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
     cases hM : decideLean { additive := Γₐ, linear := [] } m with
     | none => simp [decideLean, hM] at hdec
     | some tyM =>
-      cases tyM
-      case «says» m_principal m_inner =>
-        cases m_inner
-        case speaksFor q_outer p_outer =>
-          by_cases hpp : p_outer = m_principal
-          · cases hN : decideLean { additive := Γₐ, linear := [] } n with
-            | none => simp [decideLean, hM, hN, hpp] at hdec
-            | some tyN =>
-              cases tyN
-              case «says» n_principal n_inner =>
-                by_cases hqn : q_outer = n_principal
-                · have hφ : Prop'.says (Principal.acting p_outer n_principal) n_inner = φ := by
-                    simpa [decideLean, hM, hN, hpp, hqn] using hdec
-                  rw [← hφ]
-                  rw [← hpp] at hM
-                  rw [← hqn] at hN
-                  exact PropDeriv.delegate _ p_outer q_outer n_inner m n
-                    (ihm _ _ hM) (ihn _ _ hN)
-                · simp [decideLean, hM, hN, hpp, hqn] at hdec
-              all_goals (simp [decideLean, hM, hN, hpp] at hdec)
-          · simp [decideLean, hM, hpp] at hdec
-        all_goals (simp [decideLean, hM] at hdec)
-      all_goals (simp [decideLean, hM] at hdec)
+      cases hN : decideLean { additive := Γₐ, linear := [] } n with
+      | none => simp [decideLean, hM, hN] at hdec
+      | some tyN =>
+        simp only [decideLean, hM, hN] at hdec
+        match tyM, tyN, hdec with
+        | Prop'.says m_p (Prop'.speaksFor q_outer p_outer),
+          Prop'.says n_p n_inner, hdec' =>
+          by_cases hpp : p_outer = m_p
+          · by_cases hqn : q_outer = n_p
+            · have hφ : Prop'.says (Principal.acting p_outer n_p) n_inner = φ := by
+                simpa [hpp, hqn] using hdec'
+              rw [← hφ]
+              rw [← hpp] at hM
+              rw [← hqn] at hN
+              exact PropDeriv.delegate _ p_outer q_outer n_inner m n
+                (ihm _ _ hM) (ihn _ _ hN)
+            · simp [hpp, hqn] at hdec'
+          · simp [hpp] at hdec'
+        | _, _, hdec' => simp at hdec'
   all_goals (intro Γₐ φ hdec; simp [decideLean] at hdec)
 
 /-! ## T1 — The Decidable instance.

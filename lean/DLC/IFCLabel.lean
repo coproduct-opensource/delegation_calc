@@ -23,6 +23,19 @@ namespace DLC
 M1.Q4.a established this binding. -/
 abbrev Label := portcullis_core.CapabilityLattice
 
+/-! ## `DecidableEq` instances for the Aeneas-generated capability types.
+
+The Aeneas backend emits `CapabilityLevel` (3-element enum) and
+`CapabilityLattice` (13-field structure) without `deriving` clauses (the
+generated file is `set_option linter.unusedVariables false` and does
+not invoke any deriving handlers). We attach `DecidableEq` post-hoc
+here so DLC's `Label` (an `abbrev` of `CapabilityLattice`) carries
+computable equality. This is load-bearing for `Prop'.beq` on the
+`Prop'.at` constructor (T1 propositional completeness) and for
+deciding `Prop'` equality more broadly. -/
+deriving instance DecidableEq for portcullis_core.CapabilityLevel
+deriving instance DecidableEq for portcullis_core.CapabilityLattice
+
 namespace Label
 
 open portcullis_core (CapabilityLevel)

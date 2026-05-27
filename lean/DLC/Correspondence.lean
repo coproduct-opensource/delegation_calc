@@ -99,10 +99,11 @@ load-bearing PROVEN content of T2 in this PR. -/
 premise on `saysI` is consumed without affecting the underlying
 proof tree.
 
-`def` rather than `theorem` because `Deriv` is `Type`-valued, not
-`Prop`-valued — the result is a constructive map between derivation
-trees, not a propositional implication. -/
-def t2_crypto_to_logical (K : KeyRing) :
+`noncomputable def` rather than `theorem` because `Deriv` is `Type`-
+valued, not `Prop`-valued (the result is a constructive map between
+derivation trees). The `noncomputable` annotation suppresses code
+generation — the metatheory has no runtime role. -/
+noncomputable def t2_crypto_to_logical (K : KeyRing) :
     ∀ (Γ : Ctx) (M : Term) (φ : Prop'),
       DerivCrypto K Γ M φ → Deriv Γ M φ := by
   intro Γ M φ dc
@@ -172,8 +173,9 @@ example (K : KeyRing) :
   DerivCrypto.varA _ 0 _ rfl
 
 /-- The reverse direction of T2 (crypto → logical) applied to the
-trivial witness above. -/
-example (K : KeyRing) :
+trivial witness above. `noncomputable` because the dependency
+`t2_crypto_to_logical` is itself noncomputable. -/
+noncomputable example (K : KeyRing) :
     Deriv { additive := [Prop'.atom 0], linear := [] }
           (Term.var 0) (Prop'.atom 0) :=
   t2_crypto_to_logical K _ _ _ (DerivCrypto.varA _ 0 _ rfl)

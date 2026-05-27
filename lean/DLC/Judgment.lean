@@ -190,6 +190,15 @@ inductive Deriv : Ctx → Term → Prop' → Type where
       (d : Deriv Γ M (Prop'.within τ φ)) :
       Deriv Γ M φ
 
+  /-- `lift` — IFC label introduction (`spec/typing-rules.md §7`). From a
+  derivation `Γ ⊢ M : φ` produce `Γ ⊢ lift_ℓ(M) : φ @ ℓ`. The label
+  algebra (nucleus's 13-dim `CapabilityLattice`) lives in
+  `DLC.IFCLabel`; this rule is the unique introduction form for
+  `Prop'.at`. Mirrors Rust `decide.rs::Term::LiftLabel`. -/
+  | liftLabel (Γ : Ctx) (φ : Prop') (ℓ : Label) (M : Term)
+      (d : Deriv Γ M φ) :
+      Deriv Γ (Term.liftLabel ℓ M) (Prop'.at φ ℓ)
+
   /-- `and-I` — additive conjunction introduction. -/
   | andI (Γₐ : List Prop') (φ ψ : Prop') (M N : Term)
       (dM : Deriv { additive := Γₐ, linear := [] } M φ)

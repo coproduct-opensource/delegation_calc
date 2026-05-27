@@ -55,6 +55,7 @@ def Term.isPropositional : Term → Bool
   | Term.delegate m n     => m.isPropositional && n.isPropositional
   | Term.now _            => true
   | Term.attenuate m _    => m.isPropositional
+  | Term.liftLabel _ m    => m.isPropositional
   | _                     => false
 
 /-- A full-calculus term: every constructor accepted, including modal /
@@ -343,6 +344,13 @@ def decideLean (Γ : Ctx) : Term → Option Prop'
     | some (Prop'.says p phi) =>
       if Prop'.beq phi psi then some (Prop'.says p psi) else none
     | _ => none
+  | .liftLabel ℓ m =>
+    -- `lift_ℓ(M)`: introduce the IFC `at` modality. Whatever type
+    -- `M` has, the result is `M`'s type at label `ℓ`. Mirrors Rust
+    -- `Term::LiftLabel(label, m) => Some(Prop::At(m_ty, label))`.
+    match decideLean Γ m with
+    | some φ => some (Prop'.at φ ℓ)
+    | none => none
   | _ => none
 
 /-! ## T1 — Propositional soundness (the headline closure for this PR).
@@ -694,6 +702,18 @@ theorem t1_propositional_soundness (M : Term) :
             (Deriv.varA { additive := [psi], linear := [] } 0 psi rfl)⟩
         · simp [decideLean, hM, hψ] at hdec
       all_goals (simp [decideLean, hM] at hdec)
+  case liftLabel ℓ m ihm =>
+    intro Γₐ φ hprop hdec
+    have hpropM : m.isPropositional = true := by
+      simp [Term.isPropositional] at hprop; exact hprop
+    cases hM : decideLean { additive := Γₐ, linear := [] } m with
+    | none => simp [decideLean, hM] at hdec
+    | some tyM =>
+      have hφ : Prop'.at tyM ℓ = φ := by
+        simpa [decideLean, hM] using hdec
+      rw [← hφ]
+      have ⟨dM⟩ := ihm Γₐ tyM hpropM hM
+      exact ⟨Deriv.liftLabel _ tyM ℓ m dM⟩
   -- All non-propositional constructors are rejected by `isPropositional`:
   -- isPropositional returns false, so the hypothesis is contradictory.
   all_goals (intro Γₐ φ hprop hdec; simp [Term.isPropositional] at hprop)
@@ -830,6 +850,12 @@ inductive PropDeriv : List Prop' → Term → Prop' → Type where
       (d : PropDeriv Γₐ M (Prop'.says p φ)) :
       PropDeriv Γₐ (Term.attenuate M φ) (Prop'.says p φ)
 
+  /-- `lift_ℓ(M)` — IFC label introduction. Pure introduction rule for
+  the `at` modality. Mirrors `Deriv.liftLabel`. -/
+  | liftLabel (Γₐ : List Prop') (φ : Prop') (ℓ : Label) (M : Term)
+      (d : PropDeriv Γₐ M φ) :
+      PropDeriv Γₐ (Term.liftLabel ℓ M) (Prop'.at φ ℓ)
+
 /-! ## Shift preservation — load-bearing lemma for subject reduction.
 
 If `M` is well-typed under `Γl ++ Γr`, then shifting `M`'s free variables
@@ -957,6 +983,11 @@ private noncomputable def propDeriv_shift_aux
     subst hΓ
     unfold shift
     exact PropDeriv.attenuate _ p φ _ (ih Γl Γr Γm rfl)
+  | liftLabel _ φ ℓ M _ ih =>
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    exact PropDeriv.liftLabel _ φ ℓ _ (ih Γl Γr Γm rfl)
 
 /-- Public-facing shift preservation, instantiated from
 `propDeriv_shift_aux` with the trivial equality. -/
@@ -1145,6 +1176,11 @@ private noncomputable def propDeriv_substAt_aux
     subst hΓ
     unfold substAt
     exact PropDeriv.attenuate _ p ψ _ (ih Γl Γr φ rfl N dN)
+  | liftLabel _ ψ ℓ M _ ih =>
+    intro Γl Γr φ hΓ N dN
+    subst hΓ
+    unfold substAt
+    exact PropDeriv.liftLabel _ ψ ℓ _ (ih Γl Γr φ rfl N dN)
 
 /-- Public-facing substitution preservation. -/
 noncomputable def propDeriv_substAt
@@ -1291,6 +1327,10 @@ noncomputable def propDeriv_subject_reduction
     -- `Term.attenuate M φ` is a normal form per `Reduce.lean` — `step`
     -- returns `none`. Vacuous precondition.
     simp [step] at h
+  | liftLabel _ _ _ _ _ =>
+    -- `Term.liftLabel ℓ M` is a normal form per `Reduce.lean` — `step`
+    -- returns `none`. Vacuous precondition.
+    simp [step] at h
 
 /-- Structural embedding from `PropDeriv` into `Deriv`. Constructively
 shows the propositional fragment is a faithful sub-typing-judgment. -/
@@ -1330,6 +1370,8 @@ noncomputable def propDeriv_to_deriv :
       -- Trivial impl witness: `Term.var 0 : φ` in `consA φ Ctx.empty`.
       exact Deriv.attenuate _ p φ φ M (Term.var 0) ih
         (Deriv.varA { additive := [φ], linear := [] } 0 φ rfl)
+  | liftLabel Γₐ φ ℓ M _ ih =>
+      exact Deriv.liftLabel _ φ ℓ M ih
 
 /-! ## T1 — Propositional completeness (the other direction). -/
 
@@ -1417,6 +1459,10 @@ theorem t1_propositional_completeness :
     -- φ = φ (the degenerate case the constructor encodes).
     unfold decideLean
     simp [ih, Prop'.beq_refl]
+  | liftLabel Γₐ φ ℓ M _ ih =>
+    -- decideLean (liftLabel ℓ M) = some (at φ ℓ).
+    unfold decideLean
+    simp [ih]
 
 /-! ## Inversion lemmas — the term shape determines the constructor.
 
@@ -1736,6 +1782,15 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
           exact PropDeriv.attenuate _ p psi m dM
         · simp [decideLean, hM, hψ] at hdec
       all_goals (simp [decideLean, hM] at hdec)
+  case liftLabel ℓ m ihm =>
+    intro Γₐ φ hdec
+    cases hM : decideLean { additive := Γₐ, linear := [] } m with
+    | none => simp [decideLean, hM] at hdec
+    | some tyM =>
+      have hφ : Prop'.at tyM ℓ = φ := by
+        simpa [decideLean, hM] using hdec
+      rw [← hφ]
+      exact PropDeriv.liftLabel _ tyM ℓ m (ihm _ _ hM)
   all_goals (intro Γₐ φ hdec; simp [decideLean] at hdec)
 
 /-! ## T1 — The Decidable instance.

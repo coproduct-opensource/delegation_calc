@@ -176,20 +176,20 @@ inferred type; for a `PropDeriv.impE` these must agree, so reflexivity
 closes the comparison. -/
 theorem Prop'.beq_refl : ∀ (φ : Prop'), Prop'.beq φ φ = true := by
   intro φ
-  induction φ with
-  | top => rfl
-  | bot => rfl
-  | atom n => simp [Prop'.beq]
-  | imp a b iha ihb => simp [Prop'.beq, iha, ihb]
-  | and a b iha ihb => simp [Prop'.beq, iha, ihb]
-  | or a b iha ihb => simp [Prop'.beq, iha, ihb]
-  | says p a iha => simp [Prop'.beq, iha]
-  | speaksFor p q => simp [Prop'.beq]
-  | «at» a ℓ iha => simp [Prop'.beq, iha]
-  | boxed o a iha => simp [Prop'.beq, iha]
-  | within τ a iha => simp [Prop'.beq, iha]
-  | tensor a b iha ihb => simp [Prop'.beq, iha, ihb]
-  | lolli a b iha ihb => simp [Prop'.beq, iha, ihb]
+  induction φ
+  case top => rfl
+  case bot => rfl
+  case atom n => simp [Prop'.beq]
+  case imp a b iha ihb => simp [Prop'.beq, iha, ihb]
+  case and a b iha ihb => simp [Prop'.beq, iha, ihb]
+  case or a b iha ihb => simp [Prop'.beq, iha, ihb]
+  case «says» p a iha => simp [Prop'.beq, iha]
+  case speaksFor p q => simp [Prop'.beq]
+  case «at» a ℓ iha => simp [Prop'.beq, iha]
+  case boxed o a iha => simp [Prop'.beq, iha]
+  case within τ a iha => simp [Prop'.beq, iha]
+  case tensor a b iha ihb => simp [Prop'.beq, iha, ihb]
+  case lolli a b iha ihb => simp [Prop'.beq, iha, ihb]
 
 /-! ## `decideLean` — Lean mirror of Rust `infer`.
 
@@ -445,12 +445,14 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
       · rename_i φ' hx
         by_cases hbeq : Prop'.beq α φ' = true
         · rw [if_pos hbeq] at hdec
+          -- hdec : some β = some φ
           have hβφ : β = φ := Option.some.inj hdec
-          subst hβφ
           have hα : α = φ' := Prop'.beq_eq_true_iff_eq α φ' hbeq
-          have dF := ihf Γₐ (Prop'.imp α φ) hf
+          -- Apply IHs at the types they actually produced.
+          have dF := ihf Γₐ (Prop'.imp α β) hf
           have dX := ihx Γₐ φ' hx
-          rw [hα] at dF
+          -- Realign dF to the goal-shape: rewrite α → φ', β → φ in dF.
+          rw [hα, hβφ] at dF
           exact PropDeriv.impE _ φ' φ f x dF dX
         · rw [if_neg hbeq] at hdec; cases hdec
       · cases hdec
@@ -484,8 +486,10 @@ noncomputable instance PropDeriv.decidable_nonempty
   | some ψ =>
     if hφ : Prop'.beq φ ψ = true then
       .isTrue <| by
+        -- ψ = φ from beq soundness. Rewrite h's type without subst to
+        -- avoid Lean's free-variable subst direction ambiguity.
         have hψ : ψ = φ := (Prop'.beq_eq_true_iff_eq φ ψ hφ).symm
-        subst hψ
+        rw [hψ] at h
         exact ⟨t1_propositional_soundness_prop M Γₐ φ h⟩
     else
       .isFalse <| by
@@ -493,7 +497,10 @@ noncomputable instance PropDeriv.decidable_nonempty
         have heq := t1_propositional_completeness Γₐ M φ d
         rw [h] at heq
         have hφψ : φ = ψ := Option.some.inj heq
-        subst hφψ
+        -- Substitute in hφ (the only place we need the equality);
+        -- avoid `subst` whose direction over two free variables is
+        -- not stable across Lean versions.
+        rw [hφψ] at hφ
         exact hφ (Prop'.beq_refl _)
   | none =>
     .isFalse <| by

@@ -97,8 +97,12 @@ load-bearing PROVEN content of T2 in this PR. -/
 
 /-- Crypto-typed derivation implies logical derivation. The verify
 premise on `saysI` is consumed without affecting the underlying
-proof tree. -/
-theorem t2_crypto_to_logical (K : KeyRing) :
+proof tree.
+
+`def` rather than `theorem` because `Deriv` is `Type`-valued, not
+`Prop`-valued — the result is a constructive map between derivation
+trees, not a propositional implication. -/
+def t2_crypto_to_logical (K : KeyRing) :
     ∀ (Γ : Ctx) (M : Term) (φ : Prop'),
       DerivCrypto K Γ M φ → Deriv Γ M φ := by
   intro Γ M φ dc

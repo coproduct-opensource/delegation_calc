@@ -33,14 +33,15 @@ import DLC.Reduce
 
 namespace DLC
 
-/-- A propositional-fragment term has no modal, temporal, IFC, or linear
-constructors. Only `var`, `lam`, `app`, and `sign` (since `says` is a
-proposition-level modality but `sign` is the introduction form). -/
+/-- A propositional-fragment term has no modal (beyond `says`),
+temporal, IFC, or linear constructors. Includes `var`, `lam`, `app`,
+`sign` (says-I), and `verify` (says-E). -/
 def Term.isPropositional : Term → Bool
   | Term.var _            => true
   | Term.lam _ body       => body.isPropositional
   | Term.app f x          => f.isPropositional && x.isPropositional
   | Term.sign _ m _       => m.isPropositional
+  | Term.verify _ m _     => m.isPropositional
   | _                     => false
 
 /-- A full-calculus term: every constructor accepted, including modal /
@@ -224,6 +225,12 @@ def decideLean (Γ : Ctx) : Term → Option Prop'
     match decideLean Γ m with
     | some φ => some (Prop'.says p φ)
     | none => none
+  | .verify p m _sig =>
+    -- says-E: M must have type `p says φ`; result is φ.
+    match decideLean Γ m with
+    | some (Prop'.says p' inner) =>
+      if decide (p = p') then some inner else none
+    | _ => none
   | _ => none
 
 /-! ## T1 — Propositional soundness (the headline closure for this PR).
@@ -310,6 +317,25 @@ theorem t1_propositional_soundness (M : Term) :
       have ⟨dM⟩ := ihm Γₐ ψ hprop' hm
       exact ⟨Deriv.saysI _ p ψ m sig dM⟩
     · simp at hdec
+  case verify p m sig ihm =>
+    intro Γₐ φ hprop hdec
+    have hprop' : m.isPropositional = true := by
+      simp [Term.isPropositional] at hprop; exact hprop
+    unfold decideLean at hdec
+    split at hdec
+    · rename_i p' inner hm
+      by_cases hp : p = p'
+      · rw [if_pos (decide_eq_true_iff.mpr hp)] at hdec
+        -- hdec : some inner = some φ. Extract equalities without subst
+        -- (both inner and φ are free vars; subst direction is ambiguous).
+        have hinner : inner = φ := Option.some.inj hdec
+        -- Rewrite hm to talk about p and φ instead of p' and inner.
+        rw [← hp, hinner] at hm
+        have ⟨dM⟩ := ihm Γₐ (Prop'.says p φ) hprop' hm
+        exact ⟨Deriv.verifyE _ p φ m sig dM⟩
+      · rw [if_neg (by simpa using hp)] at hdec
+        cases hdec
+    · cases hdec
   -- All non-propositional constructors are rejected by `isPropositional`:
   -- isPropositional returns false, so the hypothesis is contradictory.
   all_goals (intro Γₐ φ hprop hdec; simp [Term.isPropositional] at hprop)
@@ -349,6 +375,15 @@ inductive PropDeriv : List Prop' → Term → Prop' → Type where
           (sig : Signature)
       (d : PropDeriv Γₐ M φ) :
       PropDeriv Γₐ (Term.sign p M sig) (Prop'.says p φ)
+
+  /-- `verify` — `says`-elimination at the symbolic level. Given a
+  derivation that `M : p says φ`, the verify operation strips the
+  modality and concludes `φ`. The cryptographic check is folded into
+  `Deriv_K`; here the rule is symbolic. -/
+  | verifyE (Γₐ : List Prop') (p : Principal) (φ : Prop') (M : Term)
+            (sig : Signature)
+      (d : PropDeriv Γₐ M (Prop'.says p φ)) :
+      PropDeriv Γₐ (Term.verify p M sig) φ
 
 /-! ## Shift preservation — load-bearing lemma for subject reduction.
 
@@ -404,6 +439,11 @@ private noncomputable def propDeriv_shift_aux
     subst hΓ
     unfold shift
     exact PropDeriv.saysI _ p ψ' _ sig (ih Γl Γr Γm rfl)
+  | verifyE _ p ψ' M' sig _ ih =>
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    exact PropDeriv.verifyE _ p ψ' _ sig (ih Γl Γr Γm rfl)
 
 /-- Public-facing shift preservation, instantiated from
 `propDeriv_shift_aux` with the trivial equality. -/
@@ -516,6 +556,11 @@ private noncomputable def propDeriv_substAt_aux
     subst hΓ
     unfold substAt
     exact PropDeriv.saysI _ p ψ' _ sig (ih Γl Γr φ rfl N dN)
+  | verifyE _ p ψ' M' sig _ ih =>
+    intro Γl Γr φ hΓ N dN
+    subst hΓ
+    unfold substAt
+    exact PropDeriv.verifyE _ p ψ' _ sig (ih Γl Γr φ rfl N dN)
 
 /-- Public-facing substitution preservation. -/
 noncomputable def propDeriv_substAt
@@ -570,6 +615,7 @@ noncomputable def propDeriv_subject_reduction
         exact propDeriv_subst _ _ _ body x dBody dN_app
     | _ => simp [step] at h
   | saysI _ _ _ _ _ _ => simp [step] at h
+  | verifyE _ _ _ _ _ _ => simp [step] at h
 
 /-- Structural embedding from `PropDeriv` into `Deriv`. Constructively
 shows the propositional fragment is a faithful sub-typing-judgment. -/
@@ -585,6 +631,7 @@ noncomputable def propDeriv_to_deriv :
       -- impE wants Γ₁ ++ Γ₂ = []; both empty works.
       exact Deriv.impE Γₐ [] [] φ ψ M N ihM ihN
   | saysI Γₐ p φ M sig _ ih => exact Deriv.saysI _ p φ M sig ih
+  | verifyE Γₐ p φ M sig _ ih => exact Deriv.verifyE _ p φ M sig ih
 
 /-! ## T1 — Propositional completeness (the other direction). -/
 
@@ -621,6 +668,13 @@ theorem t1_propositional_completeness :
   | saysI Γₐ p φ M sig _ ih =>
     unfold decideLean
     rw [ih]
+  | verifyE Γₐ p φ M sig _ ih =>
+    -- IH: decideLean Γₐ M = some (Prop'.says p φ).
+    -- decideLean (Term.verify p M sig) matches on the IH; if decide(p=p)
+    -- returns some φ. decide(p = p) reduces to true.
+    unfold decideLean
+    rw [ih]
+    simp
 
 /-! ## Inversion lemmas — the term shape determines the constructor.
 
@@ -739,6 +793,19 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
       subst hφ
       exact PropDeriv.saysI _ p ψ m sig (ihm _ _ hm)
     · simp at hdec
+  case verify p m sig ihm =>
+    intro Γₐ φ hdec
+    unfold decideLean at hdec
+    split at hdec
+    · rename_i p' inner hm
+      by_cases hp : p = p'
+      · rw [if_pos (decide_eq_true_iff.mpr hp)] at hdec
+        have hinner : inner = φ := Option.some.inj hdec
+        rw [← hp, hinner] at hm
+        exact PropDeriv.verifyE _ p φ m sig (ihm _ _ hm)
+      · rw [if_neg (by simpa using hp)] at hdec
+        cases hdec
+    · cases hdec
   all_goals (intro Γₐ φ hdec; simp [decideLean] at hdec)
 
 /-! ## T1 — The Decidable instance.

@@ -51,6 +51,7 @@ def Term.isPropositional : Term → Bool
   | Term.tensorIntro a b  => a.isPropositional && b.isPropositional
   | Term.case s l r       => s.isPropositional && l.isPropositional && r.isPropositional
   | Term.letSays _ s b    => s.isPropositional && b.isPropositional
+  | Term.sfExtract m      => m.isPropositional
   | _                     => false
 
 /-- A full-calculus term: every constructor accepted, including modal /
@@ -298,6 +299,14 @@ def decideLean (Γ : Ctx) : Term → Option Prop'
     | some (Prop'.says p' φ) =>
       if decide (p = p') then
         decideLean (Ctx.consA φ Γ) b
+      else none
+    | _ => none
+  | .sfExtract m =>
+    -- sf-extract: from `p says (q ⇒ p)` extract `q ⇒ p`.
+    match decideLean Γ m with
+    | some (Prop'.says p_outer (Prop'.speaksFor q p_inner)) =>
+      if decide (p_outer = p_inner) then
+        some (Prop'.speaksFor q p_outer)
       else none
     | _ => none
   | _ => none
@@ -563,6 +572,27 @@ theorem t1_propositional_soundness (M : Term) :
           exact ⟨Deriv.letSaysE Γₐ [] [] p α φ s b dS dB⟩
         · simp [decideLean, hS, hp] at hdec
       all_goals (simp [decideLean, hS] at hdec)
+  case sfExtract m ihm =>
+    intro Γₐ φ hprop hdec
+    have hprop' : m.isPropositional = true := by
+      simp [Term.isPropositional] at hprop; exact hprop
+    cases hM : decideLean { additive := Γₐ, linear := [] } m with
+    | none => simp [decideLean, hM] at hdec
+    | some ty =>
+      cases ty
+      case «says» p_outer inner =>
+        cases inner
+        case speaksFor q p_inner =>
+          by_cases hp : p_outer = p_inner
+          · have hφ : Prop'.speaksFor q p_outer = φ := by
+              simpa [decideLean, hM, hp] using hdec
+            rw [← hφ]
+            have ⟨dM⟩ := ihm Γₐ (Prop'.says p_outer (Prop'.speaksFor q p_inner)) hprop' hM
+            rw [← hp] at dM
+            exact ⟨Deriv.sfExtractE _ p_outer q m dM⟩
+          · simp [decideLean, hM, hp] at hdec
+        all_goals (simp [decideLean, hM] at hdec)
+      all_goals (simp [decideLean, hM] at hdec)
   -- All non-propositional constructors are rejected by `isPropositional`:
   -- isPropositional returns false, so the hypothesis is contradictory.
   all_goals (intro Γₐ φ hprop hdec; simp [Term.isPropositional] at hprop)
@@ -664,6 +694,11 @@ inductive PropDeriv : List Prop' → Term → Prop' → Type where
       (dS : PropDeriv Γₐ S (Prop'.says p φ))
       (dB : PropDeriv (φ :: Γₐ) B ψ) :
       PropDeriv Γₐ (Term.letSays p S B) ψ
+
+  /-- `sf-extract` — extract a speaks-for from `p says (q ⇒ p)`. -/
+  | sfExtractE (Γₐ : List Prop') (p q : Principal) (M : Term)
+      (d : PropDeriv Γₐ M (Prop'.says p (Prop'.speaksFor q p))) :
+      PropDeriv Γₐ (Term.sfExtract M) (Prop'.speaksFor q p)
 
 /-! ## Shift preservation — load-bearing lemma for subject reduction.
 
@@ -772,6 +807,11 @@ private noncomputable def propDeriv_shift_aux
     unfold shift
     have hB := ihB (φ :: Γl) Γr Γm (by simp [List.cons_append])
     exact PropDeriv.letSaysE _ p φ ψ _ _ (ihS Γl Γr Γm rfl) hB
+  | sfExtractE _ p q M _ ih =>
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    exact PropDeriv.sfExtractE _ p q _ (ih Γl Γr Γm rfl)
 
 /-- Public-facing shift preservation, instantiated from
 `propDeriv_shift_aux` with the trivial equality. -/
@@ -939,6 +979,11 @@ private noncomputable def propDeriv_substAt_aux
     unfold substAt
     have hB := ihB (φ' :: Γl) Γr φ (by simp [List.cons_append]) N dN
     exact PropDeriv.letSaysE _ p φ' ψ _ _ (ihS Γl Γr φ rfl N dN) hB
+  | sfExtractE _ p q M _ ih =>
+    intro Γl Γr φ hΓ N dN
+    subst hΓ
+    unfold substAt
+    exact PropDeriv.sfExtractE _ p q _ (ih Γl Γr φ rfl N dN)
 
 /-- Public-facing substitution preservation. -/
 noncomputable def propDeriv_substAt
@@ -1050,6 +1095,19 @@ noncomputable def propDeriv_subject_reduction
           exact propDeriv_subst _ φ ψ B m dB dM
       · simp [step, hp] at h
     | _ => simp [step] at h
+  | sfExtractE Γₐ p q M dM =>
+    -- step (sfExtract (sign _ m _)) = some m.
+    cases M with
+    | sign p_outer inner sig =>
+      simp [step] at h
+      subst h
+      -- dM : PropDeriv Γₐ (Term.sign p_outer inner sig) (Prop'.says p (Prop'.speaksFor q p))
+      -- Invert: only saysI matches.
+      cases dM with
+      | saysI _ _ _ _ _ dInner =>
+        -- dInner : PropDeriv Γₐ inner (Prop'.speaksFor q p).
+        exact dInner
+    | _ => simp [step] at h
 
 /-- Structural embedding from `PropDeriv` into `Deriv`. Constructively
 shows the propositional fragment is a faithful sub-typing-judgment. -/
@@ -1079,6 +1137,8 @@ noncomputable def propDeriv_to_deriv :
       exact Deriv.orE _ φ ψ χ S L R ihS ihL ihR
   | letSaysE Γₐ p φ ψ S B _ _ ihS ihB =>
       exact Deriv.letSaysE Γₐ [] [] p φ ψ S B ihS ihB
+  | sfExtractE Γₐ p q M _ ih =>
+      exact Deriv.sfExtractE _ p q M ih
 
 /-! ## T1 — Propositional completeness (the other direction). -/
 
@@ -1151,6 +1211,9 @@ theorem t1_propositional_completeness :
   | letSaysE Γₐ p φ ψ S B _ _ ihS ihB =>
     unfold decideLean
     simp [ihS, Ctx.consA, ihB]
+  | sfExtractE Γₐ p q M _ ih =>
+    unfold decideLean
+    simp [ih]
 
 /-! ## Inversion lemmas — the term shape determines the constructor.
 
@@ -1402,6 +1465,24 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
           exact PropDeriv.letSaysE _ p α φ s b (ihS _ _ hS) (ihB _ _ hdec')
         · simp [decideLean, hS, hp] at hdec
       all_goals (simp [decideLean, hS] at hdec)
+  case sfExtract m ihm =>
+    intro Γₐ φ hdec
+    cases hM : decideLean { additive := Γₐ, linear := [] } m with
+    | none => simp [decideLean, hM] at hdec
+    | some ty =>
+      cases ty
+      case «says» p_outer inner =>
+        cases inner
+        case speaksFor q p_inner =>
+          by_cases hp : p_outer = p_inner
+          · have hφ : Prop'.speaksFor q p_outer = φ := by
+              simpa [decideLean, hM, hp] using hdec
+            rw [← hφ]
+            rw [← hp] at hM
+            exact PropDeriv.sfExtractE _ p_outer q m (ihm _ _ hM)
+          · simp [decideLean, hM, hp] at hdec
+        all_goals (simp [decideLean, hM] at hdec)
+      all_goals (simp [decideLean, hM] at hdec)
   all_goals (intro Γₐ φ hdec; simp [decideLean] at hdec)
 
 /-! ## T1 — The Decidable instance.

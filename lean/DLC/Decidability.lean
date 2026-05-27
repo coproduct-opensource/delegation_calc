@@ -1150,7 +1150,7 @@ theorem t1_propositional_completeness :
     simp only [ihS, Ctx.consA, ihL, ihR, Prop'.beq_refl, if_true]
   | letSaysE Γₐ p φ ψ S B _ _ ihS ihB =>
     unfold decideLean
-    simp only [ihS, Ctx.consA, ihB, decide_True, if_true]
+    simp [ihS, Ctx.consA, ihB]
 
 /-! ## Inversion lemmas — the term shape determines the constructor.
 

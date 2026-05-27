@@ -46,6 +46,8 @@ def Term.isPropositional : Term → Bool
   | Term.fst a            => a.isPropositional
   | Term.snd a            => a.isPropositional
   | Term.withinIntro _ m  => m.isPropositional
+  | Term.inl _ a          => a.isPropositional
+  | Term.inr _ a          => a.isPropositional
   | _                     => false
 
 /-- A full-calculus term: every constructor accepted, including modal /
@@ -259,6 +261,16 @@ def decideLean (Γ : Ctx) : Term → Option Prop'
     match decideLean Γ m with
     | some φ => some (Prop'.within τ φ)
     | none => none
+  | .inl ψ a =>
+    -- or-I-left: wrap φ into φ ∨ ψ.
+    match decideLean Γ a with
+    | some φ => some (Prop'.or φ ψ)
+    | none => none
+  | .inr φ a =>
+    -- or-I-right: wrap ψ into φ ∨ ψ.
+    match decideLean Γ a with
+    | some ψ => some (Prop'.or φ ψ)
+    | none => none
   | _ => none
 
 /-! ## T1 — Propositional soundness (the headline closure for this PR).
@@ -429,6 +441,30 @@ theorem t1_propositional_soundness (M : Term) :
       have ⟨dM⟩ := ihm Γₐ ψ hprop' hm
       exact ⟨Deriv.withinI _ τ ψ m dM⟩
     · simp at hdec
+  case inl ψ a ihA =>
+    intro Γₐ φ hprop hdec
+    have hprop' : a.isPropositional = true := by
+      simp [Term.isPropositional] at hprop; exact hprop
+    unfold decideLean at hdec
+    split at hdec
+    · rename_i α hA
+      have hφ : Prop'.or α ψ = φ := Option.some.inj hdec
+      subst hφ
+      have ⟨dA⟩ := ihA Γₐ α hprop' hA
+      exact ⟨Deriv.orI_L _ α ψ a dA⟩
+    · simp at hdec
+  case inr φψ a ihA =>
+    intro Γₐ φ hprop hdec
+    have hprop' : a.isPropositional = true := by
+      simp [Term.isPropositional] at hprop; exact hprop
+    unfold decideLean at hdec
+    split at hdec
+    · rename_i β hA
+      have hφ : Prop'.or φψ β = φ := Option.some.inj hdec
+      subst hφ
+      have ⟨dA⟩ := ihA Γₐ β hprop' hA
+      exact ⟨Deriv.orI_R _ φψ β a dA⟩
+    · simp at hdec
   -- All non-propositional constructors are rejected by `isPropositional`:
   -- isPropositional returns false, so the hypothesis is contradictory.
   all_goals (intro Γₐ φ hprop hdec; simp [Term.isPropositional] at hprop)
@@ -498,6 +534,16 @@ inductive PropDeriv : List Prop' → Term → Prop' → Type where
   | withinI (Γₐ : List Prop') (τ : TimeBound) (φ : Prop') (M : Term)
       (d : PropDeriv Γₐ M φ) :
       PropDeriv Γₐ (Term.withinIntro τ M) (Prop'.within τ φ)
+
+  /-- `or-I-left` — inject into the left disjunct. -/
+  | orI_L (Γₐ : List Prop') (φ ψ : Prop') (a : Term)
+      (d : PropDeriv Γₐ a φ) :
+      PropDeriv Γₐ (Term.inl ψ a) (Prop'.or φ ψ)
+
+  /-- `or-I-right` — inject into the right disjunct. -/
+  | orI_R (Γₐ : List Prop') (φ ψ : Prop') (a : Term)
+      (d : PropDeriv Γₐ a ψ) :
+      PropDeriv Γₐ (Term.inr φ a) (Prop'.or φ ψ)
 
 /-! ## Shift preservation — load-bearing lemma for subject reduction.
 
@@ -578,6 +624,16 @@ private noncomputable def propDeriv_shift_aux
     subst hΓ
     unfold shift
     exact PropDeriv.withinI _ τ φ _ (ih Γl Γr Γm rfl)
+  | orI_L _ φ ψ a _ ih =>
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    exact PropDeriv.orI_L _ φ ψ _ (ih Γl Γr Γm rfl)
+  | orI_R _ φ ψ a _ ih =>
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    exact PropDeriv.orI_R _ φ ψ _ (ih Γl Γr Γm rfl)
 
 /-- Public-facing shift preservation, instantiated from
 `propDeriv_shift_aux` with the trivial equality. -/
@@ -716,6 +772,16 @@ private noncomputable def propDeriv_substAt_aux
     subst hΓ
     unfold substAt
     exact PropDeriv.withinI _ τ φ' _ (ih Γl Γr φ rfl N dN)
+  | orI_L _ φ' ψ' a _ ih =>
+    intro Γl Γr φ hΓ N dN
+    subst hΓ
+    unfold substAt
+    exact PropDeriv.orI_L _ φ' ψ' _ (ih Γl Γr φ rfl N dN)
+  | orI_R _ φ' ψ' a _ ih =>
+    intro Γl Γr φ hΓ N dN
+    subst hΓ
+    unfold substAt
+    exact PropDeriv.orI_R _ φ' ψ' _ (ih Γl Γr φ rfl N dN)
 
 /-- Public-facing substitution preservation. -/
 noncomputable def propDeriv_substAt
@@ -793,6 +859,8 @@ noncomputable def propDeriv_subject_reduction
       | andI _ _ _ _ _ _ dPB => exact dPB
     | _ => simp [step] at h
   | withinI _ _ _ _ _ => simp [step] at h
+  | orI_L _ _ _ _ _ => simp [step] at h
+  | orI_R _ _ _ _ _ => simp [step] at h
 
 /-- Structural embedding from `PropDeriv` into `Deriv`. Constructively
 shows the propositional fragment is a faithful sub-typing-judgment. -/
@@ -814,6 +882,8 @@ noncomputable def propDeriv_to_deriv :
   | andEL Γₐ φ ψ a _ ih => exact Deriv.andEL _ φ ψ a ih
   | andER Γₐ φ ψ a _ ih => exact Deriv.andER _ φ ψ a ih
   | withinI Γₐ τ φ M _ ih => exact Deriv.withinI _ τ φ M ih
+  | orI_L Γₐ φ ψ a _ ih => exact Deriv.orI_L _ φ ψ a ih
+  | orI_R Γₐ φ ψ a _ ih => exact Deriv.orI_R _ φ ψ a ih
 
 /-! ## T1 — Propositional completeness (the other direction). -/
 
@@ -867,6 +937,12 @@ theorem t1_propositional_completeness :
     unfold decideLean
     rw [ih]
   | withinI Γₐ τ φ M _ ih =>
+    unfold decideLean
+    rw [ih]
+  | orI_L Γₐ φ ψ a _ ih =>
+    unfold decideLean
+    rw [ih]
+  | orI_R Γₐ φ ψ a _ ih =>
     unfold decideLean
     rw [ih]
 
@@ -1050,6 +1126,24 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
       have hφ : Prop'.within τ ψ = φ := Option.some.inj hdec
       subst hφ
       exact PropDeriv.withinI _ τ ψ m (ihm _ _ hm)
+    · simp at hdec
+  case inl ψ a ihA =>
+    intro Γₐ φ hdec
+    unfold decideLean at hdec
+    split at hdec
+    · rename_i α hA
+      have hφ : Prop'.or α ψ = φ := Option.some.inj hdec
+      subst hφ
+      exact PropDeriv.orI_L _ α ψ a (ihA _ _ hA)
+    · simp at hdec
+  case inr φψ a ihA =>
+    intro Γₐ φ hdec
+    unfold decideLean at hdec
+    split at hdec
+    · rename_i β hA
+      have hφ : Prop'.or φψ β = φ := Option.some.inj hdec
+      subst hφ
+      exact PropDeriv.orI_R _ φψ β a (ihA _ _ hA)
     · simp at hdec
   all_goals (intro Γₐ φ hdec; simp [decideLean] at hdec)
 

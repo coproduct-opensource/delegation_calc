@@ -68,13 +68,34 @@ Cases refined so far:
   the relation delegates to `φ`.
 * `Prop'.within τ φ` — the time bound is structural; delegate to `φ`.
 
-Remaining placeholders (`True`) — `imp`, `says`, `or`, `tensor`,
-`lolli`, `speaksFor`, `and`, `top`, `bot` — fill in across follow-up
-PRs. The `imp` and `lolli` cases need the fundamental lemma / subject
-reduction machinery for non-conservative refinement, so are gated on
-M1.Q2.c (subject reduction). -/
+Cases refined so far:
+* `Prop'.atom n` / `Prop'.speaksFor p q` — leaf cases: propositional
+  term-equality `M = N`.
+* `Prop'.top` — trivially True (no observational content).
+* `Prop'.bot` — trivially True (vacuous; no inhabitant possible).
+* `Prop'.at φ ℓ` — the label-modal core: low-labelled (`ℓ ≤ ℓ_low`)
+  values recurse into `φ`; high-labelled values are unobservable.
+* `Prop'.boxed O φ` / `Prop'.within τ φ` — modal wrappers; delegate to
+  the inner `φ`.
+* `Prop'.and φ ψ` / `Prop'.tensor φ ψ` — conjunctive types: conservative
+  conjunction `R[φ](M,N) ∧ R[ψ](M,N)` (M and N agree as witnesses of
+  both conjuncts).
+* `Prop'.or φ ψ` — disjunctive type: conservative disjunction
+  `R[φ](M,N) ∨ R[ψ](M,N)` (M and N agree as witnesses of at least one
+  disjunct).
+* `Prop'.says p φ` — affirmation modality: delegate to `φ`. A
+  finer-grained version would gate on `Principal.observable p ℓ_low`,
+  but `Principal` has no ordering yet; conservative form is sound.
+
+Remaining placeholders — `imp φ ψ`, `lolli φ ψ` — are the arrow types,
+which need the fundamental lemma + subject reduction (M1.Q2.c) for
+non-conservative refinement. Those are the only `True`-returning cases
+left after this PR. -/
 def Indistinguishable (ℓLow : Label) : Prop' → Term → Term → Prop
+  | .top, _, _ => True
+  | .bot, _, _ => True
   | .atom _, M, N => M = N
+  | .speaksFor _ _, M, N => M = N
   | .at φ ℓ, M, N =>
       -- Observability gate: low-labelled (ℓ ≤ ℓ_low) values are
       -- observable and the relation recurses; high-labelled values
@@ -82,7 +103,14 @@ def Indistinguishable (ℓLow : Label) : Prop' → Term → Term → Prop
       if Label.le ℓ ℓLow then Indistinguishable ℓLow φ M N else True
   | .boxed _ φ, M, N => Indistinguishable ℓLow φ M N
   | .within _ φ, M, N => Indistinguishable ℓLow φ M N
-  -- Remaining compound cases fill in across follow-up PRs.
+  | .says _ φ, M, N => Indistinguishable ℓLow φ M N
+  | .and φ ψ, M, N =>
+      Indistinguishable ℓLow φ M N ∧ Indistinguishable ℓLow ψ M N
+  | .tensor φ ψ, M, N =>
+      Indistinguishable ℓLow φ M N ∧ Indistinguishable ℓLow ψ M N
+  | .or φ ψ, M, N =>
+      Indistinguishable ℓLow φ M N ∨ Indistinguishable ℓLow ψ M N
+  -- Remaining: imp / lolli need subject reduction.
   | _, _, _ => True
 
 /-! ## Reflexivity — every term is self-indistinguishable.
@@ -92,16 +120,19 @@ construction follows from this reflexivity property combined with the
 substitution invariance proved separately (M1.Q2.a). -/
 
 /-- The `Indistinguishable` relation is reflexive in its term arguments
-at any label and any proposition. Now proved by structural induction
-on `φ` to handle the recursive `at`, `boxed`, and `within` cases. -/
+at any label and any proposition. Proven by structural induction on
+`φ`. Each compound case uses its IHs; the `imp` and `lolli` cases
+still fall through to the `True` placeholder. -/
 theorem Indistinguishable_refl (ℓLow : Label) (φ : Prop') (M : Term) :
     Indistinguishable ℓLow φ M M := by
   induction φ
+  case top => trivial
+  case bot => trivial
   case atom n => rfl
+  case speaksFor p q => rfl
   case «at» φ ℓ ihφ =>
     -- Indistinguishable ℓ_low (at φ ℓ) M M unfolds to
     --   if Label.le ℓ ℓ_low then Indistinguishable ℓ_low φ M M else True.
-    -- IH refl on φ handles the low-label branch; True closes the high branch.
     unfold Indistinguishable
     split <;> first | exact ihφ | trivial
   case boxed _ φ ihφ =>
@@ -110,9 +141,20 @@ theorem Indistinguishable_refl (ℓLow : Label) (φ : Prop') (M : Term) :
   case within _ φ ihφ =>
     show Indistinguishable ℓLow φ M M
     exact ihφ
-  -- All remaining compound cases still return `True`.
-  case top | bot | imp _ _ _ _ | and _ _ _ _ | or _ _ _ _
-  | «says» _ _ _ | speaksFor _ _ | tensor _ _ _ _ | lolli _ _ _ _ => trivial
+  case «says» _ φ ihφ =>
+    show Indistinguishable ℓLow φ M M
+    exact ihφ
+  case and φ ψ ihφ ihψ =>
+    show Indistinguishable ℓLow φ M M ∧ Indistinguishable ℓLow ψ M M
+    exact ⟨ihφ, ihψ⟩
+  case tensor φ ψ ihφ ihψ =>
+    show Indistinguishable ℓLow φ M M ∧ Indistinguishable ℓLow ψ M M
+    exact ⟨ihφ, ihψ⟩
+  case or φ ψ ihφ _ =>
+    show Indistinguishable ℓLow φ M M ∨ Indistinguishable ℓLow ψ M M
+    exact Or.inl ihφ
+  -- The arrow types (imp, lolli) still fall through to `True`.
+  case imp _ _ _ _ | lolli _ _ _ _ => trivial
 
 /-! ## T3 — Atomic fragment of the fundamental lemma.
 

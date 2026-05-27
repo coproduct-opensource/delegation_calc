@@ -1738,10 +1738,16 @@ example :
     (Term.lam (Prop'.atom 0) (Term.var 0)).isPropositional = true := by
   decide
 
-/-- A `now(_)` term is NOT propositional. -/
+/-- A `now(_)` term is propositional (it inhabits `Top` in any context,
+matching the propositional fragment). -/
 example :
-    (Term.now { epochMs := 0 }).isPropositional = false := by
+    (Term.now { epochMs := 0 }).isPropositional = true := by
   decide
+
+/-- `decideLean` on `now(_)` returns `some Top` regardless of context. -/
+example :
+    decideLean Ctx.empty (Term.now { epochMs := 0 }) = some Prop'.top := by
+  rfl
 
 /-- The polymorphic identity at atom(0) actually checks. -/
 example :

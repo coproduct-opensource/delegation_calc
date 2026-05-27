@@ -59,8 +59,14 @@ proverif:
 	fi
 
 easycrypt:
-	@echo "easycrypt runner not yet wired (Phase 2 — L2.4)"
-	@exit 0
+	@if command -v easycrypt >/dev/null 2>&1; then \
+	  cd models/easycrypt && easycrypt -batch Game.eca; \
+	else \
+	  echo "easycrypt not on PATH — install via:"; \
+	  echo "  opam pin add easycrypt https://github.com/EasyCrypt/easycrypt.git"; \
+	  echo "  opam install easycrypt alt-ergo"; \
+	  exit 1; \
+	fi
 
 drift:
 	@bash scripts/check-drift.sh 2>/dev/null || echo "drift check not yet wired (M1.Q1.d)"

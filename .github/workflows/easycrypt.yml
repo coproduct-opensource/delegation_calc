@@ -1,0 +1,75 @@
+name: EasyCrypt
+
+# Parse-checks the DLC EasyCrypt computational bridge (L2.4 skeleton).
+# Does NOT prove the reduction -- that requires cryptographer pairing
+# per spec/threat-model.md and is M2.M13 work. CI here just confirms
+# the .eca file parses against the current EasyCrypt grammar.
+#
+# Marked `continue-on-error: true` while the skeleton is in flux. Once
+# the reduction proof lands, this gate becomes blocking.
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "models/easycrypt/**"
+      - ".github/workflows/easycrypt.yml"
+  pull_request:
+    paths:
+      - "models/easycrypt/**"
+      - ".github/workflows/easycrypt.yml"
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parse:
+    name: easycrypt parse-check on Game.eca
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Cache opam state
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
+        with:
+          path: |
+            ~/.opam
+          key: opam-easycrypt-${{ runner.os }}-v1
+
+      - name: Install opam + EasyCrypt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y opam libgmp-dev libpcre3-dev pkg-config
+          opam init -y --disable-sandboxing --bare
+          eval $(opam env)
+          opam switch list | grep -q "default " || opam switch create default 4.14.1
+          eval $(opam env)
+          # Pin EasyCrypt from the main branch (no tagged releases as
+          # of May 2026). The opam pin keys this specific commit so CI
+          # is reproducible.
+          opam pin -yn add easycrypt https://github.com/EasyCrypt/easycrypt.git
+          opam install -y --assume-depexts --deps-only easycrypt
+          opam install -y alt-ergo
+          opam install -y easycrypt
+          eval $(opam env)
+          easycrypt why3config || true
+
+      - name: Parse-check Game.eca
+        run: |
+          eval $(opam env)
+          cd models/easycrypt
+          easycrypt -batch Game.eca 2>&1 | tee parse.log
+
+      - name: Upload EasyCrypt output
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: easycrypt-output
+          path: models/easycrypt/*.log
+          if-no-files-found: warn

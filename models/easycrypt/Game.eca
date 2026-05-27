@@ -1,0 +1,181 @@
+(* ========================================================================
+ * DLC -- EasyCrypt computational bridge (skeleton).
+ *
+ * Phase-2 L2.4 deliverable: a computational-cryptography proof that the
+ * symbolic non-forgery property the Tamarin model proves (`auth_says`,
+ * `non_splicing`) reduces to the standard EUF-CMA assumption on Ed25519.
+ *
+ * In English: an attacker who can break DLC's symbolic guarantees would
+ * have to forge an Ed25519 signature. Game-hopping reduction.
+ *
+ * Status: skeleton (M2.M13 per the Phase-1 plan). The games are
+ * specified; the reduction proof itself needs cryptographer pairing
+ * (Blanchet or equivalent) per the plan's collaborator engagement
+ * section. CI parse-checks the file; the security lemma is stated as
+ * an `axiom` (= unproved assumption) and the reduction lemma is
+ * documented as deferred work.
+ *
+ * Companion symbolic model: models/tamarin/dlc.spthy + models/proverif/dlc.pv.
+ * The bridge is the §4.4 protocol-logic correspondence theorem.
+ *
+ * ======================================================================== *)
+
+require import AllCore Distr List FSet SmtMap.
+require import DBool.
+
+(* ========================================================================= *)
+(* Type and operator declarations for Ed25519                                 *)
+(* ========================================================================= *)
+
+(* Secret and public key spaces. Abstract -- the EUF-CMA reduction is
+   schema-independent and works for any EUF-CMA-secure signature scheme. *)
+type sk.
+type pk.
+
+(* Message space. For DLC, a message is the canonical bytes of a `Term`. *)
+type message.
+
+(* Signature space. *)
+type signature.
+
+(* Key generation: produces a (sk, pk) pair from internal randomness. *)
+op keygen : (sk * pk) distr.
+
+(* Signing and verification. *)
+op sign   : sk -> message -> signature.
+op verify : pk -> message -> signature -> bool.
+
+(* Standard correctness assumption: an honestly-generated signature
+   verifies under the matching public key. *)
+axiom verify_correctness :
+  forall (k : sk) (p : pk) (m : message),
+    (* If (k, p) is a valid keypair *)
+    mu1 keygen (k, p) > 0%r =>
+    (* Then the signature verifies *)
+    verify p m (sign k m) = true.
+
+(* ========================================================================= *)
+(* EUF-CMA game                                                                *)
+(* ========================================================================= *)
+
+(* The signing oracle that the EUF-CMA adversary calls. Records every
+   queried message into a set so the adversary's final forgery can be
+   checked for novelty. *)
+module type SignOracle = {
+  proc sign(m : message) : signature
+}.
+
+(* The adversary's interface: it gets access to the signing oracle and
+   the public key, and must produce a (message, signature) pair with
+   the message never having been queried. *)
+module type EUF_Adv (O : SignOracle) = {
+  proc forge(p : pk) : message * signature {O.sign}
+}.
+
+(* The EUF-CMA experiment. *)
+module EUF_CMA (A : EUF_Adv) = {
+  var queried : message fset
+
+  module Oracle : SignOracle = {
+    proc sign(m : message) : signature = {
+      queried <- queried `|` fset1 m;
+      return sign (oget None<: sk option>) m;   (* placeholder; bound at game start *)
+    }
+  }
+
+  proc main() : bool = {
+    var k : sk;
+    var p : pk;
+    var m_star : message;
+    var s_star : signature;
+    var won : bool;
+
+    queried <- fset0;
+    (k, p) <$ keygen;
+    (m_star, s_star) <@ A(Oracle).forge(p);
+    won <- verify p m_star s_star /\ ! (m_star \in queried);
+    return won;
+  }
+}.
+
+(* The EUF-CMA assumption: every PPT adversary has negligible advantage.
+   Stated as an `axiom` because EUF-CMA is a cryptographic assumption,
+   not a theorem -- we don't prove it; we assume Ed25519 satisfies it
+   (which has its own published reductions to elliptic-curve DLOG-style
+   assumptions). *)
+axiom EUF_CMA_secure :
+  forall (A <: EUF_Adv {-EUF_CMA}),
+    (* Pr[A wins the EUF-CMA game] <= eps for some negligible eps. *)
+    (* For a skeleton we state this qualitatively; a concrete advantage
+       bound goes in alongside the reduction lemma below. *)
+    true.
+
+(* ========================================================================= *)
+(* Symbolic non-forgery game                                                  *)
+(* ========================================================================= *)
+
+(* This game encodes what Tamarin's `auth_says` lemma proves SYMBOLICALLY.
+   The adversary, given access to:
+     - the public key of an honest principal P,
+     - a signing oracle for messages of P's choosing,
+   must produce a (signed message m*, signature) pair where m* was NOT
+   among the messages P actually signed. *)
+module type SymbolicSayAdv (O : SignOracle) = {
+  proc spoof(p : pk) : message * signature {O.sign}
+}.
+
+module SymbolicSayForgery (A : SymbolicSayAdv) = {
+  var said : message fset
+
+  module Oracle : SignOracle = {
+    proc sign(m : message) : signature = {
+      said <- said `|` fset1 m;
+      return sign (oget None<: sk option>) m;
+    }
+  }
+
+  proc main() : bool = {
+    var k : sk;
+    var p : pk;
+    var m_star : message;
+    var s_star : signature;
+    var bad : bool;
+
+    said <- fset0;
+    (k, p) <$ keygen;
+    (m_star, s_star) <@ A(Oracle).spoof(p);
+    bad <- verify p m_star s_star /\ ! (m_star \in said);
+    return bad;
+  }
+}.
+
+(* ========================================================================= *)
+(* The reduction (deferred for M2.M13 -- cryptographer pairing required)      *)
+(* ========================================================================= *)
+
+(* The reduction lemma we WANT to prove:
+ *
+ *   lemma symbolic_to_computational :
+ *     forall (A <: SymbolicSayAdv {-SymbolicSayForgery}),
+ *       Pr[SymbolicSayForgery(A).main() @ &m : res] <=
+ *       Pr[EUF_CMA(?ReductionAdv?).main()      @ &m : res].
+ *
+ * The reduction adversary `ReductionAdv` simulates the symbolic game
+ * for A using its own EUF-CMA oracle. If A wins symbolically, the
+ * forged signature is also an EUF-CMA forgery -- because Ed25519 has
+ * no symbolic-but-not-computational forgeries.
+ *
+ * Closure path:
+ *   M2.M13 -- engage Blanchet for the game-hop sequence
+ *   1. Game hop 0: original SymbolicSayForgery -- definitional.
+ *   2. Game hop 1: lazy-sampling the signing oracle into a table. Standard
+ *      identical-until-bad rewrite.
+ *   3. Game hop 2: bridge to EUF_CMA via the ReductionAdv simulator.
+ *   4. Conclusion: advantage of A in the symbolic game = advantage of
+ *      ReductionAdv in EUF_CMA, which by EUF_CMA_secure is negligible.
+ *
+ * Until that proof closes, this stays as documentation. The Tamarin
+ * model already shows the SYMBOLIC bound; what L2.4 adds is the
+ * computational soundness: under EUF-CMA the symbolic bound is also
+ * the COMPUTATIONAL bound.
+ *)

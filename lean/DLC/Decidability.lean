@@ -496,7 +496,7 @@ noncomputable instance PropDeriv.decidable_nonempty
         intro ⟨d⟩
         have heq := t1_propositional_completeness Γₐ M φ d
         rw [h] at heq
-        have hφψ : φ = ψ := Option.some.inj heq
+        have hφψ : φ = ψ := (Option.some.inj heq).symm
         -- Substitute in hφ (the only place we need the equality);
         -- avoid `subst` whose direction over two free variables is
         -- not stable across Lean versions.
@@ -512,13 +512,20 @@ noncomputable instance PropDeriv.decidable_nonempty
 /-! ## T1 — Statement form. -/
 
 /-- T1 propositional decidability — **now proven** (via the
-`PropDeriv.decidable_nonempty` instance above). -/
-def T1_PropositionalDecidabilityStatement : Prop :=
+`PropDeriv.decidable_nonempty` instance above).
+
+This lives in `Type 1`, not `Prop`, because `Decidable` is an inductive
+type (with `isTrue`/`isFalse` constructors carrying proof terms), not a
+propositional predicate. -/
+def T1_PropositionalDecidabilityStatement : Type 1 :=
   ∀ (Γₐ : List Prop') (M : Term) (φ : Prop'),
     Decidable (Nonempty (PropDeriv Γₐ M φ))
 
-/-- T1 propositional decidability — discharge of the statement. -/
-theorem t1_propositional_decidability : T1_PropositionalDecidabilityStatement :=
+/-- T1 propositional decidability — discharge of the statement.
+`noncomputable def` (not `theorem`) because the Decidable witness is
+constructed by Type-level case analysis on `decideLean`'s output and
+depends on the noncomputable `t1_propositional_soundness_prop`. -/
+noncomputable def t1_propositional_decidability : T1_PropositionalDecidabilityStatement :=
   fun Γₐ M φ => PropDeriv.decidable_nonempty Γₐ M φ
 
 /-- T1 extended to the full calculus (M1.Q4.d). The complexity bound

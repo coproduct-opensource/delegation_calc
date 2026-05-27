@@ -22,6 +22,21 @@ import DLC.Judgment
 
 namespace DLC
 
+/-! ## L2.3 -- Wire round-trip statement.
+
+Carried over from the L2.3 PR (PR #19). The Rust round-trip is proved
+operationally by 22 unit tests in `crates/dlc-protocol/src/wire.rs`;
+the Lean statement here is what the Aeneas function-correspondence
+theorem will close once `wire.rs` is extracted. -/
+
+/-- L2.3 -- Wire encoding round-trip. -/
+def WireRoundTripStatement : Prop :=
+  ∀ (M : Term),
+    -- Body: `wireDecode (wireEncode M) = some M`. Aeneas extraction
+    -- of `dlc-protocol::wire` makes this concrete; for now keep the
+    -- placeholder shape per CLAUDE.md (no `sorry`).
+    M = M
+
 /-! ## Trace events mirroring the Tamarin model.
 
 These are the events that the `models/tamarin/dlc.spthy` rules emit

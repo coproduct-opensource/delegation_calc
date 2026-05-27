@@ -109,81 +109,83 @@ so the implication direction trivially holds. -/
 theorem Prop'.beq_eq_true_iff_eq : ∀ (φ ψ : Prop'),
     Prop'.beq φ ψ = true → φ = ψ := by
   intro φ
-  induction φ with
-  | top =>
+  induction φ
+  case top =>
     intro ψ h
-    cases ψ <;> first | rfl | (simp [Prop'.beq] at h)
-  | bot =>
+    cases ψ <;> simp_all [Prop'.beq]
+  case bot =>
     intro ψ h
-    cases ψ <;> first | rfl | (simp [Prop'.beq] at h)
-  | atom n =>
+    cases ψ <;> simp_all [Prop'.beq]
+  case atom n =>
     intro ψ h
-    cases ψ <;> try (simp [Prop'.beq] at h)
-    rename_i m
-    exact congrArg Prop'.atom h
-  | imp a b iha ihb =>
+    cases ψ <;> simp_all [Prop'.beq]
+  case imp a b iha ihb =>
     intro ψ h
-    cases ψ <;> try (simp [Prop'.beq] at h)
+    cases ψ <;> (try (simp [Prop'.beq] at h))
+    -- Only the matching `imp a' b'` case survives; the rest closed by simp.
     rename_i a' b'
-    obtain ⟨ha, hb⟩ := h
-    exact congr (congrArg Prop'.imp (iha a' ha)) (ihb b' hb)
-  | and a b iha ihb =>
+    simp only [Prop'.beq, Bool.and_eq_true] at h
+    exact congr (congrArg Prop'.imp (iha a' h.1)) (ihb b' h.2)
+  case and a b iha ihb =>
     intro ψ h
-    cases ψ <;> try (simp [Prop'.beq] at h)
+    cases ψ <;> (try (simp [Prop'.beq] at h))
     rename_i a' b'
-    obtain ⟨ha, hb⟩ := h
-    exact congr (congrArg Prop'.and (iha a' ha)) (ihb b' hb)
-  | or a b iha ihb =>
+    simp only [Prop'.beq, Bool.and_eq_true] at h
+    exact congr (congrArg Prop'.and (iha a' h.1)) (ihb b' h.2)
+  case or a b iha ihb =>
     intro ψ h
-    cases ψ <;> try (simp [Prop'.beq] at h)
+    cases ψ <;> (try (simp [Prop'.beq] at h))
     rename_i a' b'
-    obtain ⟨ha, hb⟩ := h
-    exact congr (congrArg Prop'.or (iha a' ha)) (ihb b' hb)
-  | says p a iha =>
+    simp only [Prop'.beq, Bool.and_eq_true] at h
+    exact congr (congrArg Prop'.or (iha a' h.1)) (ihb b' h.2)
+  case says p a iha =>
     intro ψ h
-    cases ψ <;> try (simp [Prop'.beq] at h)
+    cases ψ <;> (try (simp [Prop'.beq] at h))
     rename_i p' a'
+    simp only [Prop'.beq, Bool.and_eq_true, decide_eq_true_eq] at h
     obtain ⟨hp, ha⟩ := h
     subst hp
     exact congrArg (Prop'.says p) (iha a' ha)
-  | speaksFor p q =>
+  case speaksFor p q =>
     intro ψ h
-    cases ψ <;> try (simp [Prop'.beq] at h)
+    cases ψ <;> (try (simp [Prop'.beq] at h))
     rename_i p' q'
+    simp only [Prop'.beq, Bool.and_eq_true, decide_eq_true_eq] at h
     obtain ⟨hp, hq⟩ := h
     subst hp; subst hq
     rfl
-  | «at» a ℓ _ =>
-    -- Prop'.beq always returns false on at-comparisons; the hypothesis is
-    -- unreachable.
+  case at a ℓ _ =>
+    -- Prop'.beq always returns false on at-comparisons; unreachable.
     intro ψ h
     cases ψ <;> simp [Prop'.beq] at h
-  | boxed o a iha =>
+  case boxed o a iha =>
     intro ψ h
-    cases ψ <;> try (simp [Prop'.beq] at h)
+    cases ψ <;> (try (simp [Prop'.beq] at h))
     rename_i o' a'
+    simp only [Prop'.beq, Bool.and_eq_true, decide_eq_true_eq] at h
     obtain ⟨ho, ha⟩ := h
     subst ho
     exact congrArg (Prop'.boxed o) (iha a' ha)
-  | within τ a iha =>
+  case within τ a iha =>
     intro ψ h
-    cases ψ <;> try (simp [Prop'.beq] at h)
+    cases ψ <;> (try (simp [Prop'.beq] at h))
     rename_i τ' a'
+    simp only [Prop'.beq, Bool.and_eq_true, decide_eq_true_eq] at h
     obtain ⟨hτ, ha⟩ := h
     subst hτ
     exact congrArg (Prop'.within τ) (iha a' ha)
-  | tensor a b iha ihb =>
+  case tensor a b iha ihb =>
     intro ψ h
-    cases ψ <;> try (simp [Prop'.beq] at h)
+    cases ψ <;> (try (simp [Prop'.beq] at h))
     rename_i a' b'
-    obtain ⟨ha, hb⟩ := h
-    exact congr (congrArg Prop'.tensor (iha a' ha)) (ihb b' hb)
-  | lolli a b iha ihb =>
+    simp only [Prop'.beq, Bool.and_eq_true] at h
+    exact congr (congrArg Prop'.tensor (iha a' h.1)) (ihb b' h.2)
+  case lolli a b iha ihb =>
     intro ψ h
-    cases ψ <;> try (simp [Prop'.beq] at h)
+    cases ψ <;> (try (simp [Prop'.beq] at h))
     rename_i a' b'
-    obtain ⟨ha, hb⟩ := h
-    exact congr (congrArg Prop'.lolli (iha a' ha)) (ihb b' hb)
+    simp only [Prop'.beq, Bool.and_eq_true] at h
+    exact congr (congrArg Prop'.lolli (iha a' h.1)) (ihb b' h.2)
 
 /-! ## `decideLean` — Lean mirror of Rust `infer`.
 
@@ -234,34 +236,34 @@ theorem t1_propositional_soundness (M : Term) :
       M.isPropositional = true →
       decideLean { additive := Γₐ, linear := [] } M = some φ →
       Nonempty (Deriv { additive := Γₐ, linear := [] } M φ) := by
-  induction M with
-  | var i =>
+  induction M
+  case var i =>
     intro Γₐ φ _ hdec
     -- decideLean unfolds to a match on Γ.additive[i]?; the linear:=[] branch
     -- of the var-L fallback never fires.
     unfold decideLean at hdec
     split at hdec
     · rename_i ψ heq
-      cases hdec
+      have hψφ : ψ = φ := Option.some.inj hdec
+      subst hψφ
       exact ⟨Deriv.varA _ i _ heq⟩
     · -- additive lookup miss; the inner var-L match on linear:=[] never fires.
-      split at hdec
-      all_goals simp at hdec
-  | lam ψ body ih =>
+      split at hdec <;> simp_all
+  case lam ψ body ih =>
     intro Γₐ φ hprop hdec
     unfold decideLean at hdec
     split at hdec
     · rename_i ψ' hbody
-      cases hdec
+      have hφ : Prop'.imp ψ ψ' = φ := Option.some.inj hdec
+      subst hφ
       have hprop' : body.isPropositional = true := by
         simp [Term.isPropositional] at hprop; exact hprop
-      -- consA on a Ctx with linear:=[] yields { additive := ψ::Γₐ, linear := [] }
       have hbody' : decideLean { additive := ψ :: Γₐ, linear := [] } body = some ψ' := by
         simpa [Ctx.consA] using hbody
       have ⟨dBody⟩ := ih (ψ :: Γₐ) ψ' hprop' hbody'
       exact ⟨Deriv.impI _ ψ ψ' body dBody⟩
     · simp at hdec
-  | app f x ihf ihx =>
+  case app f x ihf ihx =>
     intro Γₐ φ hprop hdec
     have hprop' := hprop
     simp [Term.isPropositional] at hprop'
@@ -276,29 +278,32 @@ theorem t1_propositional_soundness (M : Term) :
       · rename_i φ' hx
         by_cases hbeq : Prop'.beq α φ' = true
         · rw [if_pos hbeq] at hdec
-          cases hdec
+          have hβφ : β = φ := Option.some.inj hdec
+          subst hβφ
           have hα : α = φ' := Prop'.beq_eq_true_iff_eq α φ' hbeq
           have ⟨dF⟩ := ihf Γₐ (Prop'.imp α φ) hpropF hf
           have ⟨dX⟩ := ihx Γₐ φ' hpropX hx
           subst hα
           exact ⟨Deriv.impE Γₐ [] [] α φ f x dF dX⟩
-        · rw [if_neg hbeq] at hdec; cases hdec
-      · cases hdec
-    · -- f's type is anything other than some (Prop'.imp _ _); hdec is none = some φ.
-      cases hdec
-  | sign p m sig ihm =>
+        · rw [if_neg hbeq] at hdec
+          simp at hdec
+      · simp at hdec
+    · simp at hdec
+  case sign p m sig ihm =>
     intro Γₐ φ hprop hdec
     unfold decideLean at hdec
     split at hdec
     · rename_i ψ hm
-      cases hdec
+      have hφ : Prop'.says p ψ = φ := Option.some.inj hdec
+      subst hφ
       have hprop' : m.isPropositional = true := by
         simp [Term.isPropositional] at hprop; exact hprop
       have ⟨dM⟩ := ihm Γₐ ψ hprop' hm
       exact ⟨Deriv.saysI _ p ψ m sig dM⟩
     · simp at hdec
-  -- All non-propositional constructors are rejected by `isPropositional`.
-  all_goals (intro _ _ hprop _; simp [Term.isPropositional] at hprop)
+  -- All non-propositional constructors are rejected by `isPropositional`:
+  -- isPropositional returns false, so the hypothesis is contradictory.
+  all_goals (intro Γₐ φ hprop hdec; simp [Term.isPropositional] at hprop)
 
 /-! ## T1 — Propositional decidability statement (replaces old placeholder).
 

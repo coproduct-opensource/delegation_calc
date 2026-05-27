@@ -278,13 +278,18 @@ theorem t1_propositional_soundness (M : Term) :
       · rename_i φ' hx
         by_cases hbeq : Prop'.beq α φ' = true
         · rw [if_pos hbeq] at hdec
+          -- hdec : some β = some φ
           have hβφ : β = φ := Option.some.inj hdec
-          subst hβφ
+          -- hα : α = φ' from beq soundness
           have hα : α = φ' := Prop'.beq_eq_true_iff_eq α φ' hbeq
-          have ⟨dF⟩ := ihf Γₐ (Prop'.imp α φ) hpropF hf
+          -- Apply IHs at the types they actually produced.
+          have ⟨dF⟩ := ihf Γₐ (Prop'.imp α β) hpropF hf
           have ⟨dX⟩ := ihx Γₐ φ' hpropX hx
-          subst hα
-          exact ⟨Deriv.impE Γₐ [] [] α φ f x dF dX⟩
+          -- Realign dF to the goal-shape: rewrite α → φ', β → φ in dF.
+          rw [hα, hβφ] at dF
+          -- dF : Deriv ... f (Prop'.imp φ' φ); dX : Deriv ... x φ'.
+          -- impE produces Deriv ... (Term.app f x) φ.
+          exact ⟨Deriv.impE Γₐ [] [] φ' φ f x dF dX⟩
         · rw [if_neg hbeq] at hdec
           simp at hdec
       · simp at hdec

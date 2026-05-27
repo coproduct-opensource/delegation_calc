@@ -135,14 +135,13 @@ theorem pendingObligations_substAt_subset (body : Term) :
     exact ih value (depth + 1) o hmem
   | app _ _ ihF ihX =>
     intro value depth o hmem
-    unfold substAt at hmem
-    unfold pendingObligations at hmem
-    rcases List.mem_append.mp hmem with hF | hX
+    simp only [substAt, pendingObligations, List.mem_append] at hmem
+    rcases hmem with hF | hX
     · rcases ihF value depth o hF with h | h
-      · left; simp [pendingObligations]; left; exact h
+      · left; simp only [pendingObligations, List.mem_append]; exact Or.inl h
       · right; exact h
     · rcases ihX value depth o hX with h | h
-      · left; simp [pendingObligations]; right; exact h
+      · left; simp only [pendingObligations, List.mem_append]; exact Or.inr h
       · right; exact h
   | sign _ _ _ ih =>
     intro value depth o hmem
@@ -156,14 +155,13 @@ theorem pendingObligations_substAt_subset (body : Term) :
     exact ih value depth o hmem
   | delegate _ _ ihM ihN =>
     intro value depth o hmem
-    unfold substAt at hmem
-    unfold pendingObligations at hmem
-    rcases List.mem_append.mp hmem with hM | hN
+    simp only [substAt, pendingObligations, List.mem_append] at hmem
+    rcases hmem with hM | hN
     · rcases ihM value depth o hM with h | h
-      · left; simp [pendingObligations]; left; exact h
+      · left; simp only [pendingObligations, List.mem_append]; exact Or.inl h
       · right; exact h
     · rcases ihN value depth o hN with h | h
-      · left; simp [pendingObligations]; right; exact h
+      · left; simp only [pendingObligations, List.mem_append]; exact Or.inr h
       · right; exact h
   | attenuate _ _ ih =>
     intro value depth o hmem
@@ -172,14 +170,13 @@ theorem pendingObligations_substAt_subset (body : Term) :
     exact ih value depth o hmem
   | discharge _ _ ihM ihN =>
     intro value depth o hmem
-    unfold substAt at hmem
-    unfold pendingObligations at hmem
-    rcases List.mem_append.mp hmem with hM | hN
+    simp only [substAt, pendingObligations, List.mem_append] at hmem
+    rcases hmem with hM | hN
     · rcases ihM value depth o hM with h | h
-      · left; simp [pendingObligations]; left; exact h
+      · left; simp only [pendingObligations, List.mem_append]; exact Or.inl h
       · right; exact h
     · rcases ihN value depth o hN with h | h
-      · left; simp [pendingObligations]; right; exact h
+      · left; simp only [pendingObligations, List.mem_append]; exact Or.inr h
       · right; exact h
   | liftLabel _ _ ih =>
     intro value depth o hmem
@@ -188,14 +185,13 @@ theorem pendingObligations_substAt_subset (body : Term) :
     exact ih value depth o hmem
   | declassify _ _ _ ihM ihπ =>
     intro value depth o hmem
-    unfold substAt at hmem
-    unfold pendingObligations at hmem
-    rcases List.mem_append.mp hmem with hM | hπ
+    simp only [substAt, pendingObligations, List.mem_append] at hmem
+    rcases hmem with hM | hπ
     · rcases ihM value depth o hM with h | h
-      · left; simp [pendingObligations]; left; exact h
+      · left; simp only [pendingObligations, List.mem_append]; exact Or.inl h
       · right; exact h
     · rcases ihπ value depth o hπ with h | h
-      · left; simp [pendingObligations]; right; exact h
+      · left; simp only [pendingObligations, List.mem_append]; exact Or.inr h
       · right; exact h
   | now _ =>
     intro value depth o hmem
@@ -208,14 +204,13 @@ theorem pendingObligations_substAt_subset (body : Term) :
     exact ih value depth o hmem
   | pair _ _ ihA ihB =>
     intro value depth o hmem
-    unfold substAt at hmem
-    unfold pendingObligations at hmem
-    rcases List.mem_append.mp hmem with hA | hB
+    simp only [substAt, pendingObligations, List.mem_append] at hmem
+    rcases hmem with hA | hB
     · rcases ihA value depth o hA with h | h
-      · left; simp [pendingObligations]; left; exact h
+      · left; simp only [pendingObligations, List.mem_append]; exact Or.inl h
       · right; exact h
     · rcases ihB value depth o hB with h | h
-      · left; simp [pendingObligations]; right; exact h
+      · left; simp only [pendingObligations, List.mem_append]; exact Or.inr h
       · right; exact h
   | fst _ ih =>
     intro value depth o hmem
@@ -239,51 +234,53 @@ theorem pendingObligations_substAt_subset (body : Term) :
     exact ih value depth o hmem
   | case _ _ _ ihS ihL ihR =>
     intro value depth o hmem
-    unfold substAt at hmem
-    unfold pendingObligations at hmem
-    rcases List.mem_append.mp hmem with hSL | hR
-    · rcases List.mem_append.mp hSL with hS | hL
-      · rcases ihS value depth o hS with h | h
-        · left; simp [pendingObligations]; left; left; exact h
-        · right; exact h
-      · rcases ihL value (depth + 1) o hL with h | h
-        · left; simp [pendingObligations]; left; right; exact h
-        · right; exact h
+    simp only [substAt, pendingObligations, List.mem_append] at hmem
+    -- hmem : (o ∈ ...S ∨ o ∈ ...L) ∨ o ∈ ...R  (left-associated)
+    rcases hmem with (hS | hL) | hR
+    · rcases ihS value depth o hS with h | h
+      · left
+        simp only [pendingObligations, List.mem_append]
+        exact Or.inl (Or.inl h)
+      · right; exact h
+    · rcases ihL value (depth + 1) o hL with h | h
+      · left
+        simp only [pendingObligations, List.mem_append]
+        exact Or.inl (Or.inr h)
+      · right; exact h
     · rcases ihR value (depth + 1) o hR with h | h
-      · left; simp [pendingObligations]; right; exact h
+      · left
+        simp only [pendingObligations, List.mem_append]
+        exact Or.inr h
       · right; exact h
   | tensorIntro _ _ ihA ihB =>
     intro value depth o hmem
-    unfold substAt at hmem
-    unfold pendingObligations at hmem
-    rcases List.mem_append.mp hmem with hA | hB
+    simp only [substAt, pendingObligations, List.mem_append] at hmem
+    rcases hmem with hA | hB
     · rcases ihA value depth o hA with h | h
-      · left; simp [pendingObligations]; left; exact h
+      · left; simp only [pendingObligations, List.mem_append]; exact Or.inl h
       · right; exact h
     · rcases ihB value depth o hB with h | h
-      · left; simp [pendingObligations]; right; exact h
+      · left; simp only [pendingObligations, List.mem_append]; exact Or.inr h
       · right; exact h
   | letTensor _ _ ihS ihB =>
     intro value depth o hmem
-    unfold substAt at hmem
-    unfold pendingObligations at hmem
-    rcases List.mem_append.mp hmem with hS | hB
+    simp only [substAt, pendingObligations, List.mem_append] at hmem
+    rcases hmem with hS | hB
     · rcases ihS value depth o hS with h | h
-      · left; simp [pendingObligations]; left; exact h
+      · left; simp only [pendingObligations, List.mem_append]; exact Or.inl h
       · right; exact h
     · rcases ihB value (depth + 2) o hB with h | h
-      · left; simp [pendingObligations]; right; exact h
+      · left; simp only [pendingObligations, List.mem_append]; exact Or.inr h
       · right; exact h
   | letSays _ _ _ ihS ihB =>
     intro value depth o hmem
-    unfold substAt at hmem
-    unfold pendingObligations at hmem
-    rcases List.mem_append.mp hmem with hS | hB
+    simp only [substAt, pendingObligations, List.mem_append] at hmem
+    rcases hmem with hS | hB
     · rcases ihS value depth o hS with h | h
-      · left; simp [pendingObligations]; left; exact h
+      · left; simp only [pendingObligations, List.mem_append]; exact Or.inl h
       · right; exact h
     · rcases ihB value (depth + 1) o hB with h | h
-      · left; simp [pendingObligations]; right; exact h
+      · left; simp only [pendingObligations, List.mem_append]; exact Or.inr h
       · right; exact h
   | sfExtract _ ih =>
     intro value depth o hmem

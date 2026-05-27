@@ -54,6 +54,7 @@ def Term.isPropositional : Term → Bool
   | Term.sfExtract m      => m.isPropositional
   | Term.delegate m n     => m.isPropositional && n.isPropositional
   | Term.now _            => true
+  | Term.attenuate m _    => m.isPropositional
   | _                     => false
 
 /-- A full-calculus term: every constructor accepted, including modal /
@@ -330,6 +331,18 @@ def decideLean (Γ : Ctx) : Term → Option Prop'
     -- no hypotheses, so always-typed at `Top` regardless of context.
     -- Mirrors Rust `Term::Now(_tau) => Some(Prop::Top)` in `decide.rs`.
     some Prop'.top
+  | .attenuate m psi =>
+    -- `attenuate M ψ`: narrowing along provable implication. Full Rust
+    -- semantics trust the claimed `ψ`; here we accept only the
+    -- *degenerate* case where `ψ = φ` (M's says-inner). This is a
+    -- sound, strict subset — the impl witness for `φ ⊃ φ` is trivially
+    -- `Term.var 0` in `Ctx.consA φ Ctx.empty` (via `Deriv.varA`).
+    -- Non-degenerate attenuation requires a decision procedure for
+    -- propositional implication, which is a separate substantial PR.
+    match decideLean Γ m with
+    | some (Prop'.says p phi) =>
+      if Prop'.beq phi psi then some (Prop'.says p psi) else none
+    | _ => none
   | _ => none
 
 /-! ## T1 — Propositional soundness (the headline closure for this PR).
@@ -656,6 +669,31 @@ theorem t1_propositional_soundness (M : Term) :
     simp [decideLean] at hdec
     subst hdec
     exact ⟨Deriv.now Γₐ τ⟩
+  case attenuate m psi ihm =>
+    intro Γₐ φ hprop hdec
+    have hpropM : m.isPropositional = true := by
+      simp [Term.isPropositional] at hprop; exact hprop
+    -- decideLean (attenuate m ψ): only accepts when m has type `says p ψ`
+    -- (i.e., φ_inner = ψ). Result is `says p ψ`.
+    cases hM : decideLean { additive := Γₐ, linear := [] } m with
+    | none => simp [decideLean, hM] at hdec
+    | some tyM =>
+      cases tyM
+      case «says» p phiM =>
+        by_cases hψ : Prop'.beq phiM psi
+        · -- phiM = psi (the degenerate case): result is says p psi.
+          have hphi_eq_psi : phiM = psi := Prop'.beq_eq_true_iff_eq phiM psi hψ
+          have hφ : Prop'.says p psi = φ := by
+            simpa [decideLean, hM, hψ] using hdec
+          rw [← hφ]
+          have ⟨dM⟩ := ihm Γₐ (Prop'.says p phiM) hpropM hM
+          rw [hphi_eq_psi] at dM
+          -- Now dM : Deriv Γₐ m (says p psi). Apply Deriv.attenuate
+          -- with witness Term.var 0 in Ctx.consA psi Ctx.empty.
+          exact ⟨Deriv.attenuate _ p psi psi m (Term.var 0) dM
+            (Deriv.varA { additive := [psi], linear := [] } 0 psi rfl)⟩
+        · simp [decideLean, hM, hψ] at hdec
+      all_goals (simp [decideLean, hM] at hdec)
   -- All non-propositional constructors are rejected by `isPropositional`:
   -- isPropositional returns false, so the hypothesis is contradictory.
   all_goals (intro Γₐ φ hprop hdec; simp [Term.isPropositional] at hprop)
@@ -781,6 +819,17 @@ inductive PropDeriv : List Prop' → Term → Prop' → Type where
   | now (Γₐ : List Prop') (τ : TimeBound) :
       PropDeriv Γₐ (Term.now τ) Prop'.top
 
+  /-- `attenuate` (degenerate form). Accepts `Term.attenuate M φ` at
+  type `Prop'.says p φ` when the claimed `ψ` equals `M`'s inner
+  proposition `φ`. The non-degenerate `ψ ≠ φ` case requires a
+  propositional-implication decision procedure (deferred). The
+  embedding `propDeriv_to_deriv` uses `Deriv.varA [φ] 0 φ rfl` as the
+  trivial impl witness for `φ ⊃ φ` in the singleton-additive context
+  `Ctx.consA φ Ctx.empty`. -/
+  | attenuate (Γₐ : List Prop') (p : Principal) (φ : Prop') (M : Term)
+      (d : PropDeriv Γₐ M (Prop'.says p φ)) :
+      PropDeriv Γₐ (Term.attenuate M φ) (Prop'.says p φ)
+
 /-! ## Shift preservation — load-bearing lemma for subject reduction.
 
 If `M` is well-typed under `Γl ++ Γr`, then shifting `M`'s free variables
@@ -903,6 +952,11 @@ private noncomputable def propDeriv_shift_aux
     subst hΓ
     unfold shift
     exact PropDeriv.now (Γl ++ Γm ++ Γr) τ
+  | attenuate _ p φ M _ ih =>
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    exact PropDeriv.attenuate _ p φ _ (ih Γl Γr Γm rfl)
 
 /-- Public-facing shift preservation, instantiated from
 `propDeriv_shift_aux` with the trivial equality. -/
@@ -1086,6 +1140,11 @@ private noncomputable def propDeriv_substAt_aux
     subst hΓ
     unfold substAt
     exact PropDeriv.now (Γl ++ Γr) τ
+  | attenuate _ p ψ M _ ih =>
+    intro Γl Γr φ hΓ N dN
+    subst hΓ
+    unfold substAt
+    exact PropDeriv.attenuate _ p ψ _ (ih Γl Γr φ rfl N dN)
 
 /-- Public-facing substitution preservation. -/
 noncomputable def propDeriv_substAt
@@ -1228,6 +1287,10 @@ noncomputable def propDeriv_subject_reduction
   | now _ _ =>
     -- `Term.now τ` is irreducible — `step` rejects it. Vacuous.
     simp [step] at h
+  | attenuate _ _ _ _ _ =>
+    -- `Term.attenuate M φ` is a normal form per `Reduce.lean` — `step`
+    -- returns `none`. Vacuous precondition.
+    simp [step] at h
 
 /-- Structural embedding from `PropDeriv` into `Deriv`. Constructively
 shows the propositional fragment is a faithful sub-typing-judgment. -/
@@ -1263,6 +1326,10 @@ noncomputable def propDeriv_to_deriv :
       exact Deriv.delegate _ [] [] p q φ M N ihM ihN
   | now Γₐ τ =>
       exact Deriv.now Γₐ τ
+  | attenuate Γₐ p φ M _ ih =>
+      -- Trivial impl witness: `Term.var 0 : φ` in `consA φ Ctx.empty`.
+      exact Deriv.attenuate _ p φ φ M (Term.var 0) ih
+        (Deriv.varA { additive := [φ], linear := [] } 0 φ rfl)
 
 /-! ## T1 — Propositional completeness (the other direction). -/
 
@@ -1345,6 +1412,11 @@ theorem t1_propositional_completeness :
     -- decideLean unfolds to `some Prop'.top` for any context.
     unfold decideLean
     rfl
+  | attenuate Γₐ p φ M _ ih =>
+    -- decideLean (attenuate M φ): produces `some (says p φ)` since
+    -- φ = φ (the degenerate case the constructor encodes).
+    unfold decideLean
+    simp [ih, Prop'.beq_refl]
 
 /-! ## Inversion lemmas — the term shape determines the constructor.
 
@@ -1647,6 +1719,23 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
     simp [decideLean] at hdec
     subst hdec
     exact PropDeriv.now Γₐ τ
+  case attenuate m psi ihm =>
+    intro Γₐ φ hdec
+    cases hM : decideLean { additive := Γₐ, linear := [] } m with
+    | none => simp [decideLean, hM] at hdec
+    | some tyM =>
+      cases tyM
+      case «says» p phiM =>
+        by_cases hψ : Prop'.beq phiM psi
+        · have hphi_eq_psi : phiM = psi := Prop'.beq_eq_true_iff_eq phiM psi hψ
+          have hφ : Prop'.says p psi = φ := by
+            simpa [decideLean, hM, hψ] using hdec
+          rw [← hφ]
+          have dM := ihm Γₐ (Prop'.says p phiM) hM
+          rw [hphi_eq_psi] at dM
+          exact PropDeriv.attenuate _ p psi m dM
+        · simp [decideLean, hM, hψ] at hdec
+      all_goals (simp [decideLean, hM] at hdec)
   all_goals (intro Γₐ φ hdec; simp [decideLean] at hdec)
 
 /-! ## T1 — The Decidable instance.

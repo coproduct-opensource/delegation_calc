@@ -87,6 +87,34 @@ def join (a b : Label) : Label :=
   , spawn_agent := levelMax a.spawn_agent b.spawn_agent
   }
 
+/-- Pointwise ordering on `CapabilityLevel`: `.Never ≤ .LowRisk ≤ .Always`. -/
+def levelLe (a b : CapabilityLevel) : Bool :=
+  match a, b with
+  | .Never,   _         => true
+  | .LowRisk, .Never    => false
+  | .LowRisk, _         => true
+  | .Always,  .Always   => true
+  | .Always,  _         => false
+
+/-- Componentwise lattice order on `Label`: `a ≤ b` iff every component
+of `a` is ≤ the corresponding component of `b`. Load-bearing for T3:
+`Indistinguishable ℓ_low` recurses into the `at φ ℓ` case only when
+`Label.le ℓ ℓ_low` (the proposition is observable at the low label). -/
+def le (a b : Label) : Bool :=
+  levelLe a.read_files  b.read_files  &&
+  levelLe a.write_files b.write_files &&
+  levelLe a.edit_files  b.edit_files  &&
+  levelLe a.run_bash    b.run_bash    &&
+  levelLe a.glob_search b.glob_search &&
+  levelLe a.grep_search b.grep_search &&
+  levelLe a.web_search  b.web_search  &&
+  levelLe a.web_fetch   b.web_fetch   &&
+  levelLe a.git_commit  b.git_commit  &&
+  levelLe a.git_push    b.git_push   &&
+  levelLe a.create_pr   b.create_pr   &&
+  levelLe a.manage_pods b.manage_pods &&
+  levelLe a.spawn_agent b.spawn_agent
+
 end Label
 
 end DLC

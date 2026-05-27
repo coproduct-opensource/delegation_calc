@@ -401,6 +401,44 @@ theorem t1_propositional_completeness :
     unfold decideLean
     rw [ih]
 
+/-! ## Inversion lemmas — the term shape determines the constructor.
+
+For each `Term` constructor in the propositional fragment, `PropDeriv`
+has exactly one corresponding rule. These four inversion lemmas extract
+the sub-derivations (and any propositional side conditions) from a
+`PropDeriv` over a specific term shape. -/
+
+/-- Inversion for `PropDeriv` at a variable: only `varA` applies. -/
+theorem PropDeriv_var_inv {Γₐ : List Prop'} {i : Nat} {φ : Prop'} :
+    PropDeriv Γₐ (Term.var i) φ → Γₐ[i]? = some φ
+  | .varA _ _ _ h => h
+
+/-- Inversion for `PropDeriv` at a lambda: only `impI` applies, the
+result type must be an implication, and the body has the codomain
+type in the extended context. -/
+noncomputable def PropDeriv_lam_inv {Γₐ : List Prop'} {χ : Prop'} {M' : Term}
+    {φ : Prop'} :
+    PropDeriv Γₐ (Term.lam χ M') φ →
+    Σ' ψ' : Prop', PLift (φ = Prop'.imp χ ψ') × PropDeriv (χ :: Γₐ) M' ψ'
+  | .impI _ _ ψ' _ d => ⟨ψ', .up rfl, d⟩
+
+/-- Inversion for `PropDeriv` at an application: only `impE` applies,
+giving an intermediate type `α` such that the function has type
+`α → φ` and the argument has type `α`. -/
+noncomputable def PropDeriv_app_inv {Γₐ : List Prop'} {f x : Term} {φ : Prop'} :
+    PropDeriv Γₐ (Term.app f x) φ →
+    Σ' α : Prop', PropDeriv Γₐ f (Prop'.imp α φ) × PropDeriv Γₐ x α
+  | .impE _ α _ _ _ dM dN => ⟨α, dM, dN⟩
+
+/-- Inversion for `PropDeriv` at a signed term: only `saysI` applies,
+the result type must be a `says`, and the inner term has the inner
+proposition. -/
+noncomputable def PropDeriv_sign_inv {Γₐ : List Prop'} {p : Principal}
+    {m : Term} {sig : Signature} {φ : Prop'} :
+    PropDeriv Γₐ (Term.sign p m sig) φ →
+    Σ' ψ : Prop', PLift (φ = Prop'.says p ψ) × PropDeriv Γₐ m ψ
+  | .saysI _ _ ψ _ _ d => ⟨ψ, .up rfl, d⟩
+
 /-! ## Type uniqueness — every PropDeriv pins down a unique type. -/
 
 /-- Type uniqueness for `PropDeriv`: if two propositional derivations

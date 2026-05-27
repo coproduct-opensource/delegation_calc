@@ -110,8 +110,17 @@ def Indistinguishable (ℓLow : Label) : Prop' → Term → Term → Prop
       Indistinguishable ℓLow φ M N ∧ Indistinguishable ℓLow ψ M N
   | .or φ ψ, M, N =>
       Indistinguishable ℓLow φ M N ∨ Indistinguishable ℓLow ψ M N
-  -- Remaining: imp / lolli need subject reduction.
-  | _, _, _ => True
+  | .imp α β, M, N =>
+      -- Conservative arrow LR: M and N agree on self-related inputs.
+      -- ∀ M', R[α](M', M') → R[β](app M M', app N M').
+      -- This is reflexive by construction (M = N forces both apps equal),
+      -- without requiring the fundamental lemma + subject reduction.
+      ∀ (M' : Term), Indistinguishable ℓLow α M' M' →
+        Indistinguishable ℓLow β (Term.app M M') (Term.app N M')
+  | .lolli α β, M, N =>
+      -- Linear implication: same conservative LR shape as imp.
+      ∀ (M' : Term), Indistinguishable ℓLow α M' M' →
+        Indistinguishable ℓLow β (Term.app M M') (Term.app N M')
 
 /-! ## Reflexivity — every term is self-indistinguishable.
 
@@ -121,40 +130,53 @@ substitution invariance proved separately (M1.Q2.a). -/
 
 /-- The `Indistinguishable` relation is reflexive in its term arguments
 at any label and any proposition. Proven by structural induction on
-`φ`. Each compound case uses its IHs; the `imp` and `lolli` cases
-still fall through to the `True` placeholder. -/
-theorem Indistinguishable_refl (ℓLow : Label) (φ : Prop') (M : Term) :
-    Indistinguishable ℓLow φ M M := by
+`φ`. Each compound case uses its IHs; the arrow types (`imp`, `lolli`)
+use the conservative "same-input" LR shape, which is reflexive by
+construction (when M = N, `app M M' = app N M'`). Induction
+generalizes `M` so the IH for `β` can be instantiated at `app M M'`. -/
+theorem Indistinguishable_refl (ℓLow : Label) (φ : Prop') :
+    ∀ (M : Term), Indistinguishable ℓLow φ M M := by
   induction φ
-  case top => trivial
-  case bot => trivial
-  case atom n => rfl
-  case speaksFor p q => rfl
+  case top => intro M; trivial
+  case bot => intro M; trivial
+  case atom n => intro M; rfl
+  case speaksFor p q => intro M; rfl
   case «at» φ ℓ ihφ =>
-    -- Indistinguishable ℓ_low (at φ ℓ) M M unfolds to
-    --   if Label.le ℓ ℓ_low then Indistinguishable ℓ_low φ M M else True.
+    intro M
     unfold Indistinguishable
-    split <;> first | exact ihφ | trivial
+    split <;> first | exact ihφ M | trivial
   case boxed _ φ ihφ =>
+    intro M
     show Indistinguishable ℓLow φ M M
-    exact ihφ
+    exact ihφ M
   case within _ φ ihφ =>
+    intro M
     show Indistinguishable ℓLow φ M M
-    exact ihφ
+    exact ihφ M
   case «says» _ φ ihφ =>
+    intro M
     show Indistinguishable ℓLow φ M M
-    exact ihφ
+    exact ihφ M
   case and φ ψ ihφ ihψ =>
+    intro M
     show Indistinguishable ℓLow φ M M ∧ Indistinguishable ℓLow ψ M M
-    exact ⟨ihφ, ihψ⟩
+    exact ⟨ihφ M, ihψ M⟩
   case tensor φ ψ ihφ ihψ =>
+    intro M
     show Indistinguishable ℓLow φ M M ∧ Indistinguishable ℓLow ψ M M
-    exact ⟨ihφ, ihψ⟩
+    exact ⟨ihφ M, ihψ M⟩
   case or φ ψ ihφ _ =>
+    intro M
     show Indistinguishable ℓLow φ M M ∨ Indistinguishable ℓLow ψ M M
-    exact Or.inl ihφ
-  -- The arrow types (imp, lolli) still fall through to `True`.
-  case imp _ _ _ _ | lolli _ _ _ _ => trivial
+    exact Or.inl (ihφ M)
+  case imp α β _ ihβ =>
+    intro M M' _
+    -- Goal: Indistinguishable ℓ β (app M M') (app M M').
+    -- IH refl on β at the term `app M M'`.
+    exact ihβ (Term.app M M')
+  case lolli α β _ ihβ =>
+    intro M M' _
+    exact ihβ (Term.app M M')
 
 /-! ## Symmetry — Indistinguishable is symmetric in M, N.
 
@@ -211,7 +233,14 @@ theorem Indistinguishable_symm (ℓLow : Label) (φ : Prop') (M N : Term)
     rcases h with h₁ | h₂
     · exact Or.inl (ihφ M N h₁)
     · exact Or.inr (ihψ M N h₂)
-  case imp _ _ _ _ | lolli _ _ _ _ => trivial
+  case imp α β _ ihβ =>
+    -- h : ∀ M', R[α] M' M' → R[β] (app M M') (app N M')
+    -- Goal: ∀ M', R[α] M' M' → R[β] (app N M') (app M M')
+    intro M' hM'
+    exact ihβ _ _ (h M' hM')
+  case lolli α β _ ihβ =>
+    intro M' hM'
+    exact ihβ _ _ (h M' hM')
 
 /-! ## T3 — Atomic fragment of the fundamental lemma.
 
@@ -263,10 +292,11 @@ namespace NonInterferenceChecks
 example (ℓ : Label) :
     Indistinguishable ℓ (Prop'.atom 0) (Term.var 0) (Term.var 0) := rfl
 
-/-- Reflexivity at a non-atomic proposition is `True`. -/
+/-- Reflexivity at an arrow proposition: M is self-indistinguishable
+because `app M M' = app M M'` (refl on the atomic output). -/
 example (ℓ : Label) (M : Term) :
     Indistinguishable ℓ (Prop'.imp (Prop'.atom 0) (Prop'.atom 1)) M M :=
-  trivial
+  Indistinguishable_refl ℓ _ M
 
 /-- The atomic-fragment fundamental lemma applied to a `varA`
 derivation produces propositional reflexivity. -/

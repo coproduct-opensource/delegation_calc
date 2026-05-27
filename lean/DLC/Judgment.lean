@@ -225,13 +225,16 @@ inductive Deriv : Ctx → Term → Prop' → Type where
       Deriv { additive := Γₐ, linear := Γ₁ ++ Γ₂ }
             (Term.letTensor S B) χ
 
-  /-- `says-extract` — explicit let-binder form of `says-E`. -/
+  /-- `says-extract` — explicit let-binder form of `says-E`. The
+  let-binder strips the `says` modality: from `S : p says φ` and a
+  body `B : ψ` in the extended context (with `φ` bound), the
+  result has type `ψ` (mirrors Rust `infer`'s behaviour). -/
   | letSaysE (Γₐ : List Prop') (Γ₁ Γ₂ : List Prop') (p : Principal)
              (φ ψ : Prop') (S B : Term)
       (dS : Deriv { additive := Γₐ, linear := Γ₁ } S (Prop'.says p φ))
       (dB : Deriv { additive := φ :: Γₐ, linear := Γ₂ } B ψ) :
       Deriv { additive := Γₐ, linear := Γ₁ ++ Γ₂ }
-            (Term.letSays p S B) (Prop'.says p ψ)
+            (Term.letSays p S B) ψ
 
   /-- `sf-extract` — extract a speaks-for from `p says (q ⇒ p)`. -/
   | sfExtractE (Γ : Ctx) (p q : Principal) (M : Term)

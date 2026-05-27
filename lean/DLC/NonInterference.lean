@@ -57,18 +57,32 @@ standard logical-relations shape:
   R[ℓ_low](φ, M, M') ⟺
     M and M' produce indistinguishable outputs at any label ≤ ℓ_low.
 
-For atomic propositions, this is term-level propositional equality —
-the atomic case is the "leaf" of the LR construction. For compound
-propositions (`imp`, `says`, `at`, etc.) the relation recurses
-structurally; those cases are filled in by the follow-up PRs and
-currently return the trivial `True` (which preserves reflexivity but
-loses informational content). -/
-def Indistinguishable (_ℓLow : Label) : Prop' → Term → Term → Prop
+Cases refined so far:
+* `Prop'.atom n` — leaf: term-level propositional equality.
+* `Prop'.at φ ℓ` — **the label-modal core of non-interference**: if
+  `ℓ ≤ ℓ_low` the value is observable at the low label and the
+  relation recurses into `φ`; if `ℓ ⊄ ℓ_low` the value is "high"
+  (unobservable) and the relation trivializes to `True`. This is the
+  canonical Garg-Pfenning shape for IFC-labelled non-interference.
+* `Prop'.boxed O φ` — the obligation is structural, not observational;
+  the relation delegates to `φ`.
+* `Prop'.within τ φ` — the time bound is structural; delegate to `φ`.
+
+Remaining placeholders (`True`) — `imp`, `says`, `or`, `tensor`,
+`lolli`, `speaksFor`, `and`, `top`, `bot` — fill in across follow-up
+PRs. The `imp` and `lolli` cases need the fundamental lemma / subject
+reduction machinery for non-conservative refinement, so are gated on
+M1.Q2.c (subject reduction). -/
+def Indistinguishable (ℓLow : Label) : Prop' → Term → Term → Prop
   | .atom _, M, N => M = N
-  -- Placeholder: the remaining cases fill in across follow-up PRs.
-  -- `True` is conservative — it makes the relation reflexive (every
-  -- term is trivially related to itself at non-atomic propositions)
-  -- which is sound but loses non-interference content for those cases.
+  | .at φ ℓ, M, N =>
+      -- Observability gate: low-labelled (ℓ ≤ ℓ_low) values are
+      -- observable and the relation recurses; high-labelled values
+      -- are unobservable.
+      if Label.le ℓ ℓLow then Indistinguishable ℓLow φ M N else True
+  | .boxed _ φ, M, N => Indistinguishable ℓLow φ M N
+  | .within _ φ, M, N => Indistinguishable ℓLow φ M N
+  -- Remaining compound cases fill in across follow-up PRs.
   | _, _, _ => True
 
 /-! ## Reflexivity — every term is self-indistinguishable.
@@ -78,16 +92,27 @@ construction follows from this reflexivity property combined with the
 substitution invariance proved separately (M1.Q2.a). -/
 
 /-- The `Indistinguishable` relation is reflexive in its term arguments
-at any label and any proposition. -/
+at any label and any proposition. Now proved by structural induction
+on `φ` to handle the recursive `at`, `boxed`, and `within` cases. -/
 theorem Indistinguishable_refl (ℓLow : Label) (φ : Prop') (M : Term) :
     Indistinguishable ℓLow φ M M := by
-  -- Reflexivity is by structural case analysis on φ. The atomic case
-  -- reduces to `rfl`; all others reduce to `True.intro`.
-  match φ with
-  | .atom _ => rfl
-  | .top | .bot | .imp _ _ | .and _ _ | .or _ _ | .says _ _
-  | .speaksFor _ _ | .at _ _ | .boxed _ _ | .within _ _
-  | .tensor _ _ | .lolli _ _ => trivial
+  induction φ
+  case atom n => rfl
+  case «at» φ ℓ ihφ =>
+    -- Indistinguishable ℓ_low (at φ ℓ) M M unfolds to
+    --   if Label.le ℓ ℓ_low then Indistinguishable ℓ_low φ M M else True.
+    -- IH refl on φ handles the low-label branch; True closes the high branch.
+    unfold Indistinguishable
+    split <;> first | exact ihφ | trivial
+  case boxed _ φ ihφ =>
+    show Indistinguishable ℓLow φ M M
+    exact ihφ
+  case within _ φ ihφ =>
+    show Indistinguishable ℓLow φ M M
+    exact ihφ
+  -- All remaining compound cases still return `True`.
+  case top | bot | imp _ _ _ _ | and _ _ _ _ | or _ _ _ _
+  | «says» _ _ _ | speaksFor _ _ | tensor _ _ _ _ | lolli _ _ _ _ => trivial
 
 /-! ## T3 — Atomic fragment of the fundamental lemma.
 

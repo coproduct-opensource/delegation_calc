@@ -553,12 +553,12 @@ theorem t1_propositional_soundness (M : Term) :
       cases ty
       case «says» p' α =>
         by_cases hp : p = p'
-        · -- hdec, after reduction: decideLean (φ' :: Γₐ) b = some φ.
-          simp only [decideLean, hS, Ctx.consA, hp,
-                     decide_True, if_true] at hdec
-          -- hdec : decideLean { additive := α :: Γₐ, ... } b = some φ
+        · -- Reduce decideLean+hS+if to expose b's decideLean.
+          have hdec' : decideLean { additive := α :: Γₐ, linear := [] } b
+                        = some φ := by
+            simpa [decideLean, hS, Ctx.consA, hp] using hdec
           have ⟨dS⟩ := ihS Γₐ (Prop'.says p' α) hpropS hS
-          have ⟨dB⟩ := ihB (α :: Γₐ) φ hpropB hdec
+          have ⟨dB⟩ := ihB (α :: Γₐ) φ hpropB hdec'
           rw [← hp] at dS
           exact ⟨Deriv.letSaysE Γₐ [] [] p α φ s b dS dB⟩
         · simp [decideLean, hS, hp] at hdec
@@ -1395,10 +1395,11 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
       cases ty
       case «says» p' α =>
         by_cases hp : p = p'
-        · simp only [decideLean, hS, Ctx.consA, hp,
-                     decide_True, if_true] at hdec
+        · have hdec' : decideLean { additive := α :: Γₐ, linear := [] } b
+                        = some φ := by
+            simpa [decideLean, hS, Ctx.consA, hp] using hdec
           rw [← hp] at hS
-          exact PropDeriv.letSaysE _ p α φ s b (ihS _ _ hS) (ihB _ _ hdec)
+          exact PropDeriv.letSaysE _ p α φ s b (ihS _ _ hS) (ihB _ _ hdec')
         · simp [decideLean, hS, hp] at hdec
       all_goals (simp [decideLean, hS] at hdec)
   all_goals (intro Γₐ φ hdec; simp [decideLean] at hdec)

@@ -507,27 +507,17 @@ theorem t1_propositional_soundness (M : Term) :
     simp [Term.isPropositional] at hprop'
     obtain ⟨hpropS, hpropL, hpropR⟩ := hprop'
     cases hS : decideLean { additive := Γₐ, linear := [] } s with
-    | none => unfold decideLean at hdec; rw [hS] at hdec; simp at hdec
+    | none => simp [decideLean, hS] at hdec
     | some ty =>
       cases ty
       case or α β =>
         cases hL : decideLean { additive := α :: Γₐ, linear := [] } l with
-        | none =>
-          unfold decideLean at hdec
-          simp only [Ctx.consA] at hdec
-          rw [hS, hL] at hdec
-          simp at hdec
+        | none => simp [decideLean, hS, Ctx.consA, hL] at hdec
         | some χL =>
           cases hR : decideLean { additive := β :: Γₐ, linear := [] } r with
-          | none =>
-            unfold decideLean at hdec
-            simp only [Ctx.consA] at hdec
-            rw [hS, hL, hR] at hdec
-            simp at hdec
+          | none => simp [decideLean, hS, Ctx.consA, hL, hR] at hdec
           | some χR =>
-            unfold decideLean at hdec
-            simp only [Ctx.consA] at hdec
-            rw [hS, hL, hR] at hdec
+            simp only [decideLean, hS, Ctx.consA, hL, hR] at hdec
             -- hdec : (if Prop'.beq χL χR then some χL else none) = some φ
             by_cases hbeq : Prop'.beq χL χR = true
             · rw [if_pos hbeq] at hdec
@@ -540,7 +530,7 @@ theorem t1_propositional_soundness (M : Term) :
               rw [← hχ, hφ] at dR
               exact ⟨Deriv.orE Γₐ α β φ s l r dS dL dR⟩
             · rw [if_neg hbeq] at hdec; cases hdec
-      all_goals (unfold decideLean at hdec; rw [hS] at hdec; simp at hdec)
+      all_goals (simp [decideLean, hS] at hdec)
   -- All non-propositional constructors are rejected by `isPropositional`:
   -- isPropositional returns false, so the hypothesis is contradictory.
   all_goals (intro Γₐ φ hprop hdec; simp [Term.isPropositional] at hprop)
@@ -1309,27 +1299,17 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
   case case s l r ihS ihL ihR =>
     intro Γₐ φ hdec
     cases hS : decideLean { additive := Γₐ, linear := [] } s with
-    | none => unfold decideLean at hdec; rw [hS] at hdec; simp at hdec
+    | none => simp [decideLean, hS] at hdec
     | some ty =>
       cases ty
       case or α β =>
         cases hL : decideLean { additive := α :: Γₐ, linear := [] } l with
-        | none =>
-          unfold decideLean at hdec
-          simp only [Ctx.consA] at hdec
-          rw [hS, hL] at hdec
-          simp at hdec
+        | none => simp [decideLean, hS, Ctx.consA, hL] at hdec
         | some χL =>
           cases hR : decideLean { additive := β :: Γₐ, linear := [] } r with
-          | none =>
-            unfold decideLean at hdec
-            simp only [Ctx.consA] at hdec
-            rw [hS, hL, hR] at hdec
-            simp at hdec
+          | none => simp [decideLean, hS, Ctx.consA, hL, hR] at hdec
           | some χR =>
-            unfold decideLean at hdec
-            simp only [Ctx.consA] at hdec
-            rw [hS, hL, hR] at hdec
+            simp only [decideLean, hS, Ctx.consA, hL, hR] at hdec
             by_cases hbeq : Prop'.beq χL χR = true
             · rw [if_pos hbeq] at hdec
               have hφ : χL = φ := Option.some.inj hdec
@@ -1338,7 +1318,7 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
               rw [← hχ, hφ] at hR
               exact PropDeriv.orE _ α β φ s l r (ihS _ _ hS) (ihL _ _ hL) (ihR _ _ hR)
             · rw [if_neg hbeq] at hdec; cases hdec
-      all_goals (unfold decideLean at hdec; rw [hS] at hdec; simp at hdec)
+      all_goals (simp [decideLean, hS] at hdec)
   all_goals (intro Γₐ φ hdec; simp [decideLean] at hdec)
 
 /-! ## T1 — The Decidable instance.

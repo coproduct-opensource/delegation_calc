@@ -92,6 +92,15 @@ inductive Deriv : Ctx → Term → Prop' → Type where
       (d : Deriv Γ M φ) :
       Deriv Γ (Term.sign p M sig) (Prop'.says p φ)
 
+  /-- `verify` — `says` elimination at the signature level. Given a
+  derivation of `p says φ` and the signature carrier (opaque here; the
+  cryptographic check lives in `Deriv_K`), conclude `φ`. The
+  symbolic-level rule strips the modality; T2 says the strip is sound
+  under EUF-CMA. -/
+  | verifyE (Γ : Ctx) (p : Principal) (φ : Prop') (M : Term) (sig : Signature)
+      (d : Deriv Γ M (Prop'.says p φ)) :
+      Deriv Γ (Term.verify p M sig) φ
+
   /-- `says-E` — affirmation elimination. Bind the underlying proof in `N`. -/
   | saysE (Γₐ : List Prop') (Γ₁ Γ₂ : List Prop') (p : Principal)
           (φ ψ : Prop') (M N : Term)

@@ -1,0 +1,99 @@
+% Section 4 -- Symbolic Verification (Tamarin + ProVerif)
+% Target: 3 pages.
+
+The DLC wire protocol is modeled symbolically in two independent
+provers: Tamarin (multiset rewriting + DPLL backward search) and
+ProVerif (applied-pi + Horn-clause resolution).  Both verify the
+load-bearing \emph{NonSplicing} property.
+
+\subsection{The Tamarin model}
+
+\texttt{models/tamarin/dlc.spthy} encodes five multiset-rewriting
+rules:
+
+\begin{itemize}
+\item \texttt{Register\_pk} -- assigns each principal a long-term Ed25519 keypair.
+\item \texttt{Reveal\_ltk} -- models static long-term-key compromise (Dolev-Yao+).
+\item \texttt{Says} -- a principal signs a fresh proposition.
+\item \texttt{SpeaksFor\_Issue} -- a principal signs ``$Q$ speaks for $P$''.
+  Crucially, this rule emits \emph{both} a \texttt{SpeaksForIssued($P$,$Q$)}
+  event and a \texttt{Says($P$, $\langle$speaks\_for, $P$, $Q\rangle$)} event,
+  reflecting that a SpeaksFor token is just a particular shape of
+  Says token.  Omitting the second event admits a self-delegation
+  splice (see below).
+\item \texttt{Delegate\_Accept} -- the verifier rule.  Its input patterns
+  bind the same \texttt{\$Q} in the SpeaksFor token and the Says token,
+  structurally enforcing the no-chain-splicing condition.
+\end{itemize}
+
+\paragraph{Lemmas verified.}  Three:
+
+\begin{itemize}
+\item \texttt{secrecy\_ltk}: the adversary never learns an honest
+  principal's secret key.  \emph{Verified, 2 steps.}
+\item \texttt{non\_splicing}: every \texttt{DelegateAccept($P$, $Q$, $\mathit{prop}$)}
+  trace contains both a \texttt{SpeaksForIssued($P$, $Q$)} event and a
+  \texttt{Says($Q$, $\mathit{prop}$)} event, unless $P$'s or $Q$'s key was
+  revealed.  \emph{Verified, 18 steps.}  This is the property that
+  defeats RFC 8693 chain-splicing.
+\item \texttt{exec\_delegation}: a trace exists in which delegation
+  is accepted without key reveal (executability sanity check).
+  \emph{Verified, 7 steps.}
+\end{itemize}
+
+\paragraph{The self-delegation splice surfaced during modeling.}
+On the first CI run with \texttt{SpeaksFor\_Issue} emitting only
+\texttt{SpeaksForIssued} (not also \texttt{Says}), Tamarin found a
+7-step counterexample to non-splicing.  The attack: take a SpeaksFor
+token issued by $P$ naming some $Z$, repackage it as the Says half
+of a delegation with $Q = P$ and $\mathit{prop} = \langle$speaks\_for,
+$P$, $Z\rangle$.  Both halves verify (the signature was honestly
+issued); the lemma's antecedent \texttt{Says($P$, $\mathit{prop}$)} is
+not in the trace because \texttt{SpeaksFor\_Issue} only emitted
+\texttt{SpeaksForIssued}.  Fix: emit both events.  This is the right
+modeling because SpeaksFor IS a Says with a specific proposition shape.
+
+\subsection{The ProVerif cross-check}
+
+\texttt{models/proverif/dlc.pv} mirrors the Tamarin model in
+applied-pi calculus.  Same three properties; different proof engine.
+Two modeling gaps surfaced during cross-checking that the Tamarin
+persistent-fact semantics had implicitly closed:
+
+\begin{enumerate}
+\item \emph{Secrecy was vacuously true} because the attacker can
+  freely generate its own fresh \texttt{skey} values without going
+  through \texttt{Register\_pk}.  Fix: added an \texttt{event
+  HonestSk($sk$)} restricted to honestly-created keys; the secrecy
+  query antecedent now restricts the universal quantifier to those
+  keys.
+\item \emph{NonSplicing was falsified} because the verifier accepted
+  any \texttt{pkey} as $Q$, including attacker-fabricated ones.
+  Fix: added a \texttt{table honest\_keys(pkey)} populated only
+  during honest registration; the verifier process gates both
+  halves of the chain with \texttt{get honest\_keys(=pkP) in;
+  get honest\_keys(=pkQ) in}.
+\end{enumerate}
+
+Both fixes \emph{tightened the model to match DLC's actual wire
+semantics} (the verifier checks against a pinned keyring; cf.\
+\texttt{spec/threat-model.md} \S 3), not weakenings of the threat
+model.  After fixes, ProVerif reports all three queries as
+\texttt{is true} or the expected existence-style \texttt{is false}.
+
+\subsection{Why two provers}
+
+The Tamarin and ProVerif cross-check is the artifact's primary
+methodological contribution to the symbolic-verification line.
+Existing delegation-protocol work (e.g., AITH~\cite{chen2026aith})
+verifies in Tamarin alone.  Different provers use different
+intermediate representations and proof engines; a model bug that
+happens to be invisible to one tool's heuristics typically surfaces
+in the other.  In our case, the two gaps above were precisely such
+bugs: ProVerif's applied-pi semantics surfaced what Tamarin's
+\texttt{!Pk} persistent fact had implicitly assumed.
+
+Whether to ship a result through two provers is a design choice
+the field should normalize.  The cost---a second model file, ~150
+LOC of applied-pi---is low.  The benefit---two-fold confidence and
+explicit modeling-gap detection---is high.

@@ -1,0 +1,108 @@
+% Section 1 -- Introduction
+% Target: 2 pages.
+% Goal: motivate the problem, state the contribution claim, outline the paper.
+
+The agent economy of 2026 has a delegation problem.  When an AI agent
+acts on behalf of a human, who then delegates to another agent, who
+delegates to a third, the question \emph{who actually authorized
+what?} becomes load-bearing for security, legal accountability, and
+auditing.  The standards layer has responded: OAuth 2.0 Token
+Exchange (RFC~8693)~\cite{rfc8693} provides nested \texttt{act}
+claims; the IETF~\texttt{draft-ietf-oauth-attenuating-agent-tokens}
+formalizes attenuation; W3C Verifiable Credentials provides the
+data-model substrate.  The research layer has responded too:
+Authenticated Delegation (South et al., ICML
+2025)~\cite{south2025authdelegation}; AITH (Chen,
+2026)~\cite{chen2026aith} mechanizes five Tamarin theorems for
+post-quantum delegation; LLMbda Calculus (Garby et al.,
+2026)~\cite{garby2026llmbda} proves termination-insensitive
+noninterference for an LLM-invoking lambda calculus.
+
+Yet a vulnerability surfaced in March 2026 on the IETF OAuth mailing
+list~\cite{ietf2026splicing}, \emph{delegation chain splicing}, remains
+imperfectly addressed.  An attacker presenting mismatched
+\texttt{subject\_token} and \texttt{actor\_token} inputs to an STS
+that validates each independently can extract a token asserting a
+delegation chain that never occurred.  The structural fix---requiring
+the chain's middle principal to appear in both halves---is well
+understood, but no existing system enforces it through a unified
+mechanism that spans the logic, the protocol, and the wire format.
+
+This paper introduces \emph{DLC} (Delegation Logic Calculus), a
+formal system in which the same-principal condition is enforced by
+construction across four independent axes:
+
+\begin{itemize}
+\item \textbf{In the type theory}: the \textsc{delegate} typing rule
+  has a single $q$ variable bound in both premises (Section~\ref{sec:calculus}).
+\item \textbf{In the symbolic protocol model}: the
+  \texttt{Delegate\_Accept} multiset-rewriting rule's input pattern
+  unifies the principal across both signature consumptions
+  (Section~\ref{sec:symbolic}).
+\item \textbf{In the cryptographic correspondence (T2)}: an EUF-CMA
+  adversary spanning a spliced chain reduces to forgery of one of the
+  two underlying signatures, which by Ed25519's EUF-CMA security is
+  negligible (Section~\ref{sec:computational}).
+\item \textbf{In the wire format}: each delegation step is content-
+  addressed by SHA-256 of its canonical bytes, so any chain-
+  splicing attempt produces detectable hash discontinuities
+  (Section~\ref{sec:wire}).
+\end{itemize}
+
+The contribution is the \emph{diagonal}: no existing system spans all
+four axes with mechanical verification.  AITH covers the symbolic
+axis only; LLMbda covers the type-theoretic axis only; macaroons
+and biscuits cover the wire axis only; OAuth drafts cover the
+standards axis only.  DLC's unification, with the chain-splicing-
+defeating rule appearing in identical form at every layer, is what
+makes it a candidate for the role of a \emph{citable foundation}
+for delegation work in the agent economy.
+
+\paragraph{Contributions}
+
+This paper makes the following claims:
+
+\begin{enumerate}
+\item A modal-linear-temporal authorization logic with a no-chain-
+  splicing delegation rule, mechanized in Lean~4 with no
+  \texttt{sorry} on the proofs that are closed (T4 non-introduction,
+  graded comonad laws, indexed monad laws, four structural
+  substitution lemmas).
+\item A symbolic protocol model verified independently in Tamarin
+  and ProVerif, demonstrating that the unification of two
+  symbolic provers detects modeling gaps that single-prover work
+  misses (Section~\ref{sec:symbolic}).
+\item A Rust reference implementation with 76 unit tests, including
+  a CBOR wire format with round-trip-tested encoding for all
+  21 term constructors and Tamarin/ProVerif fact exporters.
+\item A reproducible verification ledger (\texttt{make ledger})
+  emitting a single JSON document containing the status of every
+  theorem, every model, every drift check, and every test count.
+\item An honest assessment (Section~\ref{sec:conclusion}) of what is
+  proven, what is stated, and what remains for collaborator
+  engagement.  We make no claim to having closed T2 unconditionally
+  or T3 in full; both are stated and partially proven, with
+  documented paths to closure via VCVio~\cite{tuma2026vcvio} for T2
+  and hand-rolled logical relations for T3.
+\end{enumerate}
+
+\paragraph{Paper structure}
+
+Section~\ref{sec:calculus} defines DLC's syntax and typing rules.
+Section~\ref{sec:metatheory} states the four headline theorems and
+reports the current proof status of each.  Section~\ref{sec:symbolic}
+presents the Tamarin and ProVerif models.  Section~\ref{sec:wire}
+specifies the wire format.  Section~\ref{sec:computational} sketches
+the EUF-CMA reduction via VCVio.  Section~\ref{sec:related} situates
+DLC against AITH, LLMbda, NAL, Garg-Pfenning, macaroons, and the
+RFC~8693 lineage.  Section~\ref{sec:conclusion} discusses limitations.
+
+\paragraph{Artifact}
+
+The complete DLC artifact---Lean development, Rust implementation,
+Tamarin and ProVerif models, EasyCrypt skeleton, IETF draft, W3C VC
+context---is available at
+\url{https://github.com/coproduct-opensource/delegation_calc}.  A
+reproducible build under Nix produces a byte-identical
+\texttt{ledger.json}; the same document is published as a release
+artifact on every tagged version.

@@ -1,0 +1,89 @@
+% Section 7 -- Related Work
+% Target: 2 pages.
+
+DLC sits at the intersection of three research lineages: authorization
+logic, capability-based access control, and AI agent delegation.
+
+\subsection{Authorization logics with \texttt{says}-modality}
+
+Garg \& Pfenning's constructive authorization logic~\cite{garg2006csf}
+provides DLC's intuitionistic foundation: \texttt{says} as a modality
+in a sequent calculus with cut elimination and non-interference proven
+on paper.  Nexus Authorization Logic (NAL)~\cite{schneider2011nal}
+mechanizes a related says-modality system in $\sim$3000 LOC of Coq.
+DLC extends this lineage with explicit cryptographic carrier
+semantics (\textsc{says-I} carries the signature intrinsically),
+linear obligations ($\Box_O$), time modality ($\Diamond_\tau$), and
+IFC labels.  Where NAL proves soundness against a belief-style
+semantics, DLC's T2 targets a cryptographic correspondence---
+arguably a stronger semantic anchor.
+
+\subsection{Proof-carrying authorization}
+
+Appel \& Felten~\cite{appel1999pcfs} introduce the
+\emph{proof-carrying authorization} (PCA) paradigm: each request is
+accompanied by a logical proof of its authorization.  PCFS, Bauer's
+PCA-on-the-web work, and Garg's proof-carrying file system extend
+this.  All use higher-order logic that is not decidable.  DLC's
+contribution is occupying the decidability sweet-spot: the modal
+fragment we use admits a structural checker (T1) at $O(|M| \cdot \log |\Gamma|)$,
+making browser-side verification practical.
+
+\subsection{Authenticated delegation for AI agents}
+
+The agent-economy line begins with South et al.~(ICML
+2025)~\cite{south2025authdelegation}: authenticated delegation as
+OAuth+OIDC extensions.  AITH (Chen,
+2026)~\cite{chen2026aith} mechanizes five Tamarin theorems
+including post-quantum security.  LLMbda Calculus (Garby et al.,
+2026)~\cite{garby2026llmbda} provides termination-insensitive
+non-interference for an LLM-invoking lambda calculus.  DLC's
+positioning: AITH covers the symbolic-protocol axis; LLMbda covers
+the type-theoretic axis; DLC unifies both, plus the wire format and
+cryptographic correspondence, into a single artifact with the
+same chain-splicing-defeating rule appearing at each layer.
+
+\subsection{Capability tokens}
+
+Macaroons~\cite{birgisson2014macaroons} and
+biscuits~\cite{couprie2022biscuits} provide cryptographically
+verifiable, attenuable capability tokens.  ZCAP-LD~\cite{w3c2021zcap}
+and UCAN~\cite{ucan2024} extend the capability-token model to
+linked-data contexts.  These systems excel at wire-format design;
+they lack a typed logic of obligations or non-interference.  DLC's
+\texttt{attenuate} rule with the IFC-lattice side condition is the
+natural lift of macaroon caveats to a typed setting.
+
+\subsection{OAuth and the RFC 8693 lineage}
+
+RFC 8693 (Token Exchange)~\cite{rfc8693} introduces the nested
+\texttt{act} claim for delegation chains.  The March 2026 IETF OAuth
+mailing-list thread on chain splicing~\cite{ietf2026splicing}
+documented the cross-validation gap: an STS validating
+\texttt{subject\_token} and \texttt{actor\_token} independently can
+issue tokens asserting chains that never occurred.
+draft-ietf-oauth-attenuating-agent-tokens-00~\cite{niyikiza2026attn}
+proposes mitigations.  DLC's \texttt{delegate} rule is the
+structural answer the IETF mitigation patterns implement procedurally:
+the same-principal condition is a type-system invariant, not a
+runtime check.
+
+\subsection{Mechanized cryptography in Lean}
+
+VCVio (Tuma et al.,
+2026)~\cite{tuma2026vcvio} mechanizes EUF-CMA security for Schnorr
+signatures in Lean 4 using monadic oracle effects.  This is the
+closest Lean-side precedent for T2's computational reduction.  Earlier
+Lean cryptographic work (\texttt{SymbolicCryptographyLean}) and
+the Mathlib4 categorical infrastructure provide the substrate.
+
+\subsection{Symbolic protocol verification with multiple provers}
+
+Cremers \& Sasse~\cite{cremers2013tamarin} provide Tamarin.
+Blanchet~\cite{blanchet2022proverif} provides ProVerif.  Joint use
+of both has been done case-by-case (e.g., for TLS 1.3), but the
+\emph{methodological argument} that running new protocols through
+two provers detects model-overfitting bugs is, to our knowledge, not
+made systematically in the delegation literature.  This paper
+contributes one such systematic case: the two-modeling-gaps story
+in Section~\ref{sec:symbolic}.

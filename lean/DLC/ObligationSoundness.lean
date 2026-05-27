@@ -133,15 +133,22 @@ theorem pendingObligations_substAt_subset (body : Term) :
     unfold substAt at hmem
     unfold pendingObligations at hmem
     exact ih value (depth + 1) o hmem
-  | app _ _ ihF ihX =>
+  | app f x ihF ihX =>
     intro value depth o hmem
-    simp only [substAt, pendingObligations, List.mem_append] at hmem
-    rcases hmem with hF | hX
+    -- definitionally: pendingObligations (substAt (Term.app f x) value depth)
+    --   = pendingObligations (substAt f value depth) ++ pendingObligations (substAt x value depth)
+    have hmem' : o ∈ pendingObligations (substAt f value depth) ++
+                     pendingObligations (substAt x value depth) := hmem
+    rcases List.mem_append.mp hmem' with hF | hX
     · rcases ihF value depth o hF with h | h
-      · left; simp only [pendingObligations, List.mem_append]; exact Or.inl h
+      · left
+        show o ∈ pendingObligations f ++ pendingObligations x
+        exact List.mem_append.mpr (Or.inl h)
       · right; exact h
     · rcases ihX value depth o hX with h | h
-      · left; simp only [pendingObligations, List.mem_append]; exact Or.inr h
+      · left
+        show o ∈ pendingObligations f ++ pendingObligations x
+        exact List.mem_append.mpr (Or.inr h)
       · right; exact h
   | sign _ _ _ ih =>
     intro value depth o hmem
@@ -153,45 +160,60 @@ theorem pendingObligations_substAt_subset (body : Term) :
     unfold substAt at hmem
     unfold pendingObligations at hmem
     exact ih value depth o hmem
-  | delegate _ _ ihM ihN =>
+  | delegate m n ihM ihN =>
     intro value depth o hmem
-    simp only [substAt, pendingObligations, List.mem_append] at hmem
-    rcases hmem with hM | hN
+    have hmem' : o ∈ pendingObligations (substAt m value depth) ++
+                     pendingObligations (substAt n value depth) := hmem
+    rcases List.mem_append.mp hmem' with hM | hN
     · rcases ihM value depth o hM with h | h
-      · left; simp only [pendingObligations, List.mem_append]; exact Or.inl h
+      · left
+        show o ∈ pendingObligations m ++ pendingObligations n
+        exact List.mem_append.mpr (Or.inl h)
       · right; exact h
     · rcases ihN value depth o hN with h | h
-      · left; simp only [pendingObligations, List.mem_append]; exact Or.inr h
+      · left
+        show o ∈ pendingObligations m ++ pendingObligations n
+        exact List.mem_append.mpr (Or.inr h)
       · right; exact h
   | attenuate _ _ ih =>
     intro value depth o hmem
     unfold substAt at hmem
     unfold pendingObligations at hmem
     exact ih value depth o hmem
-  | discharge _ _ ihM ihN =>
+  | discharge m n ihM ihN =>
     intro value depth o hmem
-    simp only [substAt, pendingObligations, List.mem_append] at hmem
-    rcases hmem with hM | hN
+    have hmem' : o ∈ pendingObligations (substAt m value depth) ++
+                     pendingObligations (substAt n value depth) := hmem
+    rcases List.mem_append.mp hmem' with hM | hN
     · rcases ihM value depth o hM with h | h
-      · left; simp only [pendingObligations, List.mem_append]; exact Or.inl h
+      · left
+        show o ∈ pendingObligations m ++ pendingObligations n
+        exact List.mem_append.mpr (Or.inl h)
       · right; exact h
     · rcases ihN value depth o hN with h | h
-      · left; simp only [pendingObligations, List.mem_append]; exact Or.inr h
+      · left
+        show o ∈ pendingObligations m ++ pendingObligations n
+        exact List.mem_append.mpr (Or.inr h)
       · right; exact h
   | liftLabel _ _ ih =>
     intro value depth o hmem
     unfold substAt at hmem
     unfold pendingObligations at hmem
     exact ih value depth o hmem
-  | declassify _ _ _ ihM ihπ =>
+  | declassify _ m π ihM ihπ =>
     intro value depth o hmem
-    simp only [substAt, pendingObligations, List.mem_append] at hmem
-    rcases hmem with hM | hπ
+    have hmem' : o ∈ pendingObligations (substAt m value depth) ++
+                     pendingObligations (substAt π value depth) := hmem
+    rcases List.mem_append.mp hmem' with hM | hπ
     · rcases ihM value depth o hM with h | h
-      · left; simp only [pendingObligations, List.mem_append]; exact Or.inl h
+      · left
+        show o ∈ pendingObligations m ++ pendingObligations π
+        exact List.mem_append.mpr (Or.inl h)
       · right; exact h
     · rcases ihπ value depth o hπ with h | h
-      · left; simp only [pendingObligations, List.mem_append]; exact Or.inr h
+      · left
+        show o ∈ pendingObligations m ++ pendingObligations π
+        exact List.mem_append.mpr (Or.inr h)
       · right; exact h
   | now _ =>
     intro value depth o hmem
@@ -202,15 +224,20 @@ theorem pendingObligations_substAt_subset (body : Term) :
     unfold substAt at hmem
     unfold pendingObligations at hmem
     exact ih value depth o hmem
-  | pair _ _ ihA ihB =>
+  | pair a b ihA ihB =>
     intro value depth o hmem
-    simp only [substAt, pendingObligations, List.mem_append] at hmem
-    rcases hmem with hA | hB
+    have hmem' : o ∈ pendingObligations (substAt a value depth) ++
+                     pendingObligations (substAt b value depth) := hmem
+    rcases List.mem_append.mp hmem' with hA | hB
     · rcases ihA value depth o hA with h | h
-      · left; simp only [pendingObligations, List.mem_append]; exact Or.inl h
+      · left
+        show o ∈ pendingObligations a ++ pendingObligations b
+        exact List.mem_append.mpr (Or.inl h)
       · right; exact h
     · rcases ihB value depth o hB with h | h
-      · left; simp only [pendingObligations, List.mem_append]; exact Or.inr h
+      · left
+        show o ∈ pendingObligations a ++ pendingObligations b
+        exact List.mem_append.mpr (Or.inr h)
       · right; exact h
   | fst _ ih =>
     intro value depth o hmem
@@ -232,55 +259,73 @@ theorem pendingObligations_substAt_subset (body : Term) :
     unfold substAt at hmem
     unfold pendingObligations at hmem
     exact ih value depth o hmem
-  | case _ _ _ ihS ihL ihR =>
+  | case s l r ihS ihL ihR =>
     intro value depth o hmem
-    simp only [substAt, pendingObligations, List.mem_append] at hmem
-    -- hmem : (o ∈ ...S ∨ o ∈ ...L) ∨ o ∈ ...R  (left-associated)
-    rcases hmem with (hS | hL) | hR
-    · rcases ihS value depth o hS with h | h
-      · left
-        simp only [pendingObligations, List.mem_append]
-        exact Or.inl (Or.inl h)
-      · right; exact h
-    · rcases ihL value (depth + 1) o hL with h | h
-      · left
-        simp only [pendingObligations, List.mem_append]
-        exact Or.inl (Or.inr h)
-      · right; exact h
+    -- pendingObligations of case is (S ++ L) ++ R (left-associated).
+    have hmem' : o ∈ (pendingObligations (substAt s value depth) ++
+                       pendingObligations (substAt l value (depth + 1))) ++
+                     pendingObligations (substAt r value (depth + 1)) := hmem
+    rcases List.mem_append.mp hmem' with hSL | hR
+    · rcases List.mem_append.mp hSL with hS | hL
+      · rcases ihS value depth o hS with h | h
+        · left
+          show o ∈ (pendingObligations s ++ pendingObligations l) ++ pendingObligations r
+          exact List.mem_append.mpr (Or.inl (List.mem_append.mpr (Or.inl h)))
+        · right; exact h
+      · rcases ihL value (depth + 1) o hL with h | h
+        · left
+          show o ∈ (pendingObligations s ++ pendingObligations l) ++ pendingObligations r
+          exact List.mem_append.mpr (Or.inl (List.mem_append.mpr (Or.inr h)))
+        · right; exact h
     · rcases ihR value (depth + 1) o hR with h | h
       · left
-        simp only [pendingObligations, List.mem_append]
-        exact Or.inr h
+        show o ∈ (pendingObligations s ++ pendingObligations l) ++ pendingObligations r
+        exact List.mem_append.mpr (Or.inr h)
       · right; exact h
-  | tensorIntro _ _ ihA ihB =>
+  | tensorIntro a b ihA ihB =>
     intro value depth o hmem
-    simp only [substAt, pendingObligations, List.mem_append] at hmem
-    rcases hmem with hA | hB
+    have hmem' : o ∈ pendingObligations (substAt a value depth) ++
+                     pendingObligations (substAt b value depth) := hmem
+    rcases List.mem_append.mp hmem' with hA | hB
     · rcases ihA value depth o hA with h | h
-      · left; simp only [pendingObligations, List.mem_append]; exact Or.inl h
+      · left
+        show o ∈ pendingObligations a ++ pendingObligations b
+        exact List.mem_append.mpr (Or.inl h)
       · right; exact h
     · rcases ihB value depth o hB with h | h
-      · left; simp only [pendingObligations, List.mem_append]; exact Or.inr h
+      · left
+        show o ∈ pendingObligations a ++ pendingObligations b
+        exact List.mem_append.mpr (Or.inr h)
       · right; exact h
-  | letTensor _ _ ihS ihB =>
+  | letTensor s b ihS ihB =>
     intro value depth o hmem
-    simp only [substAt, pendingObligations, List.mem_append] at hmem
-    rcases hmem with hS | hB
+    have hmem' : o ∈ pendingObligations (substAt s value depth) ++
+                     pendingObligations (substAt b value (depth + 2)) := hmem
+    rcases List.mem_append.mp hmem' with hS | hB
     · rcases ihS value depth o hS with h | h
-      · left; simp only [pendingObligations, List.mem_append]; exact Or.inl h
+      · left
+        show o ∈ pendingObligations s ++ pendingObligations b
+        exact List.mem_append.mpr (Or.inl h)
       · right; exact h
     · rcases ihB value (depth + 2) o hB with h | h
-      · left; simp only [pendingObligations, List.mem_append]; exact Or.inr h
+      · left
+        show o ∈ pendingObligations s ++ pendingObligations b
+        exact List.mem_append.mpr (Or.inr h)
       · right; exact h
-  | letSays _ _ _ ihS ihB =>
+  | letSays _ s b ihS ihB =>
     intro value depth o hmem
-    simp only [substAt, pendingObligations, List.mem_append] at hmem
-    rcases hmem with hS | hB
+    have hmem' : o ∈ pendingObligations (substAt s value depth) ++
+                     pendingObligations (substAt b value (depth + 1)) := hmem
+    rcases List.mem_append.mp hmem' with hS | hB
     · rcases ihS value depth o hS with h | h
-      · left; simp only [pendingObligations, List.mem_append]; exact Or.inl h
+      · left
+        show o ∈ pendingObligations s ++ pendingObligations b
+        exact List.mem_append.mpr (Or.inl h)
       · right; exact h
     · rcases ihB value (depth + 1) o hB with h | h
-      · left; simp only [pendingObligations, List.mem_append]; exact Or.inr h
+      · left
+        show o ∈ pendingObligations s ++ pendingObligations b
+        exact List.mem_append.mpr (Or.inr h)
       · right; exact h
   | sfExtract _ ih =>
     intro value depth o hmem

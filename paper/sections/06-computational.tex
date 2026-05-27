@@ -1,0 +1,64 @@
+% Section 6 -- Computational Bridge
+% Target: 1 page.
+
+DLC's symbolic non-splicing property is verified twice
+(Section~\ref{sec:symbolic}); the computational reduction is the
+load-bearing link to real cryptographic assumptions.
+
+\subsection{The EUF-CMA reduction}
+
+\begin{theorem}[T2 -- computational direction, sketch]
+Let $A$ be a PPT adversary against DLC's symbolic non-forgery game
+(\texttt{SymbolicSayForgery} in \texttt{models/easycrypt/Game.eca}).
+There exists a PPT reduction adversary $A^*$ against the standard
+EUF-CMA game (\texttt{EUF\_CMA}) such that:
+\[
+\Pr[\text{SymbolicSayForgery}(A) = 1] \leq \Pr[\text{EUF\_CMA}(A^*) = 1]
+\]
+By the EUF-CMA security of Ed25519, the right-hand side is
+negligible, hence so is the left.
+\end{theorem}
+
+\paragraph{Game-hop sequence (sketched).}
+\begin{enumerate}
+\item $G_0$: \texttt{SymbolicSayForgery}.  Adversary $A$ given access to
+  a signing oracle for a fresh keypair must produce a $(m^*, \sigma^*)$
+  pair with $m^*$ not in the queried set and $\sigma^*$ verifying.
+\item $G_1$: lazy-sample the signing oracle into a table.  Standard
+  identical-until-bad rewrite.
+\item $G_2$: replace the signing key with an EUF-CMA challenger.
+  The reduction $A^*$ simulates $A$'s oracle by forwarding to its own
+  EUF-CMA oracle.  $A$'s eventual forgery is also an EUF-CMA
+  forgery.
+\item Conclude: $\Pr[G_0(A)] = \Pr[G_2(A^*)] \leq \mathsf{Adv}^{\mathsf{EUF-CMA}}_{\mathsf{Ed25519}}(A^*)$.
+\end{enumerate}
+
+\paragraph{Mechanization path.}
+Two viable routes:
+
+\begin{enumerate}
+\item \textbf{EasyCrypt.}  The skeleton in
+  \texttt{models/easycrypt/Game.eca} is structurally complete: type
+  declarations, signing oracles, the EUF-CMA module, the
+  \texttt{SymbolicSayForgery} module, the EUF-CMA assumption as an
+  axiom, and the reduction lemma documented (proof body absent;
+  CI parse-checks via \texttt{easycrypt -batch}).  Closure
+  requires cryptographer pairing (Blanchet was the named
+  collaborator in our plan).
+
+\item \textbf{VCVio.}  Tuma et al.~(2026)~\cite{tuma2026vcvio}
+  mechanize EUF-CMA for Schnorr signatures in Lean 4 using a
+  monadic oracle-effects framework.  Their proof template
+  ports directly to Ed25519 (or to an abstract EUF-CMA-secure
+  signature scheme).  This route keeps T2 inside the Lean
+  development that holds T1, T3, and T4.
+\end{enumerate}
+
+Both routes deliver the same theorem.  VCVio is the autonomously
+preferred route as of May 2026 because it stays in one proof
+assistant; EasyCrypt is the publication-standard route because of
+its cryptographer community.
+
+\paragraph{Status.} The EasyCrypt skeleton parses against the
+current grammar (CI step \texttt{easycrypt -batch Game.eca} passes,
+6m36s).  The full reduction proof is open work.

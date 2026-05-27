@@ -1,0 +1,43 @@
+% Section 5 -- Wire Format and Runtime
+% Target: 1 page.
+
+DLC's wire format is a CBOR-encoded tagged-array tree.  Each \texttt{Term}
+constructor maps to \texttt{[tag, arg1, arg2, \ldots]} where \texttt{tag}
+is the constructor's stable index (0--21) and the arguments recurse.
+Sub-types (\texttt{Prop}, \texttt{Principal}, \texttt{Label},
+\texttt{Obligation}, \texttt{TimeBound}, \texttt{Signature}) use the
+same tagged-array shape.
+
+\paragraph{Content addressing.}  The canonical CBOR bytes of a sub-term
+hash to a stable identifier (SHA-256, 32 bytes truncated to 8 in
+display contexts).  A delegation chain is a Merkle DAG whose leaves
+are signatures and whose internal nodes are \texttt{Delegate} and
+\texttt{Attenuate} compositions.  Changing one leaf changes only the
+hashes on the path to the root, enabling selective re-verification
+and cross-organizational caching.  This is the same data-flow
+property that makes macaroons and biscuits cacheable; DLC adds the
+typed structure.
+
+\paragraph{COSE\_Sign1 envelope.}  At the outermost layer, a DLC
+token is a COSE\_Sign1 (RFC 9052) structure with the canonical
+bytes as payload and an Ed25519 signature in the unprotected header.
+The COSE infrastructure gives DLC tokens a JWT/CWT-style transport
+shape for interoperability with existing token-handling systems
+(OAuth, OIDC, Verifiable Credentials).
+
+\paragraph{Implementation.}  The encoder and decoder are hand-rolled
+against \texttt{ciborium::Value} rather than via Serde derive
+macros, because the \texttt{dlc-core} crate must stay zero-dep to
+remain Aeneas-translatable.  Encoder and decoder are exhaustive
+pattern-matches against the term grammar; the round-trip property
+$\mathsf{decode}(\mathsf{encode}(t)) = \mathsf{Some}(t)$ is verified by
+22 unit tests covering every constructor plus compound nesting and
+garbage rejection.
+
+\paragraph{Tamarin/ProVerif exporters.}  The same runtime emits
+Tamarin and ProVerif fact dumps via
+\texttt{export\_tamarin::term\_to\_tamarin} and
+\texttt{export\_proverif::term\_to\_proverif}.  A real runtime
+witnessing a DLC term can thus emit a trace that the symbolic
+provers' models could ingest---closing the operational half of L2.5
+(wire $\leftrightarrow$ symbolic-term encoding).

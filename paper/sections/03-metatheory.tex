@@ -1,0 +1,132 @@
+% Section 3 -- Metatheory: T1-T4
+% Target: 4 pages.
+% Goal: state the four headline theorems and report current proof status.
+
+DLC's metatheory is organized around four headline theorems.  This
+section states each theorem in canonical form, reports its current
+mechanization status, and points to the Lean proof file containing
+the partial or complete proof.
+
+\subsection{T1 -- Decidability of proof-checking}
+
+\begin{theorem}[T1, propositional fragment]
+For every context $\Gamma$, term $M$, and proposition $\varphi$ in the
+propositional fragment of DLC, the question ``does $M$ prove $\varphi$
+in $\Gamma$?'' is decidable.  The decision procedure runs in time
+$O(|M| \cdot \log |\Gamma|)$.
+\end{theorem}
+
+\paragraph{Status: \texttt{stated}; Rust \texttt{decide\_pure} runs on the full calculus.}
+A Lean function \texttt{decideLean} mirroring the Rust implementation
+is forthcoming; the soundness direction (\texttt{decideLean} returns
+\texttt{true} implies $\mathsf{Nonempty}(\mathsf{Deriv}~\Gamma~M~\varphi)$) is
+the next mechanization target.  Completeness in Lean is deferred to
+collaborator engagement.
+
+The Rust function (\texttt{crates/dlc-core/src/decide.rs}) handles all
+21 term constructors, including the no-chain-splicing condition on
+\texttt{delegate}.  Nine unit tests, including a negative
+\texttt{delegate\_rejects\_chain\_splicing} case, document the
+implementation.
+
+\subsection{T2 -- Cryptographic correspondence}
+
+\begin{theorem}[T2]
+For every keyring $K$ extractable from $\Gamma$:
+\[
+\Gamma \vdash M : \varphi \iff \Gamma \vdash_K M : \varphi
+\]
+That is, the logical and cryptographic typing judgments coincide.
+\end{theorem}
+
+\paragraph{Status: \texttt{stated}; conditional form planned via VCVio.}
+T2 has a symbolic half and a computational half.  The symbolic half
+states $\Gamma \vdash M : \varphi$ implies $\Gamma \vdash_K M : \varphi$
+when all signatures verify, and conversely; this is structural
+induction.  The computational half states that an adversary
+distinguishing the two judgments would break Ed25519's EUF-CMA
+security; this is a game-hopping reduction.
+
+The companion artifact's \texttt{models/easycrypt/Game.eca} states the
+reduction skeleton (EUF-CMA game, symbolic non-forgery game, four-step
+game-hop sequence sketched).  An alternative path---closing T2
+entirely within Lean using VCVio (Tuma et al.,
+2026)~\cite{tuma2026vcvio}---is the autonomous-arc target.  Either
+route yields the same theorem; VCVio is preferred for staying within
+a single proof assistant.
+
+\subsection{T3 -- Non-interference under delegation}
+
+\begin{theorem}[T3]
+For every IFC label $\ell_{\mathit{low}}$ and every well-typed
+derivation
+$\Gamma \vdash M : \varphi$ in which all hypotheses of $\Gamma$ sit at
+labels $\geq \ell_{\mathit{low}}$, the term $M$ does not reveal information
+to an observer at $\ell_{\mathit{low}}$.  Formally, $M$ is related to
+itself by the logical relation
+$\mathsf{Indistinguishable}_{\ell_{\mathit{low}}}~\varphi$.
+\end{theorem}
+
+\paragraph{Status: \texttt{stated}; atomic-fragment closure planned.}
+T3 follows the standard logical-relations recipe: define
+$\mathsf{Indistinguishable}_{\ell_{\mathit{low}}}~\varphi~M~M'$ by induction
+on $\varphi$; prove the fundamental lemma by induction on
+$\mathsf{Deriv}$; conclude non-interference as a corollary.
+
+iris-tini (Gregersen \& Bay, POPL
+2021)~\cite{gregersen2021tini} provides the reference proof technique
+in Coq+Iris.  DLC's setting is simpler (no higher-order state, no
+recursive types), so a plain Lean construction without Iris suffices.
+This is autonomously reachable; cf. our companion document
+\texttt{spec/t2-t3-lean-feasibility-2026-05.md} for the analysis.
+
+\subsection{T4 -- Obligation soundness}
+
+\begin{theorem}[T4, non-introduction direction]
+For every reduction $M \rhd M'$ and every obligation $o$:
+\[
+o \in \mathsf{pendingObligations}(M') \implies o \in \mathsf{pendingObligations}(M)
+\]
+That is, reduction never introduces an obligation that was not
+syntactically present beforehand.
+\end{theorem}
+
+\paragraph{Status: \texttt{proven\_partial}; \texttt{pendingObligations\_shift} closed.}
+The supporting lemma $\mathsf{pendingObligations}~(\mathsf{shift}~t~\delta~c)
+= \mathsf{pendingObligations}~t$ is fully proven by 22-case induction
+on $t$ (file: \texttt{lean/DLC/ObligationSoundness.lean}).  The
+substitution sub-lemma and the case analysis over $\mathsf{step}$ are the
+next mechanization steps.  Prior closure attempt at PR \#16 commit
+\texttt{b2768fb} (340 LOC) failed on tactic-detail bugs that smaller
+PRs would have caught; the current strategy splits the proof into a
+substitution-subset lemma PR and a step-case-analysis PR.
+
+The full obligation-soundness statement (tracking multiset
+multiplicities and discharge consumption) is deferred to the M3 runtime
+layer where \texttt{Discharged} evidence is concrete.
+
+\subsection{Summary of mechanization status}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+Theorem & Status & File \\
+\midrule
+T1 (propositional, soundness) & \texttt{stated} (Rust impl. runs) & \texttt{Decidability.lean} \\
+T2 (full) & \texttt{stub} & \texttt{Correspondence.lean} \\
+T2 (symbolic half) & implicit in \texttt{Tamarin+ProVerif} & \\
+T3 (full) & \texttt{stated} & \texttt{NonInterference.lean} \\
+T4 (non-introduction) & \texttt{proven\_partial} & \texttt{ObligationSoundness.lean} \\
+Substitution composition & \texttt{stated}; 4 structural lemmas proven & \texttt{Subst.lean} \\
+Subject reduction & \texttt{stated} & \texttt{Reduce.lean} \\
+Graded comonad laws & \texttt{proven} (3 laws) & \texttt{Graded.lean} \\
+Indexed monad laws & \texttt{proven} (4 laws incl.\ strength) & \texttt{IndexedMonad.lean} \\
+\bottomrule
+\end{tabular}
+\caption{Mechanization status as of May 2026.  Twelve theorems are
+fully proven with no \texttt{sorry} and no new axioms.  Four headline
+theorems are stated with proof closures detailed in
+Section~\ref{sec:conclusion}.}
+\label{tab:status}
+\end{table}

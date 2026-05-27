@@ -1,0 +1,143 @@
+% Section 2 -- The DLC Calculus
+% Target: 3 pages.
+% Goal: present the syntax, judgment forms, and key typing rules.
+
+\subsection{Syntactic categories}
+
+DLC's grammar is parameterized over principal identifiers ($h$ ranging
+over SPIFFE-ID hashes), atom names ($a$), action identifiers ($\alpha$),
+time bounds ($\tau$), algorithm tags ($\gamma$), and signature byte
+strings ($\sigma$).
+
+\begin{figure}[h]
+\small
+\begin{align*}
+p, q, r &::= h \mid p \wedge q \mid p \vee q \mid p \sqcap q
+& \text{(principals)} \\
+\ell &::= \langle i_1, \ldots, i_n \rangle
+& \text{(IFC labels)} \\
+O &::= \top \mid \bot \mid \mathsf{act\_of}(p, \alpha) \mid \mathsf{within}(\tau)
+\mid O_1 \otimes O_2 \mid O_1 \multimap O_2
+& \text{(obligations)} \\
+\varphi, \psi &::= a \mid \top \mid \bot \mid \varphi \supset \psi
+\mid \varphi \wedge \psi \mid \varphi \vee \psi
+\mid p~\mathsf{says}~\varphi \mid p \Rightarrow q
+& \text{(propositions)} \\
+&\quad \mid \varphi @ \ell \mid \Box_O \varphi \mid \Diamond_\tau \varphi
+\mid \varphi \otimes \psi \mid \varphi \multimap \psi \\
+M, N &::= x \mid \lambda x{:}\varphi.\, M \mid M\,N
+\mid \langle M, \sigma \rangle_p \mid \mathsf{verify}_p(M, \sigma)
+& \text{(proof terms)} \\
+&\quad \mid \mathsf{delegate}(M, N) \mid \mathsf{attenuate}(M, \psi)
+\mid \mathsf{discharge}(M, N) \\
+&\quad \mid \mathsf{lift}_\ell(M) \mid \mathsf{declassify}_\ell(M, \pi)
+\mid \mathsf{now}(\tau) \mid \mathsf{within}(M, \tau) \\
+&\quad \mid \langle M, N \rangle \mid \pi_1 M \mid \pi_2 M \mid \mathsf{inl}_\psi M
+\mid \mathsf{inr}_\varphi M \mid \mathsf{case}~M~\mathsf{of}~\mathsf{inl}~x \Rightarrow N \mid \mathsf{inr}~y \Rightarrow P \\
+&\quad \mid M \otimes N \mid \mathsf{let}~x \otimes y = M~\mathsf{in}~N
+\mid \mathsf{let}~\langle x \rangle_p = M~\mathsf{in}~N \mid \mathsf{sfExtract}(M)
+\end{align*}
+\caption{DLC syntactic categories.}
+\label{fig:syntax}
+\end{figure}
+
+The operator $\sqcap$ is intentionally associative but not commutative:
+$h \sqcap h' \sqcap h''$ reads ``$h''$ acting as $h'$ acting as $h$'', the
+left-associative chain structure that RFC~8693 fudges as an opaque
+transitive closure.
+
+\subsection{Judgments}
+
+DLC has four mutually-recursive judgments:
+
+\begin{itemize}
+\item $\Gamma \vdash M : \varphi$ -- standard logical typing.
+\item $\Gamma \vdash M \rhd M'$ -- small-step reduction.
+\item $\Gamma \vdash_K M : \varphi$ -- cryptographic typing under
+  keyring $K$ (the rule replaces every \textsc{says-I} signature
+  with a cryptographic verification step against $K$).
+\item Membership and well-formedness conditions on $\Gamma$ and $K$.
+\end{itemize}
+
+The bridge between $\vdash$ and $\vdash_K$ is T2 (Section~\ref{sec:metatheory}).
+
+\subsection{Key typing rules}
+
+We present the rules carrying the contribution claims.  The full
+~40-rule system is in the companion artifact.
+
+\paragraph{Affirmation introduction (\textsc{says-I})}
+
+\begin{mathpar}
+\inferrule[says-I]
+  {\Gamma \vdash M : \varphi \\ \sigma = \mathsf{Sign}_{sk(p)}(\mathsf{canonical}(M))}
+  {\Gamma \vdash \langle M, \sigma \rangle_p : p~\mathsf{says}~\varphi}
+\end{mathpar}
+
+The signature $\sigma$ is intrinsic to the proof term, not an
+external annotation.  T2 (cryptographic correspondence) is the
+load-bearing claim that this intrinsic shape coincides with the
+operational signing/verification under $K$.
+
+\paragraph{Delegation (\textsc{delegate})}
+
+\begin{mathpar}
+\inferrule[delegate]
+  {\Gamma \vdash M : p~\mathsf{says}~(q \Rightarrow p)
+   \\
+   \Gamma \vdash N : q~\mathsf{says}~\varphi}
+  {\Gamma \vdash \mathsf{delegate}(M, N) : (p \sqcap q)~\mathsf{says}~\varphi}
+\end{mathpar}
+
+\textbf{The chain-splicing-defeating rule.}  The variable $q$ is bound
+in both premises; an attacker who has a $\mathsf{says}~(q \Rightarrow p)$
+token and a $\mathsf{says}~\varphi$ token by a different principal $q' \neq q$
+cannot apply this rule.  The same condition propagates to the symbolic
+model (Section~\ref{sec:symbolic}) and the wire format (Section~\ref{sec:wire}).
+
+\paragraph{Attenuation (\textsc{attenuate})}
+
+\begin{mathpar}
+\inferrule[attenuate]
+  {\Gamma \vdash M : p~\mathsf{says}~\varphi
+   \\
+   \varphi \supset \psi
+   \\
+   \psi \leq_L \varphi}
+  {\Gamma \vdash \mathsf{attenuate}(M, \psi) : p~\mathsf{says}~\psi}
+\end{mathpar}
+
+The side condition $\psi \leq_L \varphi$ requires that attenuation
+respects the IFC lattice on labels---preventing privilege-escalation
+attacks that look like ordinary attenuation but raise an integrity label.
+
+\paragraph{Discharge (\textsc{discharge})}
+
+\begin{mathpar}
+\inferrule[discharge]
+  {\Gamma \vdash M : \Box_O \varphi
+   \\
+   \Gamma \vdash N : O \text{ (linear)}}
+  {\Gamma \vdash \mathsf{discharge}(M, N) : \varphi}
+\end{mathpar}
+
+The only elimination form for $\Box_O \varphi$.  The linearity of $N$'s
+typing enforces single-use semantics: an obligation discharged once
+cannot be discharged again, preserving the multiset accounting that
+T4 (obligation soundness) tracks.
+
+\subsection{Reduction}
+
+DLC's reduction relation includes the standard $\beta$-reduction plus
+calculus-specific redexes:
+
+\begin{align*}
+(\lambda x{:}\varphi.\,M)\,N &\rhd M[N/x] \\
+\mathsf{delegate}(\langle M, \_ \rangle_p, \langle N, \sigma' \rangle_q)
+&\rhd \langle N, \sigma' \rangle_{p \sqcap q} \\
+\pi_1 \langle a, b \rangle &\rhd a \qquad \pi_2 \langle a, b \rangle \rhd b \\
+\mathsf{case}\,(\mathsf{inl}_\psi\,a)\,\ldots &\rhd \mathsf{left}[a/x] \\
+\mathsf{let}~x \otimes y = a \otimes b~\mathsf{in}~M &\rhd M[a/x][b/y]
+\end{align*}
+
+Subject reduction (T4's antecedent) is stated in Section~\ref{sec:metatheory}.

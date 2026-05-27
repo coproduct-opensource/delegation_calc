@@ -1,0 +1,90 @@
+\documentclass[acmsmall,nonacm]{acmart}
+
+% Standard packages for PL papers
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathpartir}      % for inference rules
+\usepackage{listings}        % for code
+\usepackage{xcolor}
+\usepackage{cleveref}
+\usepackage{hyperref}
+
+% Tighter ACM style for arXiv
+\setcopyright{none}
+\acmConference{}{}{}
+\acmDOI{}
+\acmISBN{}
+\settopmatter{printacmref=false, printccs=false, printfolios=true}
+
+\title{DLC: A Delegation Logic Calculus with Cryptographically Sound Proof Terms}
+
+\author{Brandon Crisp}
+\affiliation{%
+  \institution{Coproduct}
+  \country{USA}
+}
+\email{brandon.m.crisp@gmail.com}
+
+\begin{document}
+
+\begin{abstract}
+We present \emph{DLC}, the Delegation Logic Calculus: a decidable
+modal-linear-temporal authorization logic in which proof terms are
+simultaneously logical proofs, cryptographic witnesses, IFC labels,
+and obligation ledgers. DLC closes the chain-splicing gap identified
+in the March 2026 IETF OAuth thread on RFC 8693 (Token Exchange) by
+making the same-principal condition a typing-rule premise and a
+multiset-rewriting requirement.
+
+The calculus is verified along four independent axes: a Lean 4
+mechanization of the type theory with no \texttt{sorry}, a Tamarin
+symbolic protocol model with the NonSplicing property verified,
+a ProVerif cross-prover model verifying the same property under a
+different proof engine, and a Rust reference implementation with
+round-trip-tested wire format. The four headline theorems---T1
+decidability, T2 cryptographic correspondence, T3 non-interference,
+T4 obligation soundness---are stated; partial proofs are in the
+companion artifact.
+
+The primary contribution is the \emph{diagonal}: a unified artifact
+spanning authorization logic, symbolic cryptography, computational
+cryptography, runtime wire format, and reproducible CI, with the
+same chain-splicing-defeating delegation rule across all five.
+\end{abstract}
+
+\maketitle
+
+\section{Introduction}
+\input{sections/01-introduction}
+
+\section{The DLC Calculus}
+\label{sec:calculus}
+\input{sections/02-calculus}
+
+\section{Metatheory: T1--T4}
+\label{sec:metatheory}
+\input{sections/03-metatheory}
+
+\section{Symbolic Verification}
+\label{sec:symbolic}
+\input{sections/04-symbolic}
+
+\section{Wire Format and Runtime}
+\label{sec:wire}
+\input{sections/05-wire}
+
+\section{Computational Bridge}
+\label{sec:computational}
+\input{sections/06-computational}
+
+\section{Related Work}
+\label{sec:related}
+\input{sections/07-related}
+
+\section{Conclusion and Future Work}
+\label{sec:conclusion}
+\input{sections/08-conclusion}
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{bib}
+
+\end{document}

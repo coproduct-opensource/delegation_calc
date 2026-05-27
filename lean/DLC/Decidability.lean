@@ -514,10 +514,11 @@ noncomputable instance PropDeriv.decidable_nonempty
 /-- T1 propositional decidability — **now proven** (via the
 `PropDeriv.decidable_nonempty` instance above).
 
-This lives in `Type 1`, not `Prop`, because `Decidable` is an inductive
-type (with `isTrue`/`isFalse` constructors carrying proof terms), not a
-propositional predicate. -/
-def T1_PropositionalDecidabilityStatement : Type 1 :=
+This lives in `Type` (not `Prop`), because `Decidable p` is an
+inductive type with `isTrue`/`isFalse` constructors carrying proof
+terms, not a propositional predicate. The universal over `Type`-sorted
+arguments stays at universe `Type 0`. -/
+def T1_PropositionalDecidabilityStatement : Type :=
   ∀ (Γₐ : List Prop') (M : Term) (φ : Prop'),
     Decidable (Nonempty (PropDeriv Γₐ M φ))
 

@@ -138,7 +138,7 @@ theorem Prop'.beq_eq_true_iff_eq : ∀ (φ ψ : Prop'),
     rename_i a' b'
     simp only [Prop'.beq, Bool.and_eq_true] at h
     exact congr (congrArg Prop'.or (iha a' h.1)) (ihb b' h.2)
-  case says p a iha =>
+  case «says» p a iha =>
     intro ψ h
     cases ψ <;> (try (simp [Prop'.beq] at h))
     rename_i p' a'
@@ -154,7 +154,7 @@ theorem Prop'.beq_eq_true_iff_eq : ∀ (φ ψ : Prop'),
     obtain ⟨hp, hq⟩ := h
     subst hp; subst hq
     rfl
-  case at a ℓ _ =>
+  case «at» a ℓ _ =>
     -- Prop'.beq always returns false on at-comparisons; unreachable.
     intro ψ h
     cases ψ <;> simp [Prop'.beq] at h

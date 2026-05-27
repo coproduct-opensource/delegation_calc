@@ -156,6 +156,63 @@ theorem Indistinguishable_refl (ℓLow : Label) (φ : Prop') (M : Term) :
   -- The arrow types (imp, lolli) still fall through to `True`.
   case imp _ _ _ _ | lolli _ _ _ _ => trivial
 
+/-! ## Symmetry — Indistinguishable is symmetric in M, N.
+
+Standard logical-relations property: `R[φ](M, N) ↔ R[φ](N, M)`. Proved
+by structural induction on `φ`, leveraging the symmetry of `=` for atomic
+cases and the conjunction/disjunction's structural symmetry for the
+compound cases. -/
+
+/-- `Indistinguishable` is symmetric in its term arguments. -/
+theorem Indistinguishable_symm (ℓLow : Label) (φ : Prop') (M N : Term)
+    (h : Indistinguishable ℓLow φ M N) :
+    Indistinguishable ℓLow φ N M := by
+  induction φ generalizing M N
+  case top => trivial
+  case bot => trivial
+  case atom n =>
+    -- h : M = N. Goal: N = M.
+    exact h.symm
+  case speaksFor p q =>
+    exact h.symm
+  case «at» φ ℓ ihφ =>
+    -- h : if Label.le ℓ ℓ_low then Indistinguishable ℓ_low φ M N else True
+    -- Goal: same shape with M,N swapped.
+    unfold Indistinguishable at h ⊢
+    split at h
+    · -- Low-label branch: recurse on inner.
+      rename_i hle
+      rw [if_pos hle]
+      exact ihφ M N h
+    · -- High-label branch: True → True.
+      rename_i hnle
+      rw [if_neg hnle]
+      trivial
+  case boxed _ φ ihφ =>
+    -- h : Indistinguishable ℓ_low φ M N. Goal: Indistinguishable ℓ_low φ N M.
+    show Indistinguishable ℓLow φ N M
+    exact ihφ M N h
+  case within _ φ ihφ =>
+    show Indistinguishable ℓLow φ N M
+    exact ihφ M N h
+  case «says» _ φ ihφ =>
+    show Indistinguishable ℓLow φ N M
+    exact ihφ M N h
+  case and φ ψ ihφ ihψ =>
+    show Indistinguishable ℓLow φ N M ∧ Indistinguishable ℓLow ψ N M
+    obtain ⟨h₁, h₂⟩ := h
+    exact ⟨ihφ M N h₁, ihψ M N h₂⟩
+  case tensor φ ψ ihφ ihψ =>
+    show Indistinguishable ℓLow φ N M ∧ Indistinguishable ℓLow ψ N M
+    obtain ⟨h₁, h₂⟩ := h
+    exact ⟨ihφ M N h₁, ihψ M N h₂⟩
+  case or φ ψ ihφ ihψ =>
+    show Indistinguishable ℓLow φ N M ∨ Indistinguishable ℓLow ψ N M
+    rcases h with h₁ | h₂
+    · exact Or.inl (ihφ M N h₁)
+    · exact Or.inr (ihψ M N h₂)
+  case imp _ _ _ _ | lolli _ _ _ _ => trivial
+
 /-! ## T3 — Atomic fragment of the fundamental lemma.
 
 The fundamental lemma of the logical relation: every well-typed term is

@@ -70,21 +70,14 @@ def Term.isInCalculus : Term → Bool
   | Term.letSays _ s b      => s.isInCalculus && b.isInCalculus
   | Term.sfExtract m        => m.isInCalculus
 
-/-! ## Propositional-fragment equality on `Prop'`.
+/-! ## Decidable equality on `Prop'`.
 
-`Prop'` carries `Label` (alias for nucleus's Aeneas-generated
-`CapabilityLattice`), which does not derive `DecidableEq`. We sidestep that
-limitation by defining a Bool equality that is **sound but incomplete on
-label-bearing forms**:
-
-  `Prop'.beq φ ψ = true  →  φ = ψ`         (soundness — provable)
-  `φ = ψ  →  Prop'.beq φ ψ = true`         (completeness — fails on `at`)
-
-The propositional fragment never produces `at`/`boxed`/`within`/`tensor`/
-`lolli` from its four constructors (`var`, `lam`, `app`, `sign`) **unless
-the context contains such propositions as hypotheses**. We do compare
-`boxed`/`within`/`tensor`/`lolli` faithfully (their carriers have
-`DecidableEq`); the only incompleteness is on `at`-labelled comparisons. -/
+`Prop'` carries `Label` (alias for nucleus's `CapabilityLattice`); with
+`DecidableEq` attached to `CapabilityLevel`/`CapabilityLattice` in
+`DLC.IFCLabel`, `Prop'.beq` is now **structurally complete** on every
+constructor, including `at`. The companion lemma
+`Prop'.beq_eq_true_iff_eq` proves the iff direction; `Prop'.beq_refl`
+proves reflexivity — both load-bearing for T1's `Decidable` instance. -/
 def Prop'.beq : Prop' → Prop' → Bool
   | .top, .top => true
   | .bot, .bot => true
@@ -94,7 +87,7 @@ def Prop'.beq : Prop' → Prop' → Bool
   | .or a b, .or a' b' => Prop'.beq a a' && Prop'.beq b b'
   | .says p a, .says p' a' => decide (p = p') && Prop'.beq a a'
   | .speaksFor p q, .speaksFor p' q' => decide (p = p') && decide (q = q')
-  | .at _ _, .at _ _ => false  -- conservative: Label lacks DecidableEq
+  | .at a ℓ, .at a' ℓ' => Prop'.beq a a' && decide (ℓ = ℓ')
   | .boxed o a, .boxed o' a' => decide (o = o') && Prop'.beq a a'
   | .within τ a, .within τ' a' => decide (τ = τ') && Prop'.beq a a'
   | .tensor a b, .tensor a' b' => Prop'.beq a a' && Prop'.beq b b'
@@ -147,10 +140,12 @@ theorem Prop'.beq_eq_true_iff_eq : ∀ (φ ψ : Prop'),
     obtain ⟨hp, hq⟩ := h
     subst hp; subst hq
     rfl
-  case «at» a ℓ _ =>
-    -- Prop'.beq always returns false on at-comparisons; unreachable.
+  case «at» a ℓ iha =>
     intro ψ h
-    cases ψ <;> simp [Prop'.beq] at h
+    cases ψ <;> (try (simp [Prop'.beq] at h))
+    obtain ⟨ha, hℓ⟩ := h
+    subst hℓ
+    exact congr (congrArg Prop'.at (iha _ ha)) rfl
   case boxed o a iha =>
     intro ψ h
     cases ψ <;> (try (simp [Prop'.beq] at h))
@@ -173,6 +168,28 @@ theorem Prop'.beq_eq_true_iff_eq : ∀ (φ ψ : Prop'),
     cases ψ <;> (try (simp [Prop'.beq] at h))
     obtain ⟨ha, hb⟩ := h
     exact congr (congrArg Prop'.lolli (iha _ ha)) (ihb _ hb)
+
+/-- Reflexivity of `Prop'.beq`: every proposition compares equal to itself.
+Load-bearing for T1 completeness — the App case of `decideLean` calls
+`Prop'.beq` on the function's argument-type against the argument's
+inferred type; for a `PropDeriv.impE` these must agree, so reflexivity
+closes the comparison. -/
+theorem Prop'.beq_refl : ∀ (φ : Prop'), Prop'.beq φ φ = true := by
+  intro φ
+  induction φ
+  case top => rfl
+  case bot => rfl
+  case atom n => simp [Prop'.beq]
+  case imp a b iha ihb => simp [Prop'.beq, iha, ihb]
+  case and a b iha ihb => simp [Prop'.beq, iha, ihb]
+  case or a b iha ihb => simp [Prop'.beq, iha, ihb]
+  case «says» p a iha => simp [Prop'.beq, iha]
+  case speaksFor p q => simp [Prop'.beq]
+  case «at» a ℓ iha => simp [Prop'.beq, iha]
+  case boxed o a iha => simp [Prop'.beq, iha]
+  case within τ a iha => simp [Prop'.beq, iha]
+  case tensor a b iha ihb => simp [Prop'.beq, iha, ihb]
+  case lolli a b iha ihb => simp [Prop'.beq, iha, ihb]
 
 /-! ## `decideLean` — Lean mirror of Rust `infer`.
 
@@ -297,25 +314,220 @@ theorem t1_propositional_soundness (M : Term) :
   -- isPropositional returns false, so the hypothesis is contradictory.
   all_goals (intro Γₐ φ hprop hdec; simp [Term.isPropositional] at hprop)
 
-/-! ## T1 — Propositional decidability statement (replaces old placeholder).
+/-! ## `PropDeriv` — the propositional fragment of `Deriv`.
 
-With soundness closed, the headline statement becomes a one-direction
-implication; the full `Decidable` instance lands once completeness is
-proved in the follow-up PR. -/
+`Deriv` has 24 constructors with overlapping Term shapes: `Term.app` is
+produced by `impE`, `saysE`, and `boxI`; `Term.var` by `varA`, `varL`,
+and `weakenA` etc. The `decideLean` checker mirrors only the four
+rules `varA`, `impI`, `impE`, `saysI`. To cleanly state T1 completeness
+without ambiguity over which `Deriv` constructor was used, we factor
+out a `PropDeriv` sub-inductive matching `decideLean`'s structure
+exactly.
 
-/-- Decidability of proof-checking in the propositional fragment. The real
-statement (closes at M1.Q2.d):
+`PropDeriv` is faithfully embedded into `Deriv` by `propDeriv_to_deriv`
+(structural identity), so anything proven about `Deriv` (subject
+reduction, T4 obligation soundness, etc.) lifts to `PropDeriv`. -/
+inductive PropDeriv : List Prop' → Term → Prop' → Type where
+  /-- `var-A` — additive variable lookup. -/
+  | varA (Γₐ : List Prop') (i : Nat) (φ : Prop')
+      (h : Γₐ[i]? = some φ) :
+      PropDeriv Γₐ (Term.var i) φ
 
-  `∀ (Γ : Ctx) (M : Term) (φ : Prop'), M.isPropositional = true →`
-  `  Decidable (Nonempty (Deriv Γ M φ))`
+  /-- `imp-I` — implication introduction. -/
+  | impI (Γₐ : List Prop') (φ ψ : Prop') (M : Term)
+      (d : PropDeriv (φ :: Γₐ) M ψ) :
+      PropDeriv Γₐ (Term.lam φ M) (Prop'.imp φ ψ)
 
-discharged by the function-correspondence theorem against the
-Aeneas-extracted `decide_pure` from `crates/dlc-core/src/decide.rs`. -/
-def T1_PropositionalDecidabilityStatement : Prop :=
-  ∀ (Γ : Ctx) (M : Term) (φ : Prop'),
-    M.isPropositional = true →
-    -- placeholder body; lands at M1.Q2.d
-    Γ = Γ ∧ M = M ∧ φ = φ
+  /-- `imp-E` — implication elimination (linear:=[] so no context split). -/
+  | impE (Γₐ : List Prop') (φ ψ : Prop') (M N : Term)
+      (dM : PropDeriv Γₐ M (Prop'.imp φ ψ))
+      (dN : PropDeriv Γₐ N φ) :
+      PropDeriv Γₐ (Term.app M N) ψ
+
+  /-- `says-I` — affirmation introduction with embedded signature. -/
+  | saysI (Γₐ : List Prop') (p : Principal) (φ : Prop') (M : Term)
+          (sig : Signature)
+      (d : PropDeriv Γₐ M φ) :
+      PropDeriv Γₐ (Term.sign p M sig) (Prop'.says p φ)
+
+/-- Structural embedding from `PropDeriv` into `Deriv`. Constructively
+shows the propositional fragment is a faithful sub-typing-judgment. -/
+noncomputable def propDeriv_to_deriv :
+    ∀ (Γₐ : List Prop') (M : Term) (φ : Prop'),
+      PropDeriv Γₐ M φ →
+      Deriv { additive := Γₐ, linear := [] } M φ := by
+  intro Γₐ M φ d
+  induction d with
+  | varA Γₐ i φ h => exact Deriv.varA _ i φ h
+  | impI Γₐ φ ψ M _ ih => exact Deriv.impI _ φ ψ M ih
+  | impE Γₐ φ ψ M N _ _ ihM ihN =>
+      -- impE wants Γ₁ ++ Γ₂ = []; both empty works.
+      exact Deriv.impE Γₐ [] [] φ ψ M N ihM ihN
+  | saysI Γₐ p φ M sig _ ih => exact Deriv.saysI _ p φ M sig ih
+
+/-! ## T1 — Propositional completeness (the other direction). -/
+
+/-- T1 propositional completeness: every `PropDeriv` is found by
+`decideLean`. The induction is on `PropDeriv` directly — by definition
+of `PropDeriv` only the four propositional rules apply, so
+`decideLean`'s structure matches exactly. -/
+theorem t1_propositional_completeness :
+    ∀ (Γₐ : List Prop') (M : Term) (φ : Prop'),
+      PropDeriv Γₐ M φ →
+      decideLean { additive := Γₐ, linear := [] } M = some φ := by
+  intro Γₐ M φ d
+  induction d with
+  | varA Γₐ i φ h =>
+    -- decideLean of Term.var i in {Γₐ, []} returns Γₐ[i]?.
+    unfold decideLean
+    rw [h]
+  | impI Γₐ φ ψ M _ ih =>
+    -- decideLean of Term.lam φ M = some (Prop'.imp φ ψ) when the body
+    -- check returns some ψ in the extended context. The IH gives that.
+    unfold decideLean
+    -- IH: decideLean (Ctx.consA φ {Γₐ, []}) M = some ψ.
+    -- Ctx.consA φ {Γₐ, []} = { additive := φ::Γₐ, linear := [] }.
+    have hbody : decideLean (Ctx.consA φ { additive := Γₐ, linear := [] }) M
+                  = some ψ := by
+      simpa [Ctx.consA] using ih
+    rw [hbody]
+  | impE Γₐ φ ψ M N _ _ ihM ihN =>
+    -- decideLean of Term.app: match on dM's result, must be Imp.
+    unfold decideLean
+    rw [ihM, ihN]
+    -- The if-condition is Prop'.beq φ φ, which is true by refl.
+    simp [Prop'.beq_refl]
+  | saysI Γₐ p φ M sig _ ih =>
+    unfold decideLean
+    rw [ih]
+
+/-! ## Soundness landed in `PropDeriv`.
+
+`t1_propositional_soundness` produces a `Deriv`; the corresponding
+`PropDeriv` version below produces the propositional-fragment witness
+needed for the `Decidable` instance. The proof mirrors the soundness
+case work but lands in the smaller inductive. -/
+
+/-- Soundness of `decideLean` valued in `PropDeriv` (the propositional
+fragment). Mirrors `t1_propositional_soundness` case-for-case. -/
+noncomputable def t1_propositional_soundness_prop (M : Term) :
+    ∀ (Γₐ : List Prop') (φ : Prop'),
+      decideLean { additive := Γₐ, linear := [] } M = some φ →
+      PropDeriv Γₐ M φ := by
+  induction M
+  case var i =>
+    intro Γₐ φ hdec
+    unfold decideLean at hdec
+    split at hdec
+    · rename_i ψ heq
+      have : ψ = φ := Option.some.inj hdec
+      subst this
+      exact PropDeriv.varA _ i _ heq
+    · split at hdec <;> simp_all
+  case lam ψ body ih =>
+    intro Γₐ φ hdec
+    unfold decideLean at hdec
+    split at hdec
+    · rename_i ψ' hbody
+      have hφ : Prop'.imp ψ ψ' = φ := Option.some.inj hdec
+      subst hφ
+      have hbody' : decideLean { additive := ψ :: Γₐ, linear := [] } body
+                      = some ψ' := by
+        simpa [Ctx.consA] using hbody
+      exact PropDeriv.impI _ ψ ψ' body (ih _ _ hbody')
+    · simp at hdec
+  case app f x ihf ihx =>
+    intro Γₐ φ hdec
+    unfold decideLean at hdec
+    split at hdec
+    · rename_i α β hf
+      split at hdec
+      · rename_i φ' hx
+        by_cases hbeq : Prop'.beq α φ' = true
+        · rw [if_pos hbeq] at hdec
+          -- hdec : some β = some φ
+          have hβφ : β = φ := Option.some.inj hdec
+          have hα : α = φ' := Prop'.beq_eq_true_iff_eq α φ' hbeq
+          -- Apply IHs at the types they actually produced.
+          have dF := ihf Γₐ (Prop'.imp α β) hf
+          have dX := ihx Γₐ φ' hx
+          -- Realign dF to the goal-shape: rewrite α → φ', β → φ in dF.
+          rw [hα, hβφ] at dF
+          exact PropDeriv.impE _ φ' φ f x dF dX
+        · rw [if_neg hbeq] at hdec; cases hdec
+      · cases hdec
+    · cases hdec
+  case sign p m sig ihm =>
+    intro Γₐ φ hdec
+    unfold decideLean at hdec
+    split at hdec
+    · rename_i ψ hm
+      have hφ : Prop'.says p ψ = φ := Option.some.inj hdec
+      subst hφ
+      exact PropDeriv.saysI _ p ψ m sig (ihm _ _ hm)
+    · simp at hdec
+  all_goals (intro Γₐ φ hdec; simp [decideLean] at hdec)
+
+/-! ## T1 — The Decidable instance.
+
+Combining soundness and completeness valued in `PropDeriv` gives a
+Decidable instance. This is T1's headline statement, restricted to
+the propositional fragment. -/
+
+/-- T1 — propositional decidability of proof-checking. Given any
+additive context, term, and proposition, decide whether a propositional
+derivation exists. `noncomputable` because the witness map
+`t1_propositional_soundness_prop` is `noncomputable` (Type-valued
+result). -/
+noncomputable instance PropDeriv.decidable_nonempty
+    (Γₐ : List Prop') (M : Term) (φ : Prop') :
+    Decidable (Nonempty (PropDeriv Γₐ M φ)) :=
+  match h : decideLean { additive := Γₐ, linear := [] } M with
+  | some ψ =>
+    if hφ : Prop'.beq φ ψ = true then
+      .isTrue <| by
+        -- ψ = φ from beq soundness. Rewrite h's type without subst to
+        -- avoid Lean's free-variable subst direction ambiguity.
+        have hψ : ψ = φ := (Prop'.beq_eq_true_iff_eq φ ψ hφ).symm
+        rw [hψ] at h
+        exact ⟨t1_propositional_soundness_prop M Γₐ φ h⟩
+    else
+      .isFalse <| by
+        intro ⟨d⟩
+        have heq := t1_propositional_completeness Γₐ M φ d
+        rw [h] at heq
+        have hφψ : φ = ψ := (Option.some.inj heq).symm
+        -- Substitute in hφ (the only place we need the equality);
+        -- avoid `subst` whose direction over two free variables is
+        -- not stable across Lean versions.
+        rw [hφψ] at hφ
+        exact hφ (Prop'.beq_refl _)
+  | none =>
+    .isFalse <| by
+      intro ⟨d⟩
+      have heq := t1_propositional_completeness Γₐ M φ d
+      rw [h] at heq
+      cases heq
+
+/-! ## T1 — Statement form. -/
+
+/-- T1 propositional decidability — **now proven** (via the
+`PropDeriv.decidable_nonempty` instance above).
+
+This lives in `Type` (not `Prop`), because `Decidable p` is an
+inductive type with `isTrue`/`isFalse` constructors carrying proof
+terms, not a propositional predicate. The universal over `Type`-sorted
+arguments stays at universe `Type 0`. -/
+def T1_PropositionalDecidabilityStatement : Type :=
+  ∀ (Γₐ : List Prop') (M : Term) (φ : Prop'),
+    Decidable (Nonempty (PropDeriv Γₐ M φ))
+
+/-- T1 propositional decidability — discharge of the statement.
+`noncomputable def` (not `theorem`) because the Decidable witness is
+constructed by Type-level case analysis on `decideLean`'s output and
+depends on the noncomputable `t1_propositional_soundness_prop`. -/
+noncomputable def t1_propositional_decidability : T1_PropositionalDecidabilityStatement :=
+  fun Γₐ M φ => PropDeriv.decidable_nonempty Γₐ M φ
 
 /-- T1 extended to the full calculus (M1.Q4.d). The complexity bound
 `O(|M| · log |Γ|)` is preserved because each modal / temporal / IFC

@@ -166,9 +166,17 @@ inductive Deriv : Ctx → Term → Prop' → Type where
 
   /-- `now` — proof of `now < τ` from a verifiable time anchor. The anchor
   is opaque at the calculus level; verification lives in `dlc-crypto`'s
-  `TimeAnchor` trait. -/
-  | now (τ : TimeBound) :
-      Deriv Ctx.empty (Term.now τ) Prop'.top
+  `TimeAnchor` trait.
+
+  `Term.now τ` is the unit-like introduction form for `Prop'.top` — it
+  references no hypotheses, so weakening admits any additive context.
+  Restricting to `Ctx.empty` was the original conservative choice;
+  generalizing to arbitrary `Γₐ` matches the Rust verifier's behavior
+  (`decide_pure` accepts `Now(_) → Top` regardless of context) and is
+  needed for `PropDeriv.now` since the propositional fragment must
+  thread its own additive context through. -/
+  | now (Γₐ : List Prop') (τ : TimeBound) :
+      Deriv { additive := Γₐ, linear := [] } (Term.now τ) Prop'.top
 
   /-- `within-I` — `◇_τ φ` introduction. Pair a proof of `φ` with a proof
   that the current time is before `τ`. -/

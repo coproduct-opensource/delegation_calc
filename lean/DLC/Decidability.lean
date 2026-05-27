@@ -53,6 +53,7 @@ def Term.isPropositional : Term → Bool
   | Term.letSays _ s b    => s.isPropositional && b.isPropositional
   | Term.sfExtract m      => m.isPropositional
   | Term.delegate m n     => m.isPropositional && n.isPropositional
+  | Term.now _            => true
   | _                     => false
 
 /-- A full-calculus term: every constructor accepted, including modal /
@@ -324,6 +325,11 @@ def decideLean (Γ : Ctx) : Term → Option Prop'
         | _ => none
       else none
     | _ => none
+  | .now _ =>
+    -- `now τ` is the unit-like introduction form for `Top`. References
+    -- no hypotheses, so always-typed at `Top` regardless of context.
+    -- Mirrors Rust `Term::Now(_tau) => Some(Prop::Top)` in `decide.rs`.
+    some Prop'.top
   | _ => none
 
 /-! ## T1 — Propositional soundness (the headline closure for this PR).
@@ -644,6 +650,12 @@ theorem t1_propositional_soundness (M : Term) :
             all_goals (simp [decideLean, hM, hN] at hdec)
         all_goals (simp [decideLean, hM] at hdec)
       all_goals (simp [decideLean, hM] at hdec)
+  case now τ =>
+    intro Γₐ φ _ hdec
+    -- decideLean (Term.now τ) = some Prop'.top, so φ = Top.
+    simp [decideLean] at hdec
+    subst hdec
+    exact ⟨Deriv.now Γₐ τ⟩
   -- All non-propositional constructors are rejected by `isPropositional`:
   -- isPropositional returns false, so the hypothesis is contradictory.
   all_goals (intro Γₐ φ hprop hdec; simp [Term.isPropositional] at hprop)
@@ -760,6 +772,14 @@ inductive PropDeriv : List Prop' → Term → Prop' → Type where
       (dM : PropDeriv Γₐ M (Prop'.says p (Prop'.speaksFor q p)))
       (dN : PropDeriv Γₐ N (Prop'.says q φ)) :
       PropDeriv Γₐ (Term.delegate M N) (Prop'.says (Principal.acting p q) φ)
+
+  /-- `now τ` — unit-like introduction form for `Top`. References no
+  hypotheses, so always-typed at `Top` regardless of context. The
+  generalized `Deriv.now Γₐ τ` (admitting any additive context with
+  empty linear context) makes the embedding `propDeriv_to_deriv` total
+  for the `now` case. -/
+  | now (Γₐ : List Prop') (τ : TimeBound) :
+      PropDeriv Γₐ (Term.now τ) Prop'.top
 
 /-! ## Shift preservation — load-bearing lemma for subject reduction.
 
@@ -878,6 +898,11 @@ private noncomputable def propDeriv_shift_aux
     subst hΓ
     unfold shift
     exact PropDeriv.delegate _ p q φ _ _ (ihM Γl Γr Γm rfl) (ihN Γl Γr Γm rfl)
+  | now _ τ =>
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    exact PropDeriv.now (Γl ++ Γm ++ Γr) τ
 
 /-- Public-facing shift preservation, instantiated from
 `propDeriv_shift_aux` with the trivial equality. -/
@@ -1056,6 +1081,11 @@ private noncomputable def propDeriv_substAt_aux
     unfold substAt
     exact PropDeriv.delegate _ p q ψ _ _
       (ihM Γl Γr φ rfl Nval dNval) (ihN Γl Γr φ rfl Nval dNval)
+  | now _ τ =>
+    intro Γl Γr φ hΓ _ _
+    subst hΓ
+    unfold substAt
+    exact PropDeriv.now (Γl ++ Γr) τ
 
 /-- Public-facing substitution preservation. -/
 noncomputable def propDeriv_substAt
@@ -1195,6 +1225,9 @@ noncomputable def propDeriv_subject_reduction
             exact PropDeriv.saysI _ (Principal.acting p q) φ inner sig' dInnerN
       | _ => simp [step] at h
     | _ => simp [step] at h
+  | now _ _ =>
+    -- `Term.now τ` is irreducible — `step` rejects it. Vacuous.
+    simp [step] at h
 
 /-- Structural embedding from `PropDeriv` into `Deriv`. Constructively
 shows the propositional fragment is a faithful sub-typing-judgment. -/
@@ -1228,6 +1261,8 @@ noncomputable def propDeriv_to_deriv :
       exact Deriv.sfExtractE _ p q M ih
   | delegate Γₐ p q φ M N _ _ ihM ihN =>
       exact Deriv.delegate _ [] [] p q φ M N ihM ihN
+  | now Γₐ τ =>
+      exact Deriv.now Γₐ τ
 
 /-! ## T1 — Propositional completeness (the other direction). -/
 
@@ -1306,6 +1341,10 @@ theorem t1_propositional_completeness :
   | delegate Γₐ p q φ M N _ _ ihM ihN =>
     unfold decideLean
     simp [ihM, ihN]
+  | now Γₐ τ =>
+    -- decideLean unfolds to `some Prop'.top` for any context.
+    unfold decideLean
+    rfl
 
 /-! ## Inversion lemmas — the term shape determines the constructor.
 
@@ -1603,6 +1642,11 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
             all_goals (simp [decideLean, hM, hN] at hdec)
         all_goals (simp [decideLean, hM] at hdec)
       all_goals (simp [decideLean, hM] at hdec)
+  case now τ =>
+    intro Γₐ φ hdec
+    simp [decideLean] at hdec
+    subst hdec
+    exact PropDeriv.now Γₐ τ
   all_goals (intro Γₐ φ hdec; simp [decideLean] at hdec)
 
 /-! ## T1 — The Decidable instance.
@@ -1694,10 +1738,16 @@ example :
     (Term.lam (Prop'.atom 0) (Term.var 0)).isPropositional = true := by
   decide
 
-/-- A `now(_)` term is NOT propositional. -/
+/-- A `now(_)` term is propositional (it inhabits `Top` in any context,
+matching the propositional fragment). -/
 example :
-    (Term.now { epochMs := 0 }).isPropositional = false := by
+    (Term.now { epochMs := 0 }).isPropositional = true := by
   decide
+
+/-- `decideLean` on `now(_)` returns `some Top` regardless of context. -/
+example :
+    decideLean Ctx.empty (Term.now { epochMs := 0 }) = some Prop'.top := by
+  rfl
 
 /-- The polymorphic identity at atom(0) actually checks. -/
 example :

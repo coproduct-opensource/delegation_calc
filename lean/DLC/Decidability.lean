@@ -56,6 +56,7 @@ def Term.isPropositional : Term → Bool
   | Term.now _            => true
   | Term.attenuate m _    => m.isPropositional
   | Term.liftLabel _ m    => m.isPropositional
+  | Term.declassify _ m π => m.isPropositional && π.isPropositional
   | _                     => false
 
 /-- A full-calculus term: every constructor accepted, including modal /
@@ -351,6 +352,17 @@ def decideLean (Γ : Ctx) : Term → Option Prop'
     match decideLean Γ m with
     | some φ => some (Prop'.at φ ℓ)
     | none => none
+  | .declassify ℓ' m π =>
+    -- `declassify_ℓ'(M, π)`: controlled label lowering. Requires
+    -- M : at φ ℓ and a policy-witness π : atom 0. Result is at φ ℓ'.
+    -- Stricter than Rust (which ignores `_policy`); we enforce the
+    -- policy-witness premise to keep decideLean sound vs Deriv.
+    match decideLean Γ m with
+    | some (Prop'.at φ _) =>
+      match decideLean Γ π with
+      | some (Prop'.atom 0) => some (Prop'.at φ ℓ')
+      | _ => none
+    | _ => none
   | _ => none
 
 /-! ## T1 — Propositional soundness (the headline closure for this PR).
@@ -714,6 +726,33 @@ theorem t1_propositional_soundness (M : Term) :
       rw [← hφ]
       have ⟨dM⟩ := ihm Γₐ tyM hpropM hM
       exact ⟨Deriv.liftLabel _ tyM ℓ m dM⟩
+  case declassify ℓ' m π ihm ihπ =>
+    intro Γₐ φ hprop hdec
+    have hprop' := hprop
+    simp [Term.isPropositional] at hprop'
+    obtain ⟨hpropM, hpropπ⟩ := hprop'
+    cases hM : decideLean { additive := Γₐ, linear := [] } m with
+    | none => simp [decideLean, hM] at hdec
+    | some tyM =>
+      cases tyM
+      case «at» ψ _ℓ =>
+        cases hπ : decideLean { additive := Γₐ, linear := [] } π with
+        | none => simp [decideLean, hM, hπ] at hdec
+        | some tyπ =>
+          cases tyπ
+          case atom n =>
+            -- need n = 0 for the inner pattern match to succeed.
+            cases n with
+            | zero =>
+              have hφ : Prop'.at ψ ℓ' = φ := by
+                simpa [decideLean, hM, hπ] using hdec
+              rw [← hφ]
+              have ⟨dM⟩ := ihm Γₐ (Prop'.at ψ _ℓ) hpropM hM
+              have ⟨dπ⟩ := ihπ Γₐ (Prop'.atom 0) hpropπ hπ
+              exact ⟨Deriv.declassify _ ψ _ℓ ℓ' m π dM dπ⟩
+            | succ k => simp [decideLean, hM, hπ] at hdec
+          all_goals (simp [decideLean, hM, hπ] at hdec)
+      all_goals (simp [decideLean, hM] at hdec)
   -- All non-propositional constructors are rejected by `isPropositional`:
   -- isPropositional returns false, so the hypothesis is contradictory.
   all_goals (intro Γₐ φ hprop hdec; simp [Term.isPropositional] at hprop)
@@ -856,6 +895,14 @@ inductive PropDeriv : List Prop' → Term → Prop' → Type where
       (d : PropDeriv Γₐ M φ) :
       PropDeriv Γₐ (Term.liftLabel ℓ M) (Prop'.at φ ℓ)
 
+  /-- `declassify_ℓ'(M, π)` — controlled IFC label lowering. Requires
+  `M : φ @ ℓ` and a policy-witness `π : atom 0`. Mirrors
+  `Deriv.declassify`. -/
+  | declassify (Γₐ : List Prop') (φ : Prop') (ℓ ℓ' : Label) (M π : Term)
+      (d : PropDeriv Γₐ M (Prop'.at φ ℓ))
+      (dπ : PropDeriv Γₐ π (Prop'.atom 0)) :
+      PropDeriv Γₐ (Term.declassify ℓ' M π) (Prop'.at φ ℓ')
+
 /-! ## Shift preservation — load-bearing lemma for subject reduction.
 
 If `M` is well-typed under `Γl ++ Γr`, then shifting `M`'s free variables
@@ -988,6 +1035,11 @@ private noncomputable def propDeriv_shift_aux
     subst hΓ
     unfold shift
     exact PropDeriv.liftLabel _ φ ℓ _ (ih Γl Γr Γm rfl)
+  | declassify _ φ ℓ ℓ' M π _ _ ihM ihπ =>
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    exact PropDeriv.declassify _ φ ℓ ℓ' _ _ (ihM Γl Γr Γm rfl) (ihπ Γl Γr Γm rfl)
 
 /-- Public-facing shift preservation, instantiated from
 `propDeriv_shift_aux` with the trivial equality. -/
@@ -1181,6 +1233,12 @@ private noncomputable def propDeriv_substAt_aux
     subst hΓ
     unfold substAt
     exact PropDeriv.liftLabel _ ψ ℓ _ (ih Γl Γr φ rfl N dN)
+  | declassify _ ψ ℓ ℓ' M π _ _ ihM ihπ =>
+    intro Γl Γr φ hΓ N dN
+    subst hΓ
+    unfold substAt
+    exact PropDeriv.declassify _ ψ ℓ ℓ' _ _
+      (ihM Γl Γr φ rfl N dN) (ihπ Γl Γr φ rfl N dN)
 
 /-- Public-facing substitution preservation. -/
 noncomputable def propDeriv_substAt
@@ -1331,6 +1389,9 @@ noncomputable def propDeriv_subject_reduction
     -- `Term.liftLabel ℓ M` is a normal form per `Reduce.lean` — `step`
     -- returns `none`. Vacuous precondition.
     simp [step] at h
+  | declassify _ _ _ _ _ _ _ _ =>
+    -- `Term.declassify ℓ' M π` is a normal form — `step` returns `none`.
+    simp [step] at h
 
 /-- Structural embedding from `PropDeriv` into `Deriv`. Constructively
 shows the propositional fragment is a faithful sub-typing-judgment. -/
@@ -1372,6 +1433,8 @@ noncomputable def propDeriv_to_deriv :
         (Deriv.varA { additive := [φ], linear := [] } 0 φ rfl)
   | liftLabel Γₐ φ ℓ M _ ih =>
       exact Deriv.liftLabel _ φ ℓ M ih
+  | declassify Γₐ φ ℓ ℓ' M π _ _ ihM ihπ =>
+      exact Deriv.declassify _ φ ℓ ℓ' M π ihM ihπ
 
 /-! ## T1 — Propositional completeness (the other direction). -/
 
@@ -1463,6 +1526,10 @@ theorem t1_propositional_completeness :
     -- decideLean (liftLabel ℓ M) = some (at φ ℓ).
     unfold decideLean
     simp [ih]
+  | declassify Γₐ φ ℓ ℓ' M π _ _ ihM ihπ =>
+    -- decideLean (declassify ℓ' M π) = some (at φ ℓ').
+    unfold decideLean
+    simp [ihM, ihπ]
 
 /-! ## Inversion lemmas — the term shape determines the constructor.
 
@@ -1791,6 +1858,27 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
         simpa [decideLean, hM] using hdec
       rw [← hφ]
       exact PropDeriv.liftLabel _ tyM ℓ m (ihm _ _ hM)
+  case declassify ℓ' m π ihm ihπ =>
+    intro Γₐ φ hdec
+    cases hM : decideLean { additive := Γₐ, linear := [] } m with
+    | none => simp [decideLean, hM] at hdec
+    | some tyM =>
+      cases tyM
+      case «at» ψ _ℓ =>
+        cases hπ : decideLean { additive := Γₐ, linear := [] } π with
+        | none => simp [decideLean, hM, hπ] at hdec
+        | some tyπ =>
+          cases tyπ
+          case atom n =>
+            cases n with
+            | zero =>
+              have hφ : Prop'.at ψ ℓ' = φ := by
+                simpa [decideLean, hM, hπ] using hdec
+              rw [← hφ]
+              exact PropDeriv.declassify _ ψ _ℓ ℓ' m π (ihm _ _ hM) (ihπ _ _ hπ)
+            | succ k => simp [decideLean, hM, hπ] at hdec
+          all_goals (simp [decideLean, hM, hπ] at hdec)
+      all_goals (simp [decideLean, hM] at hdec)
   all_goals (intro Γₐ φ hdec; simp [decideLean] at hdec)
 
 /-! ## T1 — The Decidable instance.

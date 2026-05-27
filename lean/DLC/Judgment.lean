@@ -199,6 +199,18 @@ inductive Deriv : Ctx → Term → Prop' → Type where
       (d : Deriv Γ M φ) :
       Deriv Γ (Term.liftLabel ℓ M) (Prop'.at φ ℓ)
 
+  /-- `declassify` — controlled IFC label lowering (`spec/typing-rules.md
+  §7`). From `Γ ⊢ M : φ @ ℓ` and a declassification-policy witness
+  `Γ ⊢ π : DeclassifyPolicy(ℓ → ℓ')` produce `Γ ⊢ declassify_ℓ'(M, π) :
+  φ @ ℓ'`. The policy witness is encoded as a `Prop'.atom 0` placeholder
+  (the same convention `boxI` uses for obligations); the M1.Q4.a wire-up
+  to nucleus's `portcullis-core::DeclassifyProof` lives in
+  `DLC.IFCLabel`. Mirrors Rust `decide.rs::Term::Declassify`. -/
+  | declassify (Γ : Ctx) (φ : Prop') (ℓ ℓ' : Label) (M π : Term)
+      (d : Deriv Γ M (Prop'.at φ ℓ))
+      (dπ : Deriv Γ π (Prop'.atom 0)) :
+      Deriv Γ (Term.declassify ℓ' M π) (Prop'.at φ ℓ')
+
   /-- `and-I` — additive conjunction introduction. -/
   | andI (Γₐ : List Prop') (φ ψ : Prop') (M N : Term)
       (dM : Deriv { additive := Γₐ, linear := [] } M φ)

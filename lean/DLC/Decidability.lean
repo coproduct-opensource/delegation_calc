@@ -292,13 +292,12 @@ def decideLean (Γ : Ctx) : Term → Option Prop'
     | _ => none
   | .letSays p s b =>
     -- says-elim let-binder: scrutinee must be `p says φ`; body lives
-    -- in extended context with φ added; result is `p says ψ`.
+    -- in extended context with φ added; result is body's type ψ
+    -- (the says modality is stripped by the let-binder).
     match decideLean Γ s with
     | some (Prop'.says p' φ) =>
       if decide (p = p') then
-        match decideLean (Ctx.consA φ Γ) b with
-        | some ψ => some (Prop'.says p ψ)
-        | none => none
+        decideLean (Ctx.consA φ Γ) b
       else none
     | _ => none
   | _ => none
@@ -552,19 +551,16 @@ theorem t1_propositional_soundness (M : Term) :
     | none => simp [decideLean, hS] at hdec
     | some ty =>
       cases ty
-      case says p' α =>
+      case «says» p' α =>
         by_cases hp : p = p'
-        · cases hB : decideLean { additive := α :: Γₐ, linear := [] } b with
-          | none => simp [decideLean, hS, Ctx.consA, hB, hp] at hdec
-          | some ψ =>
-            simp only [decideLean, hS, Ctx.consA, hB, hp,
-                       decide_True, if_true] at hdec
-            have hφ : Prop'.says p ψ = φ := Option.some.inj hdec
-            rw [← hφ]
-            have ⟨dS⟩ := ihS Γₐ (Prop'.says p' α) hpropS hS
-            have ⟨dB⟩ := ihB (α :: Γₐ) ψ hpropB hB
-            rw [← hp] at dS
-            exact ⟨Deriv.letSaysE Γₐ [] [] p α ψ s b dS dB⟩
+        · -- hdec, after reduction: decideLean (φ' :: Γₐ) b = some φ.
+          simp only [decideLean, hS, Ctx.consA, hp,
+                     decide_True, if_true] at hdec
+          -- hdec : decideLean { additive := α :: Γₐ, ... } b = some φ
+          have ⟨dS⟩ := ihS Γₐ (Prop'.says p' α) hpropS hS
+          have ⟨dB⟩ := ihB (α :: Γₐ) φ hpropB hdec
+          rw [← hp] at dS
+          exact ⟨Deriv.letSaysE Γₐ [] [] p α φ s b dS dB⟩
         · simp [decideLean, hS, hp] at hdec
       all_goals (simp [decideLean, hS] at hdec)
   -- All non-propositional constructors are rejected by `isPropositional`:
@@ -662,11 +658,12 @@ inductive PropDeriv : List Prop' → Term → Prop' → Type where
       (dR : PropDeriv (ψ :: Γₐ) R χ) :
       PropDeriv Γₐ (Term.case S L R) χ
 
-  /-- `says-extract` — explicit let-binder form of says-elim. -/
+  /-- `says-extract` — explicit let-binder form of says-elim. Strips
+  the `says` modality; the result type is the body's type ψ. -/
   | letSaysE (Γₐ : List Prop') (p : Principal) (φ ψ : Prop') (S B : Term)
       (dS : PropDeriv Γₐ S (Prop'.says p φ))
       (dB : PropDeriv (φ :: Γₐ) B ψ) :
-      PropDeriv Γₐ (Term.letSays p S B) (Prop'.says p ψ)
+      PropDeriv Γₐ (Term.letSays p S B) ψ
 
 /-! ## Shift preservation — load-bearing lemma for subject reduction.
 
@@ -1041,6 +1038,8 @@ noncomputable def propDeriv_subject_reduction
     | _ => simp [step] at h
   | letSaysE Γₐ p φ ψ S B dS dB =>
     -- step (letSays p (sign p' m _) body) = if p=p' then some (subst body m).
+    -- letSays's conclusion type is ψ (body's type). After β, subst body m
+    -- has type ψ via propDeriv_subst.
     cases S with
     | sign p' m _ =>
       by_cases hp : p = p'
@@ -1048,8 +1047,7 @@ noncomputable def propDeriv_subject_reduction
         subst h
         cases dS with
         | saysI _ _ _ _ _ dM =>
-          -- dM : PropDeriv Γₐ m φ.
-          exact propDeriv_subst _ _ _ B m dB dM
+          exact propDeriv_subst _ φ ψ B m dB dM
       · simp [step, hp] at h
     | _ => simp [step] at h
 
@@ -1080,7 +1078,7 @@ noncomputable def propDeriv_to_deriv :
   | orE Γₐ φ ψ χ S L R _ _ _ ihS ihL ihR =>
       exact Deriv.orE _ φ ψ χ S L R ihS ihL ihR
   | letSaysE Γₐ p φ ψ S B _ _ ihS ihB =>
-      exact Deriv.letSaysE _ [] [] p φ ψ S B ihS ihB
+      exact Deriv.letSaysE Γₐ [] [] p φ ψ S B ihS ihB
 
 /-! ## T1 — Propositional completeness (the other direction). -/
 
@@ -1395,17 +1393,12 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
     | none => simp [decideLean, hS] at hdec
     | some ty =>
       cases ty
-      case says p' α =>
+      case «says» p' α =>
         by_cases hp : p = p'
-        · cases hB : decideLean { additive := α :: Γₐ, linear := [] } b with
-          | none => simp [decideLean, hS, Ctx.consA, hB, hp] at hdec
-          | some ψ =>
-            simp only [decideLean, hS, Ctx.consA, hB, hp,
-                       decide_True, if_true] at hdec
-            have hφ : Prop'.says p ψ = φ := Option.some.inj hdec
-            rw [← hφ]
-            rw [← hp] at hS
-            exact PropDeriv.letSaysE _ p α ψ s b (ihS _ _ hS) (ihB _ _ hB)
+        · simp only [decideLean, hS, Ctx.consA, hp,
+                     decide_True, if_true] at hdec
+          rw [← hp] at hS
+          exact PropDeriv.letSaysE _ p α φ s b (ihS _ _ hS) (ihB _ _ hdec)
         · simp [decideLean, hS, hp] at hdec
       all_goals (simp [decideLean, hS] at hdec)
   all_goals (intro Γₐ φ hdec; simp [decideLean] at hdec)

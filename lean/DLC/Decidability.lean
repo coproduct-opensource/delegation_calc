@@ -122,35 +122,28 @@ theorem Prop'.beq_eq_true_iff_eq : ∀ (φ ψ : Prop'),
   case imp a b iha ihb =>
     intro ψ h
     cases ψ <;> (try (simp [Prop'.beq] at h))
-    -- Only the matching `imp a' b'` case survives; the rest closed by simp.
-    rename_i a' b'
-    simp only [Prop'.beq, Bool.and_eq_true] at h
-    exact congr (congrArg Prop'.imp (iha a' h.1)) (ihb b' h.2)
+    -- `simp` already pushes through Bool.and_eq_true into a conjunction.
+    obtain ⟨ha, hb⟩ := h
+    exact congr (congrArg Prop'.imp (iha _ ha)) (ihb _ hb)
   case and a b iha ihb =>
     intro ψ h
     cases ψ <;> (try (simp [Prop'.beq] at h))
-    rename_i a' b'
-    simp only [Prop'.beq, Bool.and_eq_true] at h
-    exact congr (congrArg Prop'.and (iha a' h.1)) (ihb b' h.2)
+    obtain ⟨ha, hb⟩ := h
+    exact congr (congrArg Prop'.and (iha _ ha)) (ihb _ hb)
   case or a b iha ihb =>
     intro ψ h
     cases ψ <;> (try (simp [Prop'.beq] at h))
-    rename_i a' b'
-    simp only [Prop'.beq, Bool.and_eq_true] at h
-    exact congr (congrArg Prop'.or (iha a' h.1)) (ihb b' h.2)
+    obtain ⟨ha, hb⟩ := h
+    exact congr (congrArg Prop'.or (iha _ ha)) (ihb _ hb)
   case «says» p a iha =>
     intro ψ h
     cases ψ <;> (try (simp [Prop'.beq] at h))
-    rename_i p' a'
-    simp only [Prop'.beq, Bool.and_eq_true, decide_eq_true_eq] at h
     obtain ⟨hp, ha⟩ := h
     subst hp
-    exact congrArg (Prop'.says p) (iha a' ha)
+    exact congrArg (Prop'.says p) (iha _ ha)
   case speaksFor p q =>
     intro ψ h
     cases ψ <;> (try (simp [Prop'.beq] at h))
-    rename_i p' q'
-    simp only [Prop'.beq, Bool.and_eq_true, decide_eq_true_eq] at h
     obtain ⟨hp, hq⟩ := h
     subst hp; subst hq
     rfl
@@ -161,31 +154,25 @@ theorem Prop'.beq_eq_true_iff_eq : ∀ (φ ψ : Prop'),
   case boxed o a iha =>
     intro ψ h
     cases ψ <;> (try (simp [Prop'.beq] at h))
-    rename_i o' a'
-    simp only [Prop'.beq, Bool.and_eq_true, decide_eq_true_eq] at h
     obtain ⟨ho, ha⟩ := h
     subst ho
-    exact congrArg (Prop'.boxed o) (iha a' ha)
+    exact congrArg (Prop'.boxed o) (iha _ ha)
   case within τ a iha =>
     intro ψ h
     cases ψ <;> (try (simp [Prop'.beq] at h))
-    rename_i τ' a'
-    simp only [Prop'.beq, Bool.and_eq_true, decide_eq_true_eq] at h
     obtain ⟨hτ, ha⟩ := h
     subst hτ
-    exact congrArg (Prop'.within τ) (iha a' ha)
+    exact congrArg (Prop'.within τ) (iha _ ha)
   case tensor a b iha ihb =>
     intro ψ h
     cases ψ <;> (try (simp [Prop'.beq] at h))
-    rename_i a' b'
-    simp only [Prop'.beq, Bool.and_eq_true] at h
-    exact congr (congrArg Prop'.tensor (iha a' h.1)) (ihb b' h.2)
+    obtain ⟨ha, hb⟩ := h
+    exact congr (congrArg Prop'.tensor (iha _ ha)) (ihb _ hb)
   case lolli a b iha ihb =>
     intro ψ h
     cases ψ <;> (try (simp [Prop'.beq] at h))
-    rename_i a' b'
-    simp only [Prop'.beq, Bool.and_eq_true] at h
-    exact congr (congrArg Prop'.lolli (iha a' h.1)) (ihb b' h.2)
+    obtain ⟨ha, hb⟩ := h
+    exact congr (congrArg Prop'.lolli (iha _ ha)) (ihb _ hb)
 
 /-! ## `decideLean` — Lean mirror of Rust `infer`.
 

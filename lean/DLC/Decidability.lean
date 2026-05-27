@@ -57,6 +57,7 @@ def Term.isPropositional : Term → Bool
   | Term.attenuate m _    => m.isPropositional
   | Term.liftLabel _ m    => m.isPropositional
   | Term.declassify _ m π => m.isPropositional && π.isPropositional
+  | Term.discharge m n    => m.isPropositional && n.isPropositional
   | _                     => false
 
 /-- A full-calculus term: every constructor accepted, including modal /
@@ -361,6 +362,19 @@ def decideLean (Γ : Ctx) : Term → Option Prop'
     | some (Prop'.at φ _) =>
       match decideLean Γ π with
       | some (Prop'.atom 0) => some (Prop'.at φ ℓ')
+      | _ => none
+    | _ => none
+  | .discharge m n =>
+    -- `discharge(M, N)`: eliminate the `boxed O φ` modality with
+    -- obligation evidence N : atom 0. Mirrors Rust `Term::Discharge`.
+    -- In the propositional fragment, no rule produces `boxed`
+    -- (boxI uses Term.app which is ambiguous with impE) — so this
+    -- branch is *syntactically present* but never matches in practice.
+    -- Soundness is vacuously preserved.
+    match decideLean Γ m with
+    | some (Prop'.boxed _ inner) =>
+      match decideLean Γ n with
+      | some (Prop'.atom 0) => some inner
       | _ => none
     | _ => none
   | _ => none
@@ -753,6 +767,32 @@ theorem t1_propositional_soundness (M : Term) :
             | succ k => simp [decideLean, hM, hπ] at hdec
           all_goals (simp [decideLean, hM, hπ] at hdec)
       all_goals (simp [decideLean, hM] at hdec)
+  case discharge m n ihm ihn =>
+    intro Γₐ φ hprop hdec
+    have hprop' := hprop
+    simp [Term.isPropositional] at hprop'
+    obtain ⟨hpropM, hpropN⟩ := hprop'
+    cases hM : decideLean { additive := Γₐ, linear := [] } m with
+    | none => simp [decideLean, hM] at hdec
+    | some tyM =>
+      cases tyM
+      case «boxed» O inner =>
+        cases hN : decideLean { additive := Γₐ, linear := [] } n with
+        | none => simp [decideLean, hM, hN] at hdec
+        | some tyN =>
+          cases tyN
+          case atom k =>
+            cases k with
+            | zero =>
+              have hφ : inner = φ := by
+                simpa [decideLean, hM, hN] using hdec
+              rw [← hφ]
+              have ⟨dM⟩ := ihm Γₐ (Prop'.boxed O inner) hpropM hM
+              have ⟨dN⟩ := ihn Γₐ (Prop'.atom 0) hpropN hN
+              exact ⟨Deriv.discharge _ [] [] O inner m n dM dN⟩
+            | succ _ => simp [decideLean, hM, hN] at hdec
+          all_goals (simp [decideLean, hM, hN] at hdec)
+      all_goals (simp [decideLean, hM] at hdec)
   -- All non-propositional constructors are rejected by `isPropositional`:
   -- isPropositional returns false, so the hypothesis is contradictory.
   all_goals (intro Γₐ φ hprop hdec; simp [Term.isPropositional] at hprop)
@@ -903,6 +943,19 @@ inductive PropDeriv : List Prop' → Term → Prop' → Type where
       (dπ : PropDeriv Γₐ π (Prop'.atom 0)) :
       PropDeriv Γₐ (Term.declassify ℓ' M π) (Prop'.at φ ℓ')
 
+  /-- `discharge(M, N)` — `□_O φ` elimination. Consumes a boxed
+  derivation `M : boxed O φ` and obligation evidence `N : atom 0`,
+  yielding `φ`. Note: PropDeriv has no `boxI` constructor (boxI uses
+  `Term.app` which is ambiguous with impE in the propositional
+  fragment), so this constructor is **dead** — `PropDeriv Γₐ M
+  (Prop'.boxed _ _)` is uninhabited. Adding the constructor closes
+  the syntactic surface for completeness; soundness is vacuously
+  preserved. -/
+  | discharge (Γₐ : List Prop') (O : Obligation) (φ : Prop') (M N : Term)
+      (dM : PropDeriv Γₐ M (Prop'.boxed O φ))
+      (dN : PropDeriv Γₐ N (Prop'.atom 0)) :
+      PropDeriv Γₐ (Term.discharge M N) φ
+
 /-! ## Shift preservation — load-bearing lemma for subject reduction.
 
 If `M` is well-typed under `Γl ++ Γr`, then shifting `M`'s free variables
@@ -1040,6 +1093,11 @@ private noncomputable def propDeriv_shift_aux
     subst hΓ
     unfold shift
     exact PropDeriv.declassify _ φ ℓ ℓ' _ _ (ihM Γl Γr Γm rfl) (ihπ Γl Γr Γm rfl)
+  | discharge _ O φ M N _ _ ihM ihN =>
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    exact PropDeriv.discharge _ O φ _ _ (ihM Γl Γr Γm rfl) (ihN Γl Γr Γm rfl)
 
 /-- Public-facing shift preservation, instantiated from
 `propDeriv_shift_aux` with the trivial equality. -/
@@ -1239,6 +1297,12 @@ private noncomputable def propDeriv_substAt_aux
     unfold substAt
     exact PropDeriv.declassify _ ψ ℓ ℓ' _ _
       (ihM Γl Γr φ rfl N dN) (ihπ Γl Γr φ rfl N dN)
+  | discharge _ O ψ M Nb _ _ ihM ihN =>
+    intro Γl Γr φ hΓ N dN
+    subst hΓ
+    unfold substAt
+    exact PropDeriv.discharge _ O ψ _ _
+      (ihM Γl Γr φ rfl N dN) (ihN Γl Γr φ rfl N dN)
 
 /-- Public-facing substitution preservation. -/
 noncomputable def propDeriv_substAt
@@ -1392,6 +1456,9 @@ noncomputable def propDeriv_subject_reduction
   | declassify _ _ _ _ _ _ _ _ =>
     -- `Term.declassify ℓ' M π` is a normal form — `step` returns `none`.
     simp [step] at h
+  | discharge _ _ _ _ _ _ _ =>
+    -- `Term.discharge M N` is a normal form per `Reduce.lean` — vacuous.
+    simp [step] at h
 
 /-- Structural embedding from `PropDeriv` into `Deriv`. Constructively
 shows the propositional fragment is a faithful sub-typing-judgment. -/
@@ -1435,6 +1502,8 @@ noncomputable def propDeriv_to_deriv :
       exact Deriv.liftLabel _ φ ℓ M ih
   | declassify Γₐ φ ℓ ℓ' M π _ _ ihM ihπ =>
       exact Deriv.declassify _ φ ℓ ℓ' M π ihM ihπ
+  | discharge Γₐ O φ M N _ _ ihM ihN =>
+      exact Deriv.discharge _ [] [] O φ M N ihM ihN
 
 /-! ## T1 — Propositional completeness (the other direction). -/
 
@@ -1530,6 +1599,10 @@ theorem t1_propositional_completeness :
     -- decideLean (declassify ℓ' M π) = some (at φ ℓ').
     unfold decideLean
     simp [ihM, ihπ]
+  | discharge Γₐ O φ M N _ _ ihM ihN =>
+    -- decideLean (discharge M N) = some φ (when both premises check).
+    unfold decideLean
+    simp [ihM, ihN]
 
 /-! ## Inversion lemmas — the term shape determines the constructor.
 
@@ -1878,6 +1951,27 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
               exact PropDeriv.declassify _ ψ _ℓ ℓ' m π (ihm _ _ hM) (ihπ _ _ hπ)
             | succ k => simp [decideLean, hM, hπ] at hdec
           all_goals (simp [decideLean, hM, hπ] at hdec)
+      all_goals (simp [decideLean, hM] at hdec)
+  case discharge m n ihm ihn =>
+    intro Γₐ φ hdec
+    cases hM : decideLean { additive := Γₐ, linear := [] } m with
+    | none => simp [decideLean, hM] at hdec
+    | some tyM =>
+      cases tyM
+      case «boxed» O inner =>
+        cases hN : decideLean { additive := Γₐ, linear := [] } n with
+        | none => simp [decideLean, hM, hN] at hdec
+        | some tyN =>
+          cases tyN
+          case atom k =>
+            cases k with
+            | zero =>
+              have hφ : inner = φ := by
+                simpa [decideLean, hM, hN] using hdec
+              rw [← hφ]
+              exact PropDeriv.discharge _ O inner m n (ihm _ _ hM) (ihn _ _ hN)
+            | succ _ => simp [decideLean, hM, hN] at hdec
+          all_goals (simp [decideLean, hM, hN] at hdec)
       all_goals (simp [decideLean, hM] at hdec)
   all_goals (intro Γₐ φ hdec; simp [decideLean] at hdec)
 

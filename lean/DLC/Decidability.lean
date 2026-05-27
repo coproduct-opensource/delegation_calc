@@ -401,6 +401,20 @@ theorem t1_propositional_completeness :
     unfold decideLean
     rw [ih]
 
+/-! ## Type uniqueness — every PropDeriv pins down a unique type. -/
+
+/-- Type uniqueness for `PropDeriv`: if two propositional derivations
+exist for the same term in the same context, they assign the same type.
+Follows directly from `t1_propositional_completeness` — both
+derivations imply `decideLean` returns the same `some _` for the term,
+and `Option.some.inj` extracts the propositional equality. -/
+theorem PropDeriv_unique_type (Γₐ : List Prop') (M : Term) (φ ψ : Prop')
+    (d₁ : PropDeriv Γₐ M φ) (d₂ : PropDeriv Γₐ M ψ) : φ = ψ := by
+  have h₁ := t1_propositional_completeness Γₐ M φ d₁
+  have h₂ := t1_propositional_completeness Γₐ M ψ d₂
+  rw [h₁] at h₂
+  exact Option.some.inj h₂
+
 /-! ## Soundness landed in `PropDeriv`.
 
 `t1_propositional_soundness` produces a `Deriv`; the corresponding

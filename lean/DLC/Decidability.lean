@@ -553,20 +553,21 @@ noncomputable def propDeriv_subject_reduction
   cases d with
   | varA _ _ _ _ => simp [step] at h
   | impI _ _ _ _ _ => simp [step] at h
-  | impE _ α β f x dM_app dN_app =>
+  | impE _ _ _ f x dM_app dN_app =>
     -- M = Term.app f x. step is productive only when f = Term.lam.
     cases f with
-    | lam α' body =>
-      -- step (app (lam α' body) x) = some (subst body x).
+    | lam _ body =>
+      -- step (app (lam _ body) x) = some (subst body x).
       simp [step] at h
       subst h
-      -- Invert dM_app : PropDeriv Γₐ (Term.lam α' body) (Prop'.imp α β).
+      -- Invert dM_app : PropDeriv Γₐ (Term.lam _ body) (Prop'.imp _ _).
       -- The only constructor producing Term.lam at type Prop'.imp is impI.
+      -- After cases, Lean's index unification renames the outer α/β to the
+      -- constructor's argument names, so we let Lean infer the implicit
+      -- type arguments to propDeriv_subst via `_` placeholders.
       cases dM_app with
       | impI _ _ _ _ dBody =>
-        -- dBody : PropDeriv (α' :: Γₐ) body β.
-        -- propDeriv_subst gives PropDeriv Γₐ (subst body x) β.
-        exact propDeriv_subst Γₐ α' β body x dBody dN_app
+        exact propDeriv_subst _ _ _ body x dBody dN_app
     | _ => simp [step] at h
   | saysI _ _ _ _ _ _ => simp [step] at h
 

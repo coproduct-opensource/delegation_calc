@@ -535,6 +535,42 @@ noncomputable def propDeriv_subst
   have := propDeriv_substAt [] Γₐ φ ψ M N (by simpa using dM) dN
   simpa [subst] using this
 
+/-! ## Subject reduction — β-reduction preserves typing.
+
+For `PropDeriv`'s 4-rule fragment, the only productive `step`-redex is
+β (`Term.app (Term.lam α body) arg ▷ subst body arg`). All other
+PropDeriv shapes give `step M = none`.
+
+Subject reduction for β follows directly from substitution preservation
+(`propDeriv_subst`): if the application is well-typed via `impE` + `impI`,
+inverting the `impI` gives the body's typing in the extended context;
+substitution preservation then closes the conclusion. -/
+
+noncomputable def propDeriv_subject_reduction
+    (Γₐ : List Prop') (M M' : Term) (ψ : Prop')
+    (d : PropDeriv Γₐ M ψ) (h : step M = some M') :
+    PropDeriv Γₐ M' ψ := by
+  cases d with
+  | varA _ _ _ _ => simp [step] at h
+  | impI _ _ _ _ _ => simp [step] at h
+  | impE _ _ _ f x dM_app dN_app =>
+    -- M = Term.app f x. step is productive only when f = Term.lam.
+    cases f with
+    | lam _ body =>
+      -- step (app (lam _ body) x) = some (subst body x).
+      simp [step] at h
+      subst h
+      -- Invert dM_app : PropDeriv Γₐ (Term.lam _ body) (Prop'.imp _ _).
+      -- The only constructor producing Term.lam at type Prop'.imp is impI.
+      -- After cases, Lean's index unification renames the outer α/β to the
+      -- constructor's argument names, so we let Lean infer the implicit
+      -- type arguments to propDeriv_subst via `_` placeholders.
+      cases dM_app with
+      | impI _ _ _ _ dBody =>
+        exact propDeriv_subst _ _ _ body x dBody dN_app
+    | _ => simp [step] at h
+  | saysI _ _ _ _ _ _ => simp [step] at h
+
 /-- Structural embedding from `PropDeriv` into `Deriv`. Constructively
 shows the propositional fragment is a faithful sub-typing-judgment. -/
 noncomputable def propDeriv_to_deriv :

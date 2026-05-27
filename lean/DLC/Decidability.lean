@@ -49,6 +49,7 @@ def Term.isPropositional : Term → Bool
   | Term.inl _ a          => a.isPropositional
   | Term.inr _ a          => a.isPropositional
   | Term.tensorIntro a b  => a.isPropositional && b.isPropositional
+  | Term.case s l r       => s.isPropositional && l.isPropositional && r.isPropositional
   | _                     => false
 
 /-- A full-calculus term: every constructor accepted, including modal /
@@ -280,6 +281,14 @@ def decideLean (Γ : Ctx) : Term → Option Prop'
       | some ψ => some (Prop'.tensor φ ψ)
       | none => none
     | none => none
+  | .case s l r =>
+    -- or-E: scrutinee must be or-typed; both branches must agree.
+    match decideLean Γ s with
+    | some (Prop'.or φ ψ) =>
+      match decideLean (Ctx.consA φ Γ) l, decideLean (Ctx.consA ψ Γ) r with
+      | some χL, some χR => if Prop'.beq χL χR then some χL else none
+      | _, _ => none
+    | _ => none
   | _ => none
 
 /-! ## T1 — Propositional soundness (the headline closure for this PR).
@@ -492,6 +501,36 @@ theorem t1_propositional_soundness (M : Term) :
         have ⟨dA⟩ := ihA Γₐ α hpropA hA
         have ⟨dB⟩ := ihB Γₐ β hpropB hB
         exact ⟨Deriv.tensorI Γₐ [] [] α β a b dA dB⟩
+  case case s l r ihS ihL ihR =>
+    intro Γₐ φ hprop hdec
+    have hprop' := hprop
+    simp [Term.isPropositional] at hprop'
+    obtain ⟨hpropS, hpropL, hpropR⟩ := hprop'
+    cases hS : decideLean { additive := Γₐ, linear := [] } s with
+    | none => simp [decideLean, hS] at hdec
+    | some ty =>
+      cases ty
+      case or α β =>
+        cases hL : decideLean { additive := α :: Γₐ, linear := [] } l with
+        | none => simp [decideLean, hS, Ctx.consA, hL] at hdec
+        | some χL =>
+          cases hR : decideLean { additive := β :: Γₐ, linear := [] } r with
+          | none => simp [decideLean, hS, Ctx.consA, hL, hR] at hdec
+          | some χR =>
+            simp only [decideLean, hS, Ctx.consA, hL, hR] at hdec
+            -- hdec : (if Prop'.beq χL χR then some χL else none) = some φ
+            by_cases hbeq : Prop'.beq χL χR = true
+            · rw [if_pos hbeq] at hdec
+              have hφ : χL = φ := Option.some.inj hdec
+              have hχ : χL = χR := Prop'.beq_eq_true_iff_eq χL χR hbeq
+              have ⟨dS⟩ := ihS Γₐ (Prop'.or α β) hpropS hS
+              have ⟨dL⟩ := ihL (α :: Γₐ) χL hpropL hL
+              have ⟨dR⟩ := ihR (β :: Γₐ) χR hpropR hR
+              rw [hφ] at dL
+              rw [← hχ, hφ] at dR
+              exact ⟨Deriv.orE Γₐ α β φ s l r dS dL dR⟩
+            · rw [if_neg hbeq] at hdec; cases hdec
+      all_goals (simp [decideLean, hS] at hdec)
   -- All non-propositional constructors are rejected by `isPropositional`:
   -- isPropositional returns false, so the hypothesis is contradictory.
   all_goals (intro Γₐ φ hprop hdec; simp [Term.isPropositional] at hprop)
@@ -578,6 +617,14 @@ inductive PropDeriv : List Prop' → Term → Prop' → Type where
       (dA : PropDeriv Γₐ a φ)
       (dB : PropDeriv Γₐ b ψ) :
       PropDeriv Γₐ (Term.tensorIntro a b) (Prop'.tensor φ ψ)
+
+  /-- `or-E` — case-elimination of a disjunction. Both branches must
+  produce the same result type χ. -/
+  | orE (Γₐ : List Prop') (φ ψ χ : Prop') (S L R : Term)
+      (dS : PropDeriv Γₐ S (Prop'.or φ ψ))
+      (dL : PropDeriv (φ :: Γₐ) L χ)
+      (dR : PropDeriv (ψ :: Γₐ) R χ) :
+      PropDeriv Γₐ (Term.case S L R) χ
 
 /-! ## Shift preservation — load-bearing lemma for subject reduction.
 
@@ -673,6 +720,15 @@ private noncomputable def propDeriv_shift_aux
     subst hΓ
     unfold shift
     exact PropDeriv.tensorI _ φ ψ _ _ (ihA Γl Γr Γm rfl) (ihB Γl Γr Γm rfl)
+  | orE _ φ ψ χ S L R _ _ _ ihS ihL ihR =>
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    -- The branches L, R live in extended contexts (φ :: ...) and (ψ :: ...).
+    -- Apply IH with Γl' = φ :: Γl (resp ψ :: Γl).
+    have hL := ihL (φ :: Γl) Γr Γm (by simp [List.cons_append])
+    have hR := ihR (ψ :: Γl) Γr Γm (by simp [List.cons_append])
+    exact PropDeriv.orE _ φ ψ χ _ _ _ (ihS Γl Γr Γm rfl) hL hR
 
 /-- Public-facing shift preservation, instantiated from
 `propDeriv_shift_aux` with the trivial equality. -/
@@ -827,6 +883,13 @@ private noncomputable def propDeriv_substAt_aux
     unfold substAt
     exact PropDeriv.tensorI _ φ' ψ' _ _
       (ihA Γl Γr φ rfl N dN) (ihB Γl Γr φ rfl N dN)
+  | orE _ φ' ψ' χ S L R _ _ _ ihS ihL ihR =>
+    intro Γl Γr φ hΓ N dN
+    subst hΓ
+    unfold substAt
+    have hL := ihL (φ' :: Γl) Γr φ (by simp [List.cons_append]) N dN
+    have hR := ihR (ψ' :: Γl) Γr φ (by simp [List.cons_append]) N dN
+    exact PropDeriv.orE _ φ' ψ' χ _ _ _ (ihS Γl Γr φ rfl N dN) hL hR
 
 /-- Public-facing substitution preservation. -/
 noncomputable def propDeriv_substAt
@@ -907,6 +970,23 @@ noncomputable def propDeriv_subject_reduction
   | orI_L _ _ _ _ _ => simp [step] at h
   | orI_R _ _ _ _ _ => simp [step] at h
   | tensorI _ _ _ _ _ _ _ => simp [step] at h
+  | orE Γₐ φ ψ χ S L R dS dL dR =>
+    -- step (case s l r) — productive when s is inl or inr.
+    cases S with
+    | inl ψ' va =>
+      simp [step] at h
+      subst h
+      cases dS with
+      | orI_L _ _ _ _ dVA =>
+        -- step result is subst L va. Use substitution preservation.
+        exact propDeriv_subst _ _ _ L va dL dVA
+    | inr φ' va =>
+      simp [step] at h
+      subst h
+      cases dS with
+      | orI_R _ _ _ _ dVA =>
+        exact propDeriv_subst _ _ _ R va dR dVA
+    | _ => simp [step] at h
 
 /-- Structural embedding from `PropDeriv` into `Deriv`. Constructively
 shows the propositional fragment is a faithful sub-typing-judgment. -/
@@ -932,6 +1012,8 @@ noncomputable def propDeriv_to_deriv :
   | orI_R Γₐ φ ψ a _ ih => exact Deriv.orI_R _ φ ψ a ih
   | tensorI Γₐ φ ψ a b _ _ ihA ihB =>
       exact Deriv.tensorI _ [] [] φ ψ a b ihA ihB
+  | orE Γₐ φ ψ χ S L R _ _ _ ihS ihL ihR =>
+      exact Deriv.orE _ φ ψ χ S L R ihS ihL ihR
 
 /-! ## T1 — Propositional completeness (the other direction). -/
 
@@ -996,6 +1078,11 @@ theorem t1_propositional_completeness :
   | tensorI Γₐ φ ψ a b _ _ ihA ihB =>
     unfold decideLean
     rw [ihA, ihB]
+  | orE Γₐ φ ψ χ S L R _ _ _ ihS ihL ihR =>
+    -- decideLean of Term.case matches on scrutinee = some (or φ ψ), then
+    -- checks branch types via Prop'.beq χ χ which is refl-true.
+    unfold decideLean
+    simp only [ihS, Ctx.consA, ihL, ihR, Prop'.beq_refl, if_true]
 
 /-! ## Inversion lemmas — the term shape determines the constructor.
 
@@ -1209,6 +1296,29 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
         have hφ : Prop'.tensor α β = φ := Option.some.inj hdec
         rw [← hφ]
         exact PropDeriv.tensorI _ α β _ _ (ihA _ _ hA) (ihB _ _ hB)
+  case case s l r ihS ihL ihR =>
+    intro Γₐ φ hdec
+    cases hS : decideLean { additive := Γₐ, linear := [] } s with
+    | none => simp [decideLean, hS] at hdec
+    | some ty =>
+      cases ty
+      case or α β =>
+        cases hL : decideLean { additive := α :: Γₐ, linear := [] } l with
+        | none => simp [decideLean, hS, Ctx.consA, hL] at hdec
+        | some χL =>
+          cases hR : decideLean { additive := β :: Γₐ, linear := [] } r with
+          | none => simp [decideLean, hS, Ctx.consA, hL, hR] at hdec
+          | some χR =>
+            simp only [decideLean, hS, Ctx.consA, hL, hR] at hdec
+            by_cases hbeq : Prop'.beq χL χR = true
+            · rw [if_pos hbeq] at hdec
+              have hφ : χL = φ := Option.some.inj hdec
+              have hχ : χL = χR := Prop'.beq_eq_true_iff_eq χL χR hbeq
+              rw [hφ] at hL
+              rw [← hχ, hφ] at hR
+              exact PropDeriv.orE _ α β φ s l r (ihS _ _ hS) (ihL _ _ hL) (ihR _ _ hR)
+            · rw [if_neg hbeq] at hdec; cases hdec
+      all_goals (simp [decideLean, hS] at hdec)
   all_goals (intro Γₐ φ hdec; simp [decideLean] at hdec)
 
 /-! ## T1 — The Decidable instance.

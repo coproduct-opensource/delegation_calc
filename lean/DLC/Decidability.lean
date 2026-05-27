@@ -682,16 +682,16 @@ theorem t1_propositional_soundness (M : Term) :
       case «says» p phiM =>
         by_cases hψ : Prop'.beq phiM psi
         · -- phiM = psi (the degenerate case): result is says p psi.
-          have hphi_eq_psi : phiM = psi := Prop'.beq_eq_true_iff_eq.mp hψ
+          have hphi_eq_psi : phiM = psi := Prop'.beq_eq_true_iff_eq phiM psi hψ
           have hφ : Prop'.says p psi = φ := by
             simpa [decideLean, hM, hψ] using hdec
           rw [← hφ]
           have ⟨dM⟩ := ihm Γₐ (Prop'.says p phiM) hpropM hM
           rw [hphi_eq_psi] at dM
           -- Now dM : Deriv Γₐ m (says p psi). Apply Deriv.attenuate
-          -- with witness Term.var 0 in [psi].
+          -- with witness Term.var 0 in Ctx.consA psi Ctx.empty.
           exact ⟨Deriv.attenuate _ p psi psi m (Term.var 0) dM
-            (Deriv.varA [psi] 0 psi rfl)⟩
+            (Deriv.varA { additive := [psi], linear := [] } 0 psi rfl)⟩
         · simp [decideLean, hM, hψ] at hdec
       all_goals (simp [decideLean, hM] at hdec)
   -- All non-propositional constructors are rejected by `isPropositional`:
@@ -1329,7 +1329,7 @@ noncomputable def propDeriv_to_deriv :
   | attenuate Γₐ p φ M _ ih =>
       -- Trivial impl witness: `Term.var 0 : φ` in `consA φ Ctx.empty`.
       exact Deriv.attenuate _ p φ φ M (Term.var 0) ih
-        (Deriv.varA [φ] 0 φ rfl)
+        (Deriv.varA { additive := [φ], linear := [] } 0 φ rfl)
 
 /-! ## T1 — Propositional completeness (the other direction). -/
 
@@ -1727,7 +1727,7 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
       cases tyM
       case «says» p phiM =>
         by_cases hψ : Prop'.beq phiM psi
-        · have hphi_eq_psi : phiM = psi := Prop'.beq_eq_true_iff_eq.mp hψ
+        · have hphi_eq_psi : phiM = psi := Prop'.beq_eq_true_iff_eq phiM psi hψ
           have hφ : Prop'.says p psi = φ := by
             simpa [decideLean, hM, hψ] using hdec
           rw [← hφ]

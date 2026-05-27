@@ -386,16 +386,16 @@ theorem t1_propositional_soundness (M : Term) :
     cases hA : decideLean { additive := Γₐ, linear := [] } a with
     | none => unfold decideLean at hdec; rw [hA] at hdec; simp at hdec
     | some ty =>
-      cases ty with
-      | and α β =>
-        unfold decideLean at hdec
-        rw [hA] at hdec
-        -- hdec : some α = some φ
+      unfold decideLean at hdec
+      rw [hA] at hdec
+      -- hdec : (match ty with | and α _ => some α | _ => none) = some φ
+      split at hdec
+      · rename_i α β
         have hφ : α = φ := Option.some.inj hdec
         rw [hφ] at hA
         have ⟨dA⟩ := ihA Γₐ (Prop'.and φ β) hprop' hA
         exact ⟨Deriv.andEL _ φ β a dA⟩
-      all_goals (unfold decideLean at hdec; rw [hA] at hdec; simp at hdec)
+      · cases hdec
   case snd a ihA =>
     intro Γₐ φ hprop hdec
     have hprop' : a.isPropositional = true := by
@@ -403,15 +403,15 @@ theorem t1_propositional_soundness (M : Term) :
     cases hA : decideLean { additive := Γₐ, linear := [] } a with
     | none => unfold decideLean at hdec; rw [hA] at hdec; simp at hdec
     | some ty =>
-      cases ty with
-      | and α β =>
-        unfold decideLean at hdec
-        rw [hA] at hdec
+      unfold decideLean at hdec
+      rw [hA] at hdec
+      split at hdec
+      · rename_i α β
         have hφ : β = φ := Option.some.inj hdec
         rw [hφ] at hA
         have ⟨dA⟩ := ihA Γₐ (Prop'.and α φ) hprop' hA
         exact ⟨Deriv.andER _ α φ a dA⟩
-      all_goals (unfold decideLean at hdec; rw [hA] at hdec; simp at hdec)
+      · cases hdec
   -- All non-propositional constructors are rejected by `isPropositional`:
   -- isPropositional returns false, so the hypothesis is contradictory.
   all_goals (intro Γₐ φ hprop hdec; simp [Term.isPropositional] at hprop)
@@ -984,27 +984,27 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
     cases hA : decideLean { additive := Γₐ, linear := [] } a with
     | none => unfold decideLean at hdec; rw [hA] at hdec; simp at hdec
     | some ty =>
-      cases ty with
-      | and α β =>
-        unfold decideLean at hdec
-        rw [hA] at hdec
+      unfold decideLean at hdec
+      rw [hA] at hdec
+      split at hdec
+      · rename_i α β
         have hφ : α = φ := Option.some.inj hdec
         rw [hφ] at hA
         exact PropDeriv.andEL _ φ β _ (ihA _ _ hA)
-      all_goals (unfold decideLean at hdec; rw [hA] at hdec; simp at hdec)
+      · cases hdec
   case snd a ihA =>
     intro Γₐ φ hdec
     cases hA : decideLean { additive := Γₐ, linear := [] } a with
     | none => unfold decideLean at hdec; rw [hA] at hdec; simp at hdec
     | some ty =>
-      cases ty with
-      | and α β =>
-        unfold decideLean at hdec
-        rw [hA] at hdec
+      unfold decideLean at hdec
+      rw [hA] at hdec
+      split at hdec
+      · rename_i α β
         have hφ : β = φ := Option.some.inj hdec
         rw [hφ] at hA
         exact PropDeriv.andER _ α φ _ (ihA _ _ hA)
-      all_goals (unfold decideLean at hdec; rw [hA] at hdec; simp at hdec)
+      · cases hdec
   all_goals (intro Γₐ φ hdec; simp [decideLean] at hdec)
 
 /-! ## T1 — The Decidable instance.

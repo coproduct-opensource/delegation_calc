@@ -42,6 +42,9 @@ def Term.isPropositional : Term → Bool
   | Term.app f x          => f.isPropositional && x.isPropositional
   | Term.sign _ m _       => m.isPropositional
   | Term.verify _ m _     => m.isPropositional
+  | Term.pair a b         => a.isPropositional && b.isPropositional
+  | Term.fst a            => a.isPropositional
+  | Term.snd a            => a.isPropositional
   | _                     => false
 
 /-- A full-calculus term: every constructor accepted, including modal /
@@ -231,6 +234,25 @@ def decideLean (Γ : Ctx) : Term → Option Prop'
     | some (Prop'.says p' inner) =>
       if decide (p = p') then some inner else none
     | _ => none
+  | .pair a b =>
+    -- and-I: pairs of derivations produce `and`-typed terms.
+    -- Use explicit nested matches so `split` in proofs peels predictably.
+    match decideLean Γ a with
+    | some α =>
+      match decideLean Γ b with
+      | some β => some (Prop'.and α β)
+      | none => none
+    | none => none
+  | .fst a =>
+    -- and-E-left: extract the left component.
+    match decideLean Γ a with
+    | some (Prop'.and φ _) => some φ
+    | _ => none
+  | .snd a =>
+    -- and-E-right: extract the right component.
+    match decideLean Γ a with
+    | some (Prop'.and _ ψ) => some ψ
+    | _ => none
   | _ => none
 
 /-! ## T1 — Propositional soundness (the headline closure for this PR).
@@ -326,16 +348,69 @@ theorem t1_propositional_soundness (M : Term) :
     · rename_i p' inner hm
       by_cases hp : p = p'
       · rw [if_pos (decide_eq_true_iff.mpr hp)] at hdec
-        -- hdec : some inner = some φ. Extract equalities without subst
-        -- (both inner and φ are free vars; subst direction is ambiguous).
         have hinner : inner = φ := Option.some.inj hdec
-        -- Rewrite hm to talk about p and φ instead of p' and inner.
         rw [← hp, hinner] at hm
         have ⟨dM⟩ := ihm Γₐ (Prop'.says p φ) hprop' hm
         exact ⟨Deriv.verifyE _ p φ m sig dM⟩
       · rw [if_neg (by simpa using hp)] at hdec
         cases hdec
     · cases hdec
+  case pair a b ihA ihB =>
+    intro Γₐ φ hprop hdec
+    have hprop' := hprop
+    simp [Term.isPropositional] at hprop'
+    obtain ⟨hpropA, hpropB⟩ := hprop'
+    -- Use explicit cases on decideLean's outputs to avoid split's
+    -- aggressive flattening with tuple-style matches.
+    cases hA : decideLean { additive := Γₐ, linear := [] } a with
+    | none => unfold decideLean at hdec; rw [hA] at hdec; simp at hdec
+    | some α =>
+      cases hB : decideLean { additive := Γₐ, linear := [] } b with
+      | none =>
+        unfold decideLean at hdec
+        rw [hA, hB] at hdec
+        simp at hdec
+      | some β =>
+        unfold decideLean at hdec
+        rw [hA, hB] at hdec
+        -- hdec : some (Prop'.and α β) = some φ
+        have hφ : Prop'.and α β = φ := Option.some.inj hdec
+        rw [← hφ]
+        have ⟨dA⟩ := ihA Γₐ α hpropA hA
+        have ⟨dB⟩ := ihB Γₐ β hpropB hB
+        exact ⟨Deriv.andI Γₐ α β a b dA dB⟩
+  case fst a ihA =>
+    intro Γₐ φ hprop hdec
+    have hprop' : a.isPropositional = true := by
+      simp [Term.isPropositional] at hprop; exact hprop
+    cases hA : decideLean { additive := Γₐ, linear := [] } a with
+    | none => unfold decideLean at hdec; rw [hA] at hdec; simp at hdec
+    | some ty =>
+      cases ty
+      case and α β =>
+        unfold decideLean at hdec
+        rw [hA] at hdec
+        have hφ : α = φ := Option.some.inj hdec
+        rw [hφ] at hA
+        have ⟨dA⟩ := ihA Γₐ (Prop'.and φ β) hprop' hA
+        exact ⟨Deriv.andEL _ φ β a dA⟩
+      all_goals (unfold decideLean at hdec; rw [hA] at hdec; simp at hdec)
+  case snd a ihA =>
+    intro Γₐ φ hprop hdec
+    have hprop' : a.isPropositional = true := by
+      simp [Term.isPropositional] at hprop; exact hprop
+    cases hA : decideLean { additive := Γₐ, linear := [] } a with
+    | none => unfold decideLean at hdec; rw [hA] at hdec; simp at hdec
+    | some ty =>
+      cases ty
+      case and α β =>
+        unfold decideLean at hdec
+        rw [hA] at hdec
+        have hφ : β = φ := Option.some.inj hdec
+        rw [hφ] at hA
+        have ⟨dA⟩ := ihA Γₐ (Prop'.and α φ) hprop' hA
+        exact ⟨Deriv.andER _ α φ a dA⟩
+      all_goals (unfold decideLean at hdec; rw [hA] at hdec; simp at hdec)
   -- All non-propositional constructors are rejected by `isPropositional`:
   -- isPropositional returns false, so the hypothesis is contradictory.
   all_goals (intro Γₐ φ hprop hdec; simp [Term.isPropositional] at hprop)
@@ -384,6 +459,22 @@ inductive PropDeriv : List Prop' → Term → Prop' → Type where
             (sig : Signature)
       (d : PropDeriv Γₐ M (Prop'.says p φ)) :
       PropDeriv Γₐ (Term.verify p M sig) φ
+
+  /-- `and-I` — additive conjunction introduction (pair). -/
+  | andI (Γₐ : List Prop') (φ ψ : Prop') (a b : Term)
+      (dA : PropDeriv Γₐ a φ)
+      (dB : PropDeriv Γₐ b ψ) :
+      PropDeriv Γₐ (Term.pair a b) (Prop'.and φ ψ)
+
+  /-- `and-E-left` — left projection. -/
+  | andEL (Γₐ : List Prop') (φ ψ : Prop') (a : Term)
+      (d : PropDeriv Γₐ a (Prop'.and φ ψ)) :
+      PropDeriv Γₐ (Term.fst a) φ
+
+  /-- `and-E-right` — right projection. -/
+  | andER (Γₐ : List Prop') (φ ψ : Prop') (a : Term)
+      (d : PropDeriv Γₐ a (Prop'.and φ ψ)) :
+      PropDeriv Γₐ (Term.snd a) ψ
 
 /-! ## Shift preservation — load-bearing lemma for subject reduction.
 
@@ -444,6 +535,21 @@ private noncomputable def propDeriv_shift_aux
     subst hΓ
     unfold shift
     exact PropDeriv.verifyE _ p ψ' _ sig (ih Γl Γr Γm rfl)
+  | andI _ φ ψ a b _ _ ihA ihB =>
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    exact PropDeriv.andI _ φ ψ _ _ (ihA Γl Γr Γm rfl) (ihB Γl Γr Γm rfl)
+  | andEL _ φ ψ a _ ih =>
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    exact PropDeriv.andEL _ φ ψ _ (ih Γl Γr Γm rfl)
+  | andER _ φ ψ a _ ih =>
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    exact PropDeriv.andER _ φ ψ _ (ih Γl Γr Γm rfl)
 
 /-- Public-facing shift preservation, instantiated from
 `propDeriv_shift_aux` with the trivial equality. -/
@@ -561,6 +667,22 @@ private noncomputable def propDeriv_substAt_aux
     subst hΓ
     unfold substAt
     exact PropDeriv.verifyE _ p ψ' _ sig (ih Γl Γr φ rfl N dN)
+  | andI _ φ' ψ' a b _ _ ihA ihB =>
+    intro Γl Γr φ hΓ N dN
+    subst hΓ
+    unfold substAt
+    exact PropDeriv.andI _ φ' ψ' _ _
+      (ihA Γl Γr φ rfl N dN) (ihB Γl Γr φ rfl N dN)
+  | andEL _ φ' ψ' a _ ih =>
+    intro Γl Γr φ hΓ N dN
+    subst hΓ
+    unfold substAt
+    exact PropDeriv.andEL _ φ' ψ' _ (ih Γl Γr φ rfl N dN)
+  | andER _ φ' ψ' a _ ih =>
+    intro Γl Γr φ hΓ N dN
+    subst hΓ
+    unfold substAt
+    exact PropDeriv.andER _ φ' ψ' _ (ih Γl Γr φ rfl N dN)
 
 /-- Public-facing substitution preservation. -/
 noncomputable def propDeriv_substAt
@@ -616,6 +738,27 @@ noncomputable def propDeriv_subject_reduction
     | _ => simp [step] at h
   | saysI _ _ _ _ _ _ => simp [step] at h
   | verifyE _ _ _ _ _ _ => simp [step] at h
+  | andI _ _ _ _ _ _ _ => simp [step] at h
+  | andEL Γₐ φ ψ a dA =>
+    -- step (fst a) is productive only when a = Term.pair _ _.
+    cases a with
+    | pair pa pb =>
+      -- step (fst (pair pa pb)) = some pa.
+      simp [step] at h
+      subst h
+      -- dA : PropDeriv Γₐ (Term.pair pa pb) (Prop'.and φ ψ).
+      -- Invert: only andI applies.
+      cases dA with
+      | andI _ _ _ _ _ dPA _ => exact dPA
+    | _ => simp [step] at h
+  | andER Γₐ φ ψ a dA =>
+    cases a with
+    | pair pa pb =>
+      simp [step] at h
+      subst h
+      cases dA with
+      | andI _ _ _ _ _ _ dPB => exact dPB
+    | _ => simp [step] at h
 
 /-- Structural embedding from `PropDeriv` into `Deriv`. Constructively
 shows the propositional fragment is a faithful sub-typing-judgment. -/
@@ -632,6 +775,10 @@ noncomputable def propDeriv_to_deriv :
       exact Deriv.impE Γₐ [] [] φ ψ M N ihM ihN
   | saysI Γₐ p φ M sig _ ih => exact Deriv.saysI _ p φ M sig ih
   | verifyE Γₐ p φ M sig _ ih => exact Deriv.verifyE _ p φ M sig ih
+  | andI Γₐ φ ψ a b _ _ ihA ihB =>
+      exact Deriv.andI Γₐ φ ψ a b ihA ihB
+  | andEL Γₐ φ ψ a _ ih => exact Deriv.andEL _ φ ψ a ih
+  | andER Γₐ φ ψ a _ ih => exact Deriv.andER _ φ ψ a ih
 
 /-! ## T1 — Propositional completeness (the other direction). -/
 
@@ -675,6 +822,15 @@ theorem t1_propositional_completeness :
     unfold decideLean
     rw [ih]
     simp
+  | andI Γₐ φ ψ a b _ _ ihA ihB =>
+    unfold decideLean
+    rw [ihA, ihB]
+  | andEL Γₐ φ ψ a _ ih =>
+    unfold decideLean
+    rw [ih]
+  | andER Γₐ φ ψ a _ ih =>
+    unfold decideLean
+    rw [ih]
 
 /-! ## Inversion lemmas — the term shape determines the constructor.
 
@@ -806,6 +962,48 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
       · rw [if_neg (by simpa using hp)] at hdec
         cases hdec
     · cases hdec
+  case pair a b ihA ihB =>
+    intro Γₐ φ hdec
+    cases hA : decideLean { additive := Γₐ, linear := [] } a with
+    | none => unfold decideLean at hdec; rw [hA] at hdec; simp at hdec
+    | some α =>
+      cases hB : decideLean { additive := Γₐ, linear := [] } b with
+      | none =>
+        unfold decideLean at hdec
+        rw [hA, hB] at hdec
+        simp at hdec
+      | some β =>
+        unfold decideLean at hdec
+        rw [hA, hB] at hdec
+        have hφ : Prop'.and α β = φ := Option.some.inj hdec
+        rw [← hφ]
+        exact PropDeriv.andI _ α β _ _ (ihA _ _ hA) (ihB _ _ hB)
+  case fst a ihA =>
+    intro Γₐ φ hdec
+    cases hA : decideLean { additive := Γₐ, linear := [] } a with
+    | none => unfold decideLean at hdec; rw [hA] at hdec; simp at hdec
+    | some ty =>
+      cases ty
+      case and α β =>
+        unfold decideLean at hdec
+        rw [hA] at hdec
+        have hφ : α = φ := Option.some.inj hdec
+        rw [hφ] at hA
+        exact PropDeriv.andEL _ φ β _ (ihA _ _ hA)
+      all_goals (unfold decideLean at hdec; rw [hA] at hdec; simp at hdec)
+  case snd a ihA =>
+    intro Γₐ φ hdec
+    cases hA : decideLean { additive := Γₐ, linear := [] } a with
+    | none => unfold decideLean at hdec; rw [hA] at hdec; simp at hdec
+    | some ty =>
+      cases ty
+      case and α β =>
+        unfold decideLean at hdec
+        rw [hA] at hdec
+        have hφ : β = φ := Option.some.inj hdec
+        rw [hφ] at hA
+        exact PropDeriv.andER _ α φ _ (ihA _ _ hA)
+      all_goals (unfold decideLean at hdec; rw [hA] at hdec; simp at hdec)
   all_goals (intro Γₐ φ hdec; simp [decideLean] at hdec)
 
 /-! ## T1 — The Decidable instance.

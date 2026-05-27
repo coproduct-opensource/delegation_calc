@@ -50,6 +50,7 @@ def Term.isPropositional : Term → Bool
   | Term.inr _ a          => a.isPropositional
   | Term.tensorIntro a b  => a.isPropositional && b.isPropositional
   | Term.case s l r       => s.isPropositional && l.isPropositional && r.isPropositional
+  | Term.letSays _ s b    => s.isPropositional && b.isPropositional
   | _                     => false
 
 /-- A full-calculus term: every constructor accepted, including modal /
@@ -288,6 +289,17 @@ def decideLean (Γ : Ctx) : Term → Option Prop'
       match decideLean (Ctx.consA φ Γ) l, decideLean (Ctx.consA ψ Γ) r with
       | some χL, some χR => if Prop'.beq χL χR then some χL else none
       | _, _ => none
+    | _ => none
+  | .letSays p s b =>
+    -- says-elim let-binder: scrutinee must be `p says φ`; body lives
+    -- in extended context with φ added; result is `p says ψ`.
+    match decideLean Γ s with
+    | some (Prop'.says p' φ) =>
+      if decide (p = p') then
+        match decideLean (Ctx.consA φ Γ) b with
+        | some ψ => some (Prop'.says p ψ)
+        | none => none
+      else none
     | _ => none
   | _ => none
 
@@ -531,6 +543,30 @@ theorem t1_propositional_soundness (M : Term) :
               exact ⟨Deriv.orE Γₐ α β φ s l r dS dL dR⟩
             · rw [if_neg hbeq] at hdec; cases hdec
       all_goals (simp [decideLean, hS] at hdec)
+  case letSays p s b ihS ihB =>
+    intro Γₐ φ hprop hdec
+    have hprop' := hprop
+    simp [Term.isPropositional] at hprop'
+    obtain ⟨hpropS, hpropB⟩ := hprop'
+    cases hS : decideLean { additive := Γₐ, linear := [] } s with
+    | none => simp [decideLean, hS] at hdec
+    | some ty =>
+      cases ty
+      case says p' α =>
+        by_cases hp : p = p'
+        · cases hB : decideLean { additive := α :: Γₐ, linear := [] } b with
+          | none => simp [decideLean, hS, Ctx.consA, hB, hp] at hdec
+          | some ψ =>
+            simp only [decideLean, hS, Ctx.consA, hB, hp,
+                       decide_True, if_true] at hdec
+            have hφ : Prop'.says p ψ = φ := Option.some.inj hdec
+            rw [← hφ]
+            have ⟨dS⟩ := ihS Γₐ (Prop'.says p' α) hpropS hS
+            have ⟨dB⟩ := ihB (α :: Γₐ) ψ hpropB hB
+            rw [← hp] at dS
+            exact ⟨Deriv.letSaysE Γₐ [] [] p α ψ s b dS dB⟩
+        · simp [decideLean, hS, hp] at hdec
+      all_goals (simp [decideLean, hS] at hdec)
   -- All non-propositional constructors are rejected by `isPropositional`:
   -- isPropositional returns false, so the hypothesis is contradictory.
   all_goals (intro Γₐ φ hprop hdec; simp [Term.isPropositional] at hprop)
@@ -625,6 +661,12 @@ inductive PropDeriv : List Prop' → Term → Prop' → Type where
       (dL : PropDeriv (φ :: Γₐ) L χ)
       (dR : PropDeriv (ψ :: Γₐ) R χ) :
       PropDeriv Γₐ (Term.case S L R) χ
+
+  /-- `says-extract` — explicit let-binder form of says-elim. -/
+  | letSaysE (Γₐ : List Prop') (p : Principal) (φ ψ : Prop') (S B : Term)
+      (dS : PropDeriv Γₐ S (Prop'.says p φ))
+      (dB : PropDeriv (φ :: Γₐ) B ψ) :
+      PropDeriv Γₐ (Term.letSays p S B) (Prop'.says p ψ)
 
 /-! ## Shift preservation — load-bearing lemma for subject reduction.
 
@@ -724,11 +766,15 @@ private noncomputable def propDeriv_shift_aux
     intro Γl Γr Γm hΓ
     subst hΓ
     unfold shift
-    -- The branches L, R live in extended contexts (φ :: ...) and (ψ :: ...).
-    -- Apply IH with Γl' = φ :: Γl (resp ψ :: Γl).
     have hL := ihL (φ :: Γl) Γr Γm (by simp [List.cons_append])
     have hR := ihR (ψ :: Γl) Γr Γm (by simp [List.cons_append])
     exact PropDeriv.orE _ φ ψ χ _ _ _ (ihS Γl Γr Γm rfl) hL hR
+  | letSaysE _ p φ ψ S B _ _ ihS ihB =>
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    have hB := ihB (φ :: Γl) Γr Γm (by simp [List.cons_append])
+    exact PropDeriv.letSaysE _ p φ ψ _ _ (ihS Γl Γr Γm rfl) hB
 
 /-- Public-facing shift preservation, instantiated from
 `propDeriv_shift_aux` with the trivial equality. -/
@@ -890,6 +936,12 @@ private noncomputable def propDeriv_substAt_aux
     have hL := ihL (φ' :: Γl) Γr φ (by simp [List.cons_append]) N dN
     have hR := ihR (ψ' :: Γl) Γr φ (by simp [List.cons_append]) N dN
     exact PropDeriv.orE _ φ' ψ' χ _ _ _ (ihS Γl Γr φ rfl N dN) hL hR
+  | letSaysE _ p φ' ψ S B _ _ ihS ihB =>
+    intro Γl Γr φ hΓ N dN
+    subst hΓ
+    unfold substAt
+    have hB := ihB (φ' :: Γl) Γr φ (by simp [List.cons_append]) N dN
+    exact PropDeriv.letSaysE _ p φ' ψ _ _ (ihS Γl Γr φ rfl N dN) hB
 
 /-- Public-facing substitution preservation. -/
 noncomputable def propDeriv_substAt
@@ -987,6 +1039,19 @@ noncomputable def propDeriv_subject_reduction
       | orI_R _ _ _ _ dVA =>
         exact propDeriv_subst _ _ _ R va dR dVA
     | _ => simp [step] at h
+  | letSaysE Γₐ p φ ψ S B dS dB =>
+    -- step (letSays p (sign p' m _) body) = if p=p' then some (subst body m).
+    cases S with
+    | sign p' m _ =>
+      by_cases hp : p = p'
+      · simp [step, hp] at h
+        subst h
+        cases dS with
+        | saysI _ _ _ _ _ dM =>
+          -- dM : PropDeriv Γₐ m φ.
+          exact propDeriv_subst _ _ _ B m dB dM
+      · simp [step, hp] at h
+    | _ => simp [step] at h
 
 /-- Structural embedding from `PropDeriv` into `Deriv`. Constructively
 shows the propositional fragment is a faithful sub-typing-judgment. -/
@@ -1014,6 +1079,8 @@ noncomputable def propDeriv_to_deriv :
       exact Deriv.tensorI _ [] [] φ ψ a b ihA ihB
   | orE Γₐ φ ψ χ S L R _ _ _ ihS ihL ihR =>
       exact Deriv.orE _ φ ψ χ S L R ihS ihL ihR
+  | letSaysE Γₐ p φ ψ S B _ _ ihS ihB =>
+      exact Deriv.letSaysE _ [] [] p φ ψ S B ihS ihB
 
 /-! ## T1 — Propositional completeness (the other direction). -/
 
@@ -1083,6 +1150,9 @@ theorem t1_propositional_completeness :
     -- checks branch types via Prop'.beq χ χ which is refl-true.
     unfold decideLean
     simp only [ihS, Ctx.consA, ihL, ihR, Prop'.beq_refl, if_true]
+  | letSaysE Γₐ p φ ψ S B _ _ ihS ihB =>
+    unfold decideLean
+    simp only [ihS, Ctx.consA, ihB, decide_True, if_true]
 
 /-! ## Inversion lemmas — the term shape determines the constructor.
 
@@ -1318,6 +1388,25 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
               rw [← hχ, hφ] at hR
               exact PropDeriv.orE _ α β φ s l r (ihS _ _ hS) (ihL _ _ hL) (ihR _ _ hR)
             · rw [if_neg hbeq] at hdec; cases hdec
+      all_goals (simp [decideLean, hS] at hdec)
+  case letSays p s b ihS ihB =>
+    intro Γₐ φ hdec
+    cases hS : decideLean { additive := Γₐ, linear := [] } s with
+    | none => simp [decideLean, hS] at hdec
+    | some ty =>
+      cases ty
+      case says p' α =>
+        by_cases hp : p = p'
+        · cases hB : decideLean { additive := α :: Γₐ, linear := [] } b with
+          | none => simp [decideLean, hS, Ctx.consA, hB, hp] at hdec
+          | some ψ =>
+            simp only [decideLean, hS, Ctx.consA, hB, hp,
+                       decide_True, if_true] at hdec
+            have hφ : Prop'.says p ψ = φ := Option.some.inj hdec
+            rw [← hφ]
+            rw [← hp] at hS
+            exact PropDeriv.letSaysE _ p α ψ s b (ihS _ _ hS) (ihB _ _ hB)
+        · simp [decideLean, hS, hp] at hdec
       all_goals (simp [decideLean, hS] at hdec)
   all_goals (intro Γₐ φ hdec; simp [decideLean] at hdec)
 

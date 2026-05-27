@@ -350,6 +350,79 @@ inductive PropDeriv : List Prop' → Term → Prop' → Type where
       (d : PropDeriv Γₐ M φ) :
       PropDeriv Γₐ (Term.sign p M sig) (Prop'.says p φ)
 
+/-! ## Shift preservation — load-bearing lemma for subject reduction.
+
+If `M` is well-typed under `Γl ++ Γr`, then shifting `M`'s free variables
+by `Γm.length` above cutoff `Γl.length` produces a term well-typed
+under `Γl ++ Γm ++ Γr`. Proven via the auxiliary `propDeriv_shift_aux`
+to work around Lean's `induction` restriction on non-variable indices;
+the auxiliary generalizes the context to a fresh variable plus an
+equality hypothesis. `noncomputable def` because `PropDeriv` is
+`Type`-valued (the result builds a constructive derivation). -/
+
+private noncomputable def propDeriv_shift_aux
+    {Γfull : List Prop'} {M : Term} {φ : Prop'}
+    (d : PropDeriv Γfull M φ) :
+    ∀ (Γl Γr Γm : List Prop'), Γfull = Γl ++ Γr →
+      PropDeriv (Γl ++ Γm ++ Γr) (shift M Γm.length Γl.length) φ := by
+  induction d with
+  | varA _ i χ h =>
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    by_cases hcut : i < Γl.length
+    · rw [if_pos hcut]
+      apply PropDeriv.varA
+      rw [List.getElem?_append_left (by simp; omega : i < (Γl ++ Γm).length)]
+      rw [List.getElem?_append_left hcut]
+      rw [List.getElem?_append_left hcut] at h
+      exact h
+    · rw [if_neg hcut]
+      apply PropDeriv.varA
+      have hi : Γl.length ≤ i := Nat.not_lt.mp hcut
+      have hge : (Γl ++ Γm).length ≤ i + Γm.length := by simp; omega
+      rw [List.getElem?_append_right hge]
+      have hr : i + Γm.length - (Γl ++ Γm).length = i - Γl.length := by
+        simp; omega
+      rw [hr]
+      rw [List.getElem?_append_right hi] at h
+      exact h
+  | impI _ χ ψ' M' _ ih =>
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    -- The inner derivation lives in `χ :: Γl ++ Γr = (χ :: Γl) ++ Γr`.
+    have ih' := ih (χ :: Γl) Γr Γm (by simp [List.cons_append])
+    exact PropDeriv.impI _ χ ψ' _ ih'
+  | impE _ α β M' N' _ _ ihM ihN =>
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    exact PropDeriv.impE _ α β _ _ (ihM Γl Γr Γm rfl) (ihN Γl Γr Γm rfl)
+  | saysI _ p ψ' M' sig _ ih =>
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    exact PropDeriv.saysI _ p ψ' _ sig (ih Γl Γr Γm rfl)
+
+/-- Public-facing shift preservation, instantiated from
+`propDeriv_shift_aux` with the trivial equality. -/
+noncomputable def propDeriv_shift
+    (Γl Γr : List Prop') (M : Term) (φ : Prop')
+    (d : PropDeriv (Γl ++ Γr) M φ) (Γm : List Prop') :
+    PropDeriv (Γl ++ Γm ++ Γr) (shift M Γm.length Γl.length) φ :=
+  propDeriv_shift_aux d Γl Γr Γm rfl
+
+/-- Convenience: weakening at the front of the context (insert one
+hypothesis at index 0). Specializes `propDeriv_shift` with `Γl = []`
+and `Γm = [ψ]`. -/
+noncomputable def propDeriv_weaken_front (Γₐ : List Prop') (ψ : Prop')
+    (M : Term) (φ : Prop')
+    (d : PropDeriv Γₐ M φ) :
+    PropDeriv (ψ :: Γₐ) (shift M 1 0) φ := by
+  have := propDeriv_shift [] Γₐ M φ (by simpa using d) [ψ]
+  simpa using this
+
 /-- Structural embedding from `PropDeriv` into `Deriv`. Constructively
 shows the propositional fragment is a faithful sub-typing-judgment. -/
 noncomputable def propDeriv_to_deriv :

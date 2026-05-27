@@ -180,21 +180,14 @@ theorem pendingObligations_substAt_subset (body : Term) :
     unfold substAt at hmem
     unfold pendingObligations at hmem
     exact ih value depth o hmem
-  | discharge m n ihM ihN =>
+  | discharge _ _ ihM _ =>
+    -- pendingObligations of `discharge m n` is `pendingObligations m` only
+    -- (n is the obligation-evidence term and is consumed by discharge;
+    -- counting its obligations would double-count). Single-subterm shape.
     intro value depth o hmem
-    have hmem' : o ∈ pendingObligations (substAt m value depth) ++
-                     pendingObligations (substAt n value depth) := hmem
-    rcases List.mem_append.mp hmem' with hM | hN
-    · rcases ihM value depth o hM with h | h
-      · left
-        show o ∈ pendingObligations m ++ pendingObligations n
-        exact List.mem_append.mpr (Or.inl h)
-      · right; exact h
-    · rcases ihN value depth o hN with h | h
-      · left
-        show o ∈ pendingObligations m ++ pendingObligations n
-        exact List.mem_append.mpr (Or.inr h)
-      · right; exact h
+    unfold substAt at hmem
+    unfold pendingObligations at hmem
+    exact ihM value depth o hmem
   | liftLabel _ _ ih =>
     intro value depth o hmem
     unfold substAt at hmem

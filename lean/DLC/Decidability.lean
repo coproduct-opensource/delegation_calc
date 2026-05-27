@@ -423,6 +423,118 @@ noncomputable def propDeriv_weaken_front (Γₐ : List Prop') (ψ : Prop')
   have := propDeriv_shift [] Γₐ M φ (by simpa using d) [ψ]
   simpa using this
 
+/-! ## Substitution preservation — the key subject-reduction lemma.
+
+If `M` is well-typed under `Γl ++ φ :: Γr` and `N : φ` under `Γr`, then
+substituting `N` for the binder at index `Γl.length` in `M` preserves
+typing under `Γl ++ Γr`. This is the classical de Bruijn substitution-
+preservation theorem.
+
+The variable case at the substitution-target index (`i = Γl.length`)
+uses `propDeriv_shift` to lift `N` past the prefix `Γl`. The `impI`
+case extends `Γl` by the bound variable; the IH carries through with
+`Γl' = χ :: Γl`. -/
+
+private noncomputable def propDeriv_substAt_aux
+    {Γfull : List Prop'} {M : Term} {ψ : Prop'}
+    (dM : PropDeriv Γfull M ψ) :
+    ∀ (Γl Γr : List Prop') (φ : Prop'), Γfull = Γl ++ φ :: Γr →
+    ∀ (N : Term), PropDeriv Γr N φ →
+      PropDeriv (Γl ++ Γr) (substAt M N Γl.length) ψ := by
+  induction dM with
+  | varA _ i χ h =>
+    intro Γl Γr φ hΓ N dN
+    subst hΓ
+    -- h : (Γl ++ φ :: Γr)[i]? = some χ
+    unfold substAt
+    -- Split on i vs Γl.length.
+    by_cases heq : i = Γl.length
+    · -- substAt at hit-position: shift N Γl.length 0.
+      rw [if_pos heq]
+      -- From h with i = Γl.length: (Γl ++ φ :: Γr)[Γl.length] = (φ :: Γr)[0] = some φ.
+      -- So χ = φ.
+      subst heq
+      have hφ : χ = φ := by
+        rw [List.getElem?_append_right (le_refl _)] at h
+        simp at h
+        exact h.symm
+      subst hφ
+      -- Goal: PropDeriv (Γl ++ Γr) (shift N Γl.length 0) χ.
+      -- propDeriv_shift [] Γr N χ dN Γl :
+      --   PropDeriv ([] ++ Γl ++ Γr) (shift N Γl.length [].length) χ
+      --   = PropDeriv (Γl ++ Γr) (shift N Γl.length 0) χ
+      have := propDeriv_shift [] Γr N χ (by simpa using dN) Γl
+      simpa using this
+    · rw [if_neg heq]
+      by_cases hgt : i > Γl.length
+      · rw [if_pos hgt]
+        -- substAt = Term.var (i-1).
+        apply PropDeriv.varA
+        -- Show (Γl ++ Γr)[i-1]? = some χ.
+        -- From h: (Γl ++ φ :: Γr)[i] = (φ :: Γr)[i - Γl.length] = Γr[i - Γl.length - 1] = some χ.
+        have hge : Γl.length ≤ i := Nat.le_of_lt hgt
+        rw [List.getElem?_append_right hge] at h
+        -- h : (φ :: Γr)[i - Γl.length]? = some χ
+        -- Now i - Γl.length ≥ 1 since hgt : i > Γl.length.
+        have hpos : i - Γl.length > 0 := Nat.sub_pos_of_lt hgt
+        -- (φ :: Γr)[i - Γl.length] = Γr[i - Γl.length - 1] for i - Γl.length > 0.
+        have hcons : (φ :: Γr)[i - Γl.length]? = Γr[i - Γl.length - 1]? := by
+          rcases Nat.exists_eq_succ_of_ne_zero (Nat.pos_iff_ne_zero.mp hpos) with ⟨k, hk⟩
+          rw [hk]
+          simp
+        rw [hcons] at h
+        -- Now (Γl ++ Γr)[i-1]? — show it equals Γr[i - Γl.length - 1]?
+        have hile : Γl.length ≤ i - 1 := by omega
+        rw [List.getElem?_append_right hile]
+        have hr : i - 1 - Γl.length = i - Γl.length - 1 := by omega
+        rw [hr]
+        exact h
+      · -- i ≤ Γl.length and i ≠ Γl.length: i < Γl.length.
+        push_neg at hgt
+        have hlt : i < Γl.length := lt_of_le_of_ne hgt heq
+        rw [if_neg (Nat.not_lt_of_le hgt)]
+        -- substAt = Term.var i.
+        apply PropDeriv.varA
+        rw [List.getElem?_append_left hlt]
+        rw [List.getElem?_append_left hlt] at h
+        exact h
+  | impI _ χ ψ' M' _ ih =>
+    intro Γl Γr φ hΓ N dN
+    subst hΓ
+    unfold substAt
+    -- Inner d' : PropDeriv (χ :: Γl ++ φ :: Γr) M' ψ' = PropDeriv ((χ :: Γl) ++ φ :: Γr) M' ψ'.
+    -- IH applied at (χ :: Γl):
+    have ih' := ih (χ :: Γl) Γr φ (by simp [List.cons_append]) N dN
+    exact PropDeriv.impI _ χ ψ' _ ih'
+  | impE _ α β M' N' _ _ ihM ihN =>
+    intro Γl Γr φ hΓ N dN
+    subst hΓ
+    unfold substAt
+    exact PropDeriv.impE _ α β _ _ (ihM Γl Γr φ rfl N dN) (ihN Γl Γr φ rfl N dN)
+  | saysI _ p ψ' M' sig _ ih =>
+    intro Γl Γr φ hΓ N dN
+    subst hΓ
+    unfold substAt
+    exact PropDeriv.saysI _ p ψ' _ sig (ih Γl Γr φ rfl N dN)
+
+/-- Public-facing substitution preservation. -/
+noncomputable def propDeriv_substAt
+    (Γl Γr : List Prop') (φ ψ : Prop') (M N : Term)
+    (dM : PropDeriv (Γl ++ φ :: Γr) M ψ)
+    (dN : PropDeriv Γr N φ) :
+    PropDeriv (Γl ++ Γr) (substAt M N Γl.length) ψ :=
+  propDeriv_substAt_aux dM Γl Γr φ rfl N dN
+
+/-- The "subst at depth 0" specialization: substitute N for the binder
+at index 0 in M. -/
+noncomputable def propDeriv_subst
+    (Γₐ : List Prop') (φ ψ : Prop') (M N : Term)
+    (dM : PropDeriv (φ :: Γₐ) M ψ)
+    (dN : PropDeriv Γₐ N φ) :
+    PropDeriv Γₐ (subst M N) ψ := by
+  have := propDeriv_substAt [] Γₐ φ ψ M N (by simpa using dM) dN
+  simpa [subst] using this
+
 /-- Structural embedding from `PropDeriv` into `Deriv`. Constructively
 shows the propositional fragment is a faithful sub-typing-judgment. -/
 noncomputable def propDeriv_to_deriv :

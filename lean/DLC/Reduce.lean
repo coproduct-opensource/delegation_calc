@@ -36,9 +36,24 @@ def step : Term → Option Term
   | Term.case (Term.inr _ a) _ right => some (subst right a)
 
   -- tensor-E-β / let-tensor: `let x⊗y = a⊗b in body ▷ body[a/x, b/y]`.
-  -- The body has two bound variables; we substitute twice (outer first).
+  -- The body has two bound variables, with `φ :: ψ :: Γ` convention
+  -- (a:φ at index 0, b:ψ at index 1). Substitute a first (consumes
+  -- index 0); after this the intermediate body has context ψ :: Γ,
+  -- so b's free vars (originally in Γ) need to be shifted up by 1
+  -- to land in ψ :: Γ — but wait, b at the second substitution lands
+  -- in Γ (after consuming ψ). The shift goes on the FIRST substituent
+  -- `a`: while `a` is typed in Γ, the intermediate context after
+  -- consuming `φ` is `ψ :: Γ`, so `a`'s free vars must shift up by 1
+  -- to align with the ψ-binder that's now at index 0. After the
+  -- second substitution (b at depth 0), the ψ-binder is consumed and
+  -- we're back in Γ — b's free vars are already correct.
+  --
+  -- This shift is required for typing preservation under the
+  -- standard single-binder `propDeriv_subst` lemma. Without it, the
+  -- intermediate substitution `subst body a` produces a term whose
+  -- free vars index incorrectly into `ψ :: Γ`. See `propDeriv_subject_reduction`.
   | Term.letTensor (Term.tensorIntro a b) body =>
-      some (subst (subst body a) b)
+      some (subst (subst body (shift a 1 0)) b)
 
   -- says-extract / let-says: `let ⟨x⟩_p = ⟨m, _⟩_p in body ▷ body[m/x]`.
   | Term.letSays p (Term.sign p' m _) body =>

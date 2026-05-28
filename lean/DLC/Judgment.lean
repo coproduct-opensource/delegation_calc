@@ -264,6 +264,19 @@ inductive Deriv : Ctx → Term → Prop' → Type where
       Deriv { additive := Γₐ, linear := Γ₁ ++ Γ₂ }
             (Term.letTensor S B) χ
 
+  /-- `tensor-E (additive variant)` — same shape as `tensorE` but both
+  binders are tracked additively (`linear = []` throughout). This is the
+  propositional-fragment shape, admissible in any sub-calculus that
+  doesn't track linearity. Binder order is `φ :: ψ :: Γₐ` (φ at index 0,
+  matching `Reduce.lean`'s β-rule `subst (subst body (shift a 1 0)) b`
+  which substitutes `a:φ` first). Distinct from `tensorE` so the
+  embedding `propDeriv_to_deriv` for `PropDeriv.letTensor` is total. -/
+  | letTensorA (Γₐ : List Prop') (φ ψ χ : Prop') (S B : Term)
+      (dS : Deriv { additive := Γₐ, linear := [] } S (Prop'.tensor φ ψ))
+      (dB : Deriv { additive := φ :: ψ :: Γₐ, linear := [] } B χ) :
+      Deriv { additive := Γₐ, linear := [] }
+            (Term.letTensor S B) χ
+
   /-- `says-extract` — explicit let-binder form of `says-E`. The
   let-binder strips the `says` modality: from `S : p says φ` and a
   body `B : ψ` in the extended context (with `φ` bound), the

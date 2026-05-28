@@ -448,20 +448,26 @@ theorem t4_no_new_obligation
   | letTensor scrut body =>
     cases scrut with
     | tensorIntro a b =>
-      -- step (letTensor (tensorIntro a b) body) = some (subst (subst body a) b)
+      -- step (letTensor (tensorIntro a b) body) = some (subst (subst body (shift a 1 0)) b).
+      -- The `shift a 1 0` is a no-op on pendingObligations (it only
+      -- renumbers free variables), so the obligation-membership reasoning
+      -- is identical to the un-shifted version.
       simp only [step] at h
-      have hM' : M' = subst (subst body a) b := (Option.some.inj h).symm
+      have hM' : M' = subst (subst body (shift a 1 0)) b := (Option.some.inj h).symm
       rw [hM'] at hmem
-      -- hmem : o ∈ pendingObligations (substAt (substAt body a 0) b 0)
-      have hsub : o ∈ pendingObligations (substAt (substAt body a 0) b 0) := hmem
-      rcases pendingObligations_substAt_subset (substAt body a 0) b 0 o hsub with hBodyA | hB
-      · -- o was in the substituted-body, recurse
-        rcases pendingObligations_substAt_subset body a 0 o hBodyA with hBody | hA
+      have hsub : o ∈ pendingObligations
+                       (substAt (substAt body (shift a 1 0) 0) b 0) := hmem
+      rcases pendingObligations_substAt_subset
+              (substAt body (shift a 1 0) 0) b 0 o hsub with hBodyA | hB
+      · -- o was in the substituted-body; recurse, with the shift collapsed.
+        rcases pendingObligations_substAt_subset body (shift a 1 0) 0 o hBodyA
+          with hBody | hA
         · -- o in body
           show o ∈ pendingObligations (Term.tensorIntro a b) ++ pendingObligations body
           exact List.mem_append.mpr (Or.inr hBody)
-        · -- o in a (inside tensorIntro)
+        · -- o in shift a 1 0 = pendingObligations a (by pendingObligations_shift)
           show o ∈ pendingObligations (Term.tensorIntro a b) ++ pendingObligations body
+          rw [pendingObligations_shift] at hA
           exact List.mem_append.mpr (Or.inl
             (show o ∈ pendingObligations a ++ pendingObligations b from
               List.mem_append.mpr (Or.inl hA)))

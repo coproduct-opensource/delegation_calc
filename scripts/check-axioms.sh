@@ -63,25 +63,26 @@ ACTUAL_FILE="$SCRIPT_DIR/actual.txt"
   exit 1
 }
 
-# Split actual into per-theorem chunks and compare each to its snapshot.
+# Compare each theorem's actual `#print axioms` line against its snapshot.
+# `#print axioms X` produces exactly ONE line:
+#   'DLC.X' depends on axioms: [foo, bar, ...]
+# Grep for that line, diff against snapshot.
 MISMATCH=0
 for t in "${THEOREMS[@]}"; do
   expected="$EXPECTED_DIR/$t.txt"
-  # `#print axioms X` produces one line per axiom set. Extract the
-  # block that begins with 'DLC.$t' depends on.
-  actual_chunk=$(awk -v t="DLC.$t" '
-    $0 ~ "^'\''" t "'\''" { p=1 }
-    p { print }
-    p && NF==0 { p=0 }
-  ' "$ACTUAL_FILE" | sed '/^$/d')
-  if [ -z "$actual_chunk" ]; then
-    echo "check-axioms: MISMATCH — no #print output for DLC.$t (theorem missing?)" >&2
+  # Use fgrep with the leading quote+namespace to avoid partial matches
+  # (e.g. theorem name being a prefix of another).
+  actual_line=$(grep -F "'DLC.$t' depends on axioms:" "$ACTUAL_FILE" | head -1)
+  if [ -z "$actual_line" ]; then
+    echo "check-axioms: MISMATCH — no #print output for DLC.$t" >&2
     MISMATCH=1
     continue
   fi
-  if ! diff -q <(echo "$actual_chunk") <(sed '/^$/d' "$expected") >/dev/null 2>&1; then
+  expected_line=$(sed '/^$/d' "$expected" | head -1)
+  if [ "$actual_line" != "$expected_line" ]; then
     echo "check-axioms: MISMATCH on $t" >&2
-    diff <(sed '/^$/d' "$expected") <(echo "$actual_chunk") || true
+    echo "  expected: $expected_line" >&2
+    echo "  actual:   $actual_line" >&2
     MISMATCH=1
   fi
 done

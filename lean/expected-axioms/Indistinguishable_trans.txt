@@ -1,1 +1,1 @@
-'DLC.Indistinguishable_trans' depends on axioms: [propext, Classical.choice, Quot.sound]
+'DLC.Indistinguishable_trans' depends on axioms: [propext]

@@ -93,15 +93,17 @@ example : step (Term.var 0) = none := rfl
 
 end ReduceChecks
 
-/-! ## Subject reduction — statement only (proof at M1.Q2.c). -/
+/-! ## Subject reduction — real statement over the full `Deriv` judgment. -/
 
 /-- Subject reduction (statement). If `Γ ⊢ M : φ` and `M ▷ M'`, then
-`Γ ⊢ M' : φ`. Closure requires the substitution lemma; both land at M1.Q2. -/
+`Γ ⊢ M' : φ`. The statement quantifies over the full `Deriv` judgment;
+the proof for the propositional fragment lives in
+`DLC.Decidability.propDeriv_subject_reduction`. Extending the proof to
+the full `Deriv` is M1.Q2.c follow-up tracked separately. -/
 def SubjectReductionStatement : Prop :=
-  ∀ (M M' : Term), step M = some M' →
-    -- Real statement (once Deriv is fully populated): ∀ Γ φ,
-    --   Deriv Γ M φ → Deriv Γ M' φ.
-    -- Placeholder: parametric in the inputs so the type is `Prop`.
-    M = M ∧ M' = M'
+  ∀ (Γ : Ctx) (M M' : Term) (φ : Prop'),
+    step M = some M' →
+    Nonempty (Deriv Γ M φ) →
+    Nonempty (Deriv Γ M' φ)
 
 end DLC

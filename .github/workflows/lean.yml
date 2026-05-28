@@ -51,35 +51,14 @@ jobs:
           path: nucleus
           ref: main
 
-      - name: Install elan (Lean toolchain manager)
-        run: |
-          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
-            | sh -s -- -y --no-modify-path
-          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
-
-      - name: Verify pinned toolchain
-        working-directory: delegation_calc/lean
-        run: lean --version
-
-      - name: Cache Lake / Mathlib build artifacts
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      # Sets up elan, layers the canonical Lake/Mathlib cache, hydrates
+      # prebuilt Mathlib oleans, and runs `lake build DLC`. Replaces
+      # ~30 lines of hand-rolled boilerplate; same semantics.
+      - uses: coproduct-opensource/lean-mathlib-cache@6bb3a2b9eb9fe7cf9d36604c0e603d558a4782cf # v1.0.0
         with:
-          path: |
-            delegation_calc/lean/.lake
-            ~/.elan
-            ~/.cache/mathlib
-          key: lean-${{ runner.os }}-${{ hashFiles('delegation_calc/lean/lean-toolchain', 'delegation_calc/lean/lakefile.lean', 'delegation_calc/lean/lake-manifest.json') }}
-          restore-keys: |
-            lean-${{ runner.os }}-
-
-      # Mathlib's prebuilt .olean cache trims a ~1h cold compile to ~5min.
-      - name: Fetch Mathlib cache (prebuilt oleans)
-        working-directory: delegation_calc/lean
-        run: lake exe cache get || true
-
-      - name: lake build DLC
-        working-directory: delegation_calc/lean
-        run: lake build DLC
+          lean-project-dir: delegation_calc/lean
+          build-target: DLC
+          cache-key-prefix: lean
 
       - name: lake build per-theorem libraries
         working-directory: delegation_calc/lean

@@ -16,7 +16,10 @@ cd "$(dirname "$0")/.."
 
 EXPECTED_DIR="lean/expected-axioms"
 LEAN_DIR="lean"
+# Path relative to repo root (used to write the file).
 SCRIPT_DIR="lean/.print-axioms"
+# Path relative to LEAN_DIR (used when invoking `lake env lean` from inside lean/).
+SCRIPT_DIR_REL=".print-axioms"
 
 # Each theorem is tracked as `lean/expected-axioms/<theorem>.txt`.
 # The theorem's fully-qualified name is `DLC.<theorem>` (or whatever the
@@ -53,10 +56,10 @@ SCRIPT_FILE="$SCRIPT_DIR/PrintAll.lean"
   done
 } > "$SCRIPT_FILE"
 
-# Run lake/lean and capture stdout.
+# Run lake/lean and capture stdout. Inside `cd lean`, the path is relative.
 ACTUAL_FILE="$SCRIPT_DIR/actual.txt"
-(cd "$LEAN_DIR" && lake env lean "$SCRIPT_DIR/PrintAll.lean") > "$ACTUAL_FILE" 2>/dev/null || {
-  echo "check-axioms: lake env lean failed (build broken?)" >&2
+(cd "$LEAN_DIR" && lake env lean "$SCRIPT_DIR_REL/PrintAll.lean") > "$ACTUAL_FILE" || {
+  echo "check-axioms: lake env lean failed — see stderr above" >&2
   exit 1
 }
 

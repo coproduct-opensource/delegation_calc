@@ -12,7 +12,7 @@ name = "dlc"
 path = "src/main.rs"
 
 [dependencies]
-dlc-core = { path = "../dlc-core", version = "0.0.1" }
-dlc-crypto = { path = "../dlc-crypto", version = "0.0.1" }
-dlc-protocol = { path = "../dlc-protocol", version = "0.0.1" }
-dlc-verifier = { path = "../dlc-verifier", version = "0.0.1" }
+dlc-core = { path = "../dlc-core", version = "1.5.0" }
+dlc-crypto = { path = "../dlc-crypto", version = "1.5.0" }
+dlc-protocol = { path = "../dlc-protocol", version = "1.5.0" }
+dlc-verifier = { path = "../dlc-verifier", version = "1.5.0" }

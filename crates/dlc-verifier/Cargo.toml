@@ -11,7 +11,7 @@ description = "Reference DLC proof checker — hard <2000 LOC budget"
 path = "src/lib.rs"
 
 [dependencies]
-dlc-core = { path = "../dlc-core", version = "0.0.1" }
-dlc-crypto = { path = "../dlc-crypto", version = "0.0.1" }
-dlc-protocol = { path = "../dlc-protocol", version = "0.0.1" }
+dlc-core = { path = "../dlc-core", version = "1.5.0" }
+dlc-crypto = { path = "../dlc-crypto", version = "1.5.0" }
+dlc-protocol = { path = "../dlc-protocol", version = "1.5.0" }
 thiserror = { workspace = true }

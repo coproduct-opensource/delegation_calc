@@ -1511,22 +1511,24 @@ noncomputable def propDeriv_subject_reduction
     simp [step] at h
   | letTensor _ _ _ _ S B dS dB =>
     -- step (letTensor (tensorIntro a b) B) = some (subst (subst B (shift a 1 0)) b).
-    -- Body B has context φ :: ψ :: Γₐ. We use `cases dS` to invert
-    -- tensorI, then weaken+substitute twice. All type args via `_`
-    -- (Lean infers from dA, dB', dB).
+    -- Body B has context φ :: ψ :: Γₐ.
     cases S with
     | tensorIntro a b =>
       simp [step] at h
       subst h
-      cases dS with
-      | tensorI Γs φs ψs _ _ dA dB' =>
-        -- Step 1: weaken dA : PropDeriv Γs a φs to PropDeriv (ψs :: Γs) (shift a 1 0) φs.
-        have dA' := propDeriv_weaken_front Γs ψs a φs dA
-        -- Step 2: substitute (shift a 1 0) for the φs-binder.
-        have h1 := propDeriv_subst _ _ _ B (shift a 1 0) dB dA'
-        -- Step 3: substitute b for the ψs-binder.
-        have h2 := propDeriv_subst _ _ _ (subst B (shift a 1 0)) b h1 dB'
-        exact h2
+      -- Invert dS via tensorI; the first 5 constructor args are unified
+      -- with the outer letTensor pattern's bindings (which we made
+      -- inaccessible via `_`). Use `rename_i` to grab the unified
+      -- Γₐ, φ, ψ for the explicit weakening call.
+      cases dS
+      rename_i Γs φs ψs _ _ dA dB'
+      -- Step 1: weaken dA : PropDeriv Γs a φs to PropDeriv (ψs :: Γs) (shift a 1 0) φs.
+      have dA' := propDeriv_weaken_front Γs ψs a φs dA
+      -- Step 2: substitute (shift a 1 0) for the φs-binder.
+      have h1 := propDeriv_subst _ _ _ B (shift a 1 0) dB dA'
+      -- Step 3: substitute b for the ψs-binder.
+      have h2 := propDeriv_subst _ _ _ (subst B (shift a 1 0)) b h1 dB'
+      exact h2
     | _ => simp [step] at h
 
 /-- Structural embedding from `PropDeriv` into `Deriv`. Constructively

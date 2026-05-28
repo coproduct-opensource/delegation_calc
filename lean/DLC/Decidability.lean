@@ -59,7 +59,6 @@ def Term.isPropositional : Term → Bool
   | Term.declassify _ m π => m.isPropositional && π.isPropositional
   | Term.discharge m n    => m.isPropositional && n.isPropositional
   | Term.letTensor s b    => s.isPropositional && b.isPropositional
-  | _                     => false
 
 /-- A full-calculus term: every constructor accepted, including modal /
 temporal / IFC / linear forms. The Q4 `decide_pure` (Rust mirror at
@@ -384,14 +383,11 @@ def decideLean (Γ : Ctx) : Term → Option Prop'
     -- shared body type is the result type χ.
     match decideLean Γ s with
     | some (Prop'.tensor φ ψ) =>
-      -- Push φ first (at index 0), then ψ. The consA order is
-      -- `consA ψ (consA φ Γ)` which yields additive = `φ :: ψ :: ...`
-      -- (no — let me reread): `consA ψ Γ` puts ψ at head. So
-      -- `consA ψ (consA φ Γ)` = ψ :: φ :: Γ.additive. That's WRONG.
-      -- We want φ :: ψ :: Γ.additive — so order: consA φ (consA ψ Γ).
+      -- `consA ψ Γ` puts ψ at head (additive = ψ :: Γ.additive). So
+      -- `consA φ (consA ψ Γ)` yields additive = φ :: ψ :: Γ.additive,
+      -- matching PropDeriv.letTensor's `(φ :: ψ :: Γₐ)` convention.
       decideLean (Ctx.consA φ (Ctx.consA ψ Γ)) b
     | _ => none
-  | _ => none
 
 /-! ## T1 — Propositional soundness (the headline closure for this PR).
 
@@ -1513,25 +1509,22 @@ noncomputable def propDeriv_subject_reduction
   | discharge _ _ _ _ _ _ _ =>
     -- `Term.discharge M N` is a normal form per `Reduce.lean` — vacuous.
     simp [step] at h
-  | letTensor Γₐ φ ψ χ S B dS dB =>
+  | letTensor Γout φ' ψ' _χ' S B dS dB =>
     -- step (letTensor (tensorIntro a b) B) = some (subst (subst B (shift a 1 0)) b).
-    -- Body B has context φ :: ψ :: Γₐ. The shift on `a` lifts dA from
-    -- Γₐ to ψ :: Γₐ — exactly what propDeriv_subst needs for the
-    -- first substitution step.
+    -- Body B has context φ' :: ψ' :: Γout. The shift on `a` lifts dA from
+    -- Γout to ψ' :: Γout — exactly what propDeriv_subst needs.
     cases S with
     | tensorIntro a b =>
       simp [step] at h
       subst h
       cases dS with
       | tensorI _ _ _ _ _ dA dB' =>
-        -- Step 1: weaken dA : PropDeriv Γₐ a φ to PropDeriv (ψ :: Γₐ) (shift a 1 0) φ.
-        have dA' := propDeriv_weaken_front Γₐ ψ a φ dA
-        -- Step 2: substitute (shift a 1 0) for the φ-binder (index 0) in B.
-        have h1 := propDeriv_subst (ψ :: Γₐ) φ χ B (shift a 1 0) dB dA'
-        -- h1 : PropDeriv (ψ :: Γₐ) (subst B (shift a 1 0)) χ
-        -- Step 3: substitute b for the ψ-binder (now at index 0).
-        have h2 := propDeriv_subst Γₐ ψ χ (subst B (shift a 1 0)) b h1 dB'
-        -- h2 : PropDeriv Γₐ (subst (subst B (shift a 1 0)) b) χ
+        -- Step 1: weaken dA : PropDeriv Γout a φ' to PropDeriv (ψ' :: Γout) (shift a 1 0) φ'.
+        have dA' := propDeriv_weaken_front Γout ψ' a φ' dA
+        -- Step 2: substitute (shift a 1 0) for the φ'-binder.
+        have h1 := propDeriv_subst _ _ _ B (shift a 1 0) dB dA'
+        -- Step 3: substitute b for the ψ'-binder.
+        have h2 := propDeriv_subst _ _ _ (subst B (shift a 1 0)) b h1 dB'
         exact h2
     | _ => simp [step] at h
 

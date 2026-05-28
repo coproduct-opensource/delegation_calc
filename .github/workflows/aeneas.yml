@@ -1,10 +1,13 @@
 name: Aeneas Drift
 
 # Verifies the Aeneas-generated Lean translation of `crates/dlc-core` matches
-# the committed `lean/DLC/Aeneas/` output. A non-clean diff is a soundness
-# break: T1 would prove a Lean function no longer corresponding to the Rust.
+# the committed `lean/DLC/Aeneas/DlcCore/` output. A non-clean diff is a
+# soundness break: T1 would prove a Lean function no longer corresponding to
+# the Rust.
 #
-# Until M1.Q1.d wires the pipeline, the script is a no-op pass.
+# Bootstrap-aware: if the committed `lean/DLC/Aeneas/DlcCore/` directory
+# doesn't exist yet, the drift check soft-fails and uploads the freshly-
+# generated Lean as an artifact for the maintainer to inspect and commit.
 
 on:
   push:
@@ -58,8 +61,46 @@ jobs:
           key: charon-${{ env.CHARON_NIGHTLY }}-${{ env.AENEAS_RELEASE }}
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      # Charon and Aeneas binaries will be installed here once the pipeline
-      # is wired at M1.Q1.d. For now the drift check is a passing no-op
-      # (mirrors the ledger's `aeneas_drift: {"clean": true}` placeholder).
+      # Cache the Aeneas pre-built binary tarball by release tag.
+      - name: Cache Aeneas binary
+        id: cache-aeneas-bin
+        uses: actions/cache@v5
+        with:
+          path: /tmp/aeneas-bin
+          key: aeneas-bin-${{ runner.os }}-${{ env.AENEAS_RELEASE }}
+
+      # Download pre-built Aeneas + Charon (no OCaml build required).
+      - name: Download Aeneas pre-built binaries
+        if: steps.cache-aeneas-bin.outputs.cache-hit != 'true'
+        run: |
+          gh release download "$AENEAS_RELEASE" \
+            --repo AeneasVerif/aeneas \
+            --pattern "aeneas-linux-x86_64.tar.gz" \
+            --dir /tmp
+          mkdir -p /tmp/aeneas-bin
+          tar xzf /tmp/aeneas-linux-x86_64.tar.gz -C /tmp/aeneas-bin
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Add Aeneas to PATH
+        run: echo "/tmp/aeneas-bin" >> "$GITHUB_PATH"
+
+      - name: Verify tools
+        run: |
+          which charon && charon --version || true
+          which aeneas && aeneas -version || true
+
       - name: Run drift check
+        id: drift
         run: bash scripts/check-drift.sh
+
+      # Always upload the staged output so maintainers can inspect /
+      # bootstrap-commit the first Aeneas-generated Lean files.
+      - name: Upload Aeneas-generated Lean (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aeneas-generated-lean
+          path: build/aeneas-stage/
+          if-no-files-found: ignore
+          retention-days: 14

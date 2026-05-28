@@ -10,6 +10,7 @@ substitution lemma from M1.Q2.a).
 import DLC.Syntax
 import DLC.Principal
 import DLC.Subst
+import DLC.Judgment
 
 namespace DLC
 

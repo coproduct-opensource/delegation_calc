@@ -92,6 +92,10 @@ done
 
 if [ "$MISMATCH" -eq 1 ]; then
   echo "" >&2
+  echo "--- actual `lake env lean` stdout ---" >&2
+  cat "$ACTUAL_FILE" >&2
+  echo "--- end actual ---" >&2
+  echo "" >&2
   echo "ERROR: axiom snapshot drift detected." >&2
   echo "If the change is intentional, regenerate via:" >&2
   echo "  cd lean && lake env lean $SCRIPT_FILE > /tmp/actual.txt" >&2

@@ -1,0 +1,1 @@
+'DLC.indexed_monad_strength_left_unit' depends on axioms: [propext]

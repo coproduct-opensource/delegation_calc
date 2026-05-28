@@ -50,6 +50,7 @@ SCRIPT_FILE="$SCRIPT_DIR/PrintAll.lean"
   echo "import DLC.ObligationSoundness"
   echo "import DLC.Reduce"
   echo "import DLC.ProtocolCorrespondence"
+  echo "import DLC.IndexedMonad"
   echo ""
   for t in "${THEOREMS[@]}"; do
     echo "#print axioms DLC.$t"
@@ -70,9 +71,14 @@ ACTUAL_FILE="$SCRIPT_DIR/actual.txt"
 MISMATCH=0
 for t in "${THEOREMS[@]}"; do
   expected="$EXPECTED_DIR/$t.txt"
-  # Use fgrep with the leading quote+namespace to avoid partial matches
-  # (e.g. theorem name being a prefix of another).
-  actual_line=$(grep -F "'DLC.$t' depends on axioms:" "$ACTUAL_FILE" | head -1)
+  # Use fgrep with the leading quote+namespace to avoid partial matches.
+  # `#print axioms X` has two output forms:
+  #   'DLC.X' depends on axioms: [propext, ...]           (when ≥1 axiom)
+  #   'DLC.X' does not depend on any axioms                (when 0 axioms)
+  # Match either by anchoring on the leading quoted name.
+  # `|| true` because under `set -o pipefail` a no-match grep aborts the
+  # whole script; we want to emit a MISMATCH message instead.
+  actual_line=$(grep -F "'DLC.$t'" "$ACTUAL_FILE" 2>/dev/null | head -1 || true)
   if [ -z "$actual_line" ]; then
     echo "check-axioms: MISMATCH — no #print output for DLC.$t" >&2
     MISMATCH=1
@@ -88,6 +94,10 @@ for t in "${THEOREMS[@]}"; do
 done
 
 if [ "$MISMATCH" -eq 1 ]; then
+  echo "" >&2
+  echo "--- actual `lake env lean` stdout ---" >&2
+  cat "$ACTUAL_FILE" >&2
+  echo "--- end actual ---" >&2
   echo "" >&2
   echo "ERROR: axiom snapshot drift detected." >&2
   echo "If the change is intentional, regenerate via:" >&2

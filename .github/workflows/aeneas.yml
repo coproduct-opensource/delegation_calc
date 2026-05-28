@@ -49,10 +49,8 @@ jobs:
           # pin to specific SHAs after the first generated tree lands.
           charon-version: main
           aeneas-version: main
-          # Bootstrap: lean/DLC/Aeneas/DlcCore/ doesn't exist yet, so the
-          # first run will produce drift by definition. Flip to 'true' once
-          # the generated tree is committed.
-          fail-on-drift: 'false'
+          # Bootstrap landed; drift is now a hard error (soundness gate).
+          fail-on-drift: 'true'
 
       # Upload the regenerated Lean as an artifact so maintainers can
       # download, inspect, and commit it (bootstrap).

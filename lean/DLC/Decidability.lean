@@ -58,7 +58,7 @@ def Term.isPropositional : Term → Bool
   | Term.liftLabel _ m    => m.isPropositional
   | Term.declassify _ m π => m.isPropositional && π.isPropositional
   | Term.discharge m n    => m.isPropositional && n.isPropositional
-  | _                     => false
+  | Term.letTensor s b    => s.isPropositional && b.isPropositional
 
 /-- A full-calculus term: every constructor accepted, including modal /
 temporal / IFC / linear forms. The Q4 `decide_pure` (Rust mirror at
@@ -377,7 +377,17 @@ def decideLean (Γ : Ctx) : Term → Option Prop'
       | some (Prop'.atom 0) => some inner
       | _ => none
     | _ => none
-  | _ => none
+  | .letTensor s b =>
+    -- `let x⊗y = s in b`: scrutinee must be tensor-typed; body lives
+    -- in context with two binders (φ at index 0, ψ at index 1). The
+    -- shared body type is the result type χ.
+    match decideLean Γ s with
+    | some (Prop'.tensor φ ψ) =>
+      -- `consA ψ Γ` puts ψ at head (additive = ψ :: Γ.additive). So
+      -- `consA φ (consA ψ Γ)` yields additive = φ :: ψ :: Γ.additive,
+      -- matching PropDeriv.letTensor's `(φ :: ψ :: Γₐ)` convention.
+      decideLean (Ctx.consA φ (Ctx.consA ψ Γ)) b
+    | _ => none
 
 /-! ## T1 — Propositional soundness (the headline closure for this PR).
 
@@ -793,6 +803,24 @@ theorem t1_propositional_soundness (M : Term) :
             | succ _ => simp [decideLean, hM, hN] at hdec
           all_goals (simp [decideLean, hM, hN] at hdec)
       all_goals (simp [decideLean, hM] at hdec)
+  case letTensor s b ihs ihb =>
+    intro Γₐ φ hprop hdec
+    have hprop' := hprop
+    simp [Term.isPropositional] at hprop'
+    obtain ⟨hpropS, hpropB⟩ := hprop'
+    cases hS : decideLean { additive := Γₐ, linear := [] } s with
+    | none => simp [decideLean, hS] at hdec
+    | some tyS =>
+      cases tyS
+      case tensor α β =>
+        -- hdec : decideLean (consA α (consA β { additive := Γₐ, linear := [] })) b = some φ
+        -- The consA-folded ctx equals { additive := α :: β :: Γₐ, linear := [] }.
+        have hb : decideLean { additive := α :: β :: Γₐ, linear := [] } b = some φ := by
+          simpa [decideLean, hS, Ctx.consA] using hdec
+        have ⟨dS⟩ := ihs Γₐ (Prop'.tensor α β) hpropS hS
+        have ⟨dB⟩ := ihb (α :: β :: Γₐ) φ hpropB hb
+        exact ⟨Deriv.letTensorA _ α β φ s b dS dB⟩
+      all_goals (simp [decideLean, hS] at hdec)
   -- All non-propositional constructors are rejected by `isPropositional`:
   -- isPropositional returns false, so the hypothesis is contradictory.
   all_goals (intro Γₐ φ hprop hdec; simp [Term.isPropositional] at hprop)
@@ -956,6 +984,15 @@ inductive PropDeriv : List Prop' → Term → Prop' → Type where
       (dN : PropDeriv Γₐ N (Prop'.atom 0)) :
       PropDeriv Γₐ (Term.discharge M N) φ
 
+  /-- `let x⊗y = S in B` (additive variant) — tensor elimination in
+  the propositional fragment. Body context `φ :: ψ :: Γₐ` (φ at
+  index 0). Matches `Reduce.lean`'s β-rule
+  `subst (subst body (shift a 1 0)) b`. -/
+  | letTensor (Γₐ : List Prop') (φ ψ χ : Prop') (S B : Term)
+      (dS : PropDeriv Γₐ S (Prop'.tensor φ ψ))
+      (dB : PropDeriv (φ :: ψ :: Γₐ) B χ) :
+      PropDeriv Γₐ (Term.letTensor S B) χ
+
 /-! ## Shift preservation — load-bearing lemma for subject reduction.
 
 If `M` is well-typed under `Γl ++ Γr`, then shifting `M`'s free variables
@@ -1098,6 +1135,13 @@ private noncomputable def propDeriv_shift_aux
     subst hΓ
     unfold shift
     exact PropDeriv.discharge _ O φ _ _ (ihM Γl Γr Γm rfl) (ihN Γl Γr Γm rfl)
+  | letTensor _ φ ψ χ S B _ _ ihS ihB =>
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    -- Body context φ :: ψ :: Γl ++ Γr → φ :: ψ :: Γl ++ Γm ++ Γr.
+    have hB := ihB (φ :: ψ :: Γl) Γr Γm (by simp [List.cons_append])
+    exact PropDeriv.letTensor _ φ ψ χ _ _ (ihS Γl Γr Γm rfl) hB
 
 /-- Public-facing shift preservation, instantiated from
 `propDeriv_shift_aux` with the trivial equality. -/
@@ -1303,6 +1347,12 @@ private noncomputable def propDeriv_substAt_aux
     unfold substAt
     exact PropDeriv.discharge _ O ψ _ _
       (ihM Γl Γr φ rfl N dN) (ihN Γl Γr φ rfl N dN)
+  | letTensor _ α β χ S B _ _ ihS ihB =>
+    intro Γl Γr φ hΓ N dN
+    subst hΓ
+    unfold substAt
+    have hB := ihB (α :: β :: Γl) Γr φ (by simp [List.cons_append]) N dN
+    exact PropDeriv.letTensor _ α β χ _ _ (ihS Γl Γr φ rfl N dN) hB
 
 /-- Public-facing substitution preservation. -/
 noncomputable def propDeriv_substAt
@@ -1459,6 +1509,26 @@ noncomputable def propDeriv_subject_reduction
   | discharge _ _ _ _ _ _ _ =>
     -- `Term.discharge M N` is a normal form per `Reduce.lean` — vacuous.
     simp [step] at h
+  | letTensor Γₐ φ ψ _χ S B dS dB =>
+    -- step (letTensor (tensorIntro a b) B) = some (subst (subst B (shift a 1 0)) b).
+    -- Body B has context φ :: ψ :: Γₐ.
+    cases S with
+    | tensorIntro a b =>
+      simp [step] at h
+      subst h
+      -- After `cases dS`, the unified Γₐ, φ, ψ should be accessible
+      -- via their outer-pattern names (cases substitutes the equalities
+      -- but the names remain bound).
+      cases dS
+      rename_i dA dB'
+      -- Step 1: weaken dA : PropDeriv Γₐ a φ to PropDeriv (ψ :: Γₐ) (shift a 1 0) φ.
+      have dA' := propDeriv_weaken_front Γₐ ψ a φ dA
+      -- Step 2: substitute (shift a 1 0) for the φ-binder.
+      have h1 := propDeriv_subst _ _ _ B (shift a 1 0) dB dA'
+      -- Step 3: substitute b for the ψ-binder.
+      have h2 := propDeriv_subst _ _ _ (subst B (shift a 1 0)) b h1 dB'
+      exact h2
+    | _ => simp [step] at h
 
 /-- Structural embedding from `PropDeriv` into `Deriv`. Constructively
 shows the propositional fragment is a faithful sub-typing-judgment. -/
@@ -1504,6 +1574,8 @@ noncomputable def propDeriv_to_deriv :
       exact Deriv.declassify _ φ ℓ ℓ' M π ihM ihπ
   | discharge Γₐ O φ M N _ _ ihM ihN =>
       exact Deriv.discharge _ [] [] O φ M N ihM ihN
+  | letTensor Γₐ φ ψ χ S B _ _ ihS ihB =>
+      exact Deriv.letTensorA _ φ ψ χ S B ihS ihB
 
 /-! ## T1 — Propositional completeness (the other direction). -/
 
@@ -1603,6 +1675,11 @@ theorem t1_propositional_completeness :
     -- decideLean (discharge M N) = some φ (when both premises check).
     unfold decideLean
     simp [ihM, ihN]
+  | letTensor Γₐ φ ψ χ S B _ _ ihS ihB =>
+    -- decideLean (letTensor S B): scrutinee gives tensor, body gives χ
+    -- in extended context.
+    unfold decideLean
+    simp [ihS, Ctx.consA, ihB]
 
 /-! ## Inversion lemmas — the term shape determines the constructor.
 
@@ -1973,6 +2050,17 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
             | succ _ => simp [decideLean, hM, hN] at hdec
           all_goals (simp [decideLean, hM, hN] at hdec)
       all_goals (simp [decideLean, hM] at hdec)
+  case letTensor s b ihs ihb =>
+    intro Γₐ φ hdec
+    cases hS : decideLean { additive := Γₐ, linear := [] } s with
+    | none => simp [decideLean, hS] at hdec
+    | some tyS =>
+      cases tyS
+      case tensor α β =>
+        have hb : decideLean { additive := α :: β :: Γₐ, linear := [] } b = some φ := by
+          simpa [decideLean, hS, Ctx.consA] using hdec
+        exact PropDeriv.letTensor _ α β φ s b (ihs _ _ hS) (ihb _ _ hb)
+      all_goals (simp [decideLean, hS] at hdec)
   all_goals (intro Γₐ φ hdec; simp [decideLean] at hdec)
 
 /-! ## T1 — The Decidable instance.

@@ -1,0 +1,1 @@
+'DLC.t2_propositional_correspondence' depends on axioms: [propext, Classical.choice, Quot.sound, DLC.Sig_EUF_CMA_propositional]

@@ -110,7 +110,13 @@ def Indistinguishable (ℓLow : Label) : Prop' → Term → Term → Prop
   | .tensor φ ψ, M, N =>
       Indistinguishable ℓLow φ M N ∧ Indistinguishable ℓLow ψ M N
   | .or φ ψ, M, N =>
-      Indistinguishable ℓLow φ M N ∨ Indistinguishable ℓLow ψ M N
+      -- Refined to conjunction (was disjunction): low-observer can
+      -- probe both disjuncts independently, so indistinguishability at
+      -- `or` requires indistinguishability at *both* sides. This
+      -- preserves reflexivity (by IH on each side) and is required for
+      -- transitivity (mixed Or.inl/Or.inr cases were structurally
+      -- non-composable under disjunction).
+      Indistinguishable ℓLow φ M N ∧ Indistinguishable ℓLow ψ M N
   | .imp α β, M, N =>
       -- Conservative arrow LR: M and N agree on self-related inputs.
       -- ∀ M', R[α](M', M') → R[β](app M M', app N M').
@@ -166,10 +172,10 @@ theorem Indistinguishable_refl (ℓLow : Label) (φ : Prop') :
     intro M
     show Indistinguishable ℓLow φ M M ∧ Indistinguishable ℓLow ψ M M
     exact ⟨ihφ M, ihψ M⟩
-  case or φ ψ ihφ _ =>
+  case or φ ψ ihφ ihψ =>
     intro M
-    show Indistinguishable ℓLow φ M M ∨ Indistinguishable ℓLow ψ M M
-    exact Or.inl (ihφ M)
+    show Indistinguishable ℓLow φ M M ∧ Indistinguishable ℓLow ψ M M
+    exact ⟨ihφ M, ihψ M⟩
   case imp α β _ ihβ =>
     intro M M' _
     -- Goal: Indistinguishable ℓ β (app M M') (app M M').
@@ -230,10 +236,8 @@ theorem Indistinguishable_symm (ℓLow : Label) (φ : Prop') (M N : Term)
     obtain ⟨h₁, h₂⟩ := h
     exact ⟨ihφ M N h₁, ihψ M N h₂⟩
   case or φ ψ ihφ ihψ =>
-    show Indistinguishable ℓLow φ N M ∨ Indistinguishable ℓLow ψ N M
-    rcases h with h₁ | h₂
-    · exact Or.inl (ihφ M N h₁)
-    · exact Or.inr (ihψ M N h₂)
+    show Indistinguishable ℓLow φ N M ∧ Indistinguishable ℓLow ψ N M
+    exact ⟨ihφ M N h.1, ihψ M N h.2⟩
   case imp α β _ ihβ =>
     -- h : ∀ M', R[α] M' M' → R[β] (app M M') (app N M')
     -- Goal: ∀ M', R[α] M' M' → R[β] (app N M') (app M M')
@@ -242,6 +246,68 @@ theorem Indistinguishable_symm (ℓLow : Label) (φ : Prop') (M N : Term)
   case lolli α β _ ihβ =>
     intro M' hM'
     exact ihβ _ _ (h M' hM')
+
+/-! ## Transitivity — Indistinguishable is transitive in M, N, P.
+
+Standard PER property `R[φ](M, N) ∧ R[φ](N, P) → R[φ](M, P)`. Proven
+by structural induction on `φ`. The or-case is closed by the
+conjunctive refinement: both components compose via their IHs.
+The arrow cases (imp/lolli) use the IH on the codomain at the
+applied terms — the conservative same-input arrow LR makes the
+input-equality assumption shared. -/
+
+/-- `Indistinguishable` is transitive in its term arguments. -/
+theorem Indistinguishable_trans (ℓLow : Label) (φ : Prop')
+    (M N P : Term)
+    (h12 : Indistinguishable ℓLow φ M N)
+    (h23 : Indistinguishable ℓLow φ N P) :
+    Indistinguishable ℓLow φ M P := by
+  induction φ generalizing M N P
+  case top => trivial
+  case bot => trivial
+  case atom n =>
+    -- h12 : M = N; h23 : N = P. Goal: M = P.
+    exact h12.trans h23
+  case speaksFor p q =>
+    exact h12.trans h23
+  case «at» φ ℓ ihφ =>
+    unfold Indistinguishable at h12 h23 ⊢
+    split at h12
+    · rename_i hle
+      rw [if_pos hle] at h23
+      rw [if_pos hle]
+      exact ihφ M N P h12 h23
+    · rename_i hnle
+      rw [if_neg hnle]
+      trivial
+  case boxed _ φ ihφ =>
+    show Indistinguishable ℓLow φ M P
+    exact ihφ M N P h12 h23
+  case within _ φ ihφ =>
+    show Indistinguishable ℓLow φ M P
+    exact ihφ M N P h12 h23
+  case «says» _ φ ihφ =>
+    show Indistinguishable ℓLow φ M P
+    exact ihφ M N P h12 h23
+  case and φ ψ ihφ ihψ =>
+    show Indistinguishable ℓLow φ M P ∧ Indistinguishable ℓLow ψ M P
+    exact ⟨ihφ M N P h12.1 h23.1, ihψ M N P h12.2 h23.2⟩
+  case tensor φ ψ ihφ ihψ =>
+    show Indistinguishable ℓLow φ M P ∧ Indistinguishable ℓLow ψ M P
+    exact ⟨ihφ M N P h12.1 h23.1, ihψ M N P h12.2 h23.2⟩
+  case or φ ψ ihφ ihψ =>
+    -- With the conjunctive refinement, both components compose.
+    show Indistinguishable ℓLow φ M P ∧ Indistinguishable ℓLow ψ M P
+    exact ⟨ihφ M N P h12.1 h23.1, ihψ M N P h12.2 h23.2⟩
+  case imp α β _ ihβ =>
+    -- h12 : ∀ M', R[α] M' M' → R[β] (app M M') (app N M')
+    -- h23 : ∀ M', R[α] M' M' → R[β] (app N M') (app P M')
+    -- Goal: ∀ M', R[α] M' M' → R[β] (app M M') (app P M')
+    intro M' hM'
+    exact ihβ _ _ _ (h12 M' hM') (h23 M' hM')
+  case lolli α β _ ihβ =>
+    intro M' hM'
+    exact ihβ _ _ _ (h12 M' hM') (h23 M' hM')
 
 /-! ## T3 — Atomic fragment of the fundamental lemma.
 

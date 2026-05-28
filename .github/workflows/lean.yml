@@ -79,10 +79,10 @@ jobs:
           fi
           echo "No sorry — soundness gate passes."
 
-      - name: Print axioms for each headline theorem
-        working-directory: delegation_calc/lean
-        run: |
-          # Production: per-theorem `#print axioms` + diff against
-          # expected-axioms.json. Until the theorems are inhabited, this
-          # is informational only.
-          echo "Theorem axiom summary will land at M1.Q2.d when T1 is closed."
+      - name: Check axioms against expected-axioms snapshots
+        working-directory: delegation_calc
+        # Compares `#print axioms <theorem>` against
+        # `lean/expected-axioms/<theorem>.txt` for every tracked theorem.
+        # Any new axiom dependency (or removed one) is a hard CI failure —
+        # axiom drift is a silent soundness regression.
+        run: bash scripts/check-axioms.sh

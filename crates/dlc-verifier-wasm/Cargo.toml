@@ -12,6 +12,6 @@ crate-type = ["cdylib", "rlib"]
 path = "src/lib.rs"
 
 [dependencies]
-dlc-verifier = { path = "../dlc-verifier", version = "0.0.1" }
+dlc-verifier = { path = "../dlc-verifier", version = "1.5.0" }
 # wasm-bindgen is added at M3.M21 when the WASM bundle is wired in. Held back
 # from Week-1 so the workspace builds on stable hosts without wasm targets.

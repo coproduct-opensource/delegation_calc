@@ -45,7 +45,12 @@ jobs:
           cache: true
 
       - name: Install cargo-fuzz
-        run: cargo install cargo-fuzz --locked
+        # No --locked: cargo-fuzz's bundled lockfile pins rustix 0.36 which
+        # fails to build on current nightly (the `rustc_attrs` feature gates
+        # the rustc-prefix attributes that rustix 0.36 uses unconditionally).
+        # Letting cargo resolve semver-compatible deps fresh picks up
+        # rustix ≥0.38 which is nightly-clean.
+        run: cargo install cargo-fuzz
 
       - name: Build cbor_roundtrip target
         # `cargo fuzz build` runs the full nightly toolchain + libfuzzer

@@ -102,18 +102,33 @@ jobs:
             echo "::error::speaks_for_reachable did not show reachability"
             ok=0
           fi
-          # honest_separation: equivalence directive; success = is true.
-          if ! grep -qiE "^RESULT.*[Oo]bservational equivalence.* is true" prove.log; then
-            echo "::error::honest_separation equivalence did not prove"
-            ok=0
-          fi
           # Generic catch-all: any unexpected `cannot be proved` is a failure.
           if grep -E "^RESULT.*cannot be proved" prove.log; then
             echo "::error::ProVerif could not prove a query"
             ok=0
           fi
           [ "$ok" = "1" ] || exit 1
-          echo "All 7 queries + equivalence directive match expected outcomes."
+          echo "dlc.pv: all 7 queries (3 original + 4 extended) match expected outcomes."
+
+      - name: Run ProVerif on dlc-equiv.pv (observational equivalence)
+        # ProVerif rejects mixing `choice[]` biprocess analysis with
+        # correspondence/secrecy queries in one file ("Queries are
+        # incompatible with choice."), so the fourth audit-item-3 query
+        # category lives in a sibling file. Both files must pass for the
+        # CI gate to go green.
+        run: |
+          eval $(opam env)
+          cd models/proverif
+          proverif dlc-equiv.pv 2>&1 | tee prove-equiv.log
+          if ! grep -qiE "^RESULT.*[Oo]bservational equivalence.* is true" prove-equiv.log; then
+            echo "::error::twin_freshness observational equivalence did not prove"
+            exit 1
+          fi
+          if grep -E "^RESULT.*cannot be proved" prove-equiv.log; then
+            echo "::error::ProVerif could not prove the equivalence"
+            exit 1
+          fi
+          echo "dlc-equiv.pv: observational equivalence holds."
 
       - name: Upload ProVerif output
         if: always()

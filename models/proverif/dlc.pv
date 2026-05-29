@@ -143,24 +143,12 @@ query P: pkey, Q: pkey;
   event(SpeaksForIssued(P, Q)).
 
 (* honest_separation (observational equivalence form):
- *   Two independently-sampled fresh bitstrings, exposed to the attacker
- *   side-by-side via `choice[]`, are observationally equivalent. This is
- *   the canonical "no information leak via name selection" property:
- *   ProVerif checks that no attacker observation can distinguish the
- *   left and right projections of the biprocess.
- *
- *   We use the `choice[]` form (rather than the file-level `equivalence`
- *   directive, which conflicts with our main `process` declaration and
- *   would require pulling the `honest` let-binding above its first use).
- *   The biprocess fires on every parallel session of `twin_freshness`;
- *   ProVerif emits `RESULT Observational equivalence is true.` if no
- *   attacker can distinguish the two projections. This is the "fourth
- *   category" required by the audit (item 3) — alongside reachability,
- *   correspondence, and secrecy. *)
-let twin_freshness =
-  new n1: bitstring;
-  new n2: bitstring;
-  out(c, choice[n1, n2]).
+ *   Lives in a separate ProVerif file at models/proverif/dlc-equiv.pv.
+ *   ProVerif rejects mixing `choice[]` biprocess analysis with
+ *   correspondence/secrecy queries in the same source file ("Queries
+ *   are incompatible with choice."), so the observational-equivalence
+ *   category is checked in an independent invocation. See the CI
+ *   workflow at .github/workflows/proverif.yml for both runs. *)
 
 (* ========================================================================= *)
 (* Processes                                                                  *)
@@ -228,4 +216,3 @@ process
       out(c, pkP);
       honest(skP) )
   | ( ! verifier )
-  | ( ! twin_freshness )

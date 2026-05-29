@@ -19,7 +19,7 @@ TXT="draft-ietf/draft-crisp-dlc-token-00.txt"
 HTML="draft-ietf/draft-crisp-dlc-token-00.html"
 
 # C1 — validate against RFC 7991 RelaxNG schema (xml2rfc validates structure).
-xml2rfc --quiet --no-cache "$DRAFT" --text --html
+xml2rfc --quiet "$DRAFT" --text --html
 echo "draft-ietf C1+C2: xml2rfc validates and renders to .txt + .html"
 
 # C2 (cont'd) — outputs exist and are non-empty

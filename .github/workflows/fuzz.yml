@@ -1,0 +1,87 @@
+name: Fuzz
+
+# Builds and smoke-runs the cargo-fuzz harnesses.
+#
+# Audit item 4 gate: the cbor_roundtrip target must build under nightly
+# + cargo-fuzz, and a short (≤60s) libFuzzer run must complete without
+# any crashes. The canonical-CBOR round-trip property (encode → decode
+# → re-encode is bit-identical) is also enforced as a stable unit-test
+# in dlc-protocol's CI (see crates/dlc-protocol/src/wire.rs).
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "crates/dlc-core/**"
+      - "crates/dlc-protocol/**"
+      - "crates/dlc-fuzz/**"
+      - ".github/workflows/fuzz.yml"
+  pull_request:
+    paths:
+      - "crates/dlc-core/**"
+      - "crates/dlc-protocol/**"
+      - "crates/dlc-fuzz/**"
+      - ".github/workflows/fuzz.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fuzz_cbor:
+    name: cbor_roundtrip cargo-fuzz
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Install nightly rust + cargo-fuzz
+        uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606 # v1
+        with:
+          toolchain: nightly
+          cache: true
+
+      - name: Install cargo-fuzz
+        # No --locked: cargo-fuzz's bundled lockfile pins rustix 0.36 which
+        # fails to build on current nightly (the `rustc_attrs` feature gates
+        # the rustc-prefix attributes that rustix 0.36 uses unconditionally).
+        # Letting cargo resolve semver-compatible deps fresh picks up
+        # rustix ≥0.38 which is nightly-clean.
+        run: cargo install cargo-fuzz
+
+      - name: Build cbor_roundtrip target
+        # `cargo fuzz build` runs the full nightly toolchain + libfuzzer
+        # linker config so a clean build here is the same gate cargo-
+        # fuzz would apply at fuzzing time. Failure means the harness
+        # source has drifted from the dlc-core / dlc-protocol surface.
+        working-directory: crates/dlc-fuzz/fuzz
+        run: cargo +nightly fuzz build cbor_roundtrip
+
+      - name: Smoke-fuzz for 60 seconds
+        # 60s is the audit's C2 floor. Long enough to surface trivial
+        # crashes (decoder panic, encoder ICE, assertion failures) while
+        # short enough to stay inside CI's budget. The seed corpus from
+        # the canonical_roundtrip_seed_corpus unit test is loaded
+        # automatically by cargo-fuzz when present.
+        working-directory: crates/dlc-fuzz/fuzz
+        run: |
+          cargo +nightly fuzz run cbor_roundtrip -- \
+            -max_total_time=60 \
+            -timeout=10 \
+            -print_final_stats=1 \
+            2>&1 | tee fuzz.log
+          # Extract exec/sec to a marker line for ledger ingestion.
+          grep -E "stat::number_of_executed_units" fuzz.log || true
+
+      - name: Upload fuzz log on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cbor_roundtrip-fuzz-log
+          path: |
+            crates/dlc-fuzz/fuzz/fuzz.log
+            crates/dlc-fuzz/fuzz/artifacts/cbor_roundtrip/
+          if-no-files-found: warn

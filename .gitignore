@@ -43,3 +43,9 @@ paper/main.pdf
 # WASM build
 *.wasm
 pkg/
+
+# cargo-fuzz artifacts and corpus
+crates/dlc-fuzz/fuzz/target/
+crates/dlc-fuzz/fuzz/artifacts/
+crates/dlc-fuzz/fuzz/corpus/
+crates/dlc-fuzz/fuzz/Cargo.lock

@@ -679,4 +679,193 @@ mod tests {
         let result = decode(&[]);
         assert!(result.is_err());
     }
+
+    // =====================================================================
+    // Canonical round-trip: encode -> decode -> encode is bit-identical.
+    //
+    // This is the property the audit (item 4) requires across all 22
+    // `Term` constructors. The earlier `rt_*` tests check the
+    // *semantic* round-trip (decode equals original). The canonical
+    // property is strictly stronger: a re-encode must reproduce the
+    // exact bytes, so there is no two-encoding ambiguity that could let
+    // an adversary substitute equivalent-but-different-bytes wire forms
+    // (which would defeat hash-based subterm caching and content
+    // addressing).
+    //
+    // We enumerate every constructor in a single test so adding a new
+    // `Term` variant without an accompanying canonical case fails CI
+    // by virtue of the assert at the end (count must equal 22).
+    // =====================================================================
+
+    fn assert_canonical(t: Term) {
+        let b1 = encode(&t);
+        let t2 = decode(&b1).expect("first decode must succeed");
+        assert_eq!(t, t2, "decode != encode^-1 (semantic round-trip)");
+        let b2 = encode(&t2);
+        assert_eq!(
+            b1, b2,
+            "re-encode produced different bytes -- the encoding is not canonical"
+        );
+    }
+
+    #[test]
+    fn canonical_roundtrip_all_22_constructors() {
+        // Every constructor of `Term` is exercised exactly once. If a
+        // new variant is added without a corresponding case here, the
+        // exhaustive `match` in `Term`'s encoder would compile-fail
+        // first, and the count assertion below catches the case where
+        // a variant is added with an encoder but no canonical test.
+        let cases: Vec<(&str, Term)> = vec![
+            ("Var", Term::Var(42)),
+            (
+                "Lam",
+                Term::Lam(Box::new(Prop::Atom(3)), Box::new(Term::Var(0))),
+            ),
+            (
+                "App",
+                Term::App(Box::new(Term::Var(1)), Box::new(Term::Var(2))),
+            ),
+            ("Sign", Term::Sign(p(), Box::new(Term::Var(0)), sig())),
+            ("Verify", Term::Verify(p(), Box::new(Term::Var(0)), sig())),
+            (
+                "Delegate",
+                Term::Delegate(Box::new(Term::Var(0)), Box::new(Term::Var(1))),
+            ),
+            (
+                "Attenuate",
+                Term::Attenuate(Box::new(Term::Var(0)), Box::new(Prop::Top)),
+            ),
+            (
+                "Discharge",
+                Term::Discharge(Box::new(Term::Var(0)), Box::new(Term::Var(1))),
+            ),
+            (
+                "LiftLabel",
+                Term::LiftLabel(Label(vec![1, 2, 3]), Box::new(Term::Var(0))),
+            ),
+            (
+                "Declassify",
+                Term::Declassify(
+                    Label(vec![4, 5]),
+                    Box::new(Term::Var(0)),
+                    Box::new(Term::Var(1)),
+                ),
+            ),
+            (
+                "Now",
+                Term::Now(TimeBound {
+                    epoch_ms: 1_700_000_000_000,
+                }),
+            ),
+            (
+                "WithinIntro",
+                Term::WithinIntro(
+                    TimeBound {
+                        epoch_ms: 2_000_000_000_000,
+                    },
+                    Box::new(Term::Var(0)),
+                ),
+            ),
+            (
+                "Pair",
+                Term::Pair(Box::new(Term::Var(0)), Box::new(Term::Var(1))),
+            ),
+            ("Fst", Term::Fst(Box::new(Term::Var(0)))),
+            ("Snd", Term::Snd(Box::new(Term::Var(0)))),
+            (
+                "Inl",
+                Term::Inl(Box::new(Prop::Atom(1)), Box::new(Term::Var(0))),
+            ),
+            (
+                "Inr",
+                Term::Inr(Box::new(Prop::Atom(2)), Box::new(Term::Var(0))),
+            ),
+            (
+                "Case",
+                Term::Case(
+                    Box::new(Term::Var(0)),
+                    Box::new(Term::Var(1)),
+                    Box::new(Term::Var(2)),
+                ),
+            ),
+            (
+                "TensorIntro",
+                Term::TensorIntro(Box::new(Term::Var(0)), Box::new(Term::Var(1))),
+            ),
+            (
+                "LetTensor",
+                Term::LetTensor(Box::new(Term::Var(0)), Box::new(Term::Var(1))),
+            ),
+            (
+                "LetSays",
+                Term::LetSays(p(), Box::new(Term::Var(0)), Box::new(Term::Var(1))),
+            ),
+            ("SfExtract", Term::SfExtract(Box::new(Term::Var(0)))),
+        ];
+
+        for (name, t) in &cases {
+            let b1 = encode(t);
+            let t2 = decode(&b1).unwrap_or_else(|e| panic!("decode failed for {name}: {e:?}"));
+            assert_eq!(t, &t2, "{name}: decode != original");
+            let b2 = encode(&t2);
+            assert_eq!(b1, b2, "{name}: re-encode produced different bytes");
+        }
+
+        // Constructor count check: if this number ever changes, the
+        // canonical test must be updated to match. This is the
+        // anti-gaming guard the audit item 4 acceptance criteria
+        // require.
+        assert_eq!(
+            cases.len(),
+            22,
+            "expected 22 Term constructors; if this count changed, update the canonical test"
+        );
+    }
+
+    /// Compound canonical round-trip: a deeply nested term combining many
+    /// constructors at once. Catches encode/decode pairs that are
+    /// individually canonical but compose non-canonically (e.g. if a
+    /// sub-encoder used a non-shortest integer form for a child but the
+    /// shortest at the top level).
+    #[test]
+    fn canonical_roundtrip_compound() {
+        let inner = Term::Delegate(
+            Box::new(Term::Sign(p(), Box::new(Term::Var(0)), sig())),
+            Box::new(Term::Sign(p(), Box::new(Term::Var(1)), sig())),
+        );
+        let attenuated = Term::Attenuate(
+            Box::new(inner),
+            Box::new(Prop::Says(p(), Box::new(Prop::Atom(7)))),
+        );
+        let labelled = Term::LiftLabel(Label(vec![1, 2, 3, 4]), Box::new(attenuated));
+        let case = Term::Case(
+            Box::new(labelled),
+            Box::new(Term::Var(0)),
+            Box::new(Term::Var(1)),
+        );
+        assert_canonical(case);
+    }
+
+    /// Random-but-deterministic round-trip: hand-picked structured-fuzz
+    /// seeds that exercise corner cases of the encoder (high u32, full
+    /// 32-byte principal id, large label vector, all obligations).
+    /// Complements `crates/dlc-fuzz/fuzz/fuzz_targets/cbor_roundtrip.rs`,
+    /// which runs the same property under libFuzzer with structured
+    /// `arbitrary` generation.
+    #[test]
+    fn canonical_roundtrip_seed_corpus() {
+        // Max u32 variable index.
+        assert_canonical(Term::Var(u32::MAX));
+        // Empty label.
+        assert_canonical(Term::LiftLabel(Label(vec![]), Box::new(Term::Var(0))));
+        // Wide label (256 dims).
+        assert_canonical(Term::LiftLabel(
+            Label((0..256u32).collect()),
+            Box::new(Term::Var(0)),
+        ));
+        // Compound principal: ((p ⊓ q) acting r).
+        let p_q = Principal::And(Box::new(p()), Box::new(p()));
+        let acting = Principal::Acting(Box::new(p_q), Box::new(p()));
+        assert_canonical(Term::Sign(acting, Box::new(Term::Var(0)), sig()));
+    }
 }

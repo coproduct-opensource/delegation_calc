@@ -256,6 +256,9 @@ fn gen_term(u: &mut Unstructured<'_>, depth: u8) -> Result<Term> {
 }
 
 /// Wrapper so libfuzzer-sys's `Arbitrary` trait bound is satisfied.
+/// `Debug` is required by `fuzz_target!`'s macro expansion for
+/// crash-reproducer printing; `Term` already derives `Debug`.
+#[derive(Debug)]
 struct FuzzTerm(Term);
 
 impl<'a> Arbitrary<'a> for FuzzTerm {

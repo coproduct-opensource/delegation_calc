@@ -93,3 +93,13 @@ jobs:
           cache: true
       - name: cargo build dlc-verifier-wasm
         run: cargo build -p dlc-verifier-wasm --target wasm32-unknown-unknown --release
+      - name: Verify wasm export surface
+        # C2/C3/C4 of audit item 2: the produced .wasm must (a) exist,
+        # (b) be larger than the empty-cdylib floor (~1 KiB), and
+        # (c) export a `verify` symbol via wasm-bindgen. Without this
+        # check, removing the #[wasm_bindgen] annotation would still
+        # produce a green CI -- the bundle would just silently drop the
+        # JS-callable entry point. See:
+        #   crates/dlc-verifier-wasm/src/lib.rs (the annotation)
+        #   scripts/check-wasm-export.sh         (the assertion script)
+        run: ./scripts/check-wasm-export.sh

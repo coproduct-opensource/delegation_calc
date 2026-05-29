@@ -1,0 +1,78 @@
+{
+  "@context": {
+    "@version": 1.1,
+    "@protected": true,
+
+    "dlc": "https://dlc.coproduct.dev/vocab#",
+    "cred": "https://www.w3.org/2018/credentials#",
+    "sec":  "https://w3id.org/security#",
+    "xsd":  "http://www.w3.org/2001/XMLSchema#",
+
+    "DlcAffirmationCredential": {
+      "@id": "https://dlc.coproduct.dev/vocab#DlcAffirmationCredential",
+      "@context": {
+        "@version": 1.1,
+        "@protected": true,
+        "id": "@id",
+        "type": "@type",
+
+        "principal": {
+          "@id": "https://dlc.coproduct.dev/vocab#principal",
+          "@type": "@id"
+        },
+        "proposition": {
+          "@id": "https://dlc.coproduct.dev/vocab#proposition"
+        },
+        "signature": {
+          "@id": "https://dlc.coproduct.dev/vocab#signature",
+          "@type": "xsd:base64Binary"
+        },
+
+        "delegationChain": {
+          "@id": "https://dlc.coproduct.dev/vocab#delegationChain",
+          "@container": "@list"
+        },
+        "obligationSet": {
+          "@id": "https://dlc.coproduct.dev/vocab#obligationSet",
+          "@container": "@set"
+        },
+        "ifcLabel": {
+          "@id": "https://dlc.coproduct.dev/vocab#ifcLabel"
+        },
+        "timeWindow": {
+          "@id": "https://dlc.coproduct.dev/vocab#timeWindow"
+        }
+      }
+    },
+
+    "delegationChain": {
+      "@id": "https://dlc.coproduct.dev/vocab#delegationChain",
+      "@container": "@list"
+    },
+    "obligationSet": {
+      "@id": "https://dlc.coproduct.dev/vocab#obligationSet",
+      "@container": "@set"
+    },
+    "ifcLabel": {
+      "@id": "https://dlc.coproduct.dev/vocab#ifcLabel"
+    },
+    "timeWindow": {
+      "@id": "https://dlc.coproduct.dev/vocab#timeWindow",
+      "@context": {
+        "@protected": true,
+        "notBefore": {
+          "@id": "https://dlc.coproduct.dev/vocab#notBefore",
+          "@type": "xsd:dateTime"
+        },
+        "notAfter": {
+          "@id": "https://dlc.coproduct.dev/vocab#notAfter",
+          "@type": "xsd:dateTime"
+        },
+        "timeAnchor": {
+          "@id": "https://dlc.coproduct.dev/vocab#timeAnchor",
+          "@type": "@id"
+        }
+      }
+    }
+  }
+}

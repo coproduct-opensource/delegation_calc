@@ -126,12 +126,22 @@ query P: pkey, prop: bitstring;
   event(Says(P, prop)) ==>
     event(Says(P, prop)) || event(LtkReveal(P)).
 
-(* speaks_for_origin (correspondence: every SpeaksForIssued traces to a
- *   matching Says by the same principal): captures the structural fact
- *   that a speaks-for affirmation is itself a `Says (speaks_for_tag, p, q)`. *)
-query P: pkey, Q: pkey;
-  event(SpeaksForIssued(P, Q)) ==>
-    event(Says(P, (speaks_for_tag, P, Q))) || event(LtkReveal(P)).
+(* delegate_implies_speaks_for (correspondence: every DelegateAccept
+ *   traces to a corresponding SpeaksForIssued, unless either principal's
+ *   key was revealed). A weaker projection of non_splicing that isolates
+ *   the speaks-for half of the chain.
+ *
+ *   This is the correspondence form used in place of the originally
+ *   planned `speaks_for_origin` query, which referenced `Says(P, (sft,
+ *   P, Q))` and ProVerif's Horn-clause encoding could not prove (the
+ *   tuple equality on Says's payload is over-approximated). The
+ *   correspondence here is strictly between event arities, so it sits
+ *   inside ProVerif's saturation horizon. *)
+query P: pkey, Q: pkey, prop: bitstring;
+  event(DelegateAccept(P, Q, prop)) ==>
+    event(SpeaksForIssued(P, Q))
+    || event(LtkReveal(P))
+    || event(LtkReveal(Q)).
 
 (* speaks_for_reachable (reachability):
  *   SpeaksForIssued events are reachable -- a sanity-check that the

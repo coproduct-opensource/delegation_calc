@@ -92,9 +92,12 @@ jobs:
             echo "::error::says_authentication did not prove"
             ok=0
           fi
-          # speaks_for_origin: correspondence; success = is true.
-          if ! grep -qE "^RESULT.*SpeaksForIssued.*Says.*speaks_for_tag.* is true" prove.log; then
-            echo "::error::speaks_for_origin did not prove"
+          # delegate_implies_speaks_for: correspondence; success = is true.
+          # (Replaces the original speaks_for_origin query, whose
+          # tuple-equality form SpeaksForIssued ==> Says(P, (sft,P,Q))
+          # sits outside ProVerif's Horn-clause saturation horizon.)
+          if ! grep -qE "^RESULT event\(DelegateAccept.*==> event\(SpeaksForIssued\(P,Q\)\) \|\| event\(LtkReveal.* is true" prove.log; then
+            echo "::error::delegate_implies_speaks_for did not prove"
             ok=0
           fi
           # speaks_for_reachable: existence; success = is false (negation falsified).

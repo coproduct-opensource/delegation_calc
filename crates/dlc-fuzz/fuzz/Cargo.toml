@@ -1,0 +1,36 @@
+# cargo-fuzz manifest for dlc-fuzz.
+#
+# Per cargo-fuzz convention this sub-crate is OUTSIDE the workspace
+# (it links libFuzzer's runtime which conflicts with normal builds).
+# Run with:
+#   cargo +nightly fuzz run cbor_roundtrip
+# from this directory, or from the workspace root with
+#   cargo +nightly fuzz run --fuzz-dir crates/dlc-fuzz/fuzz cbor_roundtrip
+
+[package]
+name = "dlc-fuzz-targets"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+dlc-core = { path = "../../dlc-core" }
+dlc-protocol = { path = "../../dlc-protocol" }
+
+[workspace]
+# Standalone -- this crate is not a member of the parent workspace.
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "cbor_roundtrip"
+path = "fuzz_targets/cbor_roundtrip.rs"
+test = false
+doc = false
+bench = false

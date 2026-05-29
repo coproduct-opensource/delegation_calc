@@ -1,0 +1,407 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="rfc2629.xslt"?>
+<!DOCTYPE rfc [
+  <!ENTITY nbsp    "&#160;">
+  <!ENTITY zwsp   "&#8203;">
+  <!ENTITY nbhy   "&#8209;">
+  <!ENTITY wj     "&#8288;">
+]>
+<rfc xmlns:xi="http://www.w3.org/2001/XInclude"
+     ipr="trust200902"
+     docName="draft-crisp-dlc-token-00"
+     category="exp"
+     submissionType="independent"
+     consensus="false"
+     updates=""
+     obsoletes=""
+     xml:lang="en"
+     version="3"
+     sortRefs="true"
+     symRefs="true">
+
+  <front>
+    <title abbrev="DLC Token">
+      The Delegation Logic Calculus (DLC) Token: A Self-Verifying
+      Authorization Format with Logical, Cryptographic, and IFC Semantics
+    </title>
+    <seriesInfo name="Internet-Draft" value="draft-crisp-dlc-token-00"/>
+
+    <author fullname="Brandon Crisp" initials="B." surname="Crisp">
+      <organization>Coproduct</organization>
+      <address>
+        <email>brandon.m.crisp@gmail.com</email>
+        <uri>https://dlc.coproduct.dev/</uri>
+      </address>
+    </author>
+
+    <date year="2026" month="May"/>
+
+    <area>Security</area>
+    <workgroup>OAuth</workgroup>
+
+    <keyword>authorization</keyword>
+    <keyword>delegation</keyword>
+    <keyword>verifiable credential</keyword>
+    <keyword>information flow control</keyword>
+    <keyword>cryptographic protocol</keyword>
+
+    <abstract>
+      <t>
+        This document specifies the Delegation Logic Calculus (DLC) Token,
+        a wire format for authorization tokens whose validation
+        simultaneously checks logical entailment, cryptographic
+        authenticity of every principal in the delegation chain, and the
+        information-flow-control (IFC) label algebra of every claim. A
+        DLC token is a content-addressed Merkle DAG whose nodes carry
+        proof-term structure, COSE_Sign1 signatures, and IFC labels;
+        verification is O(|M| log |Keyring|) in proof and keyring size
+        and requires no network access. This specification defines the
+        CBOR wire format, the verification algorithm, and the
+        interoperability requirements with W3C Verifiable Credentials
+        (via the JSON-LD context at dlc.coproduct.dev/contexts/dlc-v1)
+        and OAuth 2.0 token exchange (RFC 8693). Four mechanized Lean 4
+        theorems (T1 decidability, T2 cryptographic correspondence, T3
+        non-interference, T4 obligation soundness) accompany this
+        specification at the cited reference implementation.
+      </t>
+    </abstract>
+  </front>
+
+  <middle>
+    <section numbered="true" anchor="intro">
+      <name>Introduction</name>
+      <t>
+        The agent-economy authorization landscape in 2026 is fragmented.
+        OAuth 2.0 token exchange <xref target="RFC8693"/> defines token
+        composition operationally but assigns it no formal meaning; chain
+        splicing was reported as a real vulnerability in 2026. The
+        on-behalf-of draft <xref target="OBO"/> introduces actor and
+        principal claims without a calculus that says what their
+        composition denotes. Capability tokens (macaroons, biscuits)
+        attenuate algebraically but lack obligation, IFC, and proof-of-
+        non-interference.
+      </t>
+      <t>
+        DLC unifies these concerns. A DLC token is simultaneously:
+      </t>
+      <ul>
+        <li>
+          <t>
+            a proof term in a decidable modal-linear-temporal
+            authorization logic (the calculus);
+          </t>
+        </li>
+        <li>
+          <t>
+            a cryptographic witness whose verification proves both
+            logical validity and authenticity of every principal's
+            contribution (the correspondence theorem);
+          </t>
+        </li>
+        <li>
+          <t>
+            a Merkle-DAG-addressed wire object whose subtree hashes
+            enable selective recomputation and cross-organizational
+            caching at IFC-controlled boundaries.
+          </t>
+        </li>
+      </ul>
+      <t>
+        This document specifies the wire format and verification
+        algorithm. The metatheory lives in a companion Lean 4
+        development at <xref target="DLC-PROOFS"/>.
+      </t>
+    </section>
+
+    <section numbered="true" anchor="terminology">
+      <name>Terminology</name>
+      <t>
+        The key words "MUST", "MUST NOT", "REQUIRED", "SHALL",
+        "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT
+        RECOMMENDED", "MAY", and "OPTIONAL" in this document are to
+        be interpreted as described in BCP&nbsp;14
+        <xref target="RFC2119"/> <xref target="RFC8174"/>
+        when, and only when, they appear in all capitals, as shown here.
+      </t>
+      <t>
+        <strong>Principal</strong>: an atomic identity bound to a public
+        key. Principals compose via the operators &amp; (conjunctive
+        consent), | (disjunctive consent), and U+2293 SQUARE CAP
+        ("acting as", associative but not commutative).
+      </t>
+      <t>
+        <strong>Proof Term</strong>: a tree-structured object built from
+        the 22 typing rules of the DLC calculus. Leaves are signatures
+        or variable references; interior nodes are rule applications.
+      </t>
+      <t>
+        <strong>DLC Token</strong>: the CBOR serialization of a proof
+        term plus its claimed type, IFC label, and obligation set.
+      </t>
+    </section>
+
+    <section numbered="true" anchor="wire">
+      <name>Wire Format</name>
+      <t>
+        A DLC token MUST be a COSE_Sign1 envelope <xref target="RFC9052"/>
+        whose payload is a CBOR-encoded ProofTerm structure. The
+        protected header MUST include the alg parameter set to EdDSA
+        and a content-type of "application/dlc+cbor".
+      </t>
+      <section numbered="true" anchor="proof-term">
+        <name>ProofTerm CBOR Structure</name>
+        <t>
+          The CBOR encoding follows the deterministic-encoding rules of
+          <xref target="RFC8949"/> Section 4.2.1, ensuring canonical
+          byte representation. The detailed schema is given in the
+          ABNF appendix of this draft.
+        </t>
+      </section>
+      <section numbered="true" anchor="canonical">
+        <name>Canonical Form</name>
+        <t>
+          Two DLC tokens that encode the same proof term MUST produce
+          identical bytes after canonical encoding. This is enforced
+          by the encoder; verifiers MUST reject any token whose bytes
+          are not in canonical form.
+        </t>
+      </section>
+    </section>
+
+    <section numbered="true" anchor="verify">
+      <name>Verification Algorithm</name>
+      <t>
+        Verification proceeds as a single bottom-up traversal of the
+        ProofTerm tree. At each node, the verifier:
+      </t>
+      <ol>
+        <li>
+          <t>
+            validates the node's CBOR canonical encoding;
+          </t>
+        </li>
+        <li>
+          <t>
+            checks the typing rule's local side conditions (e.g. for
+            says-introduction, verifies the signature against the named
+            principal's public key in the keyring);
+          </t>
+        </li>
+        <li>
+          <t>
+            combines child results to compute the node's IFC label as
+            the lattice join of the children's labels.
+          </t>
+        </li>
+      </ol>
+      <t>
+        Total time complexity is O(|M| log |Keyring|), with the log
+        factor from hash-indexed keyring lookup.
+      </t>
+    </section>
+
+    <section numbered="true" anchor="vc-integration">
+      <name>W3C Verifiable Credentials Integration</name>
+      <t>
+        A DLC token MAY be embedded as a Verifiable Credential by
+        wrapping its CBOR payload in a JOSE or COSE envelope per
+        <xref target="VC-DATA-MODEL"/> and adding the JSON-LD context
+        at https://dlc.coproduct.dev/contexts/dlc-v1.jsonld. The
+        five context terms (DlcAffirmationCredential, delegationChain,
+        obligationSet, ifcLabel, timeWindow) map to the proof term's
+        top-level structure.
+      </t>
+    </section>
+
+    <section numbered="true" anchor="security-considerations">
+      <name>Security Considerations</name>
+      <t>
+        The cryptographic correspondence theorem (T2 in the companion
+        Lean development) states that the wire-format verification
+        algorithm succeeds if and only if the underlying proof term is
+        well-typed in the DLC calculus. This rules out confused-deputy
+        attacks <xref target="HARDY1988"/>, RFC 8693 chain splicing,
+        and JWT confusion attacks (in which a verifier accepts an HS256
+        token under an RS256 expectation by treating the public key as
+        the HMAC secret), because any such attack would be a proof
+        distinguishing the logical and cryptographic typing judgments.
+      </t>
+      <t>
+        Long-term-key compromise is modeled as an explicit LtkReveal
+        event in the symbolic models (Tamarin and ProVerif). The
+        secrecy_ltk lemma proves that an honest principal's private
+        key never leaks unless explicitly revealed by that principal.
+      </t>
+      <t>
+        Time-bound delegations rely on a verifiable time anchor
+        (drand <xref target="DRAND"/> or a NIST randomness beacon).
+        Implementations MUST reject any token whose claimed time
+        window cannot be substantiated against a fresh anchor;
+        clock skew on the verifier is not a substitute.
+      </t>
+      <t>
+        The verifier MUST NOT contact the network during validation.
+        Keyrings are obtained out-of-band (e.g. via JWKS endpoints
+        cached locally). This "trust no operator" inversion is
+        explicitly tested in the reference implementation.
+      </t>
+    </section>
+
+    <section numbered="true" anchor="iana-considerations">
+      <name>IANA Considerations</name>
+      <t>
+        This document requests IANA to register the following:
+      </t>
+      <ul>
+        <li>
+          <t>
+            A new media type "application/dlc+cbor" in the IANA Media
+            Types Registry per the procedures of <xref target="RFC6838"/>.
+          </t>
+        </li>
+        <li>
+          <t>
+            A new COSE Header Parameter "dlc-version" (a positive
+            integer) in the COSE Header Parameters registry per
+            <xref target="RFC9053"/>.
+          </t>
+        </li>
+        <li>
+          <t>
+            A new entry in the JSON Web Token Claims registry for
+            "dlc_proof" (a base64url-encoded DLC token).
+          </t>
+        </li>
+      </ul>
+      <t>
+        Detailed registration templates are provided in the next
+        revision of this draft.
+      </t>
+    </section>
+  </middle>
+
+  <back>
+    <references>
+      <name>Normative References</name>
+      <reference anchor="RFC2119" target="https://www.rfc-editor.org/info/rfc2119">
+        <front>
+          <title>Key words for use in RFCs to Indicate Requirement Levels</title>
+          <author initials="S." surname="Bradner" fullname="Scott Bradner"/>
+          <date year="1997" month="March"/>
+        </front>
+        <seriesInfo name="BCP" value="14"/>
+        <seriesInfo name="RFC" value="2119"/>
+      </reference>
+
+      <reference anchor="RFC8174" target="https://www.rfc-editor.org/info/rfc8174">
+        <front>
+          <title>Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words</title>
+          <author initials="B." surname="Leiba" fullname="Barry Leiba"/>
+          <date year="2017" month="May"/>
+        </front>
+        <seriesInfo name="BCP" value="14"/>
+        <seriesInfo name="RFC" value="8174"/>
+      </reference>
+
+      <reference anchor="RFC8693" target="https://www.rfc-editor.org/info/rfc8693">
+        <front>
+          <title>OAuth 2.0 Token Exchange</title>
+          <author initials="M." surname="Jones" fullname="Michael B. Jones"/>
+          <author initials="A." surname="Nadalin" fullname="Anthony Nadalin"/>
+          <author initials="B." surname="Campbell" fullname="Brian Campbell"/>
+          <author initials="J." surname="Bradley" fullname="John Bradley"/>
+          <author initials="C." surname="Mortimore" fullname="Chuck Mortimore"/>
+          <date year="2020" month="January"/>
+        </front>
+        <seriesInfo name="RFC" value="8693"/>
+      </reference>
+
+      <reference anchor="RFC8949" target="https://www.rfc-editor.org/info/rfc8949">
+        <front>
+          <title>Concise Binary Object Representation (CBOR)</title>
+          <author initials="C." surname="Bormann" fullname="Carsten Bormann"/>
+          <author initials="P." surname="Hoffman" fullname="Paul Hoffman"/>
+          <date year="2020" month="December"/>
+        </front>
+        <seriesInfo name="STD" value="94"/>
+        <seriesInfo name="RFC" value="8949"/>
+      </reference>
+
+      <reference anchor="RFC9052" target="https://www.rfc-editor.org/info/rfc9052">
+        <front>
+          <title>CBOR Object Signing and Encryption (COSE): Structures and Process</title>
+          <author initials="J." surname="Schaad" fullname="Jim Schaad"/>
+          <date year="2022" month="August"/>
+        </front>
+        <seriesInfo name="STD" value="96"/>
+        <seriesInfo name="RFC" value="9052"/>
+      </reference>
+
+      <reference anchor="RFC9053" target="https://www.rfc-editor.org/info/rfc9053">
+        <front>
+          <title>CBOR Object Signing and Encryption (COSE): Initial Algorithms</title>
+          <author initials="J." surname="Schaad" fullname="Jim Schaad"/>
+          <date year="2022" month="August"/>
+        </front>
+        <seriesInfo name="RFC" value="9053"/>
+      </reference>
+
+      <reference anchor="RFC6838" target="https://www.rfc-editor.org/info/rfc6838">
+        <front>
+          <title>Media Type Specifications and Registration Procedures</title>
+          <author initials="N." surname="Freed" fullname="Ned Freed"/>
+          <author initials="J." surname="Klensin" fullname="John Klensin"/>
+          <author initials="T." surname="Hansen" fullname="Tony Hansen"/>
+          <date year="2013" month="January"/>
+        </front>
+        <seriesInfo name="BCP" value="13"/>
+        <seriesInfo name="RFC" value="6838"/>
+      </reference>
+    </references>
+
+    <references>
+      <name>Informative References</name>
+      <reference anchor="OBO" target="https://datatracker.ietf.org/doc/draft-oauth-ai-agents-on-behalf-of-user/">
+        <front>
+          <title>OAuth 2.0 Extension: On-Behalf-Of User Authorization for AI Agents</title>
+          <author><organization>IETF OAuth Working Group</organization></author>
+          <date year="2026"/>
+        </front>
+      </reference>
+
+      <reference anchor="VC-DATA-MODEL" target="https://www.w3.org/TR/vc-data-model-2.0/">
+        <front>
+          <title>Verifiable Credentials Data Model v2.0</title>
+          <author><organization>W3C</organization></author>
+          <date year="2025" month="May"/>
+        </front>
+      </reference>
+
+      <reference anchor="DLC-PROOFS" target="https://github.com/coproduct-opensource/delegation_calc">
+        <front>
+          <title>DLC: Mechanized Lean 4 Development of the Delegation Logic Calculus</title>
+          <author initials="B." surname="Crisp"><organization>Coproduct</organization></author>
+          <date year="2026"/>
+        </front>
+      </reference>
+
+      <reference anchor="HARDY1988" target="">
+        <front>
+          <title>The Confused Deputy: (or why capabilities might have been invented)</title>
+          <author initials="N." surname="Hardy" fullname="Norman Hardy"/>
+          <date year="1988"/>
+        </front>
+        <seriesInfo name="ACM" value="SIGOPS Operating Systems Review, vol. 22, no. 4"/>
+      </reference>
+
+      <reference anchor="DRAND" target="https://drand.love/">
+        <front>
+          <title>drand: Distributed Randomness Beacon</title>
+          <author><organization>Drand Project</organization></author>
+          <date year="2023"/>
+        </front>
+      </reference>
+    </references>
+  </back>
+
+</rfc>

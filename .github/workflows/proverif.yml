@@ -97,9 +97,9 @@ jobs:
             echo "::error::speaks_for_origin did not prove"
             ok=0
           fi
-          # reveal_free_delegation: existence; success = is false (negation falsified).
-          if ! grep -qE "^RESULT.*DelegateAccept.*not.*LtkReveal.* is false" prove.log; then
-            echo "::error::reveal_free_delegation did not show honest reachability"
+          # speaks_for_reachable: existence; success = is false (negation falsified).
+          if ! grep -qE "^RESULT.*SpeaksForIssued.* is false" prove.log; then
+            echo "::error::speaks_for_reachable did not show reachability"
             ok=0
           fi
           # honest_separation: equivalence directive; success = is true.

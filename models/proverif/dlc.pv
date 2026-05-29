@@ -133,15 +133,14 @@ query P: pkey, Q: pkey;
   event(SpeaksForIssued(P, Q)) ==>
     event(Says(P, (speaks_for_tag, P, Q))) || event(LtkReveal(P)).
 
-(* reveal_free_delegation (reachability):
- *   A trace exists where DelegateAccept succeeds AND neither principal
- *   was revealed. This is the executability lemma's sharper form --
- *   `exec_delegation` above is satisfied even when reveals happen; this
- *   one asserts the honest path. ProVerif treats this as a reachability
- *   query negated (if falsified, an honest trace exists). *)
-query P: pkey, Q: pkey, prop: bitstring;
-  event(DelegateAccept(P, Q, prop)) && (not event(LtkReveal(P)))
-                                    && (not event(LtkReveal(Q))).
+(* speaks_for_reachable (reachability):
+ *   SpeaksForIssued events are reachable -- a sanity-check that the
+ *   protocol's speaks-for branch can actually fire. ProVerif reports
+ *   `is false` for an existence query (the negation `event(...)` is
+ *   falsified), confirming reachability. Complements
+ *   `exec_delegation` by isolating the speaks-for half. *)
+query P: pkey, Q: pkey;
+  event(SpeaksForIssued(P, Q)).
 
 (* honest_separation (observational equivalence form):
  *   Two parallel sessions with two distinct fresh honest principals

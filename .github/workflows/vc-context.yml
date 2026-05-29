@@ -1,0 +1,40 @@
+name: VC Context
+
+# Mechanical validation of vc-context/dlc-v1.jsonld per the audit closure
+# checklist (item 1): JSON parse, PyLD JSON-LD 1.1 compaction round-trip,
+# absolute-IRI mapping for every required term, and @protected at the
+# top level.
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "vc-context/**"
+      - "scripts/check-vc-context.sh"
+      - ".github/workflows/vc-context.yml"
+  pull_request:
+    paths:
+      - "vc-context/**"
+      - "scripts/check-vc-context.sh"
+      - ".github/workflows/vc-context.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: vc-context JSON-LD 1.1 validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Install jq + PyLD
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -qq -y jq python3-pip
+          pip3 install --quiet pyld
+
+      - name: Run vc-context checks
+        run: bash scripts/check-vc-context.sh

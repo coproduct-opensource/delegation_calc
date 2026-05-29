@@ -66,23 +66,34 @@ echo "draft-ietf C5: normative references = $REF_COUNT (≥ 3)"
 #   comments: K
 # We parse the `errors:` line and gate on N == 0.
 if command -v idnits >/dev/null 2>&1; then
+  # idnits3's `--output count` emits a single integer: the count of
+  # matched issues. Combined with `--filter errors`, it gives the error
+  # count specifically. Both `set +e` and a wrapping subshell are used
+  # so that idnits's exit code (1 if any nit found, 0 otherwise) does
+  # not abort the gate before we inspect the count.
   set +e
-  IDNITS_OUT=$(idnits --no-color --no-progress --output count "$DRAFT" 2>&1)
+  ERRORS=$(idnits --no-color --no-progress --filter errors --output count "$DRAFT" 2>&1 | tail -1)
   IDNITS_RC=$?
+  TOTAL=$(idnits --no-color --no-progress --output count "$DRAFT" 2>&1 | tail -1)
   set -e
-  echo "$IDNITS_OUT"
-  echo "--- idnits exit code: $IDNITS_RC ---"
-  ERRORS=$(echo "$IDNITS_OUT" | grep -iE '^[[:space:]]*errors?:' | head -1 \
-             | grep -oE '[0-9]+' | head -1)
-  ERRORS=${ERRORS:-0}
-  if [ "$ERRORS" -gt 0 ]; then
-    echo "FAIL: idnits reported $ERRORS error(s); re-running with --filter errors:"
+  # Sanitize: keep only the integer suffix; non-numeric output means
+  # idnits errored before counting, which is itself a failure.
+  ERRORS_INT=$(echo "$ERRORS" | grep -oE '^[0-9]+$' || echo "")
+  TOTAL_INT=$(echo "$TOTAL" | grep -oE '^[0-9]+$' || echo "")
+  echo "idnits: errors=$ERRORS total_nits=$TOTAL (exit=$IDNITS_RC)"
+  if [ -z "$ERRORS_INT" ]; then
+    echo "FAIL: idnits did not return an integer error count"
+    echo "raw output: $ERRORS"
+    exit 1
+  fi
+  if [ "$ERRORS_INT" -gt 0 ]; then
+    echo "FAIL: idnits reported $ERRORS_INT error(s); details:"
     set +e
     idnits --no-color --no-progress --filter errors "$DRAFT" 2>&1 | head -100
     set -e
     exit 1
   fi
-  echo "draft-ietf C6: idnits3 reports 0 errors"
+  echo "draft-ietf C6: idnits3 reports 0 errors (${TOTAL_INT:-?} total nits, gated only on errors)"
 else
   echo "draft-ietf C6: SKIP (idnits not installed; CI gates this separately)"
 fi

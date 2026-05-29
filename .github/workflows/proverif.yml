@@ -68,6 +68,7 @@ jobs:
           # falsified negation means the event IS reachable -- the
           # standard ProVerif idiom for existence queries).
           ok=1
+          # Original three queries.
           if ! grep -qE "^RESULT event\(HonestSk.*attacker.*is true" prove.log; then
             echo "::error::secrecy_ltk did not prove"
             ok=0
@@ -80,13 +81,39 @@ jobs:
             echo "::error::exec_delegation did not show reachability"
             ok=0
           fi
+          # Extended queries per audit item 3 — 4 categories, ≥7 queries.
+          # secrecy_payload: ProVerif checks `not attacker(secret)`; success = is true.
+          if ! grep -qE "^RESULT not attacker\(dlc_secret_payload.* is true" prove.log; then
+            echo "::error::secrecy_payload did not prove"
+            ok=0
+          fi
+          # says_authentication: correspondence; success = is true.
+          if ! grep -qE "^RESULT.*Says.*Says.*LtkReveal.* is true" prove.log; then
+            echo "::error::says_authentication did not prove"
+            ok=0
+          fi
+          # speaks_for_origin: correspondence; success = is true.
+          if ! grep -qE "^RESULT.*SpeaksForIssued.*Says.*speaks_for_tag.* is true" prove.log; then
+            echo "::error::speaks_for_origin did not prove"
+            ok=0
+          fi
+          # reveal_free_delegation: existence; success = is false (negation falsified).
+          if ! grep -qE "^RESULT.*DelegateAccept.*not.*LtkReveal.* is false" prove.log; then
+            echo "::error::reveal_free_delegation did not show honest reachability"
+            ok=0
+          fi
+          # honest_separation: equivalence directive; success = is true.
+          if ! grep -qiE "^RESULT.*[Oo]bservational equivalence.* is true" prove.log; then
+            echo "::error::honest_separation equivalence did not prove"
+            ok=0
+          fi
           # Generic catch-all: any unexpected `cannot be proved` is a failure.
           if grep -E "^RESULT.*cannot be proved" prove.log; then
             echo "::error::ProVerif could not prove a query"
             ok=0
           fi
           [ "$ok" = "1" ] || exit 1
-          echo "All three queries match expected outcomes."
+          echo "All 7 queries + equivalence directive match expected outcomes."
 
       - name: Upload ProVerif output
         if: always()

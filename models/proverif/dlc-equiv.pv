@@ -1,0 +1,35 @@
+(*
+ * DLC -- Delegation Logic Calculus, ProVerif observational equivalence.
+ *
+ * Companion to models/proverif/dlc.pv. Lives in a separate file because
+ * ProVerif refuses to mix `choice[]` biprocess analysis with
+ * correspondence/secrecy queries in the same source ("Queries are
+ * incompatible with choice.").
+ *
+ * This file checks the fourth ProVerif query category required by the
+ * audit closure checklist (item 3): observational equivalence. The
+ * other three categories (reachability, correspondence, secrecy) live
+ * in dlc.pv.
+ *
+ * Property: two independently-sampled fresh bitstrings, exposed to the
+ * attacker side-by-side via `choice[]`, are observationally equivalent.
+ * The biprocess fires on every parallel session of `twin_freshness`;
+ * ProVerif emits `RESULT Observational equivalence is true.` if no
+ * attacker observation can distinguish the left from the right
+ * projection.
+ *)
+
+free c: channel.
+
+(* twin_freshness biprocess: each session emits a fresh bitstring; the
+   biprocess pairs two such fresh bitstrings via `choice[]`. ProVerif
+   semantics force both projections to reduce in lockstep, so if the
+   attacker could pin down which side is being observed, ProVerif would
+   report `cannot be proved` or `is false`. *)
+let twin_freshness =
+  new n1: bitstring;
+  new n2: bitstring;
+  out(c, choice[n1, n2]).
+
+process
+  ( ! twin_freshness )

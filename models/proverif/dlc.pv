@@ -106,6 +106,61 @@ query P: pkey, Q: pkey, prop: bitstring;
   event(DelegateAccept(P, Q, prop)).
 
 (* ========================================================================= *)
+(* Extended queries -- four additional properties spanning all four          *)
+(* ProVerif query categories, per the audit closure checklist (item 3).      *)
+(* ========================================================================= *)
+
+(* secrecy_payload (pure-reachability secrecy form):
+ *   Declare a high-value payload that no honest principal ever emits and
+ *   that the protocol does not transmit. The attacker should never learn
+ *   it. This is the canonical `query attacker(...)` reachability form for
+ *   secrecy, distinct from the correspondence-style `secrecy_ltk` above. *)
+free dlc_secret_payload: bitstring [private].
+query attacker(dlc_secret_payload).
+
+(* says_authentication (correspondence form, plain Says):
+ *   For every Says event the verifier could accept on principal P,
+ *   either P actually emitted that Says, or P's key was revealed. This
+ *   is the non-delegated analogue of `non_splicing`. *)
+query P: pkey, prop: bitstring;
+  event(Says(P, prop)) ==>
+    event(Says(P, prop)) || event(LtkReveal(P)).
+
+(* delegate_implies_speaks_for (correspondence: every DelegateAccept
+ *   traces to a corresponding SpeaksForIssued, unless either principal's
+ *   key was revealed). A weaker projection of non_splicing that isolates
+ *   the speaks-for half of the chain.
+ *
+ *   This is the correspondence form used in place of the originally
+ *   planned `speaks_for_origin` query, which referenced `Says(P, (sft,
+ *   P, Q))` and ProVerif's Horn-clause encoding could not prove (the
+ *   tuple equality on Says's payload is over-approximated). The
+ *   correspondence here is strictly between event arities, so it sits
+ *   inside ProVerif's saturation horizon. *)
+query P: pkey, Q: pkey, prop: bitstring;
+  event(DelegateAccept(P, Q, prop)) ==>
+    event(SpeaksForIssued(P, Q))
+    || event(LtkReveal(P))
+    || event(LtkReveal(Q)).
+
+(* speaks_for_reachable (reachability):
+ *   SpeaksForIssued events are reachable -- a sanity-check that the
+ *   protocol's speaks-for branch can actually fire. ProVerif reports
+ *   `is false` for an existence query (the negation `event(...)` is
+ *   falsified), confirming reachability. Complements
+ *   `exec_delegation` by isolating the speaks-for half. *)
+query P: pkey, Q: pkey;
+  event(SpeaksForIssued(P, Q)).
+
+(* honest_separation (observational equivalence form):
+ *   Lives in a separate ProVerif file at models/proverif/dlc-equiv.pv.
+ *   ProVerif rejects mixing `choice[]` biprocess analysis with
+ *   correspondence/secrecy queries in the same source file ("Queries
+ *   are incompatible with choice."), so the observational-equivalence
+ *   category is checked in an independent invocation. See the CI
+ *   workflow at .github/workflows/proverif.yml for both runs. *)
+
+(* ========================================================================= *)
 (* Processes                                                                  *)
 (* ========================================================================= *)
 

@@ -19,7 +19,7 @@ noncomputable section
 
 namespace dlc_core
 
-/-- Trait implementation: [core::array::{core::fmt::Debug for [T; N]}]
+/-- Trait implementation: [core::array::{impl core::fmt::Debug for [T; N]}]
     Source: '/rustc/library/core/src/array/mod.rs', lines 354:0-354:57
     Name pattern: [core::fmt::Debug<[@T; @N]>] -/
 @[reducible, rust_trait_impl "core::fmt::Debug<[@T; @N]>"]
@@ -28,7 +28,7 @@ def Array.Insts.CoreFmtDebug {T : Type} (N : Std.Usize) (fmtDebugInst :
   fmt := core.array.DebugArray.fmt fmtDebugInst
 }
 
-/-- Trait implementation: [core::hash::impls::{core::hash::Hash for u8}]
+/-- Trait implementation: [core::hash::impls::{impl core::hash::Hash for u8}]
     Source: '/rustc/library/core/src/hash/mod.rs', lines 810:12-810:29
     Name pattern: [core::hash::Hash<u8>] -/
 @[reducible, rust_trait_impl "core::hash::Hash<u8>"]
@@ -37,7 +37,7 @@ def U8.Insts.CoreHashHash : core.hash.Hash Std.U8 := {
     U8.Insts.CoreHashHash.hash HasherInst
 }
 
-/-- Trait implementation: [core::iter::range::{core::iter::range::Step for u32}]
+/-- Trait implementation: [core::iter::range::{impl core::iter::range::Step for u32}]
     Source: '/rustc/library/core/src/iter/range.rs', lines 265:12-265:37
     Name pattern: [core::iter::range::Step<u32>] -/
 @[reducible, rust_trait_impl "core::iter::range::Step<u32>"]
@@ -49,8 +49,8 @@ def U32.Insts.CoreIterRangeStep : core.iter.range.Step Std.U32 := {
   backward_checked := U32.Insts.CoreIterRangeStep.backward_checked
 }
 
-/-- Trait implementation: [alloc::boxed::{core::fmt::Debug for alloc::boxed::Box<T>}]
-    Source: '/rustc/library/alloc/src/boxed.rs', lines 2163:0-2163:67
+/-- Trait implementation: [alloc::boxed::{impl core::fmt::Debug for alloc::boxed::Box<T>}]
+    Source: '/rustc/library/alloc/src/boxed.rs', lines 2207:0-2207:67
     Name pattern: [core::fmt::Debug<Box<@T>>] -/
 @[reducible, rust_trait_impl "core::fmt::Debug<Box<@T>>"]
 def Box.Insts.CoreFmtDebug {T : Type} (A : Type) (corefmtDebugInst :
@@ -58,14 +58,14 @@ def Box.Insts.CoreFmtDebug {T : Type} (A : Type) (corefmtDebugInst :
   fmt := Box.Insts.CoreFmtDebug.fmt A corefmtDebugInst
 }
 
-/-- [dlc_core::time::{core::cmp::PartialEq<dlc_core::time::TimeBound> for dlc_core::time::TimeBound}::eq]:
+/-- [dlc_core::time::{impl core::cmp::PartialEq<dlc_core::time::TimeBound> for dlc_core::time::TimeBound}::eq]:
     Source: 'crates/dlc-core/src/time.rs', lines 12:23-12:32
     Visibility: public -/
 def time.TimeBound.Insts.CoreCmpPartialEqTimeBound.eq
   (self : time.TimeBound) (other : time.TimeBound) : Result Bool := do
   ok (self.epoch_ms = other.epoch_ms)
 
-/-- Trait implementation: [dlc_core::time::{core::cmp::PartialEq<dlc_core::time::TimeBound> for dlc_core::time::TimeBound}]
+/-- Trait implementation: [dlc_core::time::{impl core::cmp::PartialEq<dlc_core::time::TimeBound> for dlc_core::time::TimeBound}]
     Source: 'crates/dlc-core/src/time.rs', lines 12:23-12:32 -/
 @[reducible]
 def time.TimeBound.Insts.CoreCmpPartialEqTimeBound : core.cmp.PartialEq
@@ -74,7 +74,7 @@ def time.TimeBound.Insts.CoreCmpPartialEqTimeBound : core.cmp.PartialEq
   ne := time.TimeBound.Insts.CoreCmpPartialEqTimeBound.ne
 }
 
-/-- [dlc_core::principal::{core::cmp::PartialEq<dlc_core::principal::PrincipalId> for dlc_core::principal::PrincipalId}::eq]:
+/-- [dlc_core::principal::{impl core::cmp::PartialEq<dlc_core::principal::PrincipalId> for dlc_core::principal::PrincipalId}::eq]:
     Source: 'crates/dlc-core/src/principal.rs', lines 25:23-25:32
     Visibility: public -/
 def principal.PrincipalId.Insts.CoreCmpPartialEqPrincipalId.eq
@@ -83,7 +83,7 @@ def principal.PrincipalId.Insts.CoreCmpPartialEqPrincipalId.eq
   := do
   core.array.equality.PartialEqArray.eq core.cmp.PartialEqU8 self other
 
-/-- Trait implementation: [dlc_core::principal::{core::cmp::PartialEq<dlc_core::principal::PrincipalId> for dlc_core::principal::PrincipalId}]
+/-- Trait implementation: [dlc_core::principal::{impl core::cmp::PartialEq<dlc_core::principal::PrincipalId> for dlc_core::principal::PrincipalId}]
     Source: 'crates/dlc-core/src/principal.rs', lines 25:23-25:32 -/
 @[reducible]
 def principal.PrincipalId.Insts.CoreCmpPartialEqPrincipalId :
@@ -92,7 +92,7 @@ def principal.PrincipalId.Insts.CoreCmpPartialEqPrincipalId :
   ne := principal.PrincipalId.Insts.CoreCmpPartialEqPrincipalId.ne
 }
 
-/-- [dlc_core::principal::{core::cmp::PartialEq<dlc_core::principal::Principal> for dlc_core::principal::Principal}::eq]:
+/-- [dlc_core::principal::{impl core::cmp::PartialEq<dlc_core::principal::Principal> for dlc_core::principal::Principal}::eq]:
     Source: 'crates/dlc-core/src/principal.rs', lines 8:23-8:32
     Visibility: public -/
 def principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq
@@ -157,7 +157,7 @@ def principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq
   else ok false
 partial_fixpoint
 
-/-- Trait implementation: [dlc_core::principal::{core::cmp::PartialEq<dlc_core::principal::Principal> for dlc_core::principal::Principal}]
+/-- Trait implementation: [dlc_core::principal::{impl core::cmp::PartialEq<dlc_core::principal::Principal> for dlc_core::principal::Principal}]
     Source: 'crates/dlc-core/src/principal.rs', lines 8:23-8:32 -/
 @[reducible]
 def principal.Principal.Insts.CoreCmpPartialEqPrincipal : core.cmp.PartialEq
@@ -166,7 +166,7 @@ def principal.Principal.Insts.CoreCmpPartialEqPrincipal : core.cmp.PartialEq
   ne := principal.Principal.Insts.CoreCmpPartialEqPrincipal.ne
 }
 
-/-- [dlc_core::obligation::{core::cmp::PartialEq<dlc_core::obligation::DpBudget> for dlc_core::obligation::DpBudget}::eq]:
+/-- [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::DpBudget> for dlc_core::obligation::DpBudget}::eq]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 51:29-51:38
     Visibility: public -/
 def obligation.DpBudget.Insts.CoreCmpPartialEqDpBudget.eq
@@ -177,7 +177,7 @@ def obligation.DpBudget.Insts.CoreCmpPartialEqDpBudget.eq
   then ok (self.delta_micros = other.delta_micros)
   else ok false
 
-/-- Trait implementation: [dlc_core::obligation::{core::cmp::PartialEq<dlc_core::obligation::DpBudget> for dlc_core::obligation::DpBudget}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::DpBudget> for dlc_core::obligation::DpBudget}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 51:29-51:38 -/
 @[reducible]
 def obligation.DpBudget.Insts.CoreCmpPartialEqDpBudget : core.cmp.PartialEq
@@ -186,7 +186,7 @@ def obligation.DpBudget.Insts.CoreCmpPartialEqDpBudget : core.cmp.PartialEq
   ne := obligation.DpBudget.Insts.CoreCmpPartialEqDpBudget.ne
 }
 
-/-- [dlc_core::obligation::{core::cmp::PartialEq<dlc_core::obligation::ActionId> for dlc_core::obligation::ActionId}::eq]:
+/-- [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::ActionId> for dlc_core::obligation::ActionId}::eq]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 41:23-41:32
     Visibility: public -/
 def obligation.ActionId.Insts.CoreCmpPartialEqActionId.eq
@@ -195,7 +195,7 @@ def obligation.ActionId.Insts.CoreCmpPartialEqActionId.eq
   := do
   alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqU8 self other
 
-/-- Trait implementation: [dlc_core::obligation::{core::cmp::PartialEq<dlc_core::obligation::ActionId> for dlc_core::obligation::ActionId}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::ActionId> for dlc_core::obligation::ActionId}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 41:23-41:32 -/
 @[reducible]
 def obligation.ActionId.Insts.CoreCmpPartialEqActionId : core.cmp.PartialEq
@@ -204,7 +204,7 @@ def obligation.ActionId.Insts.CoreCmpPartialEqActionId : core.cmp.PartialEq
   ne := obligation.ActionId.Insts.CoreCmpPartialEqActionId.ne
 }
 
-/-- [dlc_core::obligation::{core::cmp::PartialEq<dlc_core::obligation::Obligation> for dlc_core::obligation::Obligation}::eq]:
+/-- [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::Obligation> for dlc_core::obligation::Obligation}::eq]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 20:23-20:32
     Visibility: public -/
 def obligation.Obligation.Insts.CoreCmpPartialEqObligation.eq
@@ -292,7 +292,7 @@ def obligation.Obligation.Insts.CoreCmpPartialEqObligation.eq
   else ok false
 partial_fixpoint
 
-/-- Trait implementation: [dlc_core::obligation::{core::cmp::PartialEq<dlc_core::obligation::Obligation> for dlc_core::obligation::Obligation}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::Obligation> for dlc_core::obligation::Obligation}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 20:23-20:32 -/
 @[reducible]
 def obligation.Obligation.Insts.CoreCmpPartialEqObligation : core.cmp.PartialEq
@@ -301,14 +301,14 @@ def obligation.Obligation.Insts.CoreCmpPartialEqObligation : core.cmp.PartialEq
   ne := obligation.Obligation.Insts.CoreCmpPartialEqObligation.ne
 }
 
-/-- [dlc_core::ifc::{core::cmp::PartialEq<dlc_core::ifc::Label> for dlc_core::ifc::Label}::eq]:
+/-- [dlc_core::ifc::{impl core::cmp::PartialEq<dlc_core::ifc::Label> for dlc_core::ifc::Label}::eq]:
     Source: 'crates/dlc-core/src/ifc.rs', lines 13:23-13:32
     Visibility: public -/
 def ifc.Label.Insts.CoreCmpPartialEqLabel.eq
   (self : ifc.Label) (other : ifc.Label) : Result Bool := do
   alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqU32 self other
 
-/-- Trait implementation: [dlc_core::ifc::{core::cmp::PartialEq<dlc_core::ifc::Label> for dlc_core::ifc::Label}]
+/-- Trait implementation: [dlc_core::ifc::{impl core::cmp::PartialEq<dlc_core::ifc::Label> for dlc_core::ifc::Label}]
     Source: 'crates/dlc-core/src/ifc.rs', lines 13:23-13:32 -/
 @[reducible]
 def ifc.Label.Insts.CoreCmpPartialEqLabel : core.cmp.PartialEq ifc.Label
@@ -317,7 +317,7 @@ def ifc.Label.Insts.CoreCmpPartialEqLabel : core.cmp.PartialEq ifc.Label
   ne := ifc.Label.Insts.CoreCmpPartialEqLabel.ne
 }
 
-/-- [dlc_core::syntax::{core::cmp::PartialEq<dlc_core::syntax::Prop> for dlc_core::syntax::Prop}::eq]:
+/-- [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Prop> for dlc_core::syntax::Prop}::eq]:
     Source: 'crates/dlc-core/src/syntax.rs', lines 16:23-16:32
     Visibility: public -/
 def syntax.Prop.Insts.CoreCmpPartialEqProp.eq
@@ -547,7 +547,7 @@ def syntax.Prop.Insts.CoreCmpPartialEqProp.eq
   else ok false
 partial_fixpoint
 
-/-- [dlc_core::time::{core::clone::Clone for dlc_core::time::TimeBound}::clone]:
+/-- [dlc_core::time::{impl core::clone::Clone for dlc_core::time::TimeBound}::clone]:
     Source: 'crates/dlc-core/src/time.rs', lines 12:9-12:14
     Visibility: public -/
 def time.TimeBound.Insts.CoreCloneClone.clone
@@ -555,7 +555,7 @@ def time.TimeBound.Insts.CoreCloneClone.clone
   let i ← lift (core.clone.impls.CloneU64.clone self.epoch_ms)
   ok { epoch_ms := i }
 
-/-- [dlc_core::principal::{core::clone::Clone for dlc_core::principal::PrincipalId}::clone]:
+/-- [dlc_core::principal::{impl core::clone::Clone for dlc_core::principal::PrincipalId}::clone]:
     Source: 'crates/dlc-core/src/principal.rs', lines 25:9-25:14
     Visibility: public -/
 def principal.PrincipalId.Insts.CoreCloneClone.clone
@@ -563,7 +563,7 @@ def principal.PrincipalId.Insts.CoreCloneClone.clone
   let a ← core.array.CloneArray.clone core.clone.CloneU8 self
   ok a
 
-/-- [dlc_core::principal::{core::clone::Clone for dlc_core::principal::Principal}::clone]:
+/-- [dlc_core::principal::{impl core::clone::Clone for dlc_core::principal::Principal}::clone]:
     Source: 'crates/dlc-core/src/principal.rs', lines 8:9-8:14
     Visibility: public -/
 def principal.Principal.Insts.CoreCloneClone.clone
@@ -586,14 +586,14 @@ def principal.Principal.Insts.CoreCloneClone.clone
     ok (principal.Principal.Acting p p1)
 partial_fixpoint
 
-/-- [dlc_core::obligation::{core::clone::Clone for dlc_core::obligation::DpBudget}::clone]:
+/-- [dlc_core::obligation::{impl core::clone::Clone for dlc_core::obligation::DpBudget}::clone]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 51:9-51:14
     Visibility: public -/
 def obligation.DpBudget.Insts.CoreCloneClone.clone
   (self : obligation.DpBudget) : Result obligation.DpBudget := do
   ok self
 
-/-- [dlc_core::obligation::{core::clone::Clone for dlc_core::obligation::ActionId}::clone]:
+/-- [dlc_core::obligation::{impl core::clone::Clone for dlc_core::obligation::ActionId}::clone]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 41:9-41:14
     Visibility: public -/
 def obligation.ActionId.Insts.CoreCloneClone.clone
@@ -601,7 +601,7 @@ def obligation.ActionId.Insts.CoreCloneClone.clone
   let v ← alloc.vec.CloneVec.clone core.clone.CloneU8 self
   ok v
 
-/-- [dlc_core::obligation::{core::clone::Clone for dlc_core::obligation::Obligation}::clone]:
+/-- [dlc_core::obligation::{impl core::clone::Clone for dlc_core::obligation::Obligation}::clone]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 20:9-20:14
     Visibility: public -/
 def obligation.Obligation.Insts.CoreCloneClone.clone
@@ -629,7 +629,7 @@ def obligation.Obligation.Insts.CoreCloneClone.clone
     ok (obligation.Obligation.DpBudget db)
 partial_fixpoint
 
-/-- [dlc_core::ifc::{core::clone::Clone for dlc_core::ifc::Label}::clone]:
+/-- [dlc_core::ifc::{impl core::clone::Clone for dlc_core::ifc::Label}::clone]:
     Source: 'crates/dlc-core/src/ifc.rs', lines 13:9-13:14
     Visibility: public -/
 def ifc.Label.Insts.CoreCloneClone.clone
@@ -637,7 +637,7 @@ def ifc.Label.Insts.CoreCloneClone.clone
   let v ← alloc.vec.CloneVec.clone core.clone.CloneU32 self
   ok v
 
-/-- [dlc_core::syntax::{core::clone::Clone for dlc_core::syntax::Prop}::clone]:
+/-- [dlc_core::syntax::{impl core::clone::Clone for dlc_core::syntax::Prop}::clone]:
     Source: 'crates/dlc-core/src/syntax.rs', lines 16:9-16:14
     Visibility: public -/
 def syntax.Prop.Insts.CoreCloneClone.clone
@@ -690,7 +690,7 @@ def syntax.Prop.Insts.CoreCloneClone.clone
     ok (syntax.Prop.Lolli p p1)
 partial_fixpoint
 
-/-- Trait implementation: [dlc_core::syntax::{core::clone::Clone for dlc_core::syntax::Prop}]
+/-- Trait implementation: [dlc_core::syntax::{impl core::clone::Clone for dlc_core::syntax::Prop}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 16:9-16:14 -/
 @[reducible]
 def syntax.Prop.Insts.CoreCloneClone : core.clone.Clone syntax.Prop := {
@@ -713,7 +713,7 @@ def judgment.Ctx.cons_a
   let v ← alloc.vec.Vec.insert self.additive 0#usize phi
   ok { self with additive := v }
 
-/-- [dlc_core::judgment::{core::clone::Clone for dlc_core::judgment::Ctx}::clone]:
+/-- [dlc_core::judgment::{impl core::clone::Clone for dlc_core::judgment::Ctx}::clone]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 15:9-15:14
     Visibility: public -/
 def judgment.Ctx.Insts.CoreCloneClone.clone
@@ -1271,7 +1271,7 @@ def decide.decide_pure (problem : judgment.TypingProblem) : Result Bool := do
   | some inferred =>
     syntax.Prop.Insts.CoreCmpPartialEqProp.eq inferred problem.prop
 
-/-- [dlc_core::graded::{core::clone::Clone for dlc_core::graded::Graded<P>}::clone]:
+/-- [dlc_core::graded::{impl core::clone::Clone for dlc_core::graded::Graded<P>}::clone]:
     Source: 'crates/dlc-core/src/graded.rs', lines 31:9-31:14
     Visibility: public -/
 def graded.Graded.Insts.CoreCloneClone.clone
@@ -1283,7 +1283,7 @@ def graded.Graded.Insts.CoreCloneClone.clone
   let db ← obligation.DpBudget.Insts.CoreCloneClone.clone self.grade
   ok { value := t, grade := db }
 
-/-- Trait implementation: [dlc_core::graded::{core::clone::Clone for dlc_core::graded::Graded<P>}]
+/-- Trait implementation: [dlc_core::graded::{impl core::clone::Clone for dlc_core::graded::Graded<P>}]
     Source: 'crates/dlc-core/src/graded.rs', lines 31:9-31:14 -/
 @[reducible]
 def graded.Graded.Insts.CoreCloneClone {P : Type} (corecloneCloneInst :
@@ -1291,7 +1291,7 @@ def graded.Graded.Insts.CoreCloneClone {P : Type} (corecloneCloneInst :
   clone := graded.Graded.Insts.CoreCloneClone.clone corecloneCloneInst
 }
 
-/-- [dlc_core::obligation::{core::fmt::Debug for dlc_core::obligation::DpBudget}::fmt]:
+/-- [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::DpBudget}::fmt]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 51:22-51:27
     Visibility: public -/
 def obligation.DpBudget.Insts.CoreFmtDebug.fmt
@@ -1304,7 +1304,7 @@ def obligation.DpBudget.Insts.CoreFmtDebug.fmt
   core.fmt.Formatter.debug_struct_field2_finish f (toStr "DpBudget") (toStr
     "epsilon_micros") dyn (toStr "delta_micros") dyn1
 
-/-- Trait implementation: [dlc_core::obligation::{core::fmt::Debug for dlc_core::obligation::DpBudget}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::DpBudget}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 51:22-51:27 -/
 @[reducible]
 def obligation.DpBudget.Insts.CoreFmtDebug : core.fmt.Debug obligation.DpBudget
@@ -1312,7 +1312,7 @@ def obligation.DpBudget.Insts.CoreFmtDebug : core.fmt.Debug obligation.DpBudget
   fmt := obligation.DpBudget.Insts.CoreFmtDebug.fmt
 }
 
-/-- [dlc_core::graded::{core::fmt::Debug for dlc_core::graded::Graded<P>}::fmt]:
+/-- [dlc_core::graded::{impl core::fmt::Debug for dlc_core::graded::Graded<P>}::fmt]:
     Source: 'crates/dlc-core/src/graded.rs', lines 31:16-31:21
     Visibility: public -/
 def graded.Graded.Insts.CoreFmtDebug.fmt
@@ -1327,7 +1327,7 @@ def graded.Graded.Insts.CoreFmtDebug.fmt
   core.fmt.Formatter.debug_struct_field2_finish f (toStr "Graded") (toStr
     "value") dyn (toStr "grade") dyn1
 
-/-- Trait implementation: [dlc_core::graded::{core::fmt::Debug for dlc_core::graded::Graded<P>}]
+/-- Trait implementation: [dlc_core::graded::{impl core::fmt::Debug for dlc_core::graded::Graded<P>}]
     Source: 'crates/dlc-core/src/graded.rs', lines 31:16-31:21 -/
 @[reducible]
 def graded.Graded.Insts.CoreFmtDebug {P : Type} (corefmtDebugInst :
@@ -1335,14 +1335,14 @@ def graded.Graded.Insts.CoreFmtDebug {P : Type} (corefmtDebugInst :
   fmt := graded.Graded.Insts.CoreFmtDebug.fmt corefmtDebugInst
 }
 
-/-- Trait implementation: [dlc_core::graded::{core::marker::StructuralPartialEq for dlc_core::graded::Graded<P>}]
+/-- Trait implementation: [dlc_core::graded::{impl core::marker::StructuralPartialEq for dlc_core::graded::Graded<P>}]
     Source: 'crates/dlc-core/src/graded.rs', lines 31:23-31:32 -/
 @[reducible]
 def graded.Graded.Insts.CoreMarkerStructuralPartialEq (P : Type) :
   core.marker.StructuralPartialEq (graded.Graded P) := {
 }
 
-/-- [dlc_core::graded::{core::cmp::PartialEq<dlc_core::graded::Graded<P>> for dlc_core::graded::Graded<P>}::eq]:
+/-- [dlc_core::graded::{impl core::cmp::PartialEq<dlc_core::graded::Graded<P>> for dlc_core::graded::Graded<P>}::eq]:
     Source: 'crates/dlc-core/src/graded.rs', lines 31:23-31:32
     Visibility: public -/
 def graded.Graded.Insts.CoreCmpPartialEqGraded.eq
@@ -1357,7 +1357,7 @@ def graded.Graded.Insts.CoreCmpPartialEqGraded.eq
       other.grade
   else ok false
 
-/-- Trait implementation: [dlc_core::graded::{core::cmp::PartialEq<dlc_core::graded::Graded<P>> for dlc_core::graded::Graded<P>}]
+/-- Trait implementation: [dlc_core::graded::{impl core::cmp::PartialEq<dlc_core::graded::Graded<P>> for dlc_core::graded::Graded<P>}]
     Source: 'crates/dlc-core/src/graded.rs', lines 31:23-31:32 -/
 @[reducible]
 def graded.Graded.Insts.CoreCmpPartialEqGraded {P : Type} (corecmpPartialEqInst
@@ -1367,7 +1367,7 @@ def graded.Graded.Insts.CoreCmpPartialEqGraded {P : Type} (corecmpPartialEqInst
   ne := graded.Graded.Insts.CoreCmpPartialEqGraded.ne corecmpPartialEqInst
 }
 
-/-- [dlc_core::graded::{core::cmp::Eq for dlc_core::graded::Graded<P>}::assert_receiver_is_total_eq]:
+/-- [dlc_core::graded::{impl core::cmp::Eq for dlc_core::graded::Graded<P>}::assert_receiver_is_total_eq]:
     Source: 'crates/dlc-core/src/graded.rs', lines 31:34-31:36
     Visibility: public -/
 def graded.Graded.Insts.CoreCmpEq.assert_receiver_is_total_eq
@@ -1376,7 +1376,7 @@ def graded.Graded.Insts.CoreCmpEq.assert_receiver_is_total_eq
   := do
   ok ()
 
-/-- Trait implementation: [dlc_core::graded::{core::cmp::Eq for dlc_core::graded::Graded<P>}]
+/-- Trait implementation: [dlc_core::graded::{impl core::cmp::Eq for dlc_core::graded::Graded<P>}]
     Source: 'crates/dlc-core/src/graded.rs', lines 31:34-31:36 -/
 @[reducible]
 def graded.Graded.Insts.CoreCmpEq {P : Type} (corecmpEqInst : core.cmp.Eq P) :
@@ -1468,14 +1468,14 @@ def graded.Graded.within_budget
   := do
   obligation.DpBudget.leq self.grade ceiling
 
-/-- Trait implementation: [dlc_core::ifc::{core::clone::Clone for dlc_core::ifc::Label}]
+/-- Trait implementation: [dlc_core::ifc::{impl core::clone::Clone for dlc_core::ifc::Label}]
     Source: 'crates/dlc-core/src/ifc.rs', lines 13:9-13:14 -/
 @[reducible]
 def ifc.Label.Insts.CoreCloneClone : core.clone.Clone ifc.Label := {
   clone := ifc.Label.Insts.CoreCloneClone.clone
 }
 
-/-- [dlc_core::ifc::{core::fmt::Debug for dlc_core::ifc::Label}::fmt]:
+/-- [dlc_core::ifc::{impl core::fmt::Debug for dlc_core::ifc::Label}::fmt]:
     Source: 'crates/dlc-core/src/ifc.rs', lines 13:16-13:21
     Visibility: public -/
 def ifc.Label.Insts.CoreFmtDebug.fmt
@@ -1486,28 +1486,28 @@ def ifc.Label.Insts.CoreFmtDebug.fmt
     Dyn.mk _ (core.fmt.DebugShared (core.fmt.DebugVec core.fmt.DebugU32)) self
   core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Label") dyn
 
-/-- Trait implementation: [dlc_core::ifc::{core::fmt::Debug for dlc_core::ifc::Label}]
+/-- Trait implementation: [dlc_core::ifc::{impl core::fmt::Debug for dlc_core::ifc::Label}]
     Source: 'crates/dlc-core/src/ifc.rs', lines 13:16-13:21 -/
 @[reducible]
 def ifc.Label.Insts.CoreFmtDebug : core.fmt.Debug ifc.Label := {
   fmt := ifc.Label.Insts.CoreFmtDebug.fmt
 }
 
-/-- Trait implementation: [dlc_core::ifc::{core::marker::StructuralPartialEq for dlc_core::ifc::Label}]
+/-- Trait implementation: [dlc_core::ifc::{impl core::marker::StructuralPartialEq for dlc_core::ifc::Label}]
     Source: 'crates/dlc-core/src/ifc.rs', lines 13:23-13:32 -/
 @[reducible]
 def ifc.Label.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq ifc.Label := {
 }
 
-/-- [dlc_core::ifc::{core::cmp::Eq for dlc_core::ifc::Label}::assert_receiver_is_total_eq]:
+/-- [dlc_core::ifc::{impl core::cmp::Eq for dlc_core::ifc::Label}::assert_receiver_is_total_eq]:
     Source: 'crates/dlc-core/src/ifc.rs', lines 13:34-13:36
     Visibility: public -/
 def ifc.Label.Insts.CoreCmpEq.assert_receiver_is_total_eq
   (self : ifc.Label) : Result Unit := do
   ok ()
 
-/-- Trait implementation: [dlc_core::ifc::{core::cmp::Eq for dlc_core::ifc::Label}]
+/-- Trait implementation: [dlc_core::ifc::{impl core::cmp::Eq for dlc_core::ifc::Label}]
     Source: 'crates/dlc-core/src/ifc.rs', lines 13:34-13:36 -/
 @[reducible]
 def ifc.Label.Insts.CoreCmpEq : core.cmp.Eq ifc.Label := {
@@ -1536,14 +1536,14 @@ def ifc.Label.join
   let v3 ← alloc.vec.Vec.dedup Global core.cmp.PartialEqU32 v2
   ok v3
 
-/-- Trait implementation: [dlc_core::judgment::{core::clone::Clone for dlc_core::judgment::Ctx}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::clone::Clone for dlc_core::judgment::Ctx}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 15:9-15:14 -/
 @[reducible]
 def judgment.Ctx.Insts.CoreCloneClone : core.clone.Clone judgment.Ctx := {
   clone := judgment.Ctx.Insts.CoreCloneClone.clone
 }
 
-/-- [dlc_core::time::{core::fmt::Debug for dlc_core::time::TimeBound}::fmt]:
+/-- [dlc_core::time::{impl core::fmt::Debug for dlc_core::time::TimeBound}::fmt]:
     Source: 'crates/dlc-core/src/time.rs', lines 12:16-12:21
     Visibility: public -/
 def time.TimeBound.Insts.CoreFmtDebug.fmt
@@ -1554,14 +1554,14 @@ def time.TimeBound.Insts.CoreFmtDebug.fmt
   core.fmt.Formatter.debug_struct_field1_finish f (toStr "TimeBound") (toStr
     "epoch_ms") dyn
 
-/-- Trait implementation: [dlc_core::time::{core::fmt::Debug for dlc_core::time::TimeBound}]
+/-- Trait implementation: [dlc_core::time::{impl core::fmt::Debug for dlc_core::time::TimeBound}]
     Source: 'crates/dlc-core/src/time.rs', lines 12:16-12:21 -/
 @[reducible]
 def time.TimeBound.Insts.CoreFmtDebug : core.fmt.Debug time.TimeBound := {
   fmt := time.TimeBound.Insts.CoreFmtDebug.fmt
 }
 
-/-- [dlc_core::principal::{core::fmt::Debug for dlc_core::principal::PrincipalId}::fmt]:
+/-- [dlc_core::principal::{impl core::fmt::Debug for dlc_core::principal::PrincipalId}::fmt]:
     Source: 'crates/dlc-core/src/principal.rs', lines 25:16-25:21
     Visibility: public -/
 def principal.PrincipalId.Insts.CoreFmtDebug.fmt
@@ -1573,7 +1573,7 @@ def principal.PrincipalId.Insts.CoreFmtDebug.fmt
       core.fmt.DebugU8)) self
   core.fmt.Formatter.debug_tuple_field1_finish f (toStr "PrincipalId") dyn
 
-/-- Trait implementation: [dlc_core::principal::{core::fmt::Debug for dlc_core::principal::PrincipalId}]
+/-- Trait implementation: [dlc_core::principal::{impl core::fmt::Debug for dlc_core::principal::PrincipalId}]
     Source: 'crates/dlc-core/src/principal.rs', lines 25:16-25:21 -/
 @[reducible]
 def principal.PrincipalId.Insts.CoreFmtDebug : core.fmt.Debug
@@ -1581,7 +1581,7 @@ def principal.PrincipalId.Insts.CoreFmtDebug : core.fmt.Debug
   fmt := principal.PrincipalId.Insts.CoreFmtDebug.fmt
 }
 
-/-- [dlc_core::principal::{core::fmt::Debug for dlc_core::principal::Principal}::fmt]:
+/-- [dlc_core::principal::{impl core::fmt::Debug for dlc_core::principal::Principal}::fmt]:
     Source: 'crates/dlc-core/src/principal.rs', lines 8:16-8:21
     Visibility: public -/
 def principal.Principal.Insts.CoreFmtDebug.fmt
@@ -1622,7 +1622,7 @@ def principal.Principal.Insts.CoreFmtDebug.fmt
     core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Acting") __self_01
       __self_11
 
-/-- Trait implementation: [dlc_core::principal::{core::fmt::Debug for dlc_core::principal::Principal}]
+/-- Trait implementation: [dlc_core::principal::{impl core::fmt::Debug for dlc_core::principal::Principal}]
     Source: 'crates/dlc-core/src/principal.rs', lines 8:16-8:21 -/
 @[reducible]
 def principal.Principal.Insts.CoreFmtDebug : core.fmt.Debug principal.Principal
@@ -1630,7 +1630,7 @@ def principal.Principal.Insts.CoreFmtDebug : core.fmt.Debug principal.Principal
   fmt := principal.Principal.Insts.CoreFmtDebug.fmt
 }
 
-/-- [dlc_core::obligation::{core::fmt::Debug for dlc_core::obligation::ActionId}::fmt]:
+/-- [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::ActionId}::fmt]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 41:16-41:21
     Visibility: public -/
 def obligation.ActionId.Insts.CoreFmtDebug.fmt
@@ -1641,7 +1641,7 @@ def obligation.ActionId.Insts.CoreFmtDebug.fmt
     Dyn.mk _ (core.fmt.DebugShared (core.fmt.DebugVec core.fmt.DebugU8)) self
   core.fmt.Formatter.debug_tuple_field1_finish f (toStr "ActionId") dyn
 
-/-- Trait implementation: [dlc_core::obligation::{core::fmt::Debug for dlc_core::obligation::ActionId}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::ActionId}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 41:16-41:21 -/
 @[reducible]
 def obligation.ActionId.Insts.CoreFmtDebug : core.fmt.Debug obligation.ActionId
@@ -1649,7 +1649,7 @@ def obligation.ActionId.Insts.CoreFmtDebug : core.fmt.Debug obligation.ActionId
   fmt := obligation.ActionId.Insts.CoreFmtDebug.fmt
 }
 
-/-- [dlc_core::obligation::{core::fmt::Debug for dlc_core::obligation::Obligation}::fmt]:
+/-- [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::Obligation}::fmt]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 20:16-20:21
     Visibility: public -/
 def obligation.Obligation.Insts.CoreFmtDebug.fmt
@@ -1695,7 +1695,7 @@ def obligation.Obligation.Insts.CoreFmtDebug.fmt
         __self_0
     core.fmt.Formatter.debug_tuple_field1_finish f (toStr "DpBudget") __self_01
 
-/-- Trait implementation: [dlc_core::obligation::{core::fmt::Debug for dlc_core::obligation::Obligation}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::Obligation}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 20:16-20:21 -/
 @[reducible]
 def obligation.Obligation.Insts.CoreFmtDebug : core.fmt.Debug
@@ -1703,7 +1703,7 @@ def obligation.Obligation.Insts.CoreFmtDebug : core.fmt.Debug
   fmt := obligation.Obligation.Insts.CoreFmtDebug.fmt
 }
 
-/-- [dlc_core::syntax::{core::fmt::Debug for dlc_core::syntax::Prop}::fmt]:
+/-- [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Prop}::fmt]:
     Source: 'crates/dlc-core/src/syntax.rs', lines 16:16-16:21
     Visibility: public -/
 def syntax.Prop.Insts.CoreFmtDebug.fmt
@@ -1798,14 +1798,14 @@ def syntax.Prop.Insts.CoreFmtDebug.fmt
     core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Lolli") __self_01
       __self_11
 
-/-- Trait implementation: [dlc_core::syntax::{core::fmt::Debug for dlc_core::syntax::Prop}]
+/-- Trait implementation: [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Prop}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 16:16-16:21 -/
 @[reducible]
 def syntax.Prop.Insts.CoreFmtDebug : core.fmt.Debug syntax.Prop := {
   fmt := syntax.Prop.Insts.CoreFmtDebug.fmt
 }
 
-/-- [dlc_core::judgment::{core::fmt::Debug for dlc_core::judgment::Ctx}::fmt]:
+/-- [dlc_core::judgment::{impl core::fmt::Debug for dlc_core::judgment::Ctx}::fmt]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 15:16-15:21
     Visibility: public -/
 def judgment.Ctx.Insts.CoreFmtDebug.fmt
@@ -1820,21 +1820,21 @@ def judgment.Ctx.Insts.CoreFmtDebug.fmt
   core.fmt.Formatter.debug_struct_field2_finish f (toStr "Ctx") (toStr
     "additive") dyn (toStr "linear") dyn1
 
-/-- Trait implementation: [dlc_core::judgment::{core::fmt::Debug for dlc_core::judgment::Ctx}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::fmt::Debug for dlc_core::judgment::Ctx}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 15:16-15:21 -/
 @[reducible]
 def judgment.Ctx.Insts.CoreFmtDebug : core.fmt.Debug judgment.Ctx := {
   fmt := judgment.Ctx.Insts.CoreFmtDebug.fmt
 }
 
-/-- [dlc_core::judgment::{core::default::Default for dlc_core::judgment::Ctx}::default]:
+/-- [dlc_core::judgment::{impl core::default::Default for dlc_core::judgment::Ctx}::default]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 15:23-15:30
     Visibility: public -/
 def judgment.Ctx.Insts.CoreDefaultDefault.default : Result judgment.Ctx := do
   let v ← alloc.vec.Vec.Insts.CoreDefaultDefault.default syntax.Prop
   ok { additive := v, linear := v }
 
-/-- Trait implementation: [dlc_core::judgment::{core::default::Default for dlc_core::judgment::Ctx}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::default::Default for dlc_core::judgment::Ctx}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 15:23-15:30 -/
 @[reducible]
 def judgment.Ctx.Insts.CoreDefaultDefault : core.default.Default judgment.Ctx
@@ -1842,14 +1842,14 @@ def judgment.Ctx.Insts.CoreDefaultDefault : core.default.Default judgment.Ctx
   default := judgment.Ctx.Insts.CoreDefaultDefault.default
 }
 
-/-- Trait implementation: [dlc_core::judgment::{core::marker::StructuralPartialEq for dlc_core::judgment::Ctx}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::marker::StructuralPartialEq for dlc_core::judgment::Ctx}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 15:32-15:41 -/
 @[reducible]
 def judgment.Ctx.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq judgment.Ctx := {
 }
 
-/-- Trait implementation: [dlc_core::syntax::{core::cmp::PartialEq<dlc_core::syntax::Prop> for dlc_core::syntax::Prop}]
+/-- Trait implementation: [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Prop> for dlc_core::syntax::Prop}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 16:23-16:32 -/
 @[reducible]
 def syntax.Prop.Insts.CoreCmpPartialEqProp : core.cmp.PartialEq syntax.Prop
@@ -1858,7 +1858,7 @@ def syntax.Prop.Insts.CoreCmpPartialEqProp : core.cmp.PartialEq syntax.Prop
   ne := syntax.Prop.Insts.CoreCmpPartialEqProp.ne
 }
 
-/-- [dlc_core::judgment::{core::cmp::PartialEq<dlc_core::judgment::Ctx> for dlc_core::judgment::Ctx}::eq]:
+/-- [dlc_core::judgment::{impl core::cmp::PartialEq<dlc_core::judgment::Ctx> for dlc_core::judgment::Ctx}::eq]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 15:32-15:41
     Visibility: public -/
 def judgment.Ctx.Insts.CoreCmpPartialEqCtx.eq
@@ -1872,7 +1872,7 @@ def judgment.Ctx.Insts.CoreCmpPartialEqCtx.eq
       self.linear other.linear
   else ok false
 
-/-- Trait implementation: [dlc_core::judgment::{core::cmp::PartialEq<dlc_core::judgment::Ctx> for dlc_core::judgment::Ctx}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::cmp::PartialEq<dlc_core::judgment::Ctx> for dlc_core::judgment::Ctx}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 15:32-15:41 -/
 @[reducible]
 def judgment.Ctx.Insts.CoreCmpPartialEqCtx : core.cmp.PartialEq judgment.Ctx
@@ -1881,14 +1881,14 @@ def judgment.Ctx.Insts.CoreCmpPartialEqCtx : core.cmp.PartialEq judgment.Ctx
   ne := judgment.Ctx.Insts.CoreCmpPartialEqCtx.ne
 }
 
-/-- [dlc_core::judgment::{core::cmp::Eq for dlc_core::judgment::Ctx}::assert_receiver_is_total_eq]:
+/-- [dlc_core::judgment::{impl core::cmp::Eq for dlc_core::judgment::Ctx}::assert_receiver_is_total_eq]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 15:43-15:45
     Visibility: public -/
 def judgment.Ctx.Insts.CoreCmpEq.assert_receiver_is_total_eq
   (self : judgment.Ctx) : Result Unit := do
   ok ()
 
-/-- Trait implementation: [dlc_core::judgment::{core::cmp::Eq for dlc_core::judgment::Ctx}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::cmp::Eq for dlc_core::judgment::Ctx}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 15:43-15:45 -/
 @[reducible]
 def judgment.Ctx.Insts.CoreCmpEq : core.cmp.Eq judgment.Ctx := {
@@ -1903,7 +1903,7 @@ def judgment.Ctx.Insts.CoreCmpEq : core.cmp.Eq judgment.Ctx := {
 def judgment.Ctx.empty : Result judgment.Ctx := do
   judgment.Ctx.Insts.CoreDefaultDefault.default
 
-/-- [dlc_core::principal::{core::clone::Clone for dlc_core::principal::KeyRecord}::clone]:
+/-- [dlc_core::principal::{impl core::clone::Clone for dlc_core::principal::KeyRecord}::clone]:
     Source: 'crates/dlc-core/src/principal.rs', lines 32:9-32:14
     Visibility: public -/
 def principal.KeyRecord.Insts.CoreCloneClone.clone
@@ -1913,7 +1913,7 @@ def principal.KeyRecord.Insts.CoreCloneClone.clone
   let v ← alloc.vec.CloneVec.clone core.clone.CloneU8 self.public_key
   ok { principal := pi, alg := i, public_key := v }
 
-/-- Trait implementation: [dlc_core::principal::{core::clone::Clone for dlc_core::principal::KeyRecord}]
+/-- Trait implementation: [dlc_core::principal::{impl core::clone::Clone for dlc_core::principal::KeyRecord}]
     Source: 'crates/dlc-core/src/principal.rs', lines 32:9-32:14 -/
 @[reducible]
 def principal.KeyRecord.Insts.CoreCloneClone : core.clone.Clone
@@ -1921,7 +1921,7 @@ def principal.KeyRecord.Insts.CoreCloneClone : core.clone.Clone
   clone := principal.KeyRecord.Insts.CoreCloneClone.clone
 }
 
-/-- [dlc_core::judgment::{core::clone::Clone for dlc_core::judgment::KeyRing}::clone]:
+/-- [dlc_core::judgment::{impl core::clone::Clone for dlc_core::judgment::KeyRing}::clone]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 43:9-43:14
     Visibility: public -/
 def judgment.KeyRing.Insts.CoreCloneClone.clone
@@ -1931,7 +1931,7 @@ def judgment.KeyRing.Insts.CoreCloneClone.clone
       self.entries
   ok { entries := v }
 
-/-- Trait implementation: [dlc_core::judgment::{core::clone::Clone for dlc_core::judgment::KeyRing}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::clone::Clone for dlc_core::judgment::KeyRing}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 43:9-43:14 -/
 @[reducible]
 def judgment.KeyRing.Insts.CoreCloneClone : core.clone.Clone judgment.KeyRing
@@ -1939,7 +1939,7 @@ def judgment.KeyRing.Insts.CoreCloneClone : core.clone.Clone judgment.KeyRing
   clone := judgment.KeyRing.Insts.CoreCloneClone.clone
 }
 
-/-- [dlc_core::principal::{core::fmt::Debug for dlc_core::principal::KeyRecord}::fmt]:
+/-- [dlc_core::principal::{impl core::fmt::Debug for dlc_core::principal::KeyRecord}::fmt]:
     Source: 'crates/dlc-core/src/principal.rs', lines 32:16-32:21
     Visibility: public -/
 def principal.KeyRecord.Insts.CoreFmtDebug.fmt
@@ -1954,7 +1954,7 @@ def principal.KeyRecord.Insts.CoreFmtDebug.fmt
   core.fmt.Formatter.debug_struct_field3_finish f (toStr "KeyRecord") (toStr
     "principal") dyn (toStr "alg") dyn1 (toStr "public_key") dyn2
 
-/-- Trait implementation: [dlc_core::principal::{core::fmt::Debug for dlc_core::principal::KeyRecord}]
+/-- Trait implementation: [dlc_core::principal::{impl core::fmt::Debug for dlc_core::principal::KeyRecord}]
     Source: 'crates/dlc-core/src/principal.rs', lines 32:16-32:21 -/
 @[reducible]
 def principal.KeyRecord.Insts.CoreFmtDebug : core.fmt.Debug principal.KeyRecord
@@ -1962,7 +1962,7 @@ def principal.KeyRecord.Insts.CoreFmtDebug : core.fmt.Debug principal.KeyRecord
   fmt := principal.KeyRecord.Insts.CoreFmtDebug.fmt
 }
 
-/-- [dlc_core::judgment::{core::fmt::Debug for dlc_core::judgment::KeyRing}::fmt]:
+/-- [dlc_core::judgment::{impl core::fmt::Debug for dlc_core::judgment::KeyRing}::fmt]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 43:16-43:21
     Visibility: public -/
 def judgment.KeyRing.Insts.CoreFmtDebug.fmt
@@ -1975,14 +1975,14 @@ def judgment.KeyRing.Insts.CoreFmtDebug.fmt
   core.fmt.Formatter.debug_struct_field1_finish f (toStr "KeyRing") (toStr
     "entries") dyn
 
-/-- Trait implementation: [dlc_core::judgment::{core::fmt::Debug for dlc_core::judgment::KeyRing}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::fmt::Debug for dlc_core::judgment::KeyRing}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 43:16-43:21 -/
 @[reducible]
 def judgment.KeyRing.Insts.CoreFmtDebug : core.fmt.Debug judgment.KeyRing := {
   fmt := judgment.KeyRing.Insts.CoreFmtDebug.fmt
 }
 
-/-- [dlc_core::judgment::{core::default::Default for dlc_core::judgment::KeyRing}::default]:
+/-- [dlc_core::judgment::{impl core::default::Default for dlc_core::judgment::KeyRing}::default]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 43:23-43:30
     Visibility: public -/
 def judgment.KeyRing.Insts.CoreDefaultDefault.default
@@ -1990,7 +1990,7 @@ def judgment.KeyRing.Insts.CoreDefaultDefault.default
   let v ← alloc.vec.Vec.Insts.CoreDefaultDefault.default principal.KeyRecord
   ok { entries := v }
 
-/-- Trait implementation: [dlc_core::judgment::{core::default::Default for dlc_core::judgment::KeyRing}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::default::Default for dlc_core::judgment::KeyRing}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 43:23-43:30 -/
 @[reducible]
 def judgment.KeyRing.Insts.CoreDefaultDefault : core.default.Default
@@ -1998,14 +1998,14 @@ def judgment.KeyRing.Insts.CoreDefaultDefault : core.default.Default
   default := judgment.KeyRing.Insts.CoreDefaultDefault.default
 }
 
-/-- Trait implementation: [dlc_core::judgment::{core::marker::StructuralPartialEq for dlc_core::judgment::KeyRing}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::marker::StructuralPartialEq for dlc_core::judgment::KeyRing}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 43:32-43:41 -/
 @[reducible]
 def judgment.KeyRing.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq judgment.KeyRing := {
 }
 
-/-- [dlc_core::principal::{core::cmp::PartialEq<dlc_core::principal::KeyRecord> for dlc_core::principal::KeyRecord}::eq]:
+/-- [dlc_core::principal::{impl core::cmp::PartialEq<dlc_core::principal::KeyRecord> for dlc_core::principal::KeyRecord}::eq]:
     Source: 'crates/dlc-core/src/principal.rs', lines 32:23-32:32
     Visibility: public -/
 def principal.KeyRecord.Insts.CoreCmpPartialEqKeyRecord.eq
@@ -2024,7 +2024,7 @@ def principal.KeyRecord.Insts.CoreCmpPartialEqKeyRecord.eq
     else ok false
   else ok false
 
-/-- Trait implementation: [dlc_core::principal::{core::cmp::PartialEq<dlc_core::principal::KeyRecord> for dlc_core::principal::KeyRecord}]
+/-- Trait implementation: [dlc_core::principal::{impl core::cmp::PartialEq<dlc_core::principal::KeyRecord> for dlc_core::principal::KeyRecord}]
     Source: 'crates/dlc-core/src/principal.rs', lines 32:23-32:32 -/
 @[reducible]
 def principal.KeyRecord.Insts.CoreCmpPartialEqKeyRecord : core.cmp.PartialEq
@@ -2033,7 +2033,7 @@ def principal.KeyRecord.Insts.CoreCmpPartialEqKeyRecord : core.cmp.PartialEq
   ne := principal.KeyRecord.Insts.CoreCmpPartialEqKeyRecord.ne
 }
 
-/-- [dlc_core::judgment::{core::cmp::PartialEq<dlc_core::judgment::KeyRing> for dlc_core::judgment::KeyRing}::eq]:
+/-- [dlc_core::judgment::{impl core::cmp::PartialEq<dlc_core::judgment::KeyRing> for dlc_core::judgment::KeyRing}::eq]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 43:32-43:41
     Visibility: public -/
 def judgment.KeyRing.Insts.CoreCmpPartialEqKeyRing.eq
@@ -2042,7 +2042,7 @@ def judgment.KeyRing.Insts.CoreCmpPartialEqKeyRing.eq
     principal.KeyRecord.Insts.CoreCmpPartialEqKeyRecord self.entries
     other.entries
 
-/-- Trait implementation: [dlc_core::judgment::{core::cmp::PartialEq<dlc_core::judgment::KeyRing> for dlc_core::judgment::KeyRing}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::cmp::PartialEq<dlc_core::judgment::KeyRing> for dlc_core::judgment::KeyRing}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 43:32-43:41 -/
 @[reducible]
 def judgment.KeyRing.Insts.CoreCmpPartialEqKeyRing : core.cmp.PartialEq
@@ -2051,14 +2051,14 @@ def judgment.KeyRing.Insts.CoreCmpPartialEqKeyRing : core.cmp.PartialEq
   ne := judgment.KeyRing.Insts.CoreCmpPartialEqKeyRing.ne
 }
 
-/-- [dlc_core::judgment::{core::cmp::Eq for dlc_core::judgment::KeyRing}::assert_receiver_is_total_eq]:
+/-- [dlc_core::judgment::{impl core::cmp::Eq for dlc_core::judgment::KeyRing}::assert_receiver_is_total_eq]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 43:43-43:45
     Visibility: public -/
 def judgment.KeyRing.Insts.CoreCmpEq.assert_receiver_is_total_eq
   (self : judgment.KeyRing) : Result Unit := do
   ok ()
 
-/-- Trait implementation: [dlc_core::judgment::{core::cmp::Eq for dlc_core::judgment::KeyRing}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::cmp::Eq for dlc_core::judgment::KeyRing}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 43:43-43:45 -/
 @[reducible]
 def judgment.KeyRing.Insts.CoreCmpEq : core.cmp.Eq judgment.KeyRing := {
@@ -2067,7 +2067,7 @@ def judgment.KeyRing.Insts.CoreCmpEq : core.cmp.Eq judgment.KeyRing := {
     judgment.KeyRing.Insts.CoreCmpEq.assert_receiver_is_total_eq
 }
 
-/-- [dlc_core::syntax::{core::clone::Clone for dlc_core::syntax::Signature}::clone]:
+/-- [dlc_core::syntax::{impl core::clone::Clone for dlc_core::syntax::Signature}::clone]:
     Source: 'crates/dlc-core/src/syntax.rs', lines 116:9-116:14
     Visibility: public -/
 def syntax.Signature.Insts.CoreCloneClone.clone
@@ -2076,7 +2076,7 @@ def syntax.Signature.Insts.CoreCloneClone.clone
   let v ← alloc.vec.CloneVec.clone core.clone.CloneU8 self.bytes
   ok { alg := i, bytes := v }
 
-/-- [dlc_core::syntax::{core::clone::Clone for dlc_core::syntax::Term}::clone]:
+/-- [dlc_core::syntax::{impl core::clone::Clone for dlc_core::syntax::Term}::clone]:
     Source: 'crates/dlc-core/src/syntax.rs', lines 47:9-47:14
     Visibility: public -/
 def syntax.Term.Insts.CoreCloneClone.clone
@@ -2172,7 +2172,7 @@ def syntax.Term.Insts.CoreCloneClone.clone
     ok (syntax.Term.SfExtract t)
 partial_fixpoint
 
-/-- [dlc_core::judgment::{core::clone::Clone for dlc_core::judgment::TypingProblem}::clone]:
+/-- [dlc_core::judgment::{impl core::clone::Clone for dlc_core::judgment::TypingProblem}::clone]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 50:9-50:14
     Visibility: public -/
 def judgment.TypingProblem.Insts.CoreCloneClone.clone
@@ -2182,7 +2182,7 @@ def judgment.TypingProblem.Insts.CoreCloneClone.clone
   let p ← syntax.Prop.Insts.CoreCloneClone.clone self.prop
   ok { ctx := c, term := t, prop := p }
 
-/-- Trait implementation: [dlc_core::judgment::{core::clone::Clone for dlc_core::judgment::TypingProblem}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::clone::Clone for dlc_core::judgment::TypingProblem}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 50:9-50:14 -/
 @[reducible]
 def judgment.TypingProblem.Insts.CoreCloneClone : core.clone.Clone
@@ -2190,7 +2190,7 @@ def judgment.TypingProblem.Insts.CoreCloneClone : core.clone.Clone
   clone := judgment.TypingProblem.Insts.CoreCloneClone.clone
 }
 
-/-- [dlc_core::syntax::{core::fmt::Debug for dlc_core::syntax::Signature}::fmt]:
+/-- [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Signature}::fmt]:
     Source: 'crates/dlc-core/src/syntax.rs', lines 116:16-116:21
     Visibility: public -/
 def syntax.Signature.Insts.CoreFmtDebug.fmt
@@ -2204,14 +2204,14 @@ def syntax.Signature.Insts.CoreFmtDebug.fmt
   core.fmt.Formatter.debug_struct_field2_finish f (toStr "Signature") (toStr
     "alg") dyn (toStr "bytes") dyn1
 
-/-- Trait implementation: [dlc_core::syntax::{core::fmt::Debug for dlc_core::syntax::Signature}]
+/-- Trait implementation: [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Signature}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 116:16-116:21 -/
 @[reducible]
 def syntax.Signature.Insts.CoreFmtDebug : core.fmt.Debug syntax.Signature := {
   fmt := syntax.Signature.Insts.CoreFmtDebug.fmt
 }
 
-/-- [dlc_core::syntax::{core::fmt::Debug for dlc_core::syntax::Term}::fmt]:
+/-- [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Term}::fmt]:
     Source: 'crates/dlc-core/src/syntax.rs', lines 47:16-47:21
     Visibility: public -/
 def syntax.Term.Insts.CoreFmtDebug.fmt
@@ -2400,14 +2400,14 @@ def syntax.Term.Insts.CoreFmtDebug.fmt
     core.fmt.Formatter.debug_tuple_field1_finish f (toStr "SfExtract")
       __self_01
 
-/-- Trait implementation: [dlc_core::syntax::{core::fmt::Debug for dlc_core::syntax::Term}]
+/-- Trait implementation: [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Term}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 47:16-47:21 -/
 @[reducible]
 def syntax.Term.Insts.CoreFmtDebug : core.fmt.Debug syntax.Term := {
   fmt := syntax.Term.Insts.CoreFmtDebug.fmt
 }
 
-/-- [dlc_core::judgment::{core::fmt::Debug for dlc_core::judgment::TypingProblem}::fmt]:
+/-- [dlc_core::judgment::{impl core::fmt::Debug for dlc_core::judgment::TypingProblem}::fmt]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 50:16-50:21
     Visibility: public -/
 def judgment.TypingProblem.Insts.CoreFmtDebug.fmt
@@ -2421,7 +2421,7 @@ def judgment.TypingProblem.Insts.CoreFmtDebug.fmt
   core.fmt.Formatter.debug_struct_field3_finish f (toStr "TypingProblem")
     (toStr "ctx") dyn (toStr "term") dyn1 (toStr "prop") dyn2
 
-/-- Trait implementation: [dlc_core::judgment::{core::fmt::Debug for dlc_core::judgment::TypingProblem}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::fmt::Debug for dlc_core::judgment::TypingProblem}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 50:16-50:21 -/
 @[reducible]
 def judgment.TypingProblem.Insts.CoreFmtDebug : core.fmt.Debug
@@ -2429,14 +2429,14 @@ def judgment.TypingProblem.Insts.CoreFmtDebug : core.fmt.Debug
   fmt := judgment.TypingProblem.Insts.CoreFmtDebug.fmt
 }
 
-/-- [dlc_core::judgment::{core::clone::Clone for dlc_core::judgment::RuleName}::clone]:
+/-- [dlc_core::judgment::{impl core::clone::Clone for dlc_core::judgment::RuleName}::clone]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 64:9-64:14
     Visibility: public -/
 def judgment.RuleName.Insts.CoreCloneClone.clone
   (self : judgment.RuleName) : Result judgment.RuleName := do
   ok self
 
-/-- Trait implementation: [dlc_core::judgment::{core::clone::Clone for dlc_core::judgment::RuleName}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::clone::Clone for dlc_core::judgment::RuleName}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 64:9-64:14 -/
 @[reducible]
 def judgment.RuleName.Insts.CoreCloneClone : core.clone.Clone judgment.RuleName
@@ -2444,7 +2444,7 @@ def judgment.RuleName.Insts.CoreCloneClone : core.clone.Clone judgment.RuleName
   clone := judgment.RuleName.Insts.CoreCloneClone.clone
 }
 
-/-- Trait implementation: [dlc_core::judgment::{core::marker::Copy for dlc_core::judgment::RuleName}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::marker::Copy for dlc_core::judgment::RuleName}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 64:16-64:20 -/
 @[reducible]
 def judgment.RuleName.Insts.CoreMarkerCopy : core.marker.Copy judgment.RuleName
@@ -2452,7 +2452,7 @@ def judgment.RuleName.Insts.CoreMarkerCopy : core.marker.Copy judgment.RuleName
   cloneInst := judgment.RuleName.Insts.CoreCloneClone
 }
 
-/-- [dlc_core::judgment::{core::fmt::Debug for dlc_core::judgment::RuleName}::fmt]:
+/-- [dlc_core::judgment::{impl core::fmt::Debug for dlc_core::judgment::RuleName}::fmt]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 64:22-64:27
     Visibility: public -/
 def judgment.RuleName.Insts.CoreFmtDebug.fmt
@@ -2503,7 +2503,7 @@ def judgment.RuleName.Insts.CoreFmtDebug.fmt
   | judgment.RuleName.SfExtract =>
     core.fmt.Formatter.write_str f (toStr "SfExtract")
 
-/-- Trait implementation: [dlc_core::judgment::{core::fmt::Debug for dlc_core::judgment::RuleName}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::fmt::Debug for dlc_core::judgment::RuleName}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 64:22-64:27 -/
 @[reducible]
 def judgment.RuleName.Insts.CoreFmtDebug : core.fmt.Debug judgment.RuleName
@@ -2511,14 +2511,14 @@ def judgment.RuleName.Insts.CoreFmtDebug : core.fmt.Debug judgment.RuleName
   fmt := judgment.RuleName.Insts.CoreFmtDebug.fmt
 }
 
-/-- Trait implementation: [dlc_core::judgment::{core::marker::StructuralPartialEq for dlc_core::judgment::RuleName}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::marker::StructuralPartialEq for dlc_core::judgment::RuleName}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 64:29-64:38 -/
 @[reducible]
 def judgment.RuleName.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq judgment.RuleName := {
 }
 
-/-- [dlc_core::judgment::{core::cmp::PartialEq<dlc_core::judgment::RuleName> for dlc_core::judgment::RuleName}::eq]:
+/-- [dlc_core::judgment::{impl core::cmp::PartialEq<dlc_core::judgment::RuleName> for dlc_core::judgment::RuleName}::eq]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 64:29-64:38
     Visibility: public -/
 def judgment.RuleName.Insts.CoreCmpPartialEqRuleName.eq
@@ -2527,7 +2527,7 @@ def judgment.RuleName.Insts.CoreCmpPartialEqRuleName.eq
   let other1 := read_discriminant other
   ok (self1 = other1)
 
-/-- Trait implementation: [dlc_core::judgment::{core::cmp::PartialEq<dlc_core::judgment::RuleName> for dlc_core::judgment::RuleName}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::cmp::PartialEq<dlc_core::judgment::RuleName> for dlc_core::judgment::RuleName}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 64:29-64:38 -/
 @[reducible]
 def judgment.RuleName.Insts.CoreCmpPartialEqRuleName : core.cmp.PartialEq
@@ -2536,14 +2536,14 @@ def judgment.RuleName.Insts.CoreCmpPartialEqRuleName : core.cmp.PartialEq
   ne := judgment.RuleName.Insts.CoreCmpPartialEqRuleName.ne
 }
 
-/-- [dlc_core::judgment::{core::cmp::Eq for dlc_core::judgment::RuleName}::assert_receiver_is_total_eq]:
+/-- [dlc_core::judgment::{impl core::cmp::Eq for dlc_core::judgment::RuleName}::assert_receiver_is_total_eq]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 64:40-64:42
     Visibility: public -/
 def judgment.RuleName.Insts.CoreCmpEq.assert_receiver_is_total_eq
   (self : judgment.RuleName) : Result Unit := do
   ok ()
 
-/-- Trait implementation: [dlc_core::judgment::{core::cmp::Eq for dlc_core::judgment::RuleName}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::cmp::Eq for dlc_core::judgment::RuleName}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 64:40-64:42 -/
 @[reducible]
 def judgment.RuleName.Insts.CoreCmpEq : core.cmp.Eq judgment.RuleName := {
@@ -2552,7 +2552,7 @@ def judgment.RuleName.Insts.CoreCmpEq : core.cmp.Eq judgment.RuleName := {
     judgment.RuleName.Insts.CoreCmpEq.assert_receiver_is_total_eq
 }
 
-/-- [dlc_core::judgment::{core::hash::Hash for dlc_core::judgment::RuleName}::hash]:
+/-- [dlc_core::judgment::{impl core::hash::Hash for dlc_core::judgment::RuleName}::hash]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 64:44-64:48
     Visibility: public -/
 def judgment.RuleName.Insts.CoreHashHash.hash
@@ -2563,7 +2563,7 @@ def judgment.RuleName.Insts.CoreHashHash.hash
   let self1 := read_discriminant self
   Isize.Insts.CoreHashHash.hash corehashHasherInst self1 state
 
-/-- Trait implementation: [dlc_core::judgment::{core::hash::Hash for dlc_core::judgment::RuleName}]
+/-- Trait implementation: [dlc_core::judgment::{impl core::hash::Hash for dlc_core::judgment::RuleName}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 64:44-64:48 -/
 @[reducible]
 def judgment.RuleName.Insts.CoreHashHash : core.hash.Hash judgment.RuleName
@@ -2572,7 +2572,7 @@ def judgment.RuleName.Insts.CoreHashHash : core.hash.Hash judgment.RuleName
     judgment.RuleName.Insts.CoreHashHash.hash corehashHasherInst
 }
 
-/-- Trait implementation: [dlc_core::obligation::{core::clone::Clone for dlc_core::obligation::Obligation}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::clone::Clone for dlc_core::obligation::Obligation}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 20:9-20:14 -/
 @[reducible]
 def obligation.Obligation.Insts.CoreCloneClone : core.clone.Clone
@@ -2580,21 +2580,21 @@ def obligation.Obligation.Insts.CoreCloneClone : core.clone.Clone
   clone := obligation.Obligation.Insts.CoreCloneClone.clone
 }
 
-/-- Trait implementation: [dlc_core::obligation::{core::marker::StructuralPartialEq for dlc_core::obligation::Obligation}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::marker::StructuralPartialEq for dlc_core::obligation::Obligation}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 20:23-20:32 -/
 @[reducible]
 def obligation.Obligation.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq obligation.Obligation := {
 }
 
-/-- [dlc_core::obligation::{core::cmp::Eq for dlc_core::obligation::Obligation}::assert_receiver_is_total_eq]:
+/-- [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::Obligation}::assert_receiver_is_total_eq]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 20:34-20:36
     Visibility: public -/
 def obligation.Obligation.Insts.CoreCmpEq.assert_receiver_is_total_eq
   (self : obligation.Obligation) : Result Unit := do
   ok ()
 
-/-- Trait implementation: [dlc_core::obligation::{core::cmp::Eq for dlc_core::obligation::Obligation}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::Obligation}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 20:34-20:36 -/
 @[reducible]
 def obligation.Obligation.Insts.CoreCmpEq : core.cmp.Eq obligation.Obligation
@@ -2604,7 +2604,7 @@ def obligation.Obligation.Insts.CoreCmpEq : core.cmp.Eq obligation.Obligation
     obligation.Obligation.Insts.CoreCmpEq.assert_receiver_is_total_eq
 }
 
-/-- Trait implementation: [dlc_core::obligation::{core::clone::Clone for dlc_core::obligation::ActionId}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::clone::Clone for dlc_core::obligation::ActionId}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 41:9-41:14 -/
 @[reducible]
 def obligation.ActionId.Insts.CoreCloneClone : core.clone.Clone
@@ -2612,21 +2612,21 @@ def obligation.ActionId.Insts.CoreCloneClone : core.clone.Clone
   clone := obligation.ActionId.Insts.CoreCloneClone.clone
 }
 
-/-- Trait implementation: [dlc_core::obligation::{core::marker::StructuralPartialEq for dlc_core::obligation::ActionId}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::marker::StructuralPartialEq for dlc_core::obligation::ActionId}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 41:23-41:32 -/
 @[reducible]
 def obligation.ActionId.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq obligation.ActionId := {
 }
 
-/-- [dlc_core::obligation::{core::cmp::Eq for dlc_core::obligation::ActionId}::assert_receiver_is_total_eq]:
+/-- [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::ActionId}::assert_receiver_is_total_eq]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 41:34-41:36
     Visibility: public -/
 def obligation.ActionId.Insts.CoreCmpEq.assert_receiver_is_total_eq
   (self : obligation.ActionId) : Result Unit := do
   ok ()
 
-/-- Trait implementation: [dlc_core::obligation::{core::cmp::Eq for dlc_core::obligation::ActionId}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::ActionId}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 41:34-41:36 -/
 @[reducible]
 def obligation.ActionId.Insts.CoreCmpEq : core.cmp.Eq obligation.ActionId := {
@@ -2635,7 +2635,7 @@ def obligation.ActionId.Insts.CoreCmpEq : core.cmp.Eq obligation.ActionId := {
     obligation.ActionId.Insts.CoreCmpEq.assert_receiver_is_total_eq
 }
 
-/-- [dlc_core::obligation::{core::hash::Hash for dlc_core::obligation::ActionId}::hash]:
+/-- [dlc_core::obligation::{impl core::hash::Hash for dlc_core::obligation::ActionId}::hash]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 41:38-41:42
     Visibility: public -/
 def obligation.ActionId.Insts.CoreHashHash.hash
@@ -2646,7 +2646,7 @@ def obligation.ActionId.Insts.CoreHashHash.hash
   alloc.vec.Vec.Insts.CoreHashHash.hash Global U8.Insts.CoreHashHash
     corehashHasherInst self state
 
-/-- Trait implementation: [dlc_core::obligation::{core::hash::Hash for dlc_core::obligation::ActionId}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::hash::Hash for dlc_core::obligation::ActionId}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 41:38-41:42 -/
 @[reducible]
 def obligation.ActionId.Insts.CoreHashHash : core.hash.Hash obligation.ActionId
@@ -2655,7 +2655,7 @@ def obligation.ActionId.Insts.CoreHashHash : core.hash.Hash obligation.ActionId
     obligation.ActionId.Insts.CoreHashHash.hash corehashHasherInst
 }
 
-/-- Trait implementation: [dlc_core::obligation::{core::clone::Clone for dlc_core::obligation::DpBudget}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::clone::Clone for dlc_core::obligation::DpBudget}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 51:9-51:14 -/
 @[reducible]
 def obligation.DpBudget.Insts.CoreCloneClone : core.clone.Clone
@@ -2663,7 +2663,7 @@ def obligation.DpBudget.Insts.CoreCloneClone : core.clone.Clone
   clone := obligation.DpBudget.Insts.CoreCloneClone.clone
 }
 
-/-- Trait implementation: [dlc_core::obligation::{core::marker::Copy for dlc_core::obligation::DpBudget}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::marker::Copy for dlc_core::obligation::DpBudget}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 51:16-51:20 -/
 @[reducible]
 def obligation.DpBudget.Insts.CoreMarkerCopy : core.marker.Copy
@@ -2671,21 +2671,21 @@ def obligation.DpBudget.Insts.CoreMarkerCopy : core.marker.Copy
   cloneInst := obligation.DpBudget.Insts.CoreCloneClone
 }
 
-/-- Trait implementation: [dlc_core::obligation::{core::marker::StructuralPartialEq for dlc_core::obligation::DpBudget}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::marker::StructuralPartialEq for dlc_core::obligation::DpBudget}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 51:29-51:38 -/
 @[reducible]
 def obligation.DpBudget.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq obligation.DpBudget := {
 }
 
-/-- [dlc_core::obligation::{core::cmp::Eq for dlc_core::obligation::DpBudget}::assert_receiver_is_total_eq]:
+/-- [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::DpBudget}::assert_receiver_is_total_eq]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 51:40-51:42
     Visibility: public -/
 def obligation.DpBudget.Insts.CoreCmpEq.assert_receiver_is_total_eq
   (self : obligation.DpBudget) : Result Unit := do
   ok ()
 
-/-- Trait implementation: [dlc_core::obligation::{core::cmp::Eq for dlc_core::obligation::DpBudget}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::DpBudget}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 51:40-51:42 -/
 @[reducible]
 def obligation.DpBudget.Insts.CoreCmpEq : core.cmp.Eq obligation.DpBudget := {
@@ -2694,7 +2694,7 @@ def obligation.DpBudget.Insts.CoreCmpEq : core.cmp.Eq obligation.DpBudget := {
     obligation.DpBudget.Insts.CoreCmpEq.assert_receiver_is_total_eq
 }
 
-/-- [dlc_core::obligation::{core::hash::Hash for dlc_core::obligation::DpBudget}::hash]:
+/-- [dlc_core::obligation::{impl core::hash::Hash for dlc_core::obligation::DpBudget}::hash]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 51:44-51:48
     Visibility: public -/
 def obligation.DpBudget.Insts.CoreHashHash.hash
@@ -2706,7 +2706,7 @@ def obligation.DpBudget.Insts.CoreHashHash.hash
     U64.Insts.CoreHashHash.hash corehashHasherInst self.epsilon_micros state
   U64.Insts.CoreHashHash.hash corehashHasherInst self.delta_micros state1
 
-/-- Trait implementation: [dlc_core::obligation::{core::hash::Hash for dlc_core::obligation::DpBudget}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::hash::Hash for dlc_core::obligation::DpBudget}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 51:44-51:48 -/
 @[reducible]
 def obligation.DpBudget.Insts.CoreHashHash : core.hash.Hash obligation.DpBudget
@@ -2715,14 +2715,14 @@ def obligation.DpBudget.Insts.CoreHashHash : core.hash.Hash obligation.DpBudget
     obligation.DpBudget.Insts.CoreHashHash.hash corehashHasherInst
 }
 
-/-- [dlc_core::obligation::{core::clone::Clone for dlc_core::obligation::Seal}::clone]:
+/-- [dlc_core::obligation::{impl core::clone::Clone for dlc_core::obligation::Seal}::clone]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 106:9-106:14
     Visibility: public -/
 def obligation.Seal.Insts.CoreCloneClone.clone
   (self : obligation.Seal) : Result obligation.Seal := do
   ok ()
 
-/-- [dlc_core::obligation::{core::clone::Clone for dlc_core::obligation::Discharged}::clone]:
+/-- [dlc_core::obligation::{impl core::clone::Clone for dlc_core::obligation::Discharged}::clone]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 97:9-97:14
     Visibility: public -/
 def obligation.Discharged.Insts.CoreCloneClone.clone
@@ -2731,7 +2731,7 @@ def obligation.Discharged.Insts.CoreCloneClone.clone
   let s ← obligation.Seal.Insts.CoreCloneClone.clone self._seal
   ok { obligation := o, _seal := s }
 
-/-- Trait implementation: [dlc_core::obligation::{core::clone::Clone for dlc_core::obligation::Discharged}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::clone::Clone for dlc_core::obligation::Discharged}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 97:9-97:14 -/
 @[reducible]
 def obligation.Discharged.Insts.CoreCloneClone : core.clone.Clone
@@ -2739,7 +2739,7 @@ def obligation.Discharged.Insts.CoreCloneClone : core.clone.Clone
   clone := obligation.Discharged.Insts.CoreCloneClone.clone
 }
 
-/-- [dlc_core::obligation::{core::fmt::Debug for dlc_core::obligation::Seal}::fmt]:
+/-- [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::Seal}::fmt]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 106:16-106:21
     Visibility: public -/
 def obligation.Seal.Insts.CoreFmtDebug.fmt
@@ -2748,14 +2748,14 @@ def obligation.Seal.Insts.CoreFmtDebug.fmt
   := do
   core.fmt.Formatter.write_str f (toStr "Seal")
 
-/-- Trait implementation: [dlc_core::obligation::{core::fmt::Debug for dlc_core::obligation::Seal}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::Seal}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 106:16-106:21 -/
 @[reducible]
 def obligation.Seal.Insts.CoreFmtDebug : core.fmt.Debug obligation.Seal := {
   fmt := obligation.Seal.Insts.CoreFmtDebug.fmt
 }
 
-/-- [dlc_core::obligation::{core::fmt::Debug for dlc_core::obligation::Discharged}::fmt]:
+/-- [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::Discharged}::fmt]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 97:16-97:21
     Visibility: public -/
 def obligation.Discharged.Insts.CoreFmtDebug.fmt
@@ -2769,7 +2769,7 @@ def obligation.Discharged.Insts.CoreFmtDebug.fmt
   core.fmt.Formatter.debug_struct_field2_finish f (toStr "Discharged") (toStr
     "obligation") dyn (toStr "_seal") dyn1
 
-/-- Trait implementation: [dlc_core::obligation::{core::fmt::Debug for dlc_core::obligation::Discharged}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::Discharged}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 97:16-97:21 -/
 @[reducible]
 def obligation.Discharged.Insts.CoreFmtDebug : core.fmt.Debug
@@ -2777,21 +2777,21 @@ def obligation.Discharged.Insts.CoreFmtDebug : core.fmt.Debug
   fmt := obligation.Discharged.Insts.CoreFmtDebug.fmt
 }
 
-/-- Trait implementation: [dlc_core::obligation::{core::marker::StructuralPartialEq for dlc_core::obligation::Discharged}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::marker::StructuralPartialEq for dlc_core::obligation::Discharged}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 97:23-97:32 -/
 @[reducible]
 def obligation.Discharged.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq obligation.Discharged := {
 }
 
-/-- [dlc_core::obligation::{core::cmp::PartialEq<dlc_core::obligation::Seal> for dlc_core::obligation::Seal}::eq]:
+/-- [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::Seal> for dlc_core::obligation::Seal}::eq]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 106:23-106:32
     Visibility: public -/
 def obligation.Seal.Insts.CoreCmpPartialEqSeal.eq
   (self : obligation.Seal) (other : obligation.Seal) : Result Bool := do
   ok true
 
-/-- [dlc_core::obligation::{core::cmp::PartialEq<dlc_core::obligation::Discharged> for dlc_core::obligation::Discharged}::eq]:
+/-- [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::Discharged> for dlc_core::obligation::Discharged}::eq]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 97:23-97:32
     Visibility: public -/
 def obligation.Discharged.Insts.CoreCmpPartialEqDischarged.eq
@@ -2805,7 +2805,7 @@ def obligation.Discharged.Insts.CoreCmpPartialEqDischarged.eq
   then obligation.Seal.Insts.CoreCmpPartialEqSeal.eq self._seal other._seal
   else ok false
 
-/-- Trait implementation: [dlc_core::obligation::{core::cmp::PartialEq<dlc_core::obligation::Discharged> for dlc_core::obligation::Discharged}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::Discharged> for dlc_core::obligation::Discharged}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 97:23-97:32 -/
 @[reducible]
 def obligation.Discharged.Insts.CoreCmpPartialEqDischarged : core.cmp.PartialEq
@@ -2814,14 +2814,14 @@ def obligation.Discharged.Insts.CoreCmpPartialEqDischarged : core.cmp.PartialEq
   ne := obligation.Discharged.Insts.CoreCmpPartialEqDischarged.ne
 }
 
-/-- [dlc_core::obligation::{core::cmp::Eq for dlc_core::obligation::Discharged}::assert_receiver_is_total_eq]:
+/-- [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::Discharged}::assert_receiver_is_total_eq]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 97:34-97:36
     Visibility: public -/
 def obligation.Discharged.Insts.CoreCmpEq.assert_receiver_is_total_eq
   (self : obligation.Discharged) : Result Unit := do
   ok ()
 
-/-- Trait implementation: [dlc_core::obligation::{core::cmp::Eq for dlc_core::obligation::Discharged}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::Discharged}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 97:34-97:36 -/
 @[reducible]
 def obligation.Discharged.Insts.CoreCmpEq : core.cmp.Eq obligation.Discharged
@@ -2831,7 +2831,7 @@ def obligation.Discharged.Insts.CoreCmpEq : core.cmp.Eq obligation.Discharged
     obligation.Discharged.Insts.CoreCmpEq.assert_receiver_is_total_eq
 }
 
-/-- Trait implementation: [dlc_core::obligation::{core::clone::Clone for dlc_core::obligation::Seal}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::clone::Clone for dlc_core::obligation::Seal}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 106:9-106:14 -/
 @[reducible]
 def obligation.Seal.Insts.CoreCloneClone : core.clone.Clone obligation.Seal
@@ -2839,14 +2839,14 @@ def obligation.Seal.Insts.CoreCloneClone : core.clone.Clone obligation.Seal
   clone := obligation.Seal.Insts.CoreCloneClone.clone
 }
 
-/-- Trait implementation: [dlc_core::obligation::{core::marker::StructuralPartialEq for dlc_core::obligation::Seal}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::marker::StructuralPartialEq for dlc_core::obligation::Seal}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 106:23-106:32 -/
 @[reducible]
 def obligation.Seal.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq obligation.Seal := {
 }
 
-/-- Trait implementation: [dlc_core::obligation::{core::cmp::PartialEq<dlc_core::obligation::Seal> for dlc_core::obligation::Seal}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::Seal> for dlc_core::obligation::Seal}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 106:23-106:32 -/
 @[reducible]
 def obligation.Seal.Insts.CoreCmpPartialEqSeal : core.cmp.PartialEq
@@ -2855,14 +2855,14 @@ def obligation.Seal.Insts.CoreCmpPartialEqSeal : core.cmp.PartialEq
   ne := obligation.Seal.Insts.CoreCmpPartialEqSeal.ne
 }
 
-/-- [dlc_core::obligation::{core::cmp::Eq for dlc_core::obligation::Seal}::assert_receiver_is_total_eq]:
+/-- [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::Seal}::assert_receiver_is_total_eq]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 106:34-106:36
     Visibility: public -/
 def obligation.Seal.Insts.CoreCmpEq.assert_receiver_is_total_eq
   (self : obligation.Seal) : Result Unit := do
   ok ()
 
-/-- Trait implementation: [dlc_core::obligation::{core::cmp::Eq for dlc_core::obligation::Seal}]
+/-- Trait implementation: [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::Seal}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 106:34-106:36 -/
 @[reducible]
 def obligation.Seal.Insts.CoreCmpEq : core.cmp.Eq obligation.Seal := {
@@ -2884,7 +2884,7 @@ def obligation.Discharged.impl.obligation
   (self : obligation.Discharged) : Result obligation.Obligation := do
   ok self.obligation
 
-/-- Trait implementation: [dlc_core::principal::{core::clone::Clone for dlc_core::principal::Principal}]
+/-- Trait implementation: [dlc_core::principal::{impl core::clone::Clone for dlc_core::principal::Principal}]
     Source: 'crates/dlc-core/src/principal.rs', lines 8:9-8:14 -/
 @[reducible]
 def principal.Principal.Insts.CoreCloneClone : core.clone.Clone
@@ -2892,21 +2892,21 @@ def principal.Principal.Insts.CoreCloneClone : core.clone.Clone
   clone := principal.Principal.Insts.CoreCloneClone.clone
 }
 
-/-- Trait implementation: [dlc_core::principal::{core::marker::StructuralPartialEq for dlc_core::principal::Principal}]
+/-- Trait implementation: [dlc_core::principal::{impl core::marker::StructuralPartialEq for dlc_core::principal::Principal}]
     Source: 'crates/dlc-core/src/principal.rs', lines 8:23-8:32 -/
 @[reducible]
 def principal.Principal.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq principal.Principal := {
 }
 
-/-- [dlc_core::principal::{core::cmp::Eq for dlc_core::principal::Principal}::assert_receiver_is_total_eq]:
+/-- [dlc_core::principal::{impl core::cmp::Eq for dlc_core::principal::Principal}::assert_receiver_is_total_eq]:
     Source: 'crates/dlc-core/src/principal.rs', lines 8:34-8:36
     Visibility: public -/
 def principal.Principal.Insts.CoreCmpEq.assert_receiver_is_total_eq
   (self : principal.Principal) : Result Unit := do
   ok ()
 
-/-- Trait implementation: [dlc_core::principal::{core::cmp::Eq for dlc_core::principal::Principal}]
+/-- Trait implementation: [dlc_core::principal::{impl core::cmp::Eq for dlc_core::principal::Principal}]
     Source: 'crates/dlc-core/src/principal.rs', lines 8:34-8:36 -/
 @[reducible]
 def principal.Principal.Insts.CoreCmpEq : core.cmp.Eq principal.Principal := {
@@ -2915,7 +2915,7 @@ def principal.Principal.Insts.CoreCmpEq : core.cmp.Eq principal.Principal := {
     principal.Principal.Insts.CoreCmpEq.assert_receiver_is_total_eq
 }
 
-/-- [dlc_core::principal::{core::hash::Hash for dlc_core::principal::PrincipalId}::hash]:
+/-- [dlc_core::principal::{impl core::hash::Hash for dlc_core::principal::PrincipalId}::hash]:
     Source: 'crates/dlc-core/src/principal.rs', lines 25:38-25:42
     Visibility: public -/
 def principal.PrincipalId.Insts.CoreHashHash.hash
@@ -2926,7 +2926,7 @@ def principal.PrincipalId.Insts.CoreHashHash.hash
   Array.Insts.CoreHashHash.hash U8.Insts.CoreHashHash corehashHasherInst self
     state
 
-/-- [dlc_core::principal::{core::hash::Hash for dlc_core::principal::Principal}::hash]:
+/-- [dlc_core::principal::{impl core::hash::Hash for dlc_core::principal::Principal}::hash]:
     Source: 'crates/dlc-core/src/principal.rs', lines 8:38-8:42
     Visibility: public -/
 def principal.Principal.Insts.CoreHashHash.hash
@@ -2959,7 +2959,7 @@ def principal.Principal.Insts.CoreHashHash.hash
     Box.Insts.CoreHashHash.hash Global principal.Principal.Insts.CoreHashHash
       corehashHasherInst __self_1 state2
 
-/-- Trait implementation: [dlc_core::principal::{core::hash::Hash for dlc_core::principal::Principal}]
+/-- Trait implementation: [dlc_core::principal::{impl core::hash::Hash for dlc_core::principal::Principal}]
     Source: 'crates/dlc-core/src/principal.rs', lines 8:38-8:42 -/
 @[reducible]
 def principal.Principal.Insts.CoreHashHash : core.hash.Hash principal.Principal
@@ -2968,7 +2968,7 @@ def principal.Principal.Insts.CoreHashHash : core.hash.Hash principal.Principal
     principal.Principal.Insts.CoreHashHash.hash corehashHasherInst
 }
 
-/-- Trait implementation: [dlc_core::principal::{core::clone::Clone for dlc_core::principal::PrincipalId}]
+/-- Trait implementation: [dlc_core::principal::{impl core::clone::Clone for dlc_core::principal::PrincipalId}]
     Source: 'crates/dlc-core/src/principal.rs', lines 25:9-25:14 -/
 @[reducible]
 def principal.PrincipalId.Insts.CoreCloneClone : core.clone.Clone
@@ -2976,21 +2976,21 @@ def principal.PrincipalId.Insts.CoreCloneClone : core.clone.Clone
   clone := principal.PrincipalId.Insts.CoreCloneClone.clone
 }
 
-/-- Trait implementation: [dlc_core::principal::{core::marker::StructuralPartialEq for dlc_core::principal::PrincipalId}]
+/-- Trait implementation: [dlc_core::principal::{impl core::marker::StructuralPartialEq for dlc_core::principal::PrincipalId}]
     Source: 'crates/dlc-core/src/principal.rs', lines 25:23-25:32 -/
 @[reducible]
 def principal.PrincipalId.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq principal.PrincipalId := {
 }
 
-/-- [dlc_core::principal::{core::cmp::Eq for dlc_core::principal::PrincipalId}::assert_receiver_is_total_eq]:
+/-- [dlc_core::principal::{impl core::cmp::Eq for dlc_core::principal::PrincipalId}::assert_receiver_is_total_eq]:
     Source: 'crates/dlc-core/src/principal.rs', lines 25:34-25:36
     Visibility: public -/
 def principal.PrincipalId.Insts.CoreCmpEq.assert_receiver_is_total_eq
   (self : principal.PrincipalId) : Result Unit := do
   ok ()
 
-/-- Trait implementation: [dlc_core::principal::{core::cmp::Eq for dlc_core::principal::PrincipalId}]
+/-- Trait implementation: [dlc_core::principal::{impl core::cmp::Eq for dlc_core::principal::PrincipalId}]
     Source: 'crates/dlc-core/src/principal.rs', lines 25:34-25:36 -/
 @[reducible]
 def principal.PrincipalId.Insts.CoreCmpEq : core.cmp.Eq principal.PrincipalId
@@ -3000,7 +3000,7 @@ def principal.PrincipalId.Insts.CoreCmpEq : core.cmp.Eq principal.PrincipalId
     principal.PrincipalId.Insts.CoreCmpEq.assert_receiver_is_total_eq
 }
 
-/-- Trait implementation: [dlc_core::principal::{core::hash::Hash for dlc_core::principal::PrincipalId}]
+/-- Trait implementation: [dlc_core::principal::{impl core::hash::Hash for dlc_core::principal::PrincipalId}]
     Source: 'crates/dlc-core/src/principal.rs', lines 25:38-25:42 -/
 @[reducible]
 def principal.PrincipalId.Insts.CoreHashHash : core.hash.Hash
@@ -3009,21 +3009,21 @@ def principal.PrincipalId.Insts.CoreHashHash : core.hash.Hash
     principal.PrincipalId.Insts.CoreHashHash.hash corehashHasherInst
 }
 
-/-- Trait implementation: [dlc_core::principal::{core::marker::StructuralPartialEq for dlc_core::principal::KeyRecord}]
+/-- Trait implementation: [dlc_core::principal::{impl core::marker::StructuralPartialEq for dlc_core::principal::KeyRecord}]
     Source: 'crates/dlc-core/src/principal.rs', lines 32:23-32:32 -/
 @[reducible]
 def principal.KeyRecord.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq principal.KeyRecord := {
 }
 
-/-- [dlc_core::principal::{core::cmp::Eq for dlc_core::principal::KeyRecord}::assert_receiver_is_total_eq]:
+/-- [dlc_core::principal::{impl core::cmp::Eq for dlc_core::principal::KeyRecord}::assert_receiver_is_total_eq]:
     Source: 'crates/dlc-core/src/principal.rs', lines 32:34-32:36
     Visibility: public -/
 def principal.KeyRecord.Insts.CoreCmpEq.assert_receiver_is_total_eq
   (self : principal.KeyRecord) : Result Unit := do
   ok ()
 
-/-- Trait implementation: [dlc_core::principal::{core::cmp::Eq for dlc_core::principal::KeyRecord}]
+/-- Trait implementation: [dlc_core::principal::{impl core::cmp::Eq for dlc_core::principal::KeyRecord}]
     Source: 'crates/dlc-core/src/principal.rs', lines 32:34-32:36 -/
 @[reducible]
 def principal.KeyRecord.Insts.CoreCmpEq : core.cmp.Eq principal.KeyRecord := {
@@ -3032,7 +3032,7 @@ def principal.KeyRecord.Insts.CoreCmpEq : core.cmp.Eq principal.KeyRecord := {
     principal.KeyRecord.Insts.CoreCmpEq.assert_receiver_is_total_eq
 }
 
-/-- Trait implementation: [dlc_core::syntax::{core::clone::Clone for dlc_core::syntax::Term}]
+/-- Trait implementation: [dlc_core::syntax::{impl core::clone::Clone for dlc_core::syntax::Term}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 47:9-47:14 -/
 @[reducible]
 def syntax.Term.Insts.CoreCloneClone : core.clone.Clone syntax.Term := {
@@ -3408,21 +3408,21 @@ def reduce.reduce_with_fuel
   let cur ← syntax.Term.Insts.CoreCloneClone.clone term
   reduce.reduce_with_fuel_loop { start := 0#u32, «end» := fuel } fuel cur
 
-/-- Trait implementation: [dlc_core::syntax::{core::marker::StructuralPartialEq for dlc_core::syntax::Prop}]
+/-- Trait implementation: [dlc_core::syntax::{impl core::marker::StructuralPartialEq for dlc_core::syntax::Prop}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 16:23-16:32 -/
 @[reducible]
 def syntax.Prop.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq syntax.Prop := {
 }
 
-/-- [dlc_core::syntax::{core::cmp::Eq for dlc_core::syntax::Prop}::assert_receiver_is_total_eq]:
+/-- [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Prop}::assert_receiver_is_total_eq]:
     Source: 'crates/dlc-core/src/syntax.rs', lines 16:34-16:36
     Visibility: public -/
 def syntax.Prop.Insts.CoreCmpEq.assert_receiver_is_total_eq
   (self : syntax.Prop) : Result Unit := do
   ok ()
 
-/-- Trait implementation: [dlc_core::syntax::{core::cmp::Eq for dlc_core::syntax::Prop}]
+/-- Trait implementation: [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Prop}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 16:34-16:36 -/
 @[reducible]
 def syntax.Prop.Insts.CoreCmpEq : core.cmp.Eq syntax.Prop := {
@@ -3431,14 +3431,14 @@ def syntax.Prop.Insts.CoreCmpEq : core.cmp.Eq syntax.Prop := {
     syntax.Prop.Insts.CoreCmpEq.assert_receiver_is_total_eq
 }
 
-/-- Trait implementation: [dlc_core::syntax::{core::marker::StructuralPartialEq for dlc_core::syntax::Term}]
+/-- Trait implementation: [dlc_core::syntax::{impl core::marker::StructuralPartialEq for dlc_core::syntax::Term}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 47:23-47:32 -/
 @[reducible]
 def syntax.Term.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq syntax.Term := {
 }
 
-/-- [dlc_core::syntax::{core::cmp::PartialEq<dlc_core::syntax::Signature> for dlc_core::syntax::Signature}::eq]:
+/-- [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Signature> for dlc_core::syntax::Signature}::eq]:
     Source: 'crates/dlc-core/src/syntax.rs', lines 116:23-116:32
     Visibility: public -/
 def syntax.Signature.Insts.CoreCmpPartialEqSignature.eq
@@ -3449,7 +3449,7 @@ def syntax.Signature.Insts.CoreCmpPartialEqSignature.eq
       other.bytes
   else ok false
 
-/-- Trait implementation: [dlc_core::syntax::{core::cmp::PartialEq<dlc_core::syntax::Signature> for dlc_core::syntax::Signature}]
+/-- Trait implementation: [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Signature> for dlc_core::syntax::Signature}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 116:23-116:32 -/
 @[reducible]
 def syntax.Signature.Insts.CoreCmpPartialEqSignature : core.cmp.PartialEq
@@ -3458,7 +3458,7 @@ def syntax.Signature.Insts.CoreCmpPartialEqSignature : core.cmp.PartialEq
   ne := syntax.Signature.Insts.CoreCmpPartialEqSignature.ne
 }
 
-/-- [dlc_core::syntax::{core::cmp::PartialEq<dlc_core::syntax::Term> for dlc_core::syntax::Term}::eq]:
+/-- [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Term> for dlc_core::syntax::Term}::eq]:
     Source: 'crates/dlc-core/src/syntax.rs', lines 47:23-47:32
     Visibility: public -/
 def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
@@ -4108,7 +4108,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
   else ok false
 partial_fixpoint
 
-/-- Trait implementation: [dlc_core::syntax::{core::cmp::PartialEq<dlc_core::syntax::Term> for dlc_core::syntax::Term}]
+/-- Trait implementation: [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Term> for dlc_core::syntax::Term}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 47:23-47:32 -/
 @[reducible]
 def syntax.Term.Insts.CoreCmpPartialEqTerm : core.cmp.PartialEq syntax.Term
@@ -4117,14 +4117,14 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm : core.cmp.PartialEq syntax.Term
   ne := syntax.Term.Insts.CoreCmpPartialEqTerm.ne
 }
 
-/-- [dlc_core::syntax::{core::cmp::Eq for dlc_core::syntax::Term}::assert_receiver_is_total_eq]:
+/-- [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Term}::assert_receiver_is_total_eq]:
     Source: 'crates/dlc-core/src/syntax.rs', lines 47:34-47:36
     Visibility: public -/
 def syntax.Term.Insts.CoreCmpEq.assert_receiver_is_total_eq
   (self : syntax.Term) : Result Unit := do
   ok ()
 
-/-- Trait implementation: [dlc_core::syntax::{core::cmp::Eq for dlc_core::syntax::Term}]
+/-- Trait implementation: [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Term}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 47:34-47:36 -/
 @[reducible]
 def syntax.Term.Insts.CoreCmpEq : core.cmp.Eq syntax.Term := {
@@ -4133,7 +4133,7 @@ def syntax.Term.Insts.CoreCmpEq : core.cmp.Eq syntax.Term := {
     syntax.Term.Insts.CoreCmpEq.assert_receiver_is_total_eq
 }
 
-/-- Trait implementation: [dlc_core::syntax::{core::clone::Clone for dlc_core::syntax::Signature}]
+/-- Trait implementation: [dlc_core::syntax::{impl core::clone::Clone for dlc_core::syntax::Signature}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 116:9-116:14 -/
 @[reducible]
 def syntax.Signature.Insts.CoreCloneClone : core.clone.Clone syntax.Signature
@@ -4141,21 +4141,21 @@ def syntax.Signature.Insts.CoreCloneClone : core.clone.Clone syntax.Signature
   clone := syntax.Signature.Insts.CoreCloneClone.clone
 }
 
-/-- Trait implementation: [dlc_core::syntax::{core::marker::StructuralPartialEq for dlc_core::syntax::Signature}]
+/-- Trait implementation: [dlc_core::syntax::{impl core::marker::StructuralPartialEq for dlc_core::syntax::Signature}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 116:23-116:32 -/
 @[reducible]
 def syntax.Signature.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq syntax.Signature := {
 }
 
-/-- [dlc_core::syntax::{core::cmp::Eq for dlc_core::syntax::Signature}::assert_receiver_is_total_eq]:
+/-- [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Signature}::assert_receiver_is_total_eq]:
     Source: 'crates/dlc-core/src/syntax.rs', lines 116:34-116:36
     Visibility: public -/
 def syntax.Signature.Insts.CoreCmpEq.assert_receiver_is_total_eq
   (self : syntax.Signature) : Result Unit := do
   ok ()
 
-/-- Trait implementation: [dlc_core::syntax::{core::cmp::Eq for dlc_core::syntax::Signature}]
+/-- Trait implementation: [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Signature}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 116:34-116:36 -/
 @[reducible]
 def syntax.Signature.Insts.CoreCmpEq : core.cmp.Eq syntax.Signature := {
@@ -4164,28 +4164,28 @@ def syntax.Signature.Insts.CoreCmpEq : core.cmp.Eq syntax.Signature := {
     syntax.Signature.Insts.CoreCmpEq.assert_receiver_is_total_eq
 }
 
-/-- Trait implementation: [dlc_core::time::{core::clone::Clone for dlc_core::time::TimeBound}]
+/-- Trait implementation: [dlc_core::time::{impl core::clone::Clone for dlc_core::time::TimeBound}]
     Source: 'crates/dlc-core/src/time.rs', lines 12:9-12:14 -/
 @[reducible]
 def time.TimeBound.Insts.CoreCloneClone : core.clone.Clone time.TimeBound := {
   clone := time.TimeBound.Insts.CoreCloneClone.clone
 }
 
-/-- Trait implementation: [dlc_core::time::{core::marker::StructuralPartialEq for dlc_core::time::TimeBound}]
+/-- Trait implementation: [dlc_core::time::{impl core::marker::StructuralPartialEq for dlc_core::time::TimeBound}]
     Source: 'crates/dlc-core/src/time.rs', lines 12:23-12:32 -/
 @[reducible]
 def time.TimeBound.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq time.TimeBound := {
 }
 
-/-- [dlc_core::time::{core::cmp::Eq for dlc_core::time::TimeBound}::assert_receiver_is_total_eq]:
+/-- [dlc_core::time::{impl core::cmp::Eq for dlc_core::time::TimeBound}::assert_receiver_is_total_eq]:
     Source: 'crates/dlc-core/src/time.rs', lines 12:34-12:36
     Visibility: public -/
 def time.TimeBound.Insts.CoreCmpEq.assert_receiver_is_total_eq
   (self : time.TimeBound) : Result Unit := do
   ok ()
 
-/-- Trait implementation: [dlc_core::time::{core::cmp::Eq for dlc_core::time::TimeBound}]
+/-- Trait implementation: [dlc_core::time::{impl core::cmp::Eq for dlc_core::time::TimeBound}]
     Source: 'crates/dlc-core/src/time.rs', lines 12:34-12:36 -/
 @[reducible]
 def time.TimeBound.Insts.CoreCmpEq : core.cmp.Eq time.TimeBound := {
@@ -4194,7 +4194,7 @@ def time.TimeBound.Insts.CoreCmpEq : core.cmp.Eq time.TimeBound := {
     time.TimeBound.Insts.CoreCmpEq.assert_receiver_is_total_eq
 }
 
-/-- [dlc_core::time::{core::hash::Hash for dlc_core::time::TimeBound}::hash]:
+/-- [dlc_core::time::{impl core::hash::Hash for dlc_core::time::TimeBound}::hash]:
     Source: 'crates/dlc-core/src/time.rs', lines 12:38-12:42
     Visibility: public -/
 def time.TimeBound.Insts.CoreHashHash.hash
@@ -4204,7 +4204,7 @@ def time.TimeBound.Insts.CoreHashHash.hash
   := do
   U64.Insts.CoreHashHash.hash corehashHasherInst self.epoch_ms state
 
-/-- Trait implementation: [dlc_core::time::{core::hash::Hash for dlc_core::time::TimeBound}]
+/-- Trait implementation: [dlc_core::time::{impl core::hash::Hash for dlc_core::time::TimeBound}]
     Source: 'crates/dlc-core/src/time.rs', lines 12:38-12:42 -/
 @[reducible]
 def time.TimeBound.Insts.CoreHashHash : core.hash.Hash time.TimeBound := {

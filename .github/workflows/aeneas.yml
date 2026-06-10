@@ -62,8 +62,8 @@ jobs:
           # To bump: raise aeneas-version + its charon-pin AND the lakefile
           # `require aeneas` rev together, regenerate (the action uploads the
           # `aeneas-generated-lean` artifact on drift), commit — all in ONE PR.
-          aeneas-version: nightly-2026.05.30
-          charon-version: e069223a672abe012e55a36289d2eae03df208c0
+          aeneas-version: nightly-2026.06.10
+          charon-version: 9dd7f23c8458b2366ce0b5ca7529c5ad4c5fb350
           # Drift is a hard error (soundness gate): a non-clean diff means the
           # Lean we prove no longer corresponds to the Rust.
           fail-on-drift: 'true'

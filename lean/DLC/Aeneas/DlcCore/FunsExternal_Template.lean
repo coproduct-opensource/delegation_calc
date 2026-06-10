@@ -16,7 +16,7 @@ set_option maxRecDepth 2048
 open dlc_core
 
 /-- [core::array::{impl core::hash::Hash for [T; N]}::hash]:
-    Source: '/rustc/library/core/src/array/mod.rs', lines 348:4-348:50
+    Source: '/rustc/library/core/src/array/mod.rs', lines 349:4-349:50
     Name pattern: [core::array::{core::hash::Hash<[@T; @N]>}::hash]
     Visibility: public -/
 @[rust_fun "core::array::{core::hash::Hash<[@T; @N]>}::hash"]
@@ -25,16 +25,15 @@ axiom Array.Insts.CoreHashHash.hash
   (hashHasherInst : core.hash.Hasher H) :
   Array T N → H → Result H
 
-/-- [core::cmp::impls::{impl core::cmp::Eq for u32}::assert_receiver_is_total_eq]:
-    Source: '/rustc/library/core/src/cmp.rs', lines 1898:12-1898:32
-    Name pattern: [core::cmp::impls::{core::cmp::Eq<u32>}::assert_receiver_is_total_eq]
+/-- [core::cmp::impls::{impl core::cmp::Eq for u32}::assert_fields_are_eq]:
+    Source: '/rustc/library/core/src/cmp.rs', lines 1906:12-1906:32
+    Name pattern: [core::cmp::impls::{core::cmp::Eq<u32>}::assert_fields_are_eq]
     Visibility: public -/
-@[rust_fun
-  "core::cmp::impls::{core::cmp::Eq<u32>}::assert_receiver_is_total_eq"]
-axiom U32.Insts.CoreCmpEq.assert_receiver_is_total_eq : Std.U32 → Result Unit
+@[rust_fun "core::cmp::impls::{core::cmp::Eq<u32>}::assert_fields_are_eq"]
+axiom U32.Insts.CoreCmpEq.assert_fields_are_eq : Std.U32 → Result Unit
 
 /-- [core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field2_finish]:
-    Source: '/rustc/library/core/src/fmt/mod.rs', lines 2466:4-2473:15
+    Source: '/rustc/library/core/src/fmt/mod.rs', lines 2473:4-2480:15
     Name pattern: [core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field2_finish]
     Visibility: public -/
 @[rust_fun "core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field2_finish"]
@@ -45,7 +44,7 @@ axiom core.fmt.Formatter.debug_struct_field2_finish
     ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
 
 /-- [core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field3_finish]:
-    Source: '/rustc/library/core/src/fmt/mod.rs', lines 2485:4-2494:15
+    Source: '/rustc/library/core/src/fmt/mod.rs', lines 2492:4-2501:15
     Name pattern: [core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field3_finish]
     Visibility: public -/
 @[rust_fun "core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field3_finish"]
@@ -57,7 +56,7 @@ axiom core.fmt.Formatter.debug_struct_field3_finish
     core.fmt.Error) × core.fmt.Formatter)
 
 /-- [core::fmt::{core::fmt::Formatter<'a>}::debug_tuple_field2_finish]:
-    Source: '/rustc/library/core/src/fmt/mod.rs', lines 2620:4-2625:15
+    Source: '/rustc/library/core/src/fmt/mod.rs', lines 2627:4-2632:15
     Name pattern: [core::fmt::{core::fmt::Formatter<'a>}::debug_tuple_field2_finish]
     Visibility: public -/
 @[rust_fun "core::fmt::{core::fmt::Formatter<'a>}::debug_tuple_field2_finish"]
@@ -68,7 +67,7 @@ axiom core.fmt.Formatter.debug_tuple_field2_finish
     core.fmt.Error) × core.fmt.Formatter)
 
 /-- [core::fmt::{core::fmt::Formatter<'a>}::debug_tuple_field3_finish]:
-    Source: '/rustc/library/core/src/fmt/mod.rs', lines 2637:4-2643:15
+    Source: '/rustc/library/core/src/fmt/mod.rs', lines 2644:4-2650:15
     Name pattern: [core::fmt::{core::fmt::Formatter<'a>}::debug_tuple_field3_finish]
     Visibility: public -/
 @[rust_fun "core::fmt::{core::fmt::Formatter<'a>}::debug_tuple_field3_finish"]
@@ -103,7 +102,7 @@ axiom U64.Insts.CoreHashHash.hash
   {H : Type} (HasherInst : core.hash.Hasher H) : Std.U64 → H → Result H
 
 /-- [core::iter::range::{impl core::iter::range::Step for u32}::backward_checked]:
-    Source: '/rustc/library/core/src/iter/range.rs', lines 289:16-289:74
+    Source: '/rustc/library/core/src/iter/range.rs', lines 290:16-290:74
     Name pattern: [core::iter::range::{core::iter::range::Step<u32>}::backward_checked]
     Visibility: public -/
 @[rust_fun
@@ -112,7 +111,7 @@ axiom U32.Insts.CoreIterRangeStep.backward_checked
   : Std.U32 → Std.Usize → Result (Option Std.U32)
 
 /-- [core::iter::range::{impl core::iter::range::Step for u32}::forward_checked]:
-    Source: '/rustc/library/core/src/iter/range.rs', lines 281:16-281:73
+    Source: '/rustc/library/core/src/iter/range.rs', lines 282:16-282:73
     Name pattern: [core::iter::range::{core::iter::range::Step<u32>}::forward_checked]
     Visibility: public -/
 @[rust_fun
@@ -121,26 +120,26 @@ axiom U32.Insts.CoreIterRangeStep.forward_checked
   : Std.U32 → Std.Usize → Result (Option Std.U32)
 
 /-- [core::iter::range::{impl core::iter::range::Step for u32}::steps_between]:
-    Source: '/rustc/library/core/src/iter/range.rs', lines 270:16-270:84
+    Source: '/rustc/library/core/src/iter/range.rs', lines 271:16-271:84
     Name pattern: [core::iter::range::{core::iter::range::Step<u32>}::steps_between]
     Visibility: public -/
 @[rust_fun "core::iter::range::{core::iter::range::Step<u32>}::steps_between"]
 axiom U32.Insts.CoreIterRangeStep.steps_between
   : Std.U32 → Std.U32 → Result (Std.Usize × (Option Std.Usize))
 
-/-- [core::option::{impl core::ops::try_trait::Try<T, core::option::Option<core::convert::Infallible>> for core::option::Option<T>}::branch]:
-    Source: '/rustc/library/core/src/option.rs', lines 2765:4-2765:64
-    Name pattern: [core::option::{core::ops::try_trait::Try<core::option::Option<@T>, @T, core::option::Option<core::convert::Infallible>>}::branch]
+/-- [core::option::{impl core::ops::try_trait::Try for core::option::Option<T>}::branch]:
+    Source: '/rustc/library/core/src/option.rs', lines 2779:4-2779:64
+    Name pattern: [core::option::{core::ops::try_trait::Try<core::option::Option<@T>>}::branch]
     Visibility: public -/
 @[rust_fun
-  "core::option::{core::ops::try_trait::Try<core::option::Option<@T>, @T, core::option::Option<core::convert::Infallible>>}::branch"]
-axiom core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch
+  "core::option::{core::ops::try_trait::Try<core::option::Option<@T>>}::branch"]
+axiom core.option.Option.Insts.CoreOpsTry_traitTry.branch
   {T : Type} :
   Option T → Result (core.ops.control_flow.ControlFlow (Option
     core.convert.Infallible) T)
 
 /-- [core::option::{impl core::ops::try_trait::FromResidual<core::option::Option<core::convert::Infallible>> for core::option::Option<T>}::from_residual]:
-    Source: '/rustc/library/core/src/option.rs', lines 2779:4-2779:67
+    Source: '/rustc/library/core/src/option.rs', lines 2793:4-2793:67
     Name pattern: [core::option::{core::ops::try_trait::FromResidual<core::option::Option<@T>, core::option::Option<core::convert::Infallible>>}::from_residual]
     Visibility: public -/
 @[rust_fun
@@ -150,7 +149,7 @@ axiom
   (T : Type) : Option core.convert.Infallible → Result (Option T)
 
 /-- [alloc::boxed::{impl core::cmp::PartialEq<alloc::boxed::Box<T>> for alloc::boxed::Box<T>}::ne]:
-    Source: '/rustc/library/alloc/src/boxed.rs', lines 2100:4-2100:38
+    Source: '/rustc/library/alloc/src/boxed.rs', lines 2127:4-2127:38
     Name pattern: [alloc::boxed::{core::cmp::PartialEq<Box<@T>, Box<@T>>}::ne]
     Visibility: public -/
 @[rust_fun "alloc::boxed::{core::cmp::PartialEq<Box<@T>, Box<@T>>}::ne"]
@@ -159,7 +158,7 @@ axiom Box.Insts.CoreCmpPartialEqBox.ne
   T → T → Result Bool
 
 /-- [alloc::boxed::{impl core::hash::Hash for alloc::boxed::Box<T>}::hash]:
-    Source: '/rustc/library/alloc/src/boxed.rs', lines 2142:4-2142:44
+    Source: '/rustc/library/alloc/src/boxed.rs', lines 2169:4-2169:44
     Name pattern: [alloc::boxed::{core::hash::Hash<Box<@T>>}::hash]
     Visibility: public -/
 @[rust_fun "alloc::boxed::{core::hash::Hash<Box<@T>>}::hash"]
@@ -169,7 +168,7 @@ axiom Box.Insts.CoreHashHash.hash
   T → H → Result H
 
 /-- [alloc::boxed::{impl core::fmt::Debug for alloc::boxed::Box<T>}::fmt]:
-    Source: '/rustc/library/alloc/src/boxed.rs', lines 2208:4-2208:60
+    Source: '/rustc/library/alloc/src/boxed.rs', lines 2235:4-2235:60
     Name pattern: [alloc::boxed::{core::fmt::Debug<Box<@T>>}::fmt]
     Visibility: public -/
 @[rust_fun "alloc::boxed::{core::fmt::Debug<Box<@T>>}::fmt"]
@@ -179,7 +178,7 @@ axiom Box.Insts.CoreFmtDebug.fmt
     × core.fmt.Formatter)
 
 /-- [alloc::boxed::{impl core::convert::AsRef<T> for alloc::boxed::Box<T>}::as_ref]:
-    Source: '/rustc/library/alloc/src/boxed.rs', lines 2325:4-2325:26
+    Source: '/rustc/library/alloc/src/boxed.rs', lines 2352:4-2352:26
     Name pattern: [alloc::boxed::{core::convert::AsRef<Box<@T>, @T>}::as_ref]
     Visibility: public -/
 @[rust_fun "alloc::boxed::{core::convert::AsRef<Box<@T>, @T>}::as_ref"]
@@ -194,7 +193,7 @@ axiom alloc.slice.Slice.sort
   {T : Type} (corecmpOrdInst : core.cmp.Ord T) : Slice T → Result (Slice T)
 
 /-- [alloc::vec::{alloc::vec::Vec<T>}::dedup]:
-    Source: '/rustc/library/alloc/src/vec/mod.rs', lines 3572:4-3572:27
+    Source: '/rustc/library/alloc/src/vec/mod.rs', lines 3701:4-3701:27
     Name pattern: [alloc::vec::{alloc::vec::Vec<@T>}::dedup]
     Visibility: public -/
 @[rust_fun "alloc::vec::{alloc::vec::Vec<@T>}::dedup"]
@@ -203,7 +202,7 @@ axiom alloc.vec.Vec.dedup
   alloc.vec.Vec T → Result (alloc.vec.Vec T)
 
 /-- [alloc::vec::{impl core::hash::Hash for alloc::vec::Vec<T>}::hash]:
-    Source: '/rustc/library/alloc/src/vec/mod.rs', lines 3728:4-3728:44
+    Source: '/rustc/library/alloc/src/vec/mod.rs', lines 3859:4-3859:44
     Name pattern: [alloc::vec::{core::hash::Hash<alloc::vec::Vec<@T>>}::hash]
     Visibility: public -/
 @[rust_fun "alloc::vec::{core::hash::Hash<alloc::vec::Vec<@T>>}::hash"]
@@ -213,7 +212,7 @@ axiom alloc.vec.Vec.Insts.CoreHashHash.hash
   alloc.vec.Vec T → H → Result H
 
 /-- [alloc::vec::{impl core::default::Default for alloc::vec::Vec<T>}::default]:
-    Source: '/rustc/library/alloc/src/vec/mod.rs', lines 4171:4-4171:26
+    Source: '/rustc/library/alloc/src/vec/mod.rs', lines 4304:4-4304:26
     Name pattern: [alloc::vec::{core::default::Default<alloc::vec::Vec<@T>>}::default]
     Visibility: public -/
 @[rust_fun

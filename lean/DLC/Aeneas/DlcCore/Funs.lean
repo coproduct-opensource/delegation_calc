@@ -20,7 +20,7 @@ noncomputable section
 namespace dlc_core
 
 /-- Trait implementation: [core::array::{impl core::fmt::Debug for [T; N]}]
-    Source: '/rustc/library/core/src/array/mod.rs', lines 354:0-354:57
+    Source: '/rustc/library/core/src/array/mod.rs', lines 355:0-355:57
     Name pattern: [core::fmt::Debug<[@T; @N]>] -/
 @[reducible, rust_trait_impl "core::fmt::Debug<[@T; @N]>"]
 def Array.Insts.CoreFmtDebug {T : Type} (N : Std.Usize) (fmtDebugInst :
@@ -38,7 +38,7 @@ def U8.Insts.CoreHashHash : core.hash.Hash Std.U8 := {
 }
 
 /-- Trait implementation: [core::iter::range::{impl core::iter::range::Step for u32}]
-    Source: '/rustc/library/core/src/iter/range.rs', lines 265:12-265:37
+    Source: '/rustc/library/core/src/iter/range.rs', lines 266:12-266:43
     Name pattern: [core::iter::range::Step<u32>] -/
 @[reducible, rust_trait_impl "core::iter::range::Step<u32>"]
 def U32.Insts.CoreIterRangeStep : core.iter.range.Step Std.U32 := {
@@ -50,7 +50,7 @@ def U32.Insts.CoreIterRangeStep : core.iter.range.Step Std.U32 := {
 }
 
 /-- Trait implementation: [alloc::boxed::{impl core::fmt::Debug for alloc::boxed::Box<T>}]
-    Source: '/rustc/library/alloc/src/boxed.rs', lines 2207:0-2207:67
+    Source: '/rustc/library/alloc/src/boxed.rs', lines 2234:0-2234:67
     Name pattern: [core::fmt::Debug<Box<@T>>] -/
 @[reducible, rust_trait_impl "core::fmt::Debug<Box<@T>>"]
 def Box.Insts.CoreFmtDebug {T : Type} (A : Type) (corefmtDebugInst :
@@ -758,8 +758,7 @@ def decide.infer
     let p ← syntax.Prop.Insts.CoreCloneClone.clone phi
     let extended ← judgment.Ctx.cons_a c p
     let o ← decide.infer extended body
-    let cf ←
-      core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
     | core.ops.control_flow.ControlFlow.Continue val =>
       ok (some (syntax.Prop.Imp p val))
@@ -768,13 +767,11 @@ def decide.infer
         syntax.Prop residual
   | syntax.Term.App f x =>
     let o ← decide.infer ctx f
-    let cf ←
-      core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
     | core.ops.control_flow.ControlFlow.Continue val =>
       let o1 ← decide.infer ctx x
-      let cf1 ←
-        core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o1
+      let cf1 ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o1
       match cf1 with
       | core.ops.control_flow.ControlFlow.Continue val1 =>
         match val with
@@ -803,8 +800,7 @@ def decide.infer
         syntax.Prop residual
   | syntax.Term.Sign p m _ =>
     let o ← decide.infer ctx m
-    let cf ←
-      core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
     | core.ops.control_flow.ControlFlow.Continue val =>
       let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
@@ -814,8 +810,7 @@ def decide.infer
         syntax.Prop residual
   | syntax.Term.Verify p m _ =>
     let o ← decide.infer ctx m
-    let cf ←
-      core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
     | core.ops.control_flow.ControlFlow.Continue val =>
       match val with
@@ -841,13 +836,11 @@ def decide.infer
         syntax.Prop residual
   | syntax.Term.Delegate m n =>
     let o ← decide.infer ctx m
-    let cf ←
-      core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
     | core.ops.control_flow.ControlFlow.Continue val =>
       let o1 ← decide.infer ctx n
-      let cf1 ←
-        core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o1
+      let cf1 ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o1
       match cf1 with
       | core.ops.control_flow.ControlFlow.Continue val1 =>
         match val with
@@ -912,8 +905,7 @@ def decide.infer
         syntax.Prop residual
   | syntax.Term.Attenuate m psi =>
     let o ← decide.infer ctx m
-    let cf ←
-      core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
     | core.ops.control_flow.ControlFlow.Continue val =>
       match val with
@@ -937,8 +929,7 @@ def decide.infer
         syntax.Prop residual
   | syntax.Term.Discharge m _ =>
     let o ← decide.infer ctx m
-    let cf ←
-      core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
     | core.ops.control_flow.ControlFlow.Continue val =>
       match val with
@@ -960,8 +951,7 @@ def decide.infer
         syntax.Prop residual
   | syntax.Term.LiftLabel label m =>
     let o ← decide.infer ctx m
-    let cf ←
-      core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
     | core.ops.control_flow.ControlFlow.Continue val =>
       let l ← ifc.Label.Insts.CoreCloneClone.clone label
@@ -971,8 +961,7 @@ def decide.infer
         syntax.Prop residual
   | syntax.Term.Declassify target_label m _ =>
     let o ← decide.infer ctx m
-    let cf ←
-      core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
     | core.ops.control_flow.ControlFlow.Continue val =>
       match val with
@@ -997,8 +986,7 @@ def decide.infer
   | syntax.Term.Now _ => ok (some syntax.Prop.Top)
   | syntax.Term.WithinIntro tau m =>
     let o ← decide.infer ctx m
-    let cf ←
-      core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
     | core.ops.control_flow.ControlFlow.Continue val =>
       let tb ← time.TimeBound.Insts.CoreCloneClone.clone tau
@@ -1008,13 +996,11 @@ def decide.infer
         syntax.Prop residual
   | syntax.Term.Pair a b =>
     let o ← decide.infer ctx a
-    let cf ←
-      core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
     | core.ops.control_flow.ControlFlow.Continue val =>
       let o1 ← decide.infer ctx b
-      let cf1 ←
-        core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o1
+      let cf1 ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o1
       match cf1 with
       | core.ops.control_flow.ControlFlow.Continue val1 =>
         ok (some (syntax.Prop.And val val1))
@@ -1026,8 +1012,7 @@ def decide.infer
         syntax.Prop residual
   | syntax.Term.Fst m =>
     let o ← decide.infer ctx m
-    let cf ←
-      core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
     | core.ops.control_flow.ControlFlow.Continue val =>
       match val with
@@ -1049,8 +1034,7 @@ def decide.infer
         syntax.Prop residual
   | syntax.Term.Snd m =>
     let o ← decide.infer ctx m
-    let cf ←
-      core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
     | core.ops.control_flow.ControlFlow.Continue val =>
       match val with
@@ -1072,8 +1056,7 @@ def decide.infer
         syntax.Prop residual
   | syntax.Term.Inl other m =>
     let o ← decide.infer ctx m
-    let cf ←
-      core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
     | core.ops.control_flow.ControlFlow.Continue val =>
       let p ← syntax.Prop.Insts.CoreCloneClone.clone other
@@ -1083,8 +1066,7 @@ def decide.infer
         syntax.Prop residual
   | syntax.Term.Inr other m =>
     let o ← decide.infer ctx m
-    let cf ←
-      core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
     | core.ops.control_flow.ControlFlow.Continue val =>
       let p ← syntax.Prop.Insts.CoreCloneClone.clone other
@@ -1094,8 +1076,7 @@ def decide.infer
         syntax.Prop residual
   | syntax.Term.Case scrut left right =>
     let o ← decide.infer ctx scrut
-    let cf ←
-      core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
     | core.ops.control_flow.ControlFlow.Continue val =>
       match val with
@@ -1109,15 +1090,11 @@ def decide.infer
         let left_ctx ← judgment.Ctx.cons_a c p
         let right_ctx ← judgment.Ctx.cons_a c q
         let o1 ← decide.infer left_ctx left
-        let cf1 ←
-          core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch
-            o1
+        let cf1 ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o1
         match cf1 with
         | core.ops.control_flow.ControlFlow.Continue val1 =>
           let o2 ← decide.infer right_ctx right
-          let cf2 ←
-            core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch
-              o2
+          let cf2 ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o2
           match cf2 with
           | core.ops.control_flow.ControlFlow.Continue val2 =>
             let b ← syntax.Prop.Insts.CoreCmpPartialEqProp.eq val1 val2
@@ -1142,13 +1119,11 @@ def decide.infer
         syntax.Prop residual
   | syntax.Term.TensorIntro a b =>
     let o ← decide.infer ctx a
-    let cf ←
-      core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
     | core.ops.control_flow.ControlFlow.Continue val =>
       let o1 ← decide.infer ctx b
-      let cf1 ←
-        core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o1
+      let cf1 ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o1
       match cf1 with
       | core.ops.control_flow.ControlFlow.Continue val1 =>
         ok (some (syntax.Prop.Tensor val val1))
@@ -1160,8 +1135,7 @@ def decide.infer
         syntax.Prop residual
   | syntax.Term.LetTensor scrut body =>
     let o ← decide.infer ctx scrut
-    let cf ←
-      core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
     | core.ops.control_flow.ControlFlow.Continue val =>
       match val with
@@ -1187,8 +1161,7 @@ def decide.infer
         syntax.Prop residual
   | syntax.Term.LetSays principal scrut body =>
     let o ← decide.infer ctx scrut
-    let cf ←
-      core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
     | core.ops.control_flow.ControlFlow.Continue val =>
       match val with
@@ -1218,8 +1191,7 @@ def decide.infer
         syntax.Prop residual
   | syntax.Term.SfExtract m =>
     let o ← decide.infer ctx m
-    let cf ←
-      core.option.Option.Insts.CoreOpsTry_traitTryTOptionInfallible.branch o
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
     | core.ops.control_flow.ControlFlow.Continue val =>
       match val with
@@ -1367,10 +1339,10 @@ def graded.Graded.Insts.CoreCmpPartialEqGraded {P : Type} (corecmpPartialEqInst
   ne := graded.Graded.Insts.CoreCmpPartialEqGraded.ne corecmpPartialEqInst
 }
 
-/-- [dlc_core::graded::{impl core::cmp::Eq for dlc_core::graded::Graded<P>}::assert_receiver_is_total_eq]:
+/-- [dlc_core::graded::{impl core::cmp::Eq for dlc_core::graded::Graded<P>}::assert_fields_are_eq]:
     Source: 'crates/dlc-core/src/graded.rs', lines 31:34-31:36
     Visibility: public -/
-def graded.Graded.Insts.CoreCmpEq.assert_receiver_is_total_eq
+def graded.Graded.Insts.CoreCmpEq.assert_fields_are_eq
   {P : Type} (corecmpEqInst : core.cmp.Eq P) (self : graded.Graded P) :
   Result Unit
   := do
@@ -1383,8 +1355,8 @@ def graded.Graded.Insts.CoreCmpEq {P : Type} (corecmpEqInst : core.cmp.Eq P) :
   core.cmp.Eq (graded.Graded P) := {
   partialEqInst := graded.Graded.Insts.CoreCmpPartialEqGraded
     corecmpEqInst.partialEqInst
-  assert_receiver_is_total_eq :=
-    graded.Graded.Insts.CoreCmpEq.assert_receiver_is_total_eq corecmpEqInst
+  assert_fields_are_eq := graded.Graded.Insts.CoreCmpEq.assert_fields_are_eq
+    corecmpEqInst
 }
 
 /-- [dlc_core::obligation::{dlc_core::obligation::DpBudget}::ZERO]
@@ -1500,10 +1472,10 @@ def ifc.Label.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq ifc.Label := {
 }
 
-/-- [dlc_core::ifc::{impl core::cmp::Eq for dlc_core::ifc::Label}::assert_receiver_is_total_eq]:
+/-- [dlc_core::ifc::{impl core::cmp::Eq for dlc_core::ifc::Label}::assert_fields_are_eq]:
     Source: 'crates/dlc-core/src/ifc.rs', lines 13:34-13:36
     Visibility: public -/
-def ifc.Label.Insts.CoreCmpEq.assert_receiver_is_total_eq
+def ifc.Label.Insts.CoreCmpEq.assert_fields_are_eq
   (self : ifc.Label) : Result Unit := do
   ok ()
 
@@ -1512,8 +1484,7 @@ def ifc.Label.Insts.CoreCmpEq.assert_receiver_is_total_eq
 @[reducible]
 def ifc.Label.Insts.CoreCmpEq : core.cmp.Eq ifc.Label := {
   partialEqInst := ifc.Label.Insts.CoreCmpPartialEqLabel
-  assert_receiver_is_total_eq :=
-    ifc.Label.Insts.CoreCmpEq.assert_receiver_is_total_eq
+  assert_fields_are_eq := ifc.Label.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
 /-- [dlc_core::ifc::{dlc_core::ifc::Label}::bottom]:
@@ -1881,10 +1852,10 @@ def judgment.Ctx.Insts.CoreCmpPartialEqCtx : core.cmp.PartialEq judgment.Ctx
   ne := judgment.Ctx.Insts.CoreCmpPartialEqCtx.ne
 }
 
-/-- [dlc_core::judgment::{impl core::cmp::Eq for dlc_core::judgment::Ctx}::assert_receiver_is_total_eq]:
+/-- [dlc_core::judgment::{impl core::cmp::Eq for dlc_core::judgment::Ctx}::assert_fields_are_eq]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 15:43-15:45
     Visibility: public -/
-def judgment.Ctx.Insts.CoreCmpEq.assert_receiver_is_total_eq
+def judgment.Ctx.Insts.CoreCmpEq.assert_fields_are_eq
   (self : judgment.Ctx) : Result Unit := do
   ok ()
 
@@ -1893,8 +1864,7 @@ def judgment.Ctx.Insts.CoreCmpEq.assert_receiver_is_total_eq
 @[reducible]
 def judgment.Ctx.Insts.CoreCmpEq : core.cmp.Eq judgment.Ctx := {
   partialEqInst := judgment.Ctx.Insts.CoreCmpPartialEqCtx
-  assert_receiver_is_total_eq :=
-    judgment.Ctx.Insts.CoreCmpEq.assert_receiver_is_total_eq
+  assert_fields_are_eq := judgment.Ctx.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
 /-- [dlc_core::judgment::{dlc_core::judgment::Ctx}::empty]:
@@ -2051,10 +2021,10 @@ def judgment.KeyRing.Insts.CoreCmpPartialEqKeyRing : core.cmp.PartialEq
   ne := judgment.KeyRing.Insts.CoreCmpPartialEqKeyRing.ne
 }
 
-/-- [dlc_core::judgment::{impl core::cmp::Eq for dlc_core::judgment::KeyRing}::assert_receiver_is_total_eq]:
+/-- [dlc_core::judgment::{impl core::cmp::Eq for dlc_core::judgment::KeyRing}::assert_fields_are_eq]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 43:43-43:45
     Visibility: public -/
-def judgment.KeyRing.Insts.CoreCmpEq.assert_receiver_is_total_eq
+def judgment.KeyRing.Insts.CoreCmpEq.assert_fields_are_eq
   (self : judgment.KeyRing) : Result Unit := do
   ok ()
 
@@ -2063,8 +2033,7 @@ def judgment.KeyRing.Insts.CoreCmpEq.assert_receiver_is_total_eq
 @[reducible]
 def judgment.KeyRing.Insts.CoreCmpEq : core.cmp.Eq judgment.KeyRing := {
   partialEqInst := judgment.KeyRing.Insts.CoreCmpPartialEqKeyRing
-  assert_receiver_is_total_eq :=
-    judgment.KeyRing.Insts.CoreCmpEq.assert_receiver_is_total_eq
+  assert_fields_are_eq := judgment.KeyRing.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
 /-- [dlc_core::syntax::{impl core::clone::Clone for dlc_core::syntax::Signature}::clone]:
@@ -2536,10 +2505,10 @@ def judgment.RuleName.Insts.CoreCmpPartialEqRuleName : core.cmp.PartialEq
   ne := judgment.RuleName.Insts.CoreCmpPartialEqRuleName.ne
 }
 
-/-- [dlc_core::judgment::{impl core::cmp::Eq for dlc_core::judgment::RuleName}::assert_receiver_is_total_eq]:
+/-- [dlc_core::judgment::{impl core::cmp::Eq for dlc_core::judgment::RuleName}::assert_fields_are_eq]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 64:40-64:42
     Visibility: public -/
-def judgment.RuleName.Insts.CoreCmpEq.assert_receiver_is_total_eq
+def judgment.RuleName.Insts.CoreCmpEq.assert_fields_are_eq
   (self : judgment.RuleName) : Result Unit := do
   ok ()
 
@@ -2548,8 +2517,8 @@ def judgment.RuleName.Insts.CoreCmpEq.assert_receiver_is_total_eq
 @[reducible]
 def judgment.RuleName.Insts.CoreCmpEq : core.cmp.Eq judgment.RuleName := {
   partialEqInst := judgment.RuleName.Insts.CoreCmpPartialEqRuleName
-  assert_receiver_is_total_eq :=
-    judgment.RuleName.Insts.CoreCmpEq.assert_receiver_is_total_eq
+  assert_fields_are_eq :=
+    judgment.RuleName.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
 /-- [dlc_core::judgment::{impl core::hash::Hash for dlc_core::judgment::RuleName}::hash]:
@@ -2568,7 +2537,7 @@ def judgment.RuleName.Insts.CoreHashHash.hash
 @[reducible]
 def judgment.RuleName.Insts.CoreHashHash : core.hash.Hash judgment.RuleName
   := {
-  hash := fun {__H : Type} (corehashHasherInst : core.hash.Hasher __H) =>
+  hash := fun {H : Type} (corehashHasherInst : core.hash.Hasher H) =>
     judgment.RuleName.Insts.CoreHashHash.hash corehashHasherInst
 }
 
@@ -2587,10 +2556,10 @@ def obligation.Obligation.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq obligation.Obligation := {
 }
 
-/-- [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::Obligation}::assert_receiver_is_total_eq]:
+/-- [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::Obligation}::assert_fields_are_eq]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 20:34-20:36
     Visibility: public -/
-def obligation.Obligation.Insts.CoreCmpEq.assert_receiver_is_total_eq
+def obligation.Obligation.Insts.CoreCmpEq.assert_fields_are_eq
   (self : obligation.Obligation) : Result Unit := do
   ok ()
 
@@ -2600,8 +2569,8 @@ def obligation.Obligation.Insts.CoreCmpEq.assert_receiver_is_total_eq
 def obligation.Obligation.Insts.CoreCmpEq : core.cmp.Eq obligation.Obligation
   := {
   partialEqInst := obligation.Obligation.Insts.CoreCmpPartialEqObligation
-  assert_receiver_is_total_eq :=
-    obligation.Obligation.Insts.CoreCmpEq.assert_receiver_is_total_eq
+  assert_fields_are_eq :=
+    obligation.Obligation.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
 /-- Trait implementation: [dlc_core::obligation::{impl core::clone::Clone for dlc_core::obligation::ActionId}]
@@ -2619,10 +2588,10 @@ def obligation.ActionId.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq obligation.ActionId := {
 }
 
-/-- [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::ActionId}::assert_receiver_is_total_eq]:
+/-- [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::ActionId}::assert_fields_are_eq]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 41:34-41:36
     Visibility: public -/
-def obligation.ActionId.Insts.CoreCmpEq.assert_receiver_is_total_eq
+def obligation.ActionId.Insts.CoreCmpEq.assert_fields_are_eq
   (self : obligation.ActionId) : Result Unit := do
   ok ()
 
@@ -2631,8 +2600,8 @@ def obligation.ActionId.Insts.CoreCmpEq.assert_receiver_is_total_eq
 @[reducible]
 def obligation.ActionId.Insts.CoreCmpEq : core.cmp.Eq obligation.ActionId := {
   partialEqInst := obligation.ActionId.Insts.CoreCmpPartialEqActionId
-  assert_receiver_is_total_eq :=
-    obligation.ActionId.Insts.CoreCmpEq.assert_receiver_is_total_eq
+  assert_fields_are_eq :=
+    obligation.ActionId.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
 /-- [dlc_core::obligation::{impl core::hash::Hash for dlc_core::obligation::ActionId}::hash]:
@@ -2651,7 +2620,7 @@ def obligation.ActionId.Insts.CoreHashHash.hash
 @[reducible]
 def obligation.ActionId.Insts.CoreHashHash : core.hash.Hash obligation.ActionId
   := {
-  hash := fun {__H : Type} (corehashHasherInst : core.hash.Hasher __H) =>
+  hash := fun {H : Type} (corehashHasherInst : core.hash.Hasher H) =>
     obligation.ActionId.Insts.CoreHashHash.hash corehashHasherInst
 }
 
@@ -2678,10 +2647,10 @@ def obligation.DpBudget.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq obligation.DpBudget := {
 }
 
-/-- [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::DpBudget}::assert_receiver_is_total_eq]:
+/-- [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::DpBudget}::assert_fields_are_eq]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 51:40-51:42
     Visibility: public -/
-def obligation.DpBudget.Insts.CoreCmpEq.assert_receiver_is_total_eq
+def obligation.DpBudget.Insts.CoreCmpEq.assert_fields_are_eq
   (self : obligation.DpBudget) : Result Unit := do
   ok ()
 
@@ -2690,8 +2659,8 @@ def obligation.DpBudget.Insts.CoreCmpEq.assert_receiver_is_total_eq
 @[reducible]
 def obligation.DpBudget.Insts.CoreCmpEq : core.cmp.Eq obligation.DpBudget := {
   partialEqInst := obligation.DpBudget.Insts.CoreCmpPartialEqDpBudget
-  assert_receiver_is_total_eq :=
-    obligation.DpBudget.Insts.CoreCmpEq.assert_receiver_is_total_eq
+  assert_fields_are_eq :=
+    obligation.DpBudget.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
 /-- [dlc_core::obligation::{impl core::hash::Hash for dlc_core::obligation::DpBudget}::hash]:
@@ -2711,7 +2680,7 @@ def obligation.DpBudget.Insts.CoreHashHash.hash
 @[reducible]
 def obligation.DpBudget.Insts.CoreHashHash : core.hash.Hash obligation.DpBudget
   := {
-  hash := fun {__H : Type} (corehashHasherInst : core.hash.Hasher __H) =>
+  hash := fun {H : Type} (corehashHasherInst : core.hash.Hasher H) =>
     obligation.DpBudget.Insts.CoreHashHash.hash corehashHasherInst
 }
 
@@ -2814,10 +2783,10 @@ def obligation.Discharged.Insts.CoreCmpPartialEqDischarged : core.cmp.PartialEq
   ne := obligation.Discharged.Insts.CoreCmpPartialEqDischarged.ne
 }
 
-/-- [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::Discharged}::assert_receiver_is_total_eq]:
+/-- [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::Discharged}::assert_fields_are_eq]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 97:34-97:36
     Visibility: public -/
-def obligation.Discharged.Insts.CoreCmpEq.assert_receiver_is_total_eq
+def obligation.Discharged.Insts.CoreCmpEq.assert_fields_are_eq
   (self : obligation.Discharged) : Result Unit := do
   ok ()
 
@@ -2827,8 +2796,8 @@ def obligation.Discharged.Insts.CoreCmpEq.assert_receiver_is_total_eq
 def obligation.Discharged.Insts.CoreCmpEq : core.cmp.Eq obligation.Discharged
   := {
   partialEqInst := obligation.Discharged.Insts.CoreCmpPartialEqDischarged
-  assert_receiver_is_total_eq :=
-    obligation.Discharged.Insts.CoreCmpEq.assert_receiver_is_total_eq
+  assert_fields_are_eq :=
+    obligation.Discharged.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
 /-- Trait implementation: [dlc_core::obligation::{impl core::clone::Clone for dlc_core::obligation::Seal}]
@@ -2855,10 +2824,10 @@ def obligation.Seal.Insts.CoreCmpPartialEqSeal : core.cmp.PartialEq
   ne := obligation.Seal.Insts.CoreCmpPartialEqSeal.ne
 }
 
-/-- [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::Seal}::assert_receiver_is_total_eq]:
+/-- [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::Seal}::assert_fields_are_eq]:
     Source: 'crates/dlc-core/src/obligation.rs', lines 106:34-106:36
     Visibility: public -/
-def obligation.Seal.Insts.CoreCmpEq.assert_receiver_is_total_eq
+def obligation.Seal.Insts.CoreCmpEq.assert_fields_are_eq
   (self : obligation.Seal) : Result Unit := do
   ok ()
 
@@ -2867,8 +2836,7 @@ def obligation.Seal.Insts.CoreCmpEq.assert_receiver_is_total_eq
 @[reducible]
 def obligation.Seal.Insts.CoreCmpEq : core.cmp.Eq obligation.Seal := {
   partialEqInst := obligation.Seal.Insts.CoreCmpPartialEqSeal
-  assert_receiver_is_total_eq :=
-    obligation.Seal.Insts.CoreCmpEq.assert_receiver_is_total_eq
+  assert_fields_are_eq := obligation.Seal.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
 /-- [dlc_core::obligation::{dlc_core::obligation::Discharged}::new_sealed]:
@@ -2899,10 +2867,10 @@ def principal.Principal.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq principal.Principal := {
 }
 
-/-- [dlc_core::principal::{impl core::cmp::Eq for dlc_core::principal::Principal}::assert_receiver_is_total_eq]:
+/-- [dlc_core::principal::{impl core::cmp::Eq for dlc_core::principal::Principal}::assert_fields_are_eq]:
     Source: 'crates/dlc-core/src/principal.rs', lines 8:34-8:36
     Visibility: public -/
-def principal.Principal.Insts.CoreCmpEq.assert_receiver_is_total_eq
+def principal.Principal.Insts.CoreCmpEq.assert_fields_are_eq
   (self : principal.Principal) : Result Unit := do
   ok ()
 
@@ -2911,8 +2879,8 @@ def principal.Principal.Insts.CoreCmpEq.assert_receiver_is_total_eq
 @[reducible]
 def principal.Principal.Insts.CoreCmpEq : core.cmp.Eq principal.Principal := {
   partialEqInst := principal.Principal.Insts.CoreCmpPartialEqPrincipal
-  assert_receiver_is_total_eq :=
-    principal.Principal.Insts.CoreCmpEq.assert_receiver_is_total_eq
+  assert_fields_are_eq :=
+    principal.Principal.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
 /-- [dlc_core::principal::{impl core::hash::Hash for dlc_core::principal::PrincipalId}::hash]:
@@ -2964,7 +2932,7 @@ def principal.Principal.Insts.CoreHashHash.hash
 @[reducible]
 def principal.Principal.Insts.CoreHashHash : core.hash.Hash principal.Principal
   := {
-  hash := fun {__H : Type} (corehashHasherInst : core.hash.Hasher __H) =>
+  hash := fun {H : Type} (corehashHasherInst : core.hash.Hasher H) =>
     principal.Principal.Insts.CoreHashHash.hash corehashHasherInst
 }
 
@@ -2983,10 +2951,10 @@ def principal.PrincipalId.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq principal.PrincipalId := {
 }
 
-/-- [dlc_core::principal::{impl core::cmp::Eq for dlc_core::principal::PrincipalId}::assert_receiver_is_total_eq]:
+/-- [dlc_core::principal::{impl core::cmp::Eq for dlc_core::principal::PrincipalId}::assert_fields_are_eq]:
     Source: 'crates/dlc-core/src/principal.rs', lines 25:34-25:36
     Visibility: public -/
-def principal.PrincipalId.Insts.CoreCmpEq.assert_receiver_is_total_eq
+def principal.PrincipalId.Insts.CoreCmpEq.assert_fields_are_eq
   (self : principal.PrincipalId) : Result Unit := do
   ok ()
 
@@ -2996,8 +2964,8 @@ def principal.PrincipalId.Insts.CoreCmpEq.assert_receiver_is_total_eq
 def principal.PrincipalId.Insts.CoreCmpEq : core.cmp.Eq principal.PrincipalId
   := {
   partialEqInst := principal.PrincipalId.Insts.CoreCmpPartialEqPrincipalId
-  assert_receiver_is_total_eq :=
-    principal.PrincipalId.Insts.CoreCmpEq.assert_receiver_is_total_eq
+  assert_fields_are_eq :=
+    principal.PrincipalId.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
 /-- Trait implementation: [dlc_core::principal::{impl core::hash::Hash for dlc_core::principal::PrincipalId}]
@@ -3005,7 +2973,7 @@ def principal.PrincipalId.Insts.CoreCmpEq : core.cmp.Eq principal.PrincipalId
 @[reducible]
 def principal.PrincipalId.Insts.CoreHashHash : core.hash.Hash
   principal.PrincipalId := {
-  hash := fun {__H : Type} (corehashHasherInst : core.hash.Hasher __H) =>
+  hash := fun {H : Type} (corehashHasherInst : core.hash.Hasher H) =>
     principal.PrincipalId.Insts.CoreHashHash.hash corehashHasherInst
 }
 
@@ -3016,10 +2984,10 @@ def principal.KeyRecord.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq principal.KeyRecord := {
 }
 
-/-- [dlc_core::principal::{impl core::cmp::Eq for dlc_core::principal::KeyRecord}::assert_receiver_is_total_eq]:
+/-- [dlc_core::principal::{impl core::cmp::Eq for dlc_core::principal::KeyRecord}::assert_fields_are_eq]:
     Source: 'crates/dlc-core/src/principal.rs', lines 32:34-32:36
     Visibility: public -/
-def principal.KeyRecord.Insts.CoreCmpEq.assert_receiver_is_total_eq
+def principal.KeyRecord.Insts.CoreCmpEq.assert_fields_are_eq
   (self : principal.KeyRecord) : Result Unit := do
   ok ()
 
@@ -3028,8 +2996,8 @@ def principal.KeyRecord.Insts.CoreCmpEq.assert_receiver_is_total_eq
 @[reducible]
 def principal.KeyRecord.Insts.CoreCmpEq : core.cmp.Eq principal.KeyRecord := {
   partialEqInst := principal.KeyRecord.Insts.CoreCmpPartialEqKeyRecord
-  assert_receiver_is_total_eq :=
-    principal.KeyRecord.Insts.CoreCmpEq.assert_receiver_is_total_eq
+  assert_fields_are_eq :=
+    principal.KeyRecord.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::clone::Clone for dlc_core::syntax::Term}]
@@ -3415,10 +3383,10 @@ def syntax.Prop.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq syntax.Prop := {
 }
 
-/-- [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Prop}::assert_receiver_is_total_eq]:
+/-- [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Prop}::assert_fields_are_eq]:
     Source: 'crates/dlc-core/src/syntax.rs', lines 16:34-16:36
     Visibility: public -/
-def syntax.Prop.Insts.CoreCmpEq.assert_receiver_is_total_eq
+def syntax.Prop.Insts.CoreCmpEq.assert_fields_are_eq
   (self : syntax.Prop) : Result Unit := do
   ok ()
 
@@ -3427,8 +3395,7 @@ def syntax.Prop.Insts.CoreCmpEq.assert_receiver_is_total_eq
 @[reducible]
 def syntax.Prop.Insts.CoreCmpEq : core.cmp.Eq syntax.Prop := {
   partialEqInst := syntax.Prop.Insts.CoreCmpPartialEqProp
-  assert_receiver_is_total_eq :=
-    syntax.Prop.Insts.CoreCmpEq.assert_receiver_is_total_eq
+  assert_fields_are_eq := syntax.Prop.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::marker::StructuralPartialEq for dlc_core::syntax::Term}]
@@ -4117,10 +4084,10 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm : core.cmp.PartialEq syntax.Term
   ne := syntax.Term.Insts.CoreCmpPartialEqTerm.ne
 }
 
-/-- [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Term}::assert_receiver_is_total_eq]:
+/-- [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Term}::assert_fields_are_eq]:
     Source: 'crates/dlc-core/src/syntax.rs', lines 47:34-47:36
     Visibility: public -/
-def syntax.Term.Insts.CoreCmpEq.assert_receiver_is_total_eq
+def syntax.Term.Insts.CoreCmpEq.assert_fields_are_eq
   (self : syntax.Term) : Result Unit := do
   ok ()
 
@@ -4129,8 +4096,7 @@ def syntax.Term.Insts.CoreCmpEq.assert_receiver_is_total_eq
 @[reducible]
 def syntax.Term.Insts.CoreCmpEq : core.cmp.Eq syntax.Term := {
   partialEqInst := syntax.Term.Insts.CoreCmpPartialEqTerm
-  assert_receiver_is_total_eq :=
-    syntax.Term.Insts.CoreCmpEq.assert_receiver_is_total_eq
+  assert_fields_are_eq := syntax.Term.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::clone::Clone for dlc_core::syntax::Signature}]
@@ -4148,10 +4114,10 @@ def syntax.Signature.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq syntax.Signature := {
 }
 
-/-- [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Signature}::assert_receiver_is_total_eq]:
+/-- [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Signature}::assert_fields_are_eq]:
     Source: 'crates/dlc-core/src/syntax.rs', lines 116:34-116:36
     Visibility: public -/
-def syntax.Signature.Insts.CoreCmpEq.assert_receiver_is_total_eq
+def syntax.Signature.Insts.CoreCmpEq.assert_fields_are_eq
   (self : syntax.Signature) : Result Unit := do
   ok ()
 
@@ -4160,8 +4126,7 @@ def syntax.Signature.Insts.CoreCmpEq.assert_receiver_is_total_eq
 @[reducible]
 def syntax.Signature.Insts.CoreCmpEq : core.cmp.Eq syntax.Signature := {
   partialEqInst := syntax.Signature.Insts.CoreCmpPartialEqSignature
-  assert_receiver_is_total_eq :=
-    syntax.Signature.Insts.CoreCmpEq.assert_receiver_is_total_eq
+  assert_fields_are_eq := syntax.Signature.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
 /-- Trait implementation: [dlc_core::time::{impl core::clone::Clone for dlc_core::time::TimeBound}]
@@ -4178,10 +4143,10 @@ def time.TimeBound.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq time.TimeBound := {
 }
 
-/-- [dlc_core::time::{impl core::cmp::Eq for dlc_core::time::TimeBound}::assert_receiver_is_total_eq]:
+/-- [dlc_core::time::{impl core::cmp::Eq for dlc_core::time::TimeBound}::assert_fields_are_eq]:
     Source: 'crates/dlc-core/src/time.rs', lines 12:34-12:36
     Visibility: public -/
-def time.TimeBound.Insts.CoreCmpEq.assert_receiver_is_total_eq
+def time.TimeBound.Insts.CoreCmpEq.assert_fields_are_eq
   (self : time.TimeBound) : Result Unit := do
   ok ()
 
@@ -4190,8 +4155,7 @@ def time.TimeBound.Insts.CoreCmpEq.assert_receiver_is_total_eq
 @[reducible]
 def time.TimeBound.Insts.CoreCmpEq : core.cmp.Eq time.TimeBound := {
   partialEqInst := time.TimeBound.Insts.CoreCmpPartialEqTimeBound
-  assert_receiver_is_total_eq :=
-    time.TimeBound.Insts.CoreCmpEq.assert_receiver_is_total_eq
+  assert_fields_are_eq := time.TimeBound.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
 /-- [dlc_core::time::{impl core::hash::Hash for dlc_core::time::TimeBound}::hash]:
@@ -4208,7 +4172,7 @@ def time.TimeBound.Insts.CoreHashHash.hash
     Source: 'crates/dlc-core/src/time.rs', lines 12:38-12:42 -/
 @[reducible]
 def time.TimeBound.Insts.CoreHashHash : core.hash.Hash time.TimeBound := {
-  hash := fun {__H : Type} (corehashHasherInst : core.hash.Hasher __H) =>
+  hash := fun {H : Type} (corehashHasherInst : core.hash.Hasher H) =>
     time.TimeBound.Insts.CoreHashHash.hash corehashHasherInst
 }
 

@@ -13,12 +13,12 @@ package «dlc» where
 -- Aeneas standard library. Pinned to the same commit nucleus uses so the
 -- Charon-emitted .llbc files in this workspace match `nucleus`'s output.
 require aeneas from git
-  "https://github.com/AeneasVerif/aeneas.git" @ "b2b5e3d" / "backends" / "lean"
+  "https://github.com/AeneasVerif/aeneas.git" @ "5138c03bd39e870abe1ad3a572865cf8c15f43d6" / "backends" / "lean"
 
 -- Mathlib for HeytingAlgebra, Multiset (linear context), Order theory, and the
 -- categorical infrastructure used by T3 / the strong indexed monad.
 require mathlib from git
-  "https://github.com/leanprover-community/mathlib4.git" @ "v4.28.0-rc1"
+  "https://github.com/leanprover-community/mathlib4.git" @ "v4.30.0-rc2"
 
 -- Re-export the verified IFC label algebra from nucleus's portcullis-core.
 -- DLC's IFC labels ARE nucleus's CapabilityLattice; no fresh formalization.

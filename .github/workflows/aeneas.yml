@@ -7,8 +7,9 @@ name: Aeneas Drift
 #
 # Uses the canonical `coproduct-opensource/aeneas-ci` composite action
 # (sibling repo with the freshness-check pattern packaged for reuse).
-# Bootstrap mode: `fail-on-drift: false` until the first Aeneas-generated
-# Lean tree is committed to `lean/DLC/Aeneas/DlcCore/`. Then flip to true.
+# Charon + Aeneas are PINNED (see the `with:` block) — never `main`, which
+# floats and silently re-drifts the committed tree whenever upstream moves.
+# Bump the pin deliberately + regenerate in one PR.
 
 on:
   push:
@@ -22,7 +23,10 @@ on:
       - "crates/dlc-core/**"
       - "lean/DLC/Aeneas/**"
       - ".github/workflows/aeneas.yml"
-  # Weekly canary catches Charon / Aeneas toolchain drift.
+  # Weekly reproducibility canary: re-regenerates from the PINNED toolchain and
+  # confirms the committed tree still matches bit-for-bit (catches a hand-edited
+  # generated file or a vanished pinned ref — NOT upstream drift, which pinning
+  # already excludes).
   schedule:
     - cron: "0 8 * * 1"
   workflow_dispatch:
@@ -43,13 +47,25 @@ jobs:
         with:
           rust-source-dir: crates/dlc-core
           lean-output-dir: lean/DLC/Aeneas/DlcCore
-          # Pin to a recent Charon ↔ Aeneas compatible pair. Bump together,
-          # never independently. See AeneasVerif/aeneas/charon-pin for the
-          # current matched ref. Using `main` initially while bootstrapping;
-          # pin to specific SHAs after the first generated tree lands.
-          charon-version: main
-          aeneas-version: main
-          # Bootstrap landed; drift is now a hard error (soundness gate).
+          # PINNED Charon ↔ Aeneas pair (NOT `main` — floating refs guarantee
+          # weekly drift; the committed tree was silently regenerated only when
+          # upstream moved). TWO constraints on this pin:
+          #   1. coherent pair — `charon-version` is `aeneas-version`'s own
+          #      `charon-pin` (read at the tag:
+          #      AeneasVerif/aeneas/charon-pin?ref=<aeneas-version>);
+          #   2. it must stay compatible with the Aeneas *Lean library* the
+          #      generated tree is built against — see `lean/lakefile.lean`'s
+          #      `require aeneas ... @ <rev>`. The binary that GENERATES the tree
+          #      and the library that BUILDS it (`lake build DLC`) must agree, or
+          #      a clean drift still fails to compile. This pair matches
+          #      nucleus-platform's proven pin (the sibling Aeneas user).
+          # To bump: raise aeneas-version + its charon-pin AND the lakefile
+          # `require aeneas` rev together, regenerate (the action uploads the
+          # `aeneas-generated-lean` artifact on drift), commit — all in ONE PR.
+          aeneas-version: nightly-2026.06.10
+          charon-version: 9dd7f23c8458b2366ce0b5ca7529c5ad4c5fb350
+          # Drift is a hard error (soundness gate): a non-clean diff means the
+          # Lean we prove no longer corresponds to the Rust.
           fail-on-drift: 'true'
 
       # Upload the regenerated Lean as an artifact so maintainers can

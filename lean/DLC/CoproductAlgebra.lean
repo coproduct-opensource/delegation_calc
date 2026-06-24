@@ -101,9 +101,13 @@ instance : LawfulCLattice Rank6 where
   join_idem := by decide
   meet_absorb := by decide
   join_absorb := by decide
-  -- `cleq` is `Prop`-valued, so the ∀ is not decidable at the binder; case-split to
-  -- closed goals first, then `decide` each.
-  leq_iff_meet := by intro a b; cases a <;> cases b <;> decide
+  -- `cleq` is a `Prop`-valued instance projection, so `decide` can't synthesize a
+  -- `Decidable` instance through it. Case-split, then unfold to concrete `Fin` facts that
+  -- `simp` discharges.
+  leq_iff_meet := by
+    intro a b
+    cases a <;> cases b <;>
+      simp [CLattice.cleq, CLattice.cmeet, Rank6.leq, Rank6.meet, Rank6.toFin]
 
 /-! ## Mathlib inheritance via the linear order
 

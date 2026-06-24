@@ -25,6 +25,43 @@ preservation are proven here by `decide`/`rfl`; the full strong-naturality squar
 over arbitrary continuations is stated as the remaining goal (no `sorry`).
 
 Reuses `DLC/Graded.lean` (DpBudget, saturatingAdd, le) verbatim.
+
+## What calculus is this?
+
+A **graded (modal) effect–coeffect calculus** — graded modal type theory, layered
+over DLC's substructural (linear) modal authorization logic. The two grades are
+**(partially) ordered monoids**:
+
+  * `RiskGrade` is a graded *monad* grade — an *effect* (a bounded join-semilattice,
+    i.e. an idempotent commutative ordered monoid `(⊔, ⊥)`); risk only accumulates.
+  * `DpBudget` is a graded *comonad* grade — a *coeffect* (the additive monoid
+    `(ℕ², +, 0)`); the differential-privacy *sensitivity* coeffect.
+
+`τ` is a **monotone lax monoid homomorphism** from the `(⊔,⊥)` monoid to the `(⊕,0)`
+monoid, lifted to a natural transformation of the graded functors. "Lax" because it
+preserves the tensor only up to the order: `τ(a ⊔ b) ≤ τ(a) ⊕ τ(b)` (the unit is
+preserved on the nose, `τ ⊥ = 0`). Categorically, a lax monoidal functor between
+posetal monoidal categories. This is NOT a π-calculus / process algebra: there are no
+channels, name-passing, or mobile processes — only graded modalities over a typed core.
+
+References:
+  * Katsumata — *Parametric effect monads and semantics of effect systems* (POPL 2014):
+    graded monads / effect systems (the `RiskGrade` side).
+  * Petricek, Mycroft, Orchard — *Coeffects: Unified Static Analysis of
+    Context-Dependence* (ICALP 2013) / graded comonads (the `DpBudget` side).
+  * Gaboardi, Katsumata, Orchard, Breuvart, Uustalu — *Combining Effects and Coeffects
+    via Grading* (ICFP 2016): the closest prior art — bridging a graded monad and a
+    graded comonad. `τ` lives in this program; the open `TauStrongNaturalityGoal`
+    below is the distributive-law/strong-naturality step.
+  * Reed & Pierce — *Distance Makes the Types Grow Stronger* (ICFP 2010, *Fuzz*):
+    differential privacy as a sensitivity coeffect — the `DpBudget` lineage.
+  * Orchard, Liepelt, Eades — *Quantitative Program Reasoning with Graded Modal Types*
+    (ICFP 2019, *Granule*): the language realization of graded modal types.
+  * Atkey — *Parameterised notions of computation* (the indexed/graded `T^ℓ` shape).
+
+Novelty (not in Mathlib, not in the literature for this pairing): bridging two
+*different* gradings — a join-semilattice effect grade and an additive coeffect grade —
+with the lax coherence, for the risk ↔ differential-privacy correspondence specifically.
 -/
 
 import DLC.Graded

@@ -77,3 +77,8 @@ lean_lib «CoproductAlgebra» where
 -- τ : Graded⟨RiskGrade⟩ ⇒ Graded⟨DpBudget⟩ (risk join-grade → DP additive-grade).
 lean_lib «GradedBridge» where
   roots := #[`DLC.GradedBridge]
+
+-- M3 capstone: the graded mixed distributive law λ : D∘T ⇒ T∘D + ambient-budget-aware
+-- DP admission. Completes the τ-bridge object; content rests on GradedBridge's lax law.
+lean_lib «GradedDistributiveLaw» where
+  roots := #[`DLC.GradedDistributiveLaw]

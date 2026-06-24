@@ -52,10 +52,12 @@ def bottom : RiskGrade := low
 /-- Join = the riskier of the two (least upper bound). -/
 def join (a b : RiskGrade) : RiskGrade := if a.rank ≤ b.rank then b else a
 
-theorem join_comm (a b : RiskGrade) : join a b = join b a := by decide
-theorem join_assoc (a b c : RiskGrade) : join (join a b) c = join a (join b c) := by decide
-theorem join_idem (a : RiskGrade) : join a a = a := by decide
-theorem join_bottom_left (a : RiskGrade) : join bottom a = a := by decide
+theorem join_comm (a b : RiskGrade) : join a b = join b a := by
+  cases a <;> cases b <;> decide
+theorem join_assoc (a b c : RiskGrade) : join (join a b) c = join a (join b c) := by
+  cases a <;> cases b <;> cases c <;> decide
+theorem join_idem (a : RiskGrade) : join a a = a := by cases a <;> decide
+theorem join_bottom_left (a : RiskGrade) : join bottom a = a := by cases a <;> decide
 
 end RiskGrade
 
@@ -76,7 +78,8 @@ theorem riskToBudget_bottom : riskToBudget RiskGrade.bottom = DpBudget.zero := r
 
 /-- τ is monotone: riskier ⇒ at least as much budget consumed. -/
 theorem riskToBudget_mono (a b : RiskGrade) :
-    a.rank ≤ b.rank → (riskToBudget a).le (riskToBudget b) = true := by decide
+    a.rank ≤ b.rank → (riskToBudget a).le (riskToBudget b) = true := by
+  cases a <;> cases b <;> decide
 
 /-- **The lax-monoidal coherence** — the heart of the bridge:
 `τ(a ⊔ b) ≤ τ(a) ⊕ τ(b)`. Join-grade composition is dominated by additive-grade
@@ -84,7 +87,8 @@ composition, so collapsing a risk join into a budget sum is always sound (never
 under-charges). Kernel-checked by `decide` over the finite grade pairs. -/
 theorem riskToBudget_lax_monoidal (a b : RiskGrade) :
     (riskToBudget (RiskGrade.join a b)).le
-      ((riskToBudget a).saturatingAdd (riskToBudget b)) = true := by decide
+      ((riskToBudget a).saturatingAdd (riskToBudget b)) = true := by
+  cases a <;> cases b <;> decide
 
 /-! ## τ on the graded carriers (the monad morphism)
 
@@ -122,8 +126,7 @@ identity on values). -/
 
 /-- τ respects `pure`: `τ (pure a) = pure a`. (Unit preservation — half of the
 monad-morphism laws.) -/
-theorem tau_pure {α : Type} (a : α) : tau (RGraded.pure a) = Graded.pure a := by
-  simp [tau, RGraded.pure, Graded.pure, riskToBudget_bottom, RiskGrade.bottom, riskToBudget]
+theorem tau_pure {α : Type} (a : α) : tau (RGraded.pure a) = Graded.pure a := rfl
 
 /-- τ respects `map` (functoriality of the component). -/
 theorem tau_map {α β : Type} (f : α → β) (g : RGraded α) :

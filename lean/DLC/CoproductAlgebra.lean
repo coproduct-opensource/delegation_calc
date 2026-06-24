@@ -30,8 +30,8 @@ Mirrors `coproduct-algebra/src/lib.rs`.
 -/
 
 import Mathlib.Order.Lattice
-import Mathlib.Order.BoundedOrder
 import Mathlib.Data.Fintype.Basic
+import Mathlib.Tactic.DeriveFintype
 
 namespace DLC.CoproductAlgebra
 

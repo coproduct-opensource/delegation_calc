@@ -28,6 +28,7 @@ Reuses `DLC/Graded.lean` (DpBudget, saturatingAdd, le) verbatim.
 -/
 
 import DLC.Graded
+import Mathlib.Tactic.DeriveFintype
 
 namespace DLC
 

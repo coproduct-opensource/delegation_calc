@@ -151,6 +151,11 @@ def map {α β : Type} (f : α → β) (g : RGraded α) : RGraded β := ⟨f g.v
 def consume {α : Type} (g : RGraded α) (extra : RiskGrade) : RGraded α :=
   ⟨g.value, g.grade.join extra⟩
 
+/-- Graded `bind`: run `k` on the value, composing grades by JOIN (the effect grade of
+the whole is the join of the parts — risk only rises). -/
+def bind {α β : Type} (g : RGraded α) (k : α → RGraded β) : RGraded β :=
+  ⟨(k g.value).value, g.grade.join (k g.value).grade⟩
+
 end RGraded
 
 /-- The natural transformation τ on carriers: keep the value, map the grade. -/
@@ -180,18 +185,60 @@ theorem tau_consume_lax {α : Type} (g : RGraded α) (r : RiskGrade) :
   simp only [tau, RGraded.consume]
   exact riskToBudget_lax_monoidal g.grade r
 
-/-! ## The remaining goal (stated, not yet proven — no `sorry`)
+/-! ## Strong naturality over graded `bind` (M1 — now proven)
 
-The full strong-naturality square over an arbitrary continuation `k : α → RGraded β`
-— i.e. τ commutes with a graded `bind` up to the lax-monoidal inequality — is the
-publishable extension. Stated here as a `Prop` so the goal is type-checked and
-referenced by the spec/paper, without an unproven `theorem`. -/
+τ is a lax morphism of graded monads: it commutes with graded `bind` up to the
+lax-monoidal inequality. `bind` composes grades by `⊔` on the risk side; τ sends that
+to `⊕` on the budget side, dominated by the sum. This is the square that was previously
+only stated. -/
 
-/-- The open coherence: τ is a lax morphism of graded monads w.r.t. graded bind.
-(`bind` composes grades by `join` on the risk side and by `⊕` on the budget side.) -/
+/-- The morphism-of-graded-monads law over `bind`: τ preserves the value, and the budget
+τ assigns the bound computation is `≤` the sum of the budgets of the parts. -/
+theorem tau_bind_lax {α β : Type} (g : RGraded α) (k : α → RGraded β) :
+    (tau (g.bind k)).value = (k g.value).value ∧
+    ((tau (g.bind k)).grade).le
+      ((tau g).grade.saturatingAdd (riskToBudget (k g.value).grade)) = true := by
+  refine ⟨rfl, ?_⟩
+  simp only [tau, RGraded.bind]
+  exact riskToBudget_lax_monoidal g.grade (k g.value).grade
+
+/-- The strong-naturality coherence (grade level) — now discharged, not merely stated. -/
 abbrev TauStrongNaturalityGoal : Prop :=
   ∀ {α β : Type} (g : RGraded α) (k : α → RGraded β),
-    ((tau (RGraded.mk (k g.value).value (g.grade.join (k g.value).grade))).grade).le
+    ((tau (g.bind k)).grade).le
       ((tau g).grade.saturatingAdd (riskToBudget (k g.value).grade)) = true
+
+theorem tau_strong_naturality : TauStrongNaturalityGoal :=
+  fun g k => (tau_bind_lax g k).2
+
+/-! ## A consumer: risk-adaptive DP admission control
+
+Per the adoption discipline (a morphism nobody consumes is shelfware), a theorem that
+USES the bridge to gate a real decision. `admitsUnderCap` admits a risk-graded
+computation iff the DP budget τ assigns its risk grade fits a cap; `admits_compose`
+shows the bound *composes*: you may check the parts against the cap rather than
+re-deriving the composite, because the lax square bounds the whole by the sum. -/
+
+/-- Componentwise transitivity of the DP-budget order (the glue the consumer needs). -/
+theorem DpBudget.le_trans {a b c : DpBudget}
+    (hab : a.le b = true) (hbc : b.le c = true) : a.le c = true := by
+  simp only [DpBudget.le, decide_eq_true_eq] at *
+  exact ⟨Nat.le_trans hab.1 hbc.1, Nat.le_trans hab.2 hbc.2⟩
+
+/-- Admission control: admit `g` iff the DP budget τ assigns its risk grade fits `cap`.
+This is the risk-adaptive DP policy — a higher risk grade maps to a larger (tighter to
+admit) budget. -/
+def admitsUnderCap {α : Type} (g : RGraded α) (cap : DpBudget) : Bool :=
+  (tau g).grade.le cap
+
+/-- **The consumer pays off the proof.** If the *summed* budget of the two steps fits
+the cap, the *bound* computation is admitted — checking the parts suffices, by the lax
+square. Without `tau_strong_naturality` you would have to re-derive the composite grade;
+with it, admissibility is compositional. -/
+theorem admits_compose {α β : Type} (g : RGraded α) (k : α → RGraded β) (cap : DpBudget)
+    (h : ((tau g).grade.saturatingAdd (riskToBudget (k g.value).grade)).le cap = true) :
+    admitsUnderCap (g.bind k) cap = true := by
+  unfold admitsUnderCap
+  exact DpBudget.le_trans (tau_strong_naturality g k) h
 
 end DLC

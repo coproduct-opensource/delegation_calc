@@ -101,7 +101,9 @@ instance : LawfulCLattice Rank6 where
   join_idem := by decide
   meet_absorb := by decide
   join_absorb := by decide
-  leq_iff_meet := by decide
+  -- `cleq` is `Prop`-valued, so the ∀ is not decidable at the binder; case-split to
+  -- closed goals first, then `decide` each.
+  leq_iff_meet := by intro a b; cases a <;> cases b <;> decide
 
 /-! ## Mathlib inheritance via the linear order
 
@@ -115,10 +117,12 @@ Stable Mathlib API (`LinearOrder.lift'`), avoiding version-fragile constructors.
 instance : LinearOrder Rank6 := LinearOrder.lift' Rank6.toFin Rank6.toFin_injective
 
 /-- The trait meet is exactly Mathlib's lattice meet (= `min`). -/
-theorem cmeet_eq_inf (a b : Rank6) : CLattice.cmeet a b = a ⊓ b := by decide
+theorem cmeet_eq_inf (a b : Rank6) : CLattice.cmeet a b = a ⊓ b := by
+  cases a <;> cases b <;> decide
 
 /-- The trait join is exactly Mathlib's lattice join (= `max`). -/
-theorem cjoin_eq_sup (a b : Rank6) : CLattice.cjoin a b = a ⊔ b := by decide
+theorem cjoin_eq_sup (a b : Rank6) : CLattice.cjoin a b = a ⊔ b := by
+  cases a <;> cases b <;> decide
 
 /-- The trait order agrees with Mathlib's `≤`. -/
 theorem cleq_iff_le (a b : Rank6) : CLattice.cleq a b ↔ a ≤ b := by

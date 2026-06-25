@@ -66,3 +66,19 @@ lean_lib «ProtocolCorrespondence» where
 lean_lib «DLCAeneas» where
   roots := #[`DLC.Aeneas.DlcCore]
   srcDir := "DLC/Aeneas"
+
+-- CT-unification proof #1: coproduct-algebra ↔ Mathlib lattice bridge.
+-- One kernel proof; both live adopters (remediation-hvc::MaturityRank,
+-- trust-atlas::Maturity) inherit the Mathlib order library.
+lean_lib «CoproductAlgebra» where
+  roots := #[`DLC.CoproductAlgebra]
+
+-- CT-unification proof #3 (moonshot): the graded natural transformation
+-- τ : Graded⟨RiskGrade⟩ ⇒ Graded⟨DpBudget⟩ (risk join-grade → DP additive-grade).
+lean_lib «GradedBridge» where
+  roots := #[`DLC.GradedBridge]
+
+-- M3 capstone: the graded mixed distributive law λ : D∘T ⇒ T∘D + ambient-budget-aware
+-- DP admission. Completes the τ-bridge object; content rests on GradedBridge's lax law.
+lean_lib «GradedDistributiveLaw» where
+  roots := #[`DLC.GradedDistributiveLaw]

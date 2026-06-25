@@ -24,6 +24,27 @@ DLC's contribution is the **correspondence theorem** (T2): the calculus and the
 cryptographic protocol agree exactly. Logical validity is verifiable validity is
 checkable validity.
 
+## Why categorical — the protobuf thesis
+
+The objection "category theory is ceremony with no payoff" was always
+**anthropocentric**: CT's cost is the *human* (reader cognition + author labor),
+and both fall toward zero as the consumer gets smarter — the Rust + Lean (and
+Aeneas-extracted proofs) in this very repo are the proof that *"hard for humans"
+stopped being a binding constraint*. The benefit — guaranteed composition,
+machine-checkable integrity, a canonical merge (the colimit) — is invariant to
+who reads. Cost falls, benefit constant ⟹ the ratio improves monotonically with
+consumer intelligence. For machine and **adversarial** readers the sign flips:
+loose human-friendly formats rely on good-faith interpretation an adversary won't
+honor, so CT's rigidity becomes the *low-friction, necessary* choice — which is
+exactly why DLC's proof terms are *simultaneously* logical proofs, cryptographic
+witnesses, IFC labels, and obligation ledgers (T2). We therefore treat category
+theory as the **protobuf for agent-to-agent knowledge** — and `delegation_calc`
+is that wire format for **authority** (the `says` modality + checkable proof
+terms). Worst case the bet is wrong and we merely hold more structure than anyone
+else; best case it is an isomorphism of mathematical reality as foundational as
+the Peano axioms. Full argument:
+[`coproduct-doctrine/CATEGORICAL-FOUNDATIONS.md`](../coproduct-doctrine/CATEGORICAL-FOUNDATIONS.md).
+
 ## Status
 
 Week-1 skeleton. Phase-1 closure (`v1.0.0-phase1`) is the first artifact gate.

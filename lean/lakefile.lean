@@ -82,3 +82,8 @@ lean_lib «GradedBridge» where
 -- DP admission. Completes the τ-bridge object; content rests on GradedBridge's lax law.
 lean_lib «GradedDistributiveLaw» where
   roots := #[`DLC.GradedDistributiveLaw]
+
+-- M2: the bridge generalized — any lax monoid hom into DpBudget induces the coherences;
+-- the risk↔DP bridge is one instance.
+lean_lib «GradedBridgeGeneric» where
+  roots := #[`DLC.GradedBridgeGeneric]

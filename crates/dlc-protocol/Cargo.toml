@@ -12,6 +12,9 @@ path = "src/lib.rs"
 
 [dependencies]
 dlc-core = { path = "../dlc-core", version = "1.5.0" }
+# shared algebra substrate — the DP budget is the additive (non-idempotent) instance of its
+# `Quantale`. Hosted here, not in the zero-dep `dlc-core` kernel, to keep the Aeneas target pure.
+coproduct-algebra = { path = "../../../coproduct-algebra" }
 ciborium = { workspace = true }
 coset = { workspace = true }
 serde = { workspace = true }

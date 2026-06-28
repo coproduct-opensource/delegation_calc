@@ -9,6 +9,7 @@
 
 pub mod export_proverif;
 pub mod export_tamarin;
+pub mod grade_quantale;
 pub mod wire;
 
 /// Errors during wire encoding / decoding.

@@ -17,7 +17,7 @@
 //! remediation-engine `MaturityRank`, both `meet`-quantales), and the only additive one — so the
 //! trait is shown to carry both shapes on real types, not just in the substrate's own tests.
 
-use coproduct_algebra::{BoundedLattice, Lattice, MonotoneMap, Quantale};
+use coproduct_algebra::{BoundedLattice, Lattice, MonotoneMap, Quantale, ResiduatedQuantale};
 use dlc_core::obligation::DpBudget;
 
 /// `DpBudget` under the spend order: a quantale whose tensor is DP sequential composition.
@@ -70,6 +70,29 @@ impl Quantale for Spend {
     fn tensor(&self, other: &Self) -> Self {
         // DP sequential composition — the same `saturating_add` the graded comonad's `consume` uses.
         Spend(self.0.saturating_add(other.0))
+    }
+}
+
+impl ResiduatedQuantale for Spend {
+    /// `self ⊸ ceiling` = the **remaining budget** still spendable before reaching `ceiling`
+    /// (componentwise monus / truncated subtraction). It is the right adjoint of `self ⊗ (−)`:
+    /// `self ⊗ b ≤ ceiling ⟺ b ≤ (self ⊸ ceiling)` — i.e. "spending `b` on top of `self` reaches
+    /// the ceiling iff `b` is at least the headroom." This is exactly DP **budget headroom**, and it
+    /// is the residual `⊸` made concrete on the real `DpBudget`.
+    fn residual(&self, ceiling: &Self) -> Self {
+        Spend(DpBudget {
+            epsilon_micros: ceiling.0.epsilon_micros.saturating_sub(self.0.epsilon_micros),
+            delta_micros: ceiling.0.delta_micros.saturating_sub(self.0.delta_micros),
+        })
+    }
+}
+
+impl Spend {
+    /// The budget still spendable before hitting `ceiling` — the residual `self ⊸ ceiling`.
+    /// For a budget currently within `ceiling`, the kernel admits consuming `want`
+    /// (`Graded::consume(want).within_budget(ceiling)`) **iff** `want ≤ self.remaining(ceiling)`.
+    pub fn remaining(&self, ceiling: &Spend) -> Spend {
+        self.residual(ceiling)
     }
 }
 
@@ -162,6 +185,43 @@ mod tests {
         assert_eq!(Spend(g.grade), b(300, 5));
         // spending past saturation lands on ⊥ (ceiling blown) and stays.
         assert_eq!(b(u64::MAX, 0).tensor(&b(1, 0)), b(u64::MAX, 0));
+    }
+
+    #[test]
+    fn spend_residual_is_remaining_budget() {
+        let s = [b(0, 0), b(30, 5), b(70, 0), b(100, 10), b(u64::MAX, 0)];
+        // the residuation adjunction `a ⊗ b ≤ c ⟺ b ≤ a⊸c` holds on the spend quantale.
+        assert!(coproduct_algebra::verify_residuation(&s).is_empty());
+        // `spent ⊸ ceiling` = remaining headroom = ceiling ∸ spent, componentwise.
+        assert_eq!(b(30, 5).remaining(&b(100, 10)), b(70, 5));
+        assert_eq!(b(120, 0).remaining(&b(100, 0)), b(0, 0)); // already over ⇒ no headroom
+    }
+
+    /// Load-bearing: the residual (`⊸` = remaining headroom) agrees with the **real kernel**
+    /// admission decision. For a budget currently within the ceiling, `Graded::consume(want)` stays
+    /// `within_budget` iff `want ≤ remaining`. (Precondition `spent ≤ ceiling`: monus truncates "by
+    /// how much you're over", so the equivalence is for in-budget states — exactly when you'd ask
+    /// "can I afford this?". This cross-checks `⊸` against `dlc-core`'s own budget logic.)
+    #[test]
+    fn remaining_agrees_with_the_kernel_budget_admission() {
+        let ceiling = DpBudget { epsilon_micros: 100, delta_micros: 10 };
+        let spents = [b(0, 0), b(30, 5), b(70, 0), b(100, 10)];
+        let wants = [b(0, 0), b(10, 0), b(30, 5), b(31, 0), b(0, 6)];
+        for s in &spents {
+            assert!(s.0.leq(&ceiling), "precondition: spent is in-budget");
+            let headroom = s.remaining(&Spend(ceiling));
+            for w in &wants {
+                let kernel_admits = Graded::pure(())
+                    .consume(s.0)
+                    .consume(w.0)
+                    .within_budget(&ceiling);
+                let within_headroom = w.0.leq(&headroom.0);
+                assert_eq!(
+                    kernel_admits, within_headroom,
+                    "spent={s:?} want={w:?}: kernel={kernel_admits} headroom={within_headroom}"
+                );
+            }
+        }
     }
 
     #[test]

@@ -17,7 +17,7 @@
 //! remediation-engine `MaturityRank`, both `meet`-quantales), and the only additive one — so the
 //! trait is shown to carry both shapes on real types, not just in the substrate's own tests.
 
-use coproduct_algebra::{BoundedLattice, Lattice, Quantale};
+use coproduct_algebra::{BoundedLattice, Lattice, MonotoneMap, Quantale};
 use dlc_core::obligation::DpBudget;
 
 /// `DpBudget` under the spend order: a quantale whose tensor is DP sequential composition.
@@ -73,6 +73,57 @@ impl Quantale for Spend {
     }
 }
 
+/// **Risk** grade — the additive quantale mirroring nucleus `portcullis/src/graded.rs` risk
+/// tracking: risk accumulates as you compute (saturating sum), under the Lawvere spend order (more
+/// risk = lower; saturation = ⊥). A single micro-unit axis. (Mirrors nucleus; the canonical home
+/// would unify them, but the `τ` bridge lives next to its DP-budget endpoint `Spend`.)
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Risk(pub u64);
+
+impl Lattice for Risk {
+    fn meet(&self, o: &Self) -> Self {
+        Risk(self.0.max(o.0)) // inf in the spend order = the riskier
+    }
+    fn join(&self, o: &Self) -> Self {
+        Risk(self.0.min(o.0)) // sup = the less-risky ("best across paths")
+    }
+    fn leq(&self, o: &Self) -> bool {
+        self.0 >= o.0 // reversed: more risk ≤ less risk
+    }
+}
+impl BoundedLattice for Risk {
+    fn top() -> Self {
+        Risk(0)
+    }
+    fn bottom() -> Self {
+        Risk(u64::MAX)
+    }
+}
+impl Quantale for Risk {
+    fn unit() -> Self {
+        Risk(0)
+    }
+    fn tensor(&self, o: &Self) -> Self {
+        Risk(self.0.saturating_add(o.0))
+    }
+}
+
+/// **τ : Risk ⇒ DpBudget** — the doctrine's long-promised risk→DP-budget change-of-base generator,
+/// finally wired to real carriers. Incurred risk becomes the `ε`-budget you must account for
+/// (`δ` stays 0). It is a **strict quantale homomorphism** (preserves `unit` and `⊗`, monotone),
+/// so [`coproduct_algebra::change_of_base`]`(&Tau, …)` re-grades an entire risk-weighted
+/// `VCategory` into DP-budget terms, preserving composition by construction.
+pub struct Tau;
+
+impl MonotoneMap<Risk, Spend> for Tau {
+    fn apply(&self, r: &Risk) -> Spend {
+        Spend(DpBudget {
+            epsilon_micros: r.0,
+            delta_micros: 0,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -111,5 +162,33 @@ mod tests {
         assert_eq!(Spend(g.grade), b(300, 5));
         // spending past saturation lands on ⊥ (ceiling blown) and stays.
         assert_eq!(b(u64::MAX, 0).tensor(&b(1, 0)), b(u64::MAX, 0));
+    }
+
+    #[test]
+    fn tau_is_a_strict_quantale_homomorphism() {
+        let s = [Risk(0), Risk(5), Risk(100), Risk(1000), Risk(u64::MAX - 1)];
+        assert!(coproduct_algebra::verify_quantale_hom(&Tau, &s).is_empty());
+        assert!(coproduct_algebra::verify_monotone(&Tau, &s).is_empty());
+        // incurred risk becomes ε-budget; δ stays 0.
+        assert_eq!(Tau.apply(&Risk(250)), b(250, 0));
+        assert_eq!(Tau.apply(&Risk(0)), b(0, 0)); // unit ↦ unit
+    }
+
+    #[test]
+    fn change_of_base_regrades_a_risk_pipeline_to_dp_budget() {
+        use coproduct_algebra::{change_of_base, VCategory};
+        // a risk-weighted pipeline 0 →(risk 100) 1 →(risk 150) 2.
+        let risk = VCategory::from_edges(3, [(0, 1, Risk(100)), (1, 2, Risk(150))]);
+
+        // FUNCTORIALITY: τ preserves ⊗ and ∨, so regrading commutes with closure —
+        // close-then-regrade == regrade-then-close. This is what makes τ a whole-system regrade,
+        // not just a per-label map.
+        let close_then_regrade = change_of_base(&Tau, &risk.closure());
+        let regrade_then_close = change_of_base(&Tau, &risk).closure();
+        assert_eq!(close_then_regrade, regrade_then_close);
+
+        // the end-to-end DP-budget = τ of the end-to-end risk: risk along the path is the tensor
+        // (saturating sum) 100 ⊗ 150 = 250, which τ sends to ε=250, δ=0.
+        assert_eq!(*regrade_then_close.hom(0, 2), b(250, 0));
     }
 }

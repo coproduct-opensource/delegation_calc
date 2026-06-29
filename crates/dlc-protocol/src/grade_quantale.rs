@@ -177,18 +177,24 @@ mod tests {
     #[test]
     fn change_of_base_regrades_a_risk_pipeline_to_dp_budget() {
         use coproduct_algebra::{change_of_base, VCategory};
-        // a risk-weighted pipeline 0 →(risk 100) 1 →(risk 150) 2.
-        let risk = VCategory::from_edges(3, [(0, 1, Risk(100)), (1, 2, Risk(150))]);
+        // TWO alternative risk-weighted routes 0 ⇒ 3 (so the across-paths `∨` actually fires —
+        // a single-path graph would make functoriality vacuous and never exercise τ's
+        // join-preservation, per the audit's F1 weak-test note):
+        //   route A: 0 →(100) 1 →(150) 3   total risk 250
+        //   route B: 0 →(50)  2 →(150) 3   total risk 200   (the lower-risk route)
+        let risk = VCategory::from_edges(
+            4,
+            [(0, 1, Risk(100)), (1, 3, Risk(150)), (0, 2, Risk(50)), (2, 3, Risk(150))],
+        );
 
-        // FUNCTORIALITY: τ preserves ⊗ and ∨, so regrading commutes with closure —
-        // close-then-regrade == regrade-then-close. This is what makes τ a whole-system regrade,
-        // not just a per-label map.
+        // FUNCTORIALITY: τ preserves ⊗ AND ∨, so regrading commutes with closure —
+        // close-then-regrade == regrade-then-close — even where the closure joins across the two
+        // routes. This is what makes τ a whole-system regrade, not just a per-label map.
         let close_then_regrade = change_of_base(&Tau, &risk.closure());
         let regrade_then_close = change_of_base(&Tau, &risk).closure();
         assert_eq!(close_then_regrade, regrade_then_close);
 
-        // the end-to-end DP-budget = τ of the end-to-end risk: risk along the path is the tensor
-        // (saturating sum) 100 ⊗ 150 = 250, which τ sends to ε=250, δ=0.
-        assert_eq!(*regrade_then_close.hom(0, 2), b(250, 0));
+        // end-to-end DP-budget = τ of the end-to-end risk = the BEST (least-risk) route, 200 ⇒ ε=200.
+        assert_eq!(*regrade_then_close.hom(0, 3), b(200, 0));
     }
 }

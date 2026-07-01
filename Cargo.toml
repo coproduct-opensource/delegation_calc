@@ -48,10 +48,10 @@ libfuzzer-sys = "0.4"
 # coproduct-opensource/nucleus (PUBLIC), so external consumers can build the
 # dlc crates. Rev is converged across spiffy/proof-dag/delegation_calc as part
 # of the PCA-SDK unification; bump all three together.
-portcullis-core = { git = "https://github.com/coproduct-opensource/nucleus.git", rev = "ddb088e0b7209c63478302537ef33b73dfd5872c" }
-portcullis = { git = "https://github.com/coproduct-opensource/nucleus.git", rev = "ddb088e0b7209c63478302537ef33b73dfd5872c" }
-nucleus-identity = { git = "https://github.com/coproduct-opensource/nucleus.git", rev = "ddb088e0b7209c63478302537ef33b73dfd5872c" }
-nucleus-lineage = { git = "https://github.com/coproduct-opensource/nucleus.git", rev = "ddb088e0b7209c63478302537ef33b73dfd5872c" }
+portcullis-core = { git = "https://github.com/coproduct-opensource/nucleus.git", rev = "3ee0d68da1183ff5f0ea99f9f0cebd93079adb52" }
+portcullis = { git = "https://github.com/coproduct-opensource/nucleus.git", rev = "3ee0d68da1183ff5f0ea99f9f0cebd93079adb52" }
+nucleus-identity = { git = "https://github.com/coproduct-opensource/nucleus.git", rev = "3ee0d68da1183ff5f0ea99f9f0cebd93079adb52" }
+nucleus-lineage = { git = "https://github.com/coproduct-opensource/nucleus.git", rev = "3ee0d68da1183ff5f0ea99f9f0cebd93079adb52" }
 
 [workspace.lints.clippy]
 # dlc-core must remain Aeneas/Charon-translatable. The crate-level lints in

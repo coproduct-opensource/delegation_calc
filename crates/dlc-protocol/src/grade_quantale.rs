@@ -81,7 +81,10 @@ impl ResiduatedQuantale for Spend {
     /// is the residual `⊸` made concrete on the real `DpBudget`.
     fn residual(&self, ceiling: &Self) -> Self {
         Spend(DpBudget {
-            epsilon_micros: ceiling.0.epsilon_micros.saturating_sub(self.0.epsilon_micros),
+            epsilon_micros: ceiling
+                .0
+                .epsilon_micros
+                .saturating_sub(self.0.epsilon_micros),
             delta_micros: ceiling.0.delta_micros.saturating_sub(self.0.delta_micros),
         })
     }
@@ -180,8 +183,14 @@ mod tests {
         assert_eq!(tensor_all([b(100, 0), b(200, 5), b(50, 1)]), b(350, 6));
         // … and agrees with the kernel's own graded-comonad `consume` chain.
         let g = Graded::pure(())
-            .consume(DpBudget { epsilon_micros: 100, delta_micros: 0 })
-            .consume(DpBudget { epsilon_micros: 200, delta_micros: 5 });
+            .consume(DpBudget {
+                epsilon_micros: 100,
+                delta_micros: 0,
+            })
+            .consume(DpBudget {
+                epsilon_micros: 200,
+                delta_micros: 5,
+            });
         assert_eq!(Spend(g.grade), b(300, 5));
         // spending past saturation lands on ⊥ (ceiling blown) and stays.
         assert_eq!(b(u64::MAX, 0).tensor(&b(1, 0)), b(u64::MAX, 0));
@@ -204,7 +213,10 @@ mod tests {
     /// "can I afford this?". This cross-checks `⊸` against `dlc-core`'s own budget logic.)
     #[test]
     fn remaining_agrees_with_the_kernel_budget_admission() {
-        let ceiling = DpBudget { epsilon_micros: 100, delta_micros: 10 };
+        let ceiling = DpBudget {
+            epsilon_micros: 100,
+            delta_micros: 10,
+        };
         let spents = [b(0, 0), b(30, 5), b(70, 0), b(100, 10)];
         let wants = [b(0, 0), b(10, 0), b(30, 5), b(31, 0), b(0, 6)];
         for s in &spents {
@@ -244,7 +256,12 @@ mod tests {
         //   route B: 0 →(50)  2 →(150) 3   total risk 200   (the lower-risk route)
         let risk = VCategory::from_edges(
             4,
-            [(0, 1, Risk(100)), (1, 3, Risk(150)), (0, 2, Risk(50)), (2, 3, Risk(150))],
+            [
+                (0, 1, Risk(100)),
+                (1, 3, Risk(150)),
+                (0, 2, Risk(50)),
+                (2, 3, Risk(150)),
+            ],
         );
 
         // FUNCTORIALITY: τ preserves ⊗ AND ∨, so regrading commutes with closure —

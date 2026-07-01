@@ -43,12 +43,15 @@ serde_json = "1"
 criterion = "0.5"
 libfuzzer-sys = "0.4"
 
-# Nucleus integration (path deps; absolute paths kept here so the workspace
-# stays self-contained while a sibling clone of `nucleus` exists)
-portcullis-core = { path = "../nucleus/crates/portcullis-core" }
-portcullis = { path = "../nucleus/crates/portcullis" }
-nucleus-identity = { path = "../nucleus/crates/nucleus-identity" }
-nucleus-lineage = { path = "../nucleus/crates/nucleus-lineage" }
+# Nucleus integration — GIT PINS (not path deps): a path dep to a sibling
+# checkout cannot be published to crates.io, which blocked `dlc-*`. Pinned to
+# coproduct-opensource/nucleus (PUBLIC), so external consumers can build the
+# dlc crates. Rev is converged across spiffy/proof-dag/delegation_calc as part
+# of the PCA-SDK unification; bump all three together.
+portcullis-core = { git = "https://github.com/coproduct-opensource/nucleus.git", rev = "ddb088e0b7209c63478302537ef33b73dfd5872c" }
+portcullis = { git = "https://github.com/coproduct-opensource/nucleus.git", rev = "ddb088e0b7209c63478302537ef33b73dfd5872c" }
+nucleus-identity = { git = "https://github.com/coproduct-opensource/nucleus.git", rev = "ddb088e0b7209c63478302537ef33b73dfd5872c" }
+nucleus-lineage = { git = "https://github.com/coproduct-opensource/nucleus.git", rev = "ddb088e0b7209c63478302537ef33b73dfd5872c" }
 
 [workspace.lints.clippy]
 # dlc-core must remain Aeneas/Charon-translatable. The crate-level lints in

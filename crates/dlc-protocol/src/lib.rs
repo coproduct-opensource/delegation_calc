@@ -9,6 +9,8 @@
 
 pub mod export_proverif;
 pub mod export_tamarin;
+// Depends on the PRIVATE `coproduct-algebra`; gated off the default (public) build.
+#[cfg(feature = "grade-quantale")]
 pub mod grade_quantale;
 pub mod wire;
 

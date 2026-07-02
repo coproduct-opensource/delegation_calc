@@ -1372,163 +1372,207 @@ noncomputable def propDeriv_subst
   have := propDeriv_substAt [] Γₐ φ ψ M N (by simpa using dM) dN
   simpa [subst] using this
 
-/-! ## Subject reduction — β-reduction preserves typing.
+/-! ## Subject reduction — reduction preserves typing.
 
-For `PropDeriv`'s 4-rule fragment, the only productive `step`-redex is
-β (`Term.app (Term.lam α body) arg ▷ subst body arg`). All other
-PropDeriv shapes give `step M = none`.
-
-Subject reduction for β follows directly from substitution preservation
-(`propDeriv_subst`): if the application is well-typed via `impE` + `impI`,
-inverting the `impI` gives the body's typing in the extended context;
-substitution preservation then closes the conclusion. -/
+`step` has eight head redexes plus the 2026-07 CONGRUENCE (ξ) rules:
+when an elimination form's scrutinee/function position is not the
+redex shape, reduction descends into that position (see `Reduce.lean`).
+The proof is by induction on the derivation. Head redexes follow from
+substitution preservation (`propDeriv_subst`) plus syntax-directed
+inversion of the premise derivation (`PropDeriv` has exactly one
+constructor per subject shape); ξ-cases apply the induction hypothesis
+for the reduced position and rebuild the same constructor. Value and
+frozen-form subjects contradict `step M = some M'`. -/
 
 noncomputable def propDeriv_subject_reduction
-    (Γₐ : List Prop') (M M' : Term) (ψ : Prop')
-    (d : PropDeriv Γₐ M ψ) (h : step M = some M') :
-    PropDeriv Γₐ M' ψ := by
-  cases d with
-  | varA _ _ _ _ => simp [step] at h
-  | impI _ _ _ _ _ => simp [step] at h
-  | impE _ _ _ f x dM_app dN_app =>
-    -- M = Term.app f x. step is productive only when f = Term.lam.
-    cases f with
-    | lam _ body =>
-      -- step (app (lam _ body) x) = some (subst body x).
-      simp [step] at h
+    (Γₐ : List Prop') (M : Term) (ψ : Prop')
+    (d : PropDeriv Γₐ M ψ) :
+    ∀ M', step M = some M' → PropDeriv Γₐ M' ψ := by
+  induction d with
+  | varA _ _ _ _ => intro M' h; simp [step] at h
+  | impI _ _ _ _ _ _ => intro M' h; simp [step] at h
+  | impE Γ α β f x dM dN ihM _ =>
+    intro M' h
+    unfold step at h
+    split at h
+    · -- β: f = lam _ body, M' = subst body x. Invert dM (impI is the
+      -- only constructor at a lam subject), then substitution
+      -- preservation closes the goal.
+      simp only [Option.some.injEq] at h
       subst h
-      -- Invert dM_app : PropDeriv Γₐ (Term.lam _ body) (Prop'.imp _ _).
-      -- The only constructor producing Term.lam at type Prop'.imp is impI.
-      -- After cases, Lean's index unification renames the outer α/β to the
-      -- constructor's argument names, so we let Lean infer the implicit
-      -- type arguments to propDeriv_subst via `_` placeholders.
-      cases dM_app with
-      | impI _ _ _ _ dBody =>
-        exact propDeriv_subst _ _ _ body x dBody dN_app
-    | _ => simp [step] at h
-  | saysI _ _ _ _ _ _ => simp [step] at h
-  | verifyE _ _ _ _ _ _ => simp [step] at h
-  | andI _ _ _ _ _ _ _ => simp [step] at h
-  | andEL Γₐ φ ψ a dA =>
-    -- step (fst a) is productive only when a = Term.pair _ _.
-    cases a with
-    | pair pa pb =>
-      -- step (fst (pair pa pb)) = some pa.
-      simp [step] at h
+      cases dM with
+      | impI _ _ _ _ dBody => exact propDeriv_subst _ _ _ _ _ dBody dN
+    · -- ξ-app: reduction descends into the function position.
+      cases hf : step f with
+      | none => simp [hf] at h
+      | some f' =>
+        simp [hf] at h
+        subst h
+        exact PropDeriv.impE _ α β f' x (ihM f' hf) dN
+  | saysI _ _ _ _ _ _ _ => intro M' h; simp [step] at h
+  | verifyE _ _ _ _ _ _ _ =>
+    -- `Term.verify` is a frozen elimination — `step` returns `none`.
+    intro M' h; simp [step] at h
+  | andI _ _ _ _ _ _ _ _ _ => intro M' h; simp [step] at h
+  | andEL Γ α β a dA ihA =>
+    intro M' h
+    unfold step at h
+    split at h
+    · -- and-Eₗ-β: a = pair pa pb, M' = pa. Invert dA (only andI).
+      simp only [Option.some.injEq] at h
       subst h
-      -- dA : PropDeriv Γₐ (Term.pair pa pb) (Prop'.and φ ψ).
-      -- Invert: only andI applies.
       cases dA with
       | andI _ _ _ _ _ dPA _ => exact dPA
-    | _ => simp [step] at h
-  | andER Γₐ φ ψ a dA =>
-    cases a with
-    | pair pa pb =>
-      simp [step] at h
+    · -- ξ-fst.
+      cases ha : step a with
+      | none => simp [ha] at h
+      | some a' =>
+        simp [ha] at h
+        subst h
+        exact PropDeriv.andEL _ α β a' (ihA a' ha)
+  | andER Γ α β a dA ihA =>
+    intro M' h
+    unfold step at h
+    split at h
+    · -- and-Eᵣ-β: a = pair pa pb, M' = pb.
+      simp only [Option.some.injEq] at h
       subst h
       cases dA with
       | andI _ _ _ _ _ _ dPB => exact dPB
-    | _ => simp [step] at h
-  | withinI _ _ _ _ _ => simp [step] at h
-  | orI_L _ _ _ _ _ => simp [step] at h
-  | orI_R _ _ _ _ _ => simp [step] at h
-  | tensorI _ _ _ _ _ _ _ => simp [step] at h
-  | orE Γₐ φ ψ χ S L R dS dL dR =>
-    -- step (case s l r) — productive when s is inl or inr.
-    cases S with
-    | inl ψ' va =>
-      simp [step] at h
+    · -- ξ-snd.
+      cases ha : step a with
+      | none => simp [ha] at h
+      | some a' =>
+        simp [ha] at h
+        subst h
+        exact PropDeriv.andER _ α β a' (ihA a' ha)
+  | withinI _ _ _ _ _ _ => intro M' h; simp [step] at h
+  | orI_L _ _ _ _ _ _ => intro M' h; simp [step] at h
+  | orI_R _ _ _ _ _ _ => intro M' h; simp [step] at h
+  | tensorI _ _ _ _ _ _ _ _ _ => intro M' h; simp [step] at h
+  | orE Γ α β χ S L R dS dL dR ihS _ _ =>
+    intro M' h
+    unfold step at h
+    split at h
+    · -- or-E-β (inl): M' = subst L va.
+      simp only [Option.some.injEq] at h
       subst h
       cases dS with
-      | orI_L _ _ _ _ dVA =>
-        -- step result is subst L va. Use substitution preservation.
-        exact propDeriv_subst _ _ _ L va dL dVA
-    | inr φ' va =>
-      simp [step] at h
+      | orI_L _ _ _ _ dVA => exact propDeriv_subst _ _ _ _ _ dL dVA
+    · -- or-E-β (inr): M' = subst R va.
+      simp only [Option.some.injEq] at h
       subst h
       cases dS with
-      | orI_R _ _ _ _ dVA =>
-        exact propDeriv_subst _ _ _ R va dR dVA
-    | _ => simp [step] at h
-  | letSaysE Γₐ p φ ψ S B dS dB =>
-    -- step (letSays p (sign p' m _) body) = if p=p' then some (subst body m).
-    -- letSays's conclusion type is ψ (body's type). After β, subst body m
-    -- has type ψ via propDeriv_subst.
-    cases S with
-    | sign p' m _ =>
-      by_cases hp : p = p'
-      · simp [step, hp] at h
+      | orI_R _ _ _ _ dVA => exact propDeriv_subst _ _ _ _ _ dR dVA
+    · -- ξ-case on the scrutinee.
+      cases hs : step S with
+      | none => simp [hs] at h
+      | some S' =>
+        simp [hs] at h
+        subst h
+        exact PropDeriv.orE _ α β χ S' L R (ihS S' hs) dL dR
+  | letSaysE Γ p α β S B dS dB ihS _ =>
+    intro M' h
+    unfold step at h
+    split at h
+    · -- S = sign p' m sig; the head rule guards on p = p'.
+      split at h
+      · -- says-extract-β: M' = subst B m. Inversion of dS (saysI is
+        -- the only constructor at a sign subject) identifies the
+        -- principals, independently of the if-guard.
+        simp only [Option.some.injEq] at h
         subst h
         cases dS with
-        | saysI _ _ _ _ _ dM =>
-          exact propDeriv_subst _ φ ψ B m dB dM
-      · simp [step, hp] at h
-    | _ => simp [step] at h
-  | sfExtractE Γₐ p q M dM =>
-    -- step (sfExtract (sign _ m _)) = some m.
-    cases M with
-    | sign p_outer inner sig =>
-      simp [step] at h
+        | saysI _ _ _ _ _ dM => exact propDeriv_subst _ _ _ _ _ dB dM
+      · -- p ≠ p': step returned none — contradiction.
+        simp at h
+    · -- ξ-letsays on the scrutinee.
+      cases hs : step S with
+      | none => simp [hs] at h
+      | some S' =>
+        simp [hs] at h
+        subst h
+        exact PropDeriv.letSaysE _ p α β S' B (ihS S' hs) dB
+  | sfExtractE Γ p q m dM ihM =>
+    intro M' h
+    unfold step at h
+    split at h
+    · -- sf-extract-β: m = sign _ inner _, M' = inner.
+      simp only [Option.some.injEq] at h
       subst h
       cases dM with
-      | saysI _ _ _ _ _ dInner =>
-        exact dInner
-    | _ => simp [step] at h
-  | delegate Γₐ p q φ M N dM dN =>
-    -- step (delegate (sign p _ _) (sign q m sig')) = some (sign (acting p q) m sig').
-    cases M with
-    | sign p_m inner_m sig_m =>
-      cases N with
-      | sign q_n inner sig' =>
-        simp [step] at h
+      | saysI _ _ _ _ _ dInner => exact dInner
+    · -- ξ-sfextract.
+      cases hm : step m with
+      | none => simp [hm] at h
+      | some m' =>
+        simp [hm] at h
         subst h
-        -- `cases dM` forces p_m = p; `cases dN` forces q_n = q.
-        -- Together they refine the term and the goal so `says (acting p q) φ`
-        -- matches `says (acting p_m q_n) φ`.
-        cases dM with
-        | saysI _ _ _ _ _ _ =>
-          cases dN with
-          | saysI _ _ _ _ _ dInnerN =>
-            exact PropDeriv.saysI _ (Principal.acting p q) φ inner sig' dInnerN
-      | _ => simp [step] at h
-    | _ => simp [step] at h
+        exact PropDeriv.sfExtractE _ p q m' (ihM m' hm)
+  | delegate Γ p q α m n dM dN ihM ihN =>
+    intro M' h
+    unfold step at h
+    split at h
+    · -- delegate-β: both positions are signs. Inversion forces the
+      -- sign principals to be p and q; rebuild with saysI.
+      simp only [Option.some.injEq] at h
+      subst h
+      cases dM with
+      | saysI _ _ _ _ _ _ =>
+        cases dN with
+        | saysI _ _ _ _ _ dInnerN =>
+          exact PropDeriv.saysI _ (Principal.acting p q) α _ _ dInnerN
+    · -- ξ-delegate (right): left is a sign, right position reduces.
+      cases hn : step n with
+      | none => simp [hn] at h
+      | some n' =>
+        simp [hn] at h
+        subst h
+        exact PropDeriv.delegate _ p q α _ n' dM (ihN n' hn)
+    · -- ξ-delegate (left): left position reduces.
+      cases hm : step m with
+      | none => simp [hm] at h
+      | some m' =>
+        simp [hm] at h
+        subst h
+        exact PropDeriv.delegate _ p q α m' n (ihM m' hm) dN
   | now _ _ =>
     -- `Term.now τ` is irreducible — `step` rejects it. Vacuous.
-    simp [step] at h
-  | attenuate _ _ _ _ _ =>
-    -- `Term.attenuate M φ` is a normal form per `Reduce.lean` — `step`
-    -- returns `none`. Vacuous precondition.
-    simp [step] at h
-  | liftLabel _ _ _ _ _ =>
-    -- `Term.liftLabel ℓ M` is a normal form per `Reduce.lean` — `step`
-    -- returns `none`. Vacuous precondition.
-    simp [step] at h
-  | declassify _ _ _ _ _ _ _ _ =>
-    -- `Term.declassify ℓ' M π` is a normal form — `step` returns `none`.
-    simp [step] at h
-  | discharge _ _ _ _ _ _ _ =>
-    -- `Term.discharge M N` is a normal form per `Reduce.lean` — vacuous.
-    simp [step] at h
-  | letTensor Γₐ φ ψ _χ S B dS dB =>
-    -- step (letTensor (tensorIntro a b) B) = some (subst (subst B (shift a 1 0)) b).
-    -- Body B has context φ :: ψ :: Γₐ.
-    cases S with
-    | tensorIntro a b =>
-      simp [step] at h
+    intro M' h; simp [step] at h
+  | attenuate _ _ _ _ _ _ =>
+    -- `Term.attenuate M φ` is a frozen elimination — vacuous.
+    intro M' h; simp [step] at h
+  | liftLabel _ _ _ _ _ _ =>
+    -- `Term.liftLabel ℓ M` is a value — vacuous.
+    intro M' h; simp [step] at h
+  | declassify _ _ _ _ _ _ _ _ _ _ =>
+    -- `Term.declassify ℓ' M π` is a frozen elimination — vacuous.
+    intro M' h; simp [step] at h
+  | discharge _ _ _ _ _ _ _ _ _ =>
+    -- `Term.discharge M N` is a frozen elimination — vacuous.
+    intro M' h; simp [step] at h
+  | letTensor Γ α β χ S B dS dB ihS _ =>
+    intro M' h
+    unfold step at h
+    split at h
+    · -- tensor-E-β: S = tensorIntro a b,
+      -- M' = subst (subst B (shift a 1 0)) b. Weaken a's derivation
+      -- past the β-binder, then substitute twice (see the shift
+      -- comment on `Reduce.lean`'s letTensor redex).
+      simp only [Option.some.injEq] at h
       subst h
-      -- After `cases dS`, the unified Γₐ, φ, ψ should be accessible
-      -- via their outer-pattern names (cases substitutes the equalities
-      -- but the names remain bound).
       cases dS
       rename_i dA dB'
-      -- Step 1: weaken dA : PropDeriv Γₐ a φ to PropDeriv (ψ :: Γₐ) (shift a 1 0) φ.
-      have dA' := propDeriv_weaken_front Γₐ ψ a φ dA
-      -- Step 2: substitute (shift a 1 0) for the φ-binder.
-      have h1 := propDeriv_subst _ _ _ B (shift a 1 0) dB dA'
-      -- Step 3: substitute b for the ψ-binder.
-      have h2 := propDeriv_subst _ _ _ (subst B (shift a 1 0)) b h1 dB'
-      exact h2
-    | _ => simp [step] at h
+      have dA' := propDeriv_weaken_front _ β _ α dA
+      have h1 := propDeriv_subst _ _ _ _ _ dB dA'
+      exact propDeriv_subst _ _ _ _ _ h1 dB'
+    · -- ξ-lettensor on the scrutinee.
+      cases hs : step S with
+      | none => simp [hs] at h
+      | some S' =>
+        simp [hs] at h
+        subst h
+        exact PropDeriv.letTensor _ α β χ S' B (ihS S' hs) dB
 
 /-- Structural embedding from `PropDeriv` into `Deriv`. Constructively
 shows the propositional fragment is a faithful sub-typing-judgment. -/

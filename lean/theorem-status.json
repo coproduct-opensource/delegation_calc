@@ -34,7 +34,7 @@
     "proven_content": "t3_intro_two_run (DLC/NonInterferenceTwoRun.lean) — first rung: TWO-RUN NI for the introduction fragment at syntactic strength (observable conclusions provably reference no high hypothesis, so both runs are literally equal); typing derivation load-bearing, witnessed in DLC/Witness/T3.lean. Design + rung ladder: spec/t3-two-run-design-2026-07.md. Rung 2 (DLC/ReduceMeta.lean): multi-step reduction Steps, determinism ⇒ semi-confluence, and Joinable as a transitive equivalence — the atom-level relation for the rung-3 LR.",
     "witness": "DLC/Witness/T3.lean",
     "open": [
-      "rung 3: redesigned LR (projective products, binary arrows, Joinable atoms) + fundamental lemma over PropDeriv — eliminations reach low types through high intermediates",
+      "rung 3b: redesigned LR (value-style positives, binary arrows, Joinable atoms) + rung 3c fundamental lemma over PropDeriv (rung 3b-0 — congruence rules + progress — done)",
       "the fundamental lemma over the full PropDeriv by induction on the derivation",
       "declassify stays excluded (NI modulo declassification)"
     ]
@@ -68,7 +68,7 @@
   },
   "subject_reduction": {
     "status": "proven_fragment",
-    "fragment": "propositional (PropDeriv)",
+    "fragment": "propositional (PropDeriv), INCLUDING the 2026-07 congruence (ξ) rules",
     "file": "DLC/Decidability.lean",
     "theorems": [
       "propositional subject reduction via preservation lemmas"
@@ -76,6 +76,19 @@
     "witness": "DLC/Witness/T1.lean",
     "open": [
       "subject reduction for the full Deriv judgment"
+    ]
+  },
+  "progress": {
+    "status": "proven_fragment",
+    "fragment": "closed computational core (no frozen eliminations: verify/attenuate/declassify/discharge)",
+    "file": "DLC/Progress.lean",
+    "theorems": [
+      "progress"
+    ],
+    "witness": "DLC/Progress.lean",
+    "note": "FALSE before 2026-07: step was head-redex-only, so nested eliminations were stuck (spec/t3-two-run-design-2026-07.md FINDING). The congruence rules make it provable; this theorem is rung 3b-0's witness.",
+    "open": [
+      "progress for the full Deriv judgment / frozen forms are verifier-checked by design"
     ]
   }
 }

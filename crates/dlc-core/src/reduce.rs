@@ -1,68 +1,132 @@
 //! Small-step reduction `M ▷ M'`.
 //!
-//! Implements the principal reduction rules from `spec/typing-rules.md` §11:
-//!   β              — `(λx.M) N ▷ M[N/x]`
-//!   says-extract   — `let ⟨x⟩_p = ⟨M, σ⟩_p in N ▷ N[M/x]`  (encoded via app)
-//!   delegate-β     — `delegate(⟨M, _⟩_p, ⟨N, σ'⟩_q) ▷ ⟨N, σ'⟩_{p⊓q}`
-//!   attenuate-β    — `attenuate(⟨M, σ⟩_p, ψ) ▷ ⟨M', σ'⟩_p`  (admits reproof)
-//!   discharge-β    — `discharge(box(M, _), N) ▷ M`
-//!   within-β       — `openWithin(within(M, τ)) ▷ M`
+//! Implements `spec/typing-rules.md` §11 and mirrors
+//! `lean/DLC/Reduce.lean::step` case-for-case: eight head redexes (β,
+//! and-Eₗ/ᵣ-β, or-E-β, let-tensor, says-extract, sf-extract-β,
+//! delegate-β) plus the 2026-07 CONGRUENCE rules — when an elimination
+//! form's head rule does not fire, reduction descends into the
+//! scrutinee/function position (call-by-name, one deterministic
+//! position per form). Without congruence, nested eliminations were
+//! stuck and progress failed; see spec §11 and
+//! `spec/t3-two-run-design-2026-07.md` (FINDING).
 //!
-//! Subject reduction (M1.Q2.c proof closure) is stated in `lean/DLC/Reduce.lean`.
-//! The Lean proof depends on the substitution lemma (M1.Q2.a, also deferred);
-//! the implementations here are correct and tested.
+//! Frozen forms (`verify`, `attenuate`, `declassify`, `discharge`,
+//! `liftLabel`, `withinIntro`) do not reduce: they are checked by the
+//! verifier layers, not computed. discharge-β awaits the
+//! obligation-carrying constructor (T4 non-vacuity package).
 
 use alloc::boxed::Box;
 
 use crate::principal::Principal;
-use crate::subst::subst;
+use crate::subst::{shift, subst};
 use crate::syntax::Term;
 
-/// One step of head reduction. Returns `None` if `term` is a normal form at
-/// the head position (no further redex at the top constructor).
+/// One deterministic step of reduction, or `None` for values, frozen
+/// forms, and terms stuck on a frozen scrutinee.
 ///
-/// Reduction is **head-only**: we do not push inside subterms. Strategies
-/// that need full reduction iterate `step` over the term tree externally.
+/// The congruence arms spell out `match step(x) { Some(..) => .., None
+/// => None }` instead of `Option::map` DELIBERATELY: closures are the
+/// weak spot of the Charon/Aeneas pipeline this crate must stay
+/// translatable under (the committed `lean/DLC/Aeneas/DlcCore` tree is
+/// generated from exactly this shape), so the clippy lint is
+/// suppressed rather than obeyed.
+#[allow(clippy::manual_map)]
 pub fn step(term: &Term) -> Option<Term> {
     match term {
-        // β: (λx:φ.M) N  ▷  M[N/x]
+        // β: (λx:φ.M) N ▷ M[N/x]; ξ-app in the function position.
         Term::App(f, x) => match f.as_ref() {
             Term::Lam(_phi, body) => Some(subst(body, x)),
-            _ => None,
+            _ => match step(f) {
+                Some(f2) => Some(Term::App(Box::new(f2), x.clone())),
+                None => None,
+            },
         },
 
-        // delegate-β: delegate(⟨M, _⟩_p, ⟨N, σ'⟩_q)  ▷  ⟨N, σ'⟩_{p⊓q}
-        // The outer principal is the `acting` composition of p over q.
+        // and-Eₗ-β: π₁ ⟨a, _⟩ ▷ a; ξ-fst.
+        Term::Fst(m) => match m.as_ref() {
+            Term::Pair(a, _) => Some(a.as_ref().clone()),
+            _ => match step(m) {
+                Some(m2) => Some(Term::Fst(Box::new(m2))),
+                None => None,
+            },
+        },
+
+        // and-Eᵣ-β: π₂ ⟨_, b⟩ ▷ b; ξ-snd.
+        Term::Snd(m) => match m.as_ref() {
+            Term::Pair(_, b) => Some(b.as_ref().clone()),
+            _ => match step(m) {
+                Some(m2) => Some(Term::Snd(Box::new(m2))),
+                None => None,
+            },
+        },
+
+        // or-E-β: case (inl a) ▷ left[a/x] (inr symmetric); ξ-case.
+        Term::Case(s, l, r) => match s.as_ref() {
+            Term::Inl(_, a) => Some(subst(l, a)),
+            Term::Inr(_, a) => Some(subst(r, a)),
+            _ => match step(s) {
+                Some(s2) => Some(Term::Case(Box::new(s2), l.clone(), r.clone())),
+                None => None,
+            },
+        },
+
+        // let-tensor: `let x⊗y = a⊗b in body ▷ body[a/x, b/y]` with the
+        // intermediate-context shift on `a` (see Lean `step` for the
+        // detailed de-Bruijn justification); ξ-lettensor.
+        Term::LetTensor(s, body) => match s.as_ref() {
+            Term::TensorIntro(a, b) => Some(subst(&subst(body, &shift(a, 1, 0)), b)),
+            _ => match step(s) {
+                Some(s2) => Some(Term::LetTensor(Box::new(s2), body.clone())),
+                None => None,
+            },
+        },
+
+        // says-extract: `let ⟨x⟩_p = ⟨m, σ⟩_p in body ▷ body[m/x]` when
+        // the principals agree (a signed value under the wrong principal
+        // is stuck — typing rules it out); ξ-letsays.
+        Term::LetSays(p, s, body) => match s.as_ref() {
+            Term::Sign(p2, m, _sig) => {
+                if p == p2 {
+                    Some(subst(body, m))
+                } else {
+                    None
+                }
+            }
+            _ => match step(s) {
+                Some(s2) => Some(Term::LetSays(p.clone(), Box::new(s2), body.clone())),
+                None => None,
+            },
+        },
+
+        // sf-extract-β: `sfExtract ⟨m, σ⟩_p ▷ m`; ξ-sfextract.
+        Term::SfExtract(m) => match m.as_ref() {
+            Term::Sign(_, inner, _) => Some(inner.as_ref().clone()),
+            _ => match step(m) {
+                Some(m2) => Some(Term::SfExtract(Box::new(m2))),
+                None => None,
+            },
+        },
+
+        // delegate-β: delegate(⟨M, _⟩_p, ⟨N, σ'⟩_q) ▷ ⟨N, σ'⟩_{p⊓q};
+        // ξ-delegate: left position first, then right once left is a sign.
         Term::Delegate(m, n) => match (m.as_ref(), n.as_ref()) {
             (Term::Sign(p, _m_inner, _sig_p), Term::Sign(q, n_inner, sig_q)) => {
                 let acting = Principal::Acting(Box::new(p.clone()), Box::new(q.clone()));
                 Some(Term::Sign(acting, n_inner.clone(), sig_q.clone()))
             }
-            _ => None,
+            (Term::Sign(_, _, _), _) => match step(n) {
+                Some(n2) => Some(Term::Delegate(m.clone(), Box::new(n2))),
+                None => None,
+            },
+            _ => match step(m) {
+                Some(m2) => Some(Term::Delegate(Box::new(m2), n.clone())),
+                None => None,
+            },
         },
 
-        // attenuate-β: a (sign, attenuate) pair commutes-and-reproofs. In
-        // this kernel implementation we leave the term-level commute to the
-        // verifier — attenuation does not reduce on the fly; the verifier
-        // checks the side conditions and accepts. Returning `None` here is
-        // intentional and matches the calculus (attenuate is a normal form
-        // at the head).
-        Term::Attenuate(_, _) => None,
-
-        // discharge-β: discharge(box(M, _), N) ▷ M, where `box(M, _)` is
-        // encoded as Discharge with the obligation-evidence in the second
-        // arg. Production: when we add the explicit `box` constructor at
-        // Q3, this rule rewrites to consume the obligation. Week-1 stub:
-        // a `discharge` over a non-box is a normal form.
-        Term::Discharge(_m, _n) => None,
-
-        // within-β: openWithin(within(M, τ)) ▷ M. We currently model
-        // `openWithin` as application of an identity wrapper; explicit
-        // open-elim constructor lands at Q3.
-        Term::WithinIntro(_, _) => None,
-
-        // All other forms — Var, Lam, Sign, Verify, LiftLabel, Declassify,
-        // Now — are normal forms at the head.
+        // Frozen forms and values: Var, Lam, Sign, Pair, Inl, Inr,
+        // TensorIntro, Now, WithinIntro, Verify, Attenuate, Discharge,
+        // LiftLabel, Declassify.
         _ => None,
     }
 }
@@ -168,5 +232,43 @@ mod tests {
         let (final_term, steps) = reduce_with_fuel(&app, 10);
         assert_eq!(final_term, Term::Var(0));
         assert_eq!(steps, 1);
+    }
+
+    /// Congruence: nested projections now evaluate — the FINDING case.
+    #[test]
+    fn nested_projection_evaluates() {
+        // fst (fst (pair (pair a b) c)) ▷ fst (pair a b) ▷ a
+        let a = Term::Var(1);
+        let b = Term::Var(2);
+        let c = Term::Var(3);
+        let inner = Term::Pair(Box::new(a.clone()), Box::new(b));
+        let outer = Term::Pair(Box::new(inner), Box::new(c));
+        let m = Term::Fst(Box::new(Term::Fst(Box::new(outer))));
+        let (final_term, steps) = reduce_with_fuel(&m, 10);
+        assert_eq!(final_term, a);
+        assert_eq!(steps, 2);
+    }
+
+    /// Congruence in function position: ((λ.λ.0) v) w needs ξ-app first.
+    #[test]
+    fn xi_app_reduces_function_position() {
+        let kk = Term::Lam(
+            Box::new(Prop::Atom(0)),
+            Box::new(Term::Lam(Box::new(Prop::Atom(1)), Box::new(Term::Var(0)))),
+        );
+        let inner_app = Term::App(Box::new(kk), Box::new(Term::Var(7)));
+        let outer = Term::App(Box::new(inner_app), Box::new(Term::Var(9)));
+        let (final_term, steps) = reduce_with_fuel(&outer, 10);
+        assert_eq!(final_term, Term::Var(9));
+        assert_eq!(steps, 2);
+    }
+
+    /// Frozen scrutinee stays stuck: letSays over an attenuate does not step.
+    #[test]
+    fn frozen_scrutinee_is_stuck() {
+        let p = Principal::Atom(crate::principal::PrincipalId([1u8; 32]));
+        let frozen = Term::Attenuate(Box::new(Term::Var(0)), Box::new(Prop::Top));
+        let m = Term::LetSays(p, Box::new(frozen), Box::new(Term::Var(0)));
+        assert!(step(&m).is_none());
     }
 }

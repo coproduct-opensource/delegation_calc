@@ -225,26 +225,62 @@ the tracked open obligations.
 
 ## 11. Reduction
 
-Small-step. The principal reduction rules:
+Small-step, deterministic (implemented as a partial function). Head
+redexes:
 
 ```
 (β)             (λx:φ.M) N           ▷  M[N/x]
+(and-Eₗ-β)      π₁ ⟨M, N⟩            ▷  M
+(and-Eᵣ-β)      π₂ ⟨M, N⟩            ▷  N
+(or-E-β)        case (inl M) of …    ▷  left[M/x]   (inr symmetric)
 (let-tensor)    let x⊗y = M⊗N in P   ▷  P[M/x, N/y]
 (says-extract)  let ⟨x⟩_p = ⟨M, σ⟩_p in N
                                      ▷  N[M/x]
+(sf-extract-β)  sfExtract(⟨M, σ⟩_p)  ▷  M
 (delegate-β)    delegate(⟨M, σ⟩_p, ⟨N, σ'⟩_q)
-                                     ▷  ⟨N, σ'⟩_{p⊓q}     -- when σ verifies
-(attenuate-β)   attenuate(⟨M, σ⟩_p, ψ)
-                                     ▷  ⟨M', σ'⟩_p          -- reproof at ψ
-(discharge-β)   discharge(box(M, _), N)
-                                     ▷  M                  -- N's hypothesis consumed
-(within-β)      openWithin(within(M, τ))
-                                     ▷  M                  -- at verify time
+                                     ▷  ⟨N, σ'⟩_{p⊓q}     -- σ checked by ⊢_K, not here
 ```
 
+**Congruence (evaluation contexts), 2026-07.** When the head rule for
+an elimination form does not yet fire, reduction descends into the
+scrutinee/function position — call-by-name, one deterministic
+position per form:
+
+```
+(ξ-app)        M ▷ M'  ⇒  M N ▷ M' N            -- M not a λ
+(ξ-fst/snd)    M ▷ M'  ⇒  πᵢ M ▷ πᵢ M'           -- M not a pair
+(ξ-case)       M ▷ M'  ⇒  case M of … ▷ case M' of …
+(ξ-lettensor)  M ▷ M'  ⇒  let x⊗y = M in P ▷ let x⊗y = M' in P
+(ξ-letsays)    M ▷ M'  ⇒  let ⟨x⟩_p = M in N ▷ let ⟨x⟩_p = M' in N
+(ξ-sfextract)  M ▷ M'  ⇒  sfExtract M ▷ sfExtract M'
+(ξ-delegate)   left position first, then right once left is a ⟨…⟩_p value
+```
+
+Without these, nested eliminations are stuck (`π₁ (π₁ ⟨⟨a,b⟩,c⟩)` had
+no reduct) and progress fails; see
+`spec/t3-two-run-design-2026-07.md` (FINDING, 2026-07-02).
+
+**Frozen forms.** `verify`, `attenuate`, `declassify`, `discharge`,
+`liftLabel`, `withinIntro` do not reduce and have no congruence rule:
+they are checked by the verifier (`⊢_K` / IFC / obligation layers)
+rather than computed. In particular `attenuate-β` (reproof) and
+`discharge-β` are NOT implemented — discharge-β awaits the
+obligation-carrying constructor (T4 non-vacuity package), and
+attenuate's reproof is a verifier-side notion. The earlier version of
+this section listed them as reduction rules; that overstated the
+semantics.
+
+**Values (computational core).** `λ`, `⟨M,σ⟩_p`, `⟨M,N⟩`, `inl/inr`,
+`M⊗N`, `now`, plus the frozen forms above. **Progress** holds for
+closed well-typed terms of the computational core (no frozen
+eliminations): such a term is a value or steps. Mechanized as the
+rung-3b-0 witness (`lean/DLC/Progress.lean`).
+
 **Subject reduction** (M1.Q2.c): if `Γ ⊢ M : φ` and `Γ ⊢ M ▷ M'`, then
-`Γ ⊢ M' : φ`. Linear context bookkeeping is the load-bearing part of the
-proof.
+`Γ ⊢ M' : φ`. Proven for the propositional fragment
+(`propDeriv_subject_reduction`), including the congruence cases;
+linear context bookkeeping is the load-bearing part of the full-`Deriv`
+extension (open).
 
 ## 12. Rule index
 

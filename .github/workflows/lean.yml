@@ -63,7 +63,7 @@ jobs:
       - name: lake build per-theorem libraries
         working-directory: delegation_calc/lean
         run: |
-          for lib in Decidability Correspondence NonInterference ObligationSoundness ProtocolCorrespondence Witness CoproductAlgebra GradedBridge GradedDistributiveLaw GradedBridgeGeneric; do
+          for lib in Decidability Correspondence NonInterference ObligationSoundness ProtocolCorrespondence Progress Witness CoproductAlgebra GradedBridge GradedDistributiveLaw GradedBridgeGeneric; do
             echo "::group::lake build $lib"
             lake build "$lib"
             echo "::endgroup::"

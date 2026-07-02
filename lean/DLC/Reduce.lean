@@ -1,10 +1,18 @@
 /-
 DLC — Small-step reduction.
 
-Mirrors `crates/dlc-core/src/reduce.rs`. The principal reduction rules from
-`spec/typing-rules.md` §11; head-position only. Subject reduction is the
-load-bearing theorem to close at M1.Q2.c (proof closure depends on the
-substitution lemma from M1.Q2.a).
+Mirrors `crates/dlc-core/src/reduce.rs` case-for-case. The principal
+reduction rules from `spec/typing-rules.md` §11: eight head redexes
+plus the 2026-07 CONGRUENCE rules (ξ-rules) — when an elimination
+form's head rule does not fire, reduction descends into the
+scrutinee/function position, call-by-name, one deterministic position
+per form. Without congruence, nested eliminations were stuck
+(`π₁ (π₁ ⟨⟨a,b⟩,c⟩)` had no reduct) and progress failed; see
+`spec/t3-two-run-design-2026-07.md` (FINDING, 2026-07-02).
+
+`step` remains a FUNCTION, so reduction stays deterministic and the
+`DLC.ReduceMeta` results (semi-confluence, Joinable transitivity)
+apply unchanged.
 -/
 
 import DLC.Syntax
@@ -14,58 +22,110 @@ import DLC.Judgment
 
 namespace DLC
 
-/-- One step of head reduction. `none` denotes a normal form. -/
+/-- One deterministic step of reduction. `none` denotes a value, a
+frozen form, or a term stuck on a frozen scrutinee. -/
 def step : Term → Option Term
-  -- β: (λ x:φ. body) arg ▷ body[arg/x]
-  | Term.app (Term.lam _ body) arg =>
-      some (subst body arg)
+  -- β: (λ x:φ. body) arg ▷ body[arg/x]; ξ-app in the function position
+  -- (call-by-name: the argument is never reduced).
+  | Term.app f arg =>
+      match f with
+      | Term.lam _ body => some (subst body arg)
+      | _ =>
+          match step f with
+          | some f' => some (Term.app f' arg)
+          | none => none
 
-  -- delegate-β: delegate(⟨_, _⟩_p, ⟨N, σ'⟩_q) ▷ ⟨N, σ'⟩_{p⊓q}
-  | Term.delegate (Term.sign p _ _) (Term.sign q inner sig') =>
-      some (Term.sign (Principal.acting p q) inner sig')
+  -- and-Eₗ-β: π₁ ⟨a, _⟩ ▷ a; ξ-fst.
+  | Term.fst m =>
+      match m with
+      | Term.pair a _ => some a
+      | _ =>
+          match step m with
+          | some m' => some (Term.fst m')
+          | none => none
 
-  -- and-Eₗ-β: π₁ ⟨a, _⟩ ▷ a
-  | Term.fst (Term.pair a _) => some a
+  -- and-Eᵣ-β: π₂ ⟨_, b⟩ ▷ b; ξ-snd.
+  | Term.snd m =>
+      match m with
+      | Term.pair _ b => some b
+      | _ =>
+          match step m with
+          | some m' => some (Term.snd m')
+          | none => none
 
-  -- and-Eᵣ-β: π₂ ⟨_, b⟩ ▷ b
-  | Term.snd (Term.pair _ b) => some b
+  -- or-E-β: case (inl _ a) of x ⇒ left | y ⇒ _ ▷ left[a/x] (inr
+  -- symmetric); ξ-case on the scrutinee.
+  | Term.case s left right =>
+      match s with
+      | Term.inl _ a => some (subst left a)
+      | Term.inr _ a => some (subst right a)
+      | _ =>
+          match step s with
+          | some s' => some (Term.case s' left right)
+          | none => none
 
-  -- or-E-β-left: case (inl _ a) of x ⇒ left | y ⇒ _ ▷ left[a/x]
-  | Term.case (Term.inl _ a) left _ => some (subst left a)
-
-  -- or-E-β-right: symmetric.
-  | Term.case (Term.inr _ a) _ right => some (subst right a)
-
-  -- tensor-E-β / let-tensor: `let x⊗y = a⊗b in body ▷ body[a/x, b/y]`.
+  -- tensor-E-β / let-tensor: `let x⊗y = a⊗b in body ▷ body[a/x, b/y]`;
+  -- ξ-lettensor on the scrutinee.
+  --
   -- The body has two bound variables, with `φ :: ψ :: Γ` convention
   -- (a:φ at index 0, b:ψ at index 1). Substitute a first (consumes
-  -- index 0); after this the intermediate body has context ψ :: Γ,
-  -- so b's free vars (originally in Γ) need to be shifted up by 1
-  -- to land in ψ :: Γ — but wait, b at the second substitution lands
-  -- in Γ (after consuming ψ). The shift goes on the FIRST substituent
-  -- `a`: while `a` is typed in Γ, the intermediate context after
+  -- index 0); `a` is typed in Γ, but the intermediate context after
   -- consuming `φ` is `ψ :: Γ`, so `a`'s free vars must shift up by 1
-  -- to align with the ψ-binder that's now at index 0. After the
-  -- second substitution (b at depth 0), the ψ-binder is consumed and
-  -- we're back in Γ — b's free vars are already correct.
-  --
-  -- This shift is required for typing preservation under the
-  -- standard single-binder `propDeriv_subst` lemma. Without it, the
-  -- intermediate substitution `subst body a` produces a term whose
-  -- free vars index incorrectly into `ψ :: Γ`. See `propDeriv_subject_reduction`.
-  | Term.letTensor (Term.tensorIntro a b) body =>
-      some (subst (subst body (shift a 1 0)) b)
+  -- to align with the ψ-binder now at index 0. After the second
+  -- substitution (b at depth 0) the ψ-binder is consumed and we're
+  -- back in Γ — b's free vars are already correct. This shift is
+  -- required for typing preservation under the single-binder
+  -- `propDeriv_subst` lemma; see `propDeriv_subject_reduction`.
+  | Term.letTensor s body =>
+      match s with
+      | Term.tensorIntro a b => some (subst (subst body (shift a 1 0)) b)
+      | _ =>
+          match step s with
+          | some s' => some (Term.letTensor s' body)
+          | none => none
 
-  -- says-extract / let-says: `let ⟨x⟩_p = ⟨m, _⟩_p in body ▷ body[m/x]`.
-  | Term.letSays p (Term.sign p' m _) body =>
-      if p = p' then some (subst body m) else none
+  -- says-extract / let-says: `let ⟨x⟩_p = ⟨m, _⟩_p in body ▷ body[m/x]`
+  -- when the principals agree (a sign under the wrong principal is a
+  -- stuck value — typing rules it out); ξ-letsays on the scrutinee.
+  | Term.letSays p s body =>
+      match s with
+      | Term.sign p' m _ => if p = p' then some (subst body m) else none
+      | _ =>
+          match step s with
+          | some s' => some (Term.letSays p s' body)
+          | none => none
 
-  -- sf-extract reduction: `sfExtract (⟨m, _⟩_p)` exposes `m` (the
-  -- speaks-for proposition's witness).
-  | Term.sfExtract (Term.sign _ m _) => some m
+  -- sf-extract-β: `sfExtract (⟨m, _⟩_p)` exposes `m` (the speaks-for
+  -- proposition's witness); ξ-sfextract on the scrutinee.
+  | Term.sfExtract m =>
+      match m with
+      | Term.sign _ inner _ => some inner
+      | _ =>
+          match step m with
+          | some m' => some (Term.sfExtract m')
+          | none => none
 
-  -- Other constructors at head are normal forms. attenuate, discharge,
-  -- withinIntro normalize through `verify` rather than the head reducer.
+  -- delegate-β: delegate(⟨_, _⟩_p, ⟨N, σ'⟩_q) ▷ ⟨N, σ'⟩_{p⊓q};
+  -- ξ-delegate: left position first, then right once left is a sign.
+  | Term.delegate m n =>
+      match m, n with
+      | Term.sign p _ _, Term.sign q inner sig' =>
+          some (Term.sign (Principal.acting p q) inner sig')
+      | Term.sign p mi si, _ =>
+          match step n with
+          | some n' => some (Term.delegate (Term.sign p mi si) n')
+          | none => none
+      | _, _ =>
+          match step m with
+          | some m' => some (Term.delegate m' n)
+          | none => none
+
+  -- Frozen forms and values: var, lam, sign, pair, inl, inr,
+  -- tensorIntro, now, withinIntro, verify, attenuate, discharge,
+  -- liftLabel, declassify. The frozen eliminations (verify, attenuate,
+  -- declassify, discharge) are checked by the verifier layers rather
+  -- than computed; discharge-β awaits the obligation-carrying
+  -- constructor (T4 non-vacuity package).
   | _ => none
 
 /-- Iterate `step` up to `fuel` steps, returning the final term and the step

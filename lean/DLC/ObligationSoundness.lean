@@ -342,11 +342,15 @@ theorem pendingObligations_substAt_subset (body : Term) :
 
 /-! ## T4 — Proven (non-introduction direction).
 
-The case analysis over `step`'s 7 productive redexes uses
+The proof is a term induction over `M` (the 2026-07 CONGRUENCE rules
+make `step` recurse into elimination positions, so the subterm
+induction hypotheses carry the ξ-cases). Head-redex arms use
 `pendingObligations_substAt_subset` for the four substitution-style
 redexes (β, case, letTensor, letSays) and direct list-membership
-arithmetic for the three rearrangement redexes (delegate, fst/snd,
-sfExtract). The remaining 14 outer constructors contradict the
+arithmetic for the rearrangement redexes (delegate, fst/snd,
+sfExtract); ξ-arms map the reduced component's membership through the
+induction hypothesis and pass the untouched components through
+unchanged. The 14 value/frozen outer constructors contradict the
 `step M = some M'` hypothesis. -/
 
 /-- T4 — Reduction never introduces a new obligation. CAVEAT: vacuous
@@ -357,174 +361,195 @@ theorem t4_no_new_obligation
     (M M' : Term) (h : step M = some M') :
     ∀ (o : Obligation),
       o ∈ pendingObligations M' → o ∈ pendingObligations M := by
-  intro o hmem
-  cases M with
-  | var _ => simp [step] at h
-  | lam _ _ => simp [step] at h
-  | app f x =>
-    -- β is the only productive sub-case; all other f shapes give none.
-    cases f with
-    | lam _ body =>
-      -- step (app (lam _ body) x) = some (subst body x)
-      -- so by injection, M' = subst body x.
-      simp only [step] at h
-      -- h : some (subst body x) = some M'
-      -- Inject: M' = subst body x. We rewrite hmem using the equality.
-      have hM' : M' = subst body x := by
-        have := Option.some.inj h
-        exact this.symm
-      rw [hM'] at hmem
-      -- hmem : o ∈ pendingObligations (subst body x)
-      -- subst body x = substAt body x 0 by defn of subst.
-      have hsub : o ∈ pendingObligations (substAt body x 0) := hmem
-      rcases pendingObligations_substAt_subset body x 0 o hsub with hB | hX
-      · show o ∈ pendingObligations body ++ pendingObligations x
-        exact List.mem_append.mpr (Or.inl hB)
-      · show o ∈ pendingObligations body ++ pendingObligations x
-        exact List.mem_append.mpr (Or.inr hX)
-    | _ => simp [step] at h
-  | sign _ _ _ => simp [step] at h
-  | verify _ _ _ => simp [step] at h
-  | delegate m n =>
-    -- delegate-β: only fires when both m and n are signs.
-    cases m with
-    | sign p _ _ =>
-      cases n with
-      | sign q inner sig' =>
-        -- step (delegate (sign p _ _) (sign q inner sig'))
-        --   = some (sign (acting p q) inner sig')
-        simp only [step] at h
-        have hM' : M' = Term.sign (Principal.acting p q) inner sig' :=
-          (Option.some.inj h).symm
-        rw [hM'] at hmem
-        -- hmem : o ∈ pendingObligations (Term.sign _ inner _)
-        --      = pendingObligations inner
-        show o ∈ pendingObligations (Term.sign p _ _) ++
-                  pendingObligations (Term.sign q inner sig')
-        exact List.mem_append.mpr (Or.inr hmem)
-      | _ => simp [step] at h
-    | _ => simp [step] at h
-  | attenuate _ _ => simp [step] at h
-  | discharge _ _ => simp [step] at h
-  | liftLabel _ _ => simp [step] at h
-  | declassify _ _ _ => simp [step] at h
-  | now _ => simp [step] at h
-  | withinIntro _ _ => simp [step] at h
-  | pair _ _ => simp [step] at h
-  | fst t =>
-    cases t with
-    | pair a b =>
-      -- step (fst (pair a b)) = some a, so M' = a.
-      simp only [step] at h
-      have hM' : M' = a := (Option.some.inj h).symm
-      rw [hM'] at hmem
-      -- hmem : o ∈ pendingObligations a
-      show o ∈ pendingObligations a ++ pendingObligations b
-      exact List.mem_append.mpr (Or.inl hmem)
-    | _ => simp [step] at h
-  | snd t =>
-    cases t with
-    | pair a b =>
-      simp only [step] at h
-      have hM' : M' = b := (Option.some.inj h).symm
-      rw [hM'] at hmem
-      show o ∈ pendingObligations a ++ pendingObligations b
+  revert M'
+  induction M with
+  | var _ => intro M' h; simp [step] at h
+  | lam _ _ _ => intro M' h; simp [step] at h
+  | app f x ihF _ =>
+    intro M' h o hmem
+    unfold step at h
+    split at h
+    · -- β: f = lam _ body, M' = subst body x. Every obligation of the
+      -- substitution result was in the body or in the argument.
+      simp only [Option.some.injEq] at h
+      subst h
+      rcases pendingObligations_substAt_subset _ _ _ o hmem with hB | hX
+      · exact List.mem_append.mpr (Or.inl hB)
+      · exact List.mem_append.mpr (Or.inr hX)
+    · -- ξ-app: the argument passes through; the function position maps
+      -- through the induction hypothesis.
+      cases hf : step f with
+      | none => simp [hf] at h
+      | some f' =>
+        simp [hf] at h
+        subst h
+        rcases List.mem_append.mp hmem with hF | hX
+        · exact List.mem_append.mpr (Or.inl (ihF f' hf o hF))
+        · exact List.mem_append.mpr (Or.inr hX)
+  | sign _ _ _ _ => intro M' h; simp [step] at h
+  | verify _ _ _ _ => intro M' h; simp [step] at h
+  | delegate m n ihM ihN =>
+    intro M' h o hmem
+    unfold step at h
+    split at h
+    · -- delegate-β: M' = sign (acting p q) inner sig'; the surviving
+      -- obligations are exactly the right-hand sign's.
+      simp only [Option.some.injEq] at h
+      subst h
       exact List.mem_append.mpr (Or.inr hmem)
-    | _ => simp [step] at h
-  | inl _ _ => simp [step] at h
-  | inr _ _ => simp [step] at h
-  | case scrut left right =>
-    -- Two productive sub-cases: scrut = inl _ a or inr _ a.
-    cases scrut with
-    | inl _ a =>
-      -- step (case (inl _ a) left right) = some (subst left a)
-      simp only [step] at h
-      have hM' : M' = subst left a := (Option.some.inj h).symm
-      rw [hM'] at hmem
-      have hsub : o ∈ pendingObligations (substAt left a 0) := hmem
-      rcases pendingObligations_substAt_subset left a 0 o hsub with hL | hA
-      · -- o was in left's obligations -- goes into the (S ++ L) ++ R slot via (left of outer)
-        show o ∈ (pendingObligations (Term.inl _ a) ++ pendingObligations left) ++ pendingObligations right
-        exact List.mem_append.mpr (Or.inl (List.mem_append.mpr (Or.inr hL)))
-      · -- o was in a's obligations; a is inside (inl _ a) so it goes via the scrutinee
-        show o ∈ (pendingObligations (Term.inl _ a) ++ pendingObligations left) ++ pendingObligations right
-        -- pendingObligations (Term.inl _ a) = pendingObligations a
-        exact List.mem_append.mpr (Or.inl (List.mem_append.mpr (Or.inl hA)))
-    | inr _ a =>
-      simp only [step] at h
-      have hM' : M' = subst right a := (Option.some.inj h).symm
-      rw [hM'] at hmem
-      have hsub : o ∈ pendingObligations (substAt right a 0) := hmem
-      rcases pendingObligations_substAt_subset right a 0 o hsub with hR | hA
-      · show o ∈ (pendingObligations (Term.inr _ a) ++ pendingObligations left) ++ pendingObligations right
-        exact List.mem_append.mpr (Or.inr hR)
-      · show o ∈ (pendingObligations (Term.inr _ a) ++ pendingObligations left) ++ pendingObligations right
-        exact List.mem_append.mpr (Or.inl (List.mem_append.mpr (Or.inl hA)))
-    | _ => simp [step] at h
-  | tensorIntro _ _ => simp [step] at h
-  | letTensor scrut body =>
-    cases scrut with
-    | tensorIntro a b =>
-      -- step (letTensor (tensorIntro a b) body) = some (subst (subst body (shift a 1 0)) b).
-      -- The `shift a 1 0` is a no-op on pendingObligations (it only
-      -- renumbers free variables), so the obligation-membership reasoning
-      -- is identical to the un-shifted version.
-      simp only [step] at h
-      have hM' : M' = subst (subst body (shift a 1 0)) b := (Option.some.inj h).symm
-      rw [hM'] at hmem
-      have hsub : o ∈ pendingObligations
-                       (substAt (substAt body (shift a 1 0) 0) b 0) := hmem
-      rcases pendingObligations_substAt_subset
-              (substAt body (shift a 1 0) 0) b 0 o hsub with hBodyA | hB
-      · -- o was in the substituted-body; recurse, with the shift collapsed.
-        rcases pendingObligations_substAt_subset body (shift a 1 0) 0 o hBodyA
-          with hBody | hA
-        · -- o in body
-          show o ∈ pendingObligations (Term.tensorIntro a b) ++ pendingObligations body
-          exact List.mem_append.mpr (Or.inr hBody)
-        · -- o in shift a 1 0 = pendingObligations a (by pendingObligations_shift)
-          show o ∈ pendingObligations (Term.tensorIntro a b) ++ pendingObligations body
-          rw [pendingObligations_shift] at hA
-          exact List.mem_append.mpr (Or.inl
-            (show o ∈ pendingObligations a ++ pendingObligations b from
-              List.mem_append.mpr (Or.inl hA)))
-      · -- o in b (inside tensorIntro)
-        show o ∈ pendingObligations (Term.tensorIntro a b) ++ pendingObligations body
-        exact List.mem_append.mpr (Or.inl
-          (show o ∈ pendingObligations a ++ pendingObligations b from
-            List.mem_append.mpr (Or.inr hB)))
-    | _ => simp [step] at h
-  | letSays p scrut body =>
-    cases scrut with
-    | sign p' m _ =>
-      -- step (letSays p (sign p' m _) body) = if p = p' then some (subst body m) else none
-      simp only [step] at h
+    · -- ξ-delegate (right): left is a sign and passes through.
+      cases hn : step n with
+      | none => simp [hn] at h
+      | some n' =>
+        simp [hn] at h
+        subst h
+        rcases List.mem_append.mp hmem with hM | hN
+        · exact List.mem_append.mpr (Or.inl hM)
+        · exact List.mem_append.mpr (Or.inr (ihN n' hn o hN))
+    · -- ξ-delegate (left): right passes through.
+      cases hm : step m with
+      | none => simp [hm] at h
+      | some m' =>
+        simp [hm] at h
+        subst h
+        rcases List.mem_append.mp hmem with hM | hN
+        · exact List.mem_append.mpr (Or.inl (ihM m' hm o hM))
+        · exact List.mem_append.mpr (Or.inr hN)
+  | attenuate _ _ _ => intro M' h; simp [step] at h
+  | discharge _ _ _ _ => intro M' h; simp [step] at h
+  | liftLabel _ _ _ => intro M' h; simp [step] at h
+  | declassify _ _ _ _ _ => intro M' h; simp [step] at h
+  | now _ => intro M' h; simp [step] at h
+  | withinIntro _ _ _ => intro M' h; simp [step] at h
+  | pair _ _ _ _ => intro M' h; simp [step] at h
+  | fst a ih =>
+    intro M' h o hmem
+    unfold step at h
+    split at h
+    · -- and-Eₗ-β: a = pair u v, M' = u.
+      simp only [Option.some.injEq] at h
+      subst h
+      exact List.mem_append.mpr (Or.inl hmem)
+    · -- ξ-fst: pendingObligations (fst X) = pendingObligations X.
+      cases ha : step a with
+      | none => simp [ha] at h
+      | some a' =>
+        simp [ha] at h
+        subst h
+        exact ih a' ha o hmem
+  | snd a ih =>
+    intro M' h o hmem
+    unfold step at h
+    split at h
+    · -- and-Eᵣ-β: a = pair u v, M' = v.
+      simp only [Option.some.injEq] at h
+      subst h
+      exact List.mem_append.mpr (Or.inr hmem)
+    · -- ξ-snd.
+      cases ha : step a with
+      | none => simp [ha] at h
+      | some a' =>
+        simp [ha] at h
+        subst h
+        exact ih a' ha o hmem
+  | inl _ _ _ => intro M' h; simp [step] at h
+  | inr _ _ _ => intro M' h; simp [step] at h
+  | case s l r ihS _ _ =>
+    intro M' h o hmem
+    unfold step at h
+    split at h
+    · -- or-E-β (inl): M' = subst l a. The scrutinee's payload a and
+      -- the taken branch l both sit inside (S ++ L) ++ R.
+      simp only [Option.some.injEq] at h
+      subst h
+      rcases pendingObligations_substAt_subset _ _ _ o hmem with hL | hA
+      · exact List.mem_append.mpr (Or.inl (List.mem_append.mpr (Or.inr hL)))
+      · exact List.mem_append.mpr (Or.inl (List.mem_append.mpr (Or.inl hA)))
+    · -- or-E-β (inr): M' = subst r a.
+      simp only [Option.some.injEq] at h
+      subst h
+      rcases pendingObligations_substAt_subset _ _ _ o hmem with hR | hA
+      · exact List.mem_append.mpr (Or.inr hR)
+      · exact List.mem_append.mpr (Or.inl (List.mem_append.mpr (Or.inl hA)))
+    · -- ξ-case: branches pass through; the scrutinee maps through
+      -- the induction hypothesis.
+      cases hs : step s with
+      | none => simp [hs] at h
+      | some s' =>
+        simp [hs] at h
+        subst h
+        rcases List.mem_append.mp hmem with hSL | hR
+        · rcases List.mem_append.mp hSL with hS | hL
+          · exact List.mem_append.mpr
+              (Or.inl (List.mem_append.mpr (Or.inl (ihS s' hs o hS))))
+          · exact List.mem_append.mpr
+              (Or.inl (List.mem_append.mpr (Or.inr hL)))
+        · exact List.mem_append.mpr (Or.inr hR)
+  | tensorIntro _ _ _ _ => intro M' h; simp [step] at h
+  | letTensor s b ihS _ =>
+    intro M' h o hmem
+    unfold step at h
+    split at h
+    · -- tensor-E-β: M' = subst (subst b (shift a 1 0)) bb. The
+      -- `shift a 1 0` is a no-op on pendingObligations (it only
+      -- renumbers free variables), so the membership reasoning is
+      -- identical to the un-shifted version.
+      simp only [Option.some.injEq] at h
+      subst h
+      rcases pendingObligations_substAt_subset _ _ _ o hmem with hBodyA | hB
+      · rcases pendingObligations_substAt_subset _ _ _ o hBodyA with hBody | hA
+        · exact List.mem_append.mpr (Or.inr hBody)
+        · rw [pendingObligations_shift] at hA
+          exact List.mem_append.mpr (Or.inl (List.mem_append.mpr (Or.inl hA)))
+      · exact List.mem_append.mpr (Or.inl (List.mem_append.mpr (Or.inr hB)))
+    · -- ξ-lettensor.
+      cases hs : step s with
+      | none => simp [hs] at h
+      | some s' =>
+        simp [hs] at h
+        subst h
+        rcases List.mem_append.mp hmem with hS | hB
+        · exact List.mem_append.mpr (Or.inl (ihS s' hs o hS))
+        · exact List.mem_append.mpr (Or.inr hB)
+  | letSays p s b ihS _ =>
+    intro M' h o hmem
+    unfold step at h
+    split at h
+    · -- s = sign p' m sig; the head rule guards on p = p'.
       split at h
-      · -- p = p' case
-        have hM' : M' = subst body m := (Option.some.inj h).symm
-        rw [hM'] at hmem
-        have hsub : o ∈ pendingObligations (substAt body m 0) := hmem
-        rcases pendingObligations_substAt_subset body m 0 o hsub with hBody | hM
-        · show o ∈ pendingObligations (Term.sign p' m _) ++ pendingObligations body
-          exact List.mem_append.mpr (Or.inr hBody)
-        · -- o was in m (inside sign p' m _), so in pendingObligations of scrut
-          show o ∈ pendingObligations (Term.sign p' m _) ++ pendingObligations body
-          exact List.mem_append.mpr (Or.inl hM)
-      · -- p ≠ p' case: step returned none, contradicts hypothesis.
+      · -- says-extract-β: M' = subst b m.
+        simp only [Option.some.injEq] at h
+        subst h
+        rcases pendingObligations_substAt_subset _ _ _ o hmem with hB | hM
+        · exact List.mem_append.mpr (Or.inr hB)
+        · exact List.mem_append.mpr (Or.inl hM)
+      · -- p ≠ p': step returned none — contradiction.
         simp at h
-    | _ => simp [step] at h
-  | sfExtract t =>
-    cases t with
-    | sign _ m _ =>
-      -- step (sfExtract (sign _ m _)) = some m
-      simp only [step] at h
-      have hM' : M' = m := (Option.some.inj h).symm
-      rw [hM'] at hmem
-      -- hmem : o ∈ pendingObligations m
-      -- goal : o ∈ pendingObligations (Term.sfExtract (Term.sign _ m _))
-      --       = pendingObligations (Term.sign _ m _) = pendingObligations m
+    · -- ξ-letsays.
+      cases hs : step s with
+      | none => simp [hs] at h
+      | some s' =>
+        simp [hs] at h
+        subst h
+        rcases List.mem_append.mp hmem with hS | hB
+        · exact List.mem_append.mpr (Or.inl (ihS s' hs o hS))
+        · exact List.mem_append.mpr (Or.inr hB)
+  | sfExtract m ih =>
+    intro M' h o hmem
+    unfold step at h
+    split at h
+    · -- sf-extract-β: M' = inner, and
+      -- pendingObligations (sfExtract (sign _ inner _)) = pendingObligations inner.
+      simp only [Option.some.injEq] at h
+      subst h
       exact hmem
-    | _ => simp [step] at h
+    · -- ξ-sfextract.
+      cases hm : step m with
+      | none => simp [hm] at h
+      | some m' =>
+        simp [hm] at h
+        subst h
+        exact ih m' hm o hmem
 
 /-- T4 — Obligation soundness statement (non-introduction direction).
 Kept as `abbrev` aliasing the proved theorem's statement. VACUOUS

@@ -55,6 +55,10 @@ lean_lib «Correspondence» where
 lean_lib «NonInterference» where
   roots := #[`DLC.NonInterference, `DLC.NonInterferenceTwoRun]
 
+-- Rung 3b-0: progress for the closed computational core (T3 prerequisite).
+lean_lib «Progress» where
+  roots := #[`DLC.Progress]
+
 lean_lib «ObligationSoundness» where
   roots := #[`DLC.ObligationSoundness]
 

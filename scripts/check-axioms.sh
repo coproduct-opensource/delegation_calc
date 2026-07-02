@@ -54,6 +54,7 @@ SCRIPT_FILE="$SCRIPT_DIR/PrintAll.lean"
   echo "import DLC.Witness.AxiomAudit"
   echo "import DLC.NonInterferenceTwoRun"
   echo "import DLC.ReduceMeta"
+  echo "import DLC.Progress"
   echo ""
   for t in "${THEOREMS[@]}"; do
     echo "#print axioms DLC.$t"

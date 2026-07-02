@@ -13,6 +13,17 @@ pub mod signed_term;
 pub mod time_anchor;
 pub mod transparency;
 
+/// Derive the stable principal id for a public key: SHA-256 of the raw
+/// public-key bytes. (Phase-3 binds this to SPIFFE-ID hashes via
+/// nucleus-identity; the hash-of-key form is the self-certifying default.)
+pub fn principal_id(public_key: &[u8]) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(public_key);
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&digest);
+    out
+}
+
 /// Errors that arise during cryptographic realization.
 #[derive(Debug, thiserror::Error)]
 pub enum CryptoError {

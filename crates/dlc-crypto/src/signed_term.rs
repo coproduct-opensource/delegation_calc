@@ -1,15 +1,44 @@
-//! Canonical-bytes encoding of `Term` for signing.
+//! Keyring-mediated verification of a `says-I` signature.
 //!
-//! `says-I` signatures are over the deterministic byte encoding of the
-//! underlying term. The encoding is content-addressed: SHA-256 of these bytes
-//! is the term's transparency-log key.
+//! The canonical byte encoding of terms lives in
+//! `dlc-protocol::wire::canonical_bytes` (protocol depends on crypto, not
+//! the reverse), so this module takes the already-encoded bytes. What it
+//! adds over raw `ed25519::verify` is the keyring policy: principal
+//! resolution, algorithm agreement, and the rule that only ATOMIC
+//! principals sign (composite principals acquire authority through
+//! `delegate`, never by holding a key).
 
-use dlc_core::syntax::Term;
+use dlc_core::judgment::KeyRing;
+use dlc_core::principal::{Principal, PrincipalId};
+use dlc_core::syntax::Signature;
 
-/// Produce the canonical byte encoding of `term` suitable for signing.
+use crate::{ed25519, CryptoError};
+
+/// Resolve `principal` in `keyring` and verify `sig` over `canonical`.
 ///
-/// Stub returns an empty vector. M2.L2.3 fixes this with a round-trippable
-/// CBOR-based canonical form that the Tamarin/ProVerif exporters also use.
-pub fn canonical_bytes(_term: &Term) -> Vec<u8> {
-    Vec::new()
+/// Fails with:
+/// * `PrincipalUnknown` — non-atomic principal, or no keyring row for it;
+/// * `UnsupportedAlgorithm` — the signature's `alg` is not implemented or
+///   does not match the keyring row's `alg`;
+/// * `SignatureInvalid` — the signature does not verify.
+pub fn verify_in_keyring(
+    keyring: &KeyRing,
+    principal: &Principal,
+    canonical: &[u8],
+    sig: &Signature,
+) -> Result<(), CryptoError> {
+    let pid: &PrincipalId = match principal {
+        Principal::Atom(pid) => pid,
+        // Composite principals never hold keys directly.
+        _ => return Err(CryptoError::PrincipalUnknown),
+    };
+    let record = keyring
+        .entries
+        .iter()
+        .find(|r| &r.principal == pid)
+        .ok_or(CryptoError::PrincipalUnknown)?;
+    if sig.alg != ed25519::ALG_ED25519 || record.alg != ed25519::ALG_ED25519 {
+        return Err(CryptoError::UnsupportedAlgorithm(sig.alg));
+    }
+    ed25519::verify(&record.public_key, canonical, &sig.bytes)
 }

@@ -13,8 +13,13 @@ path = "src/lib.rs"
 
 [dependencies]
 dlc-verifier = { path = "../dlc-verifier", version = "1.5.0" }
+dlc-protocol = { path = "../dlc-protocol", version = "1.5.0" }
 # wasm-bindgen exposes the verifier surface as `verify` to JavaScript
 # callers. Only the `js-sys` UMD-style export is enabled; we deliberately
 # do not pull in `web-sys` features at this stage to keep the wasm bundle
 # small (the verifier itself does not need WebCrypto or DOM access).
 wasm-bindgen = { version = "0.2", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+dlc-core = { path = "../dlc-core", version = "1.5.0" }
+dlc-crypto = { path = "../dlc-crypto", version = "1.5.0" }

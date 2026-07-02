@@ -17,13 +17,15 @@ use wasm_bindgen::prelude::*;
 /// Verify a DLC token against a claimed type and keyring.
 ///
 /// # Arguments
-/// * `wire` — CBOR-encoded DLC token (the COSE_Sign1 envelope).
-/// * `claimed` — CBOR-encoded `Prop'` the caller claims `wire` proves.
-/// * `keyring` — CBOR-encoded `KeyRing` (principal-id → public-key pairs).
+/// * `wire` — CBOR-encoded DLC token (`dlc-protocol::wire::encode`).
+/// * `claimed` — CBOR-encoded `Prop` the caller claims `wire` proves
+///   (`wire::encode_prop`).
+/// * `keyring` — CBOR-encoded keyring (`wire::encode_keyring`).
 ///
 /// # Returns
-/// `1` if verification succeeds, `0` otherwise. The richer shape (error
-/// kind, offending subterm) is the M3.M21 wire-up.
+/// `1` if verification succeeds, `0` otherwise (including on malformed
+/// inputs). The richer shape (error kind, offending subterm) is the
+/// M3.M21 wire-up.
 #[wasm_bindgen]
 pub fn verify(wire: &[u8], claimed: &[u8], keyring: &[u8]) -> u32 {
     verify_raw(wire, claimed, keyring)
@@ -33,11 +35,16 @@ pub fn verify(wire: &[u8], claimed: &[u8], keyring: &[u8]) -> u32 {
 /// `rlib` target builds on non-wasm hosts (used by the dlc-verifier test
 /// harness and by `dlc-bench` for the complexity regression).
 pub fn verify_raw(wire: &[u8], claimed: &[u8], keyring: &[u8]) -> u32 {
-    // M3.M18 closure: wire this into `dlc_verifier::check::verify` once
-    // that function returns a real `Result`. The current stub returns 0
-    // unconditionally; that's the conservative answer (rejects everything).
-    let _ = (wire, claimed, keyring);
-    0
+    let Ok(claimed) = dlc_protocol::wire::decode_prop(claimed) else {
+        return 0;
+    };
+    let Ok(keyring) = dlc_protocol::wire::decode_keyring(keyring) else {
+        return 0;
+    };
+    match dlc_verifier::check::verify(wire, &claimed, &keyring) {
+        dlc_verifier::VerifyResult::Ok => 1,
+        dlc_verifier::VerifyResult::Fail { .. } => 0,
+    }
 }
 
 #[cfg(test)]
@@ -45,7 +52,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn stub_rejects_empty() {
+    fn rejects_empty_inputs() {
         assert_eq!(verify_raw(&[], &[], &[]), 0);
     }
 }

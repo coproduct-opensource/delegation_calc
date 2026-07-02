@@ -11,9 +11,11 @@
 A modal-linear-temporal authorization logic designed so that proof terms are
 **simultaneously** logical proofs, cryptographic witnesses, IFC labels, and
 obligation ledgers. (Design intent, partially realized: decidability is proven
-for the propositional fragment; the cryptographic and obligation layers are
-stubs/stated today — see the status table below.) The artifact unifies three
-lineages that have so far been attacked separately:
+for the propositional fragment; the verifier's verify path is real — Ed25519
+over canonical bytes, exactly the two conjuncts of the proven T2
+characterization — while time anchors, transparency log, COSE envelope, and
+the obligation layer remain stubs/stated — see the status table below.) The
+artifact unifies three lineages that have so far been attacked separately:
 
 1. **Authorization logics** (Garg-Pfenning, BL, ICL, DKAL) — the `says` modality,
    speaks-for, and constructive proof terms.

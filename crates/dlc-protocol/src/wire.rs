@@ -18,8 +18,9 @@
 
 use ciborium::Value;
 use dlc_core::ifc::Label;
+use dlc_core::judgment::KeyRing;
 use dlc_core::obligation::{ActionId, DpBudget, Obligation};
-use dlc_core::principal::{Principal, PrincipalId};
+use dlc_core::principal::{KeyRecord, Principal, PrincipalId};
 use dlc_core::syntax::{Prop, Signature, Term};
 use dlc_core::time::TimeBound;
 
@@ -476,6 +477,92 @@ pub fn encode(term: &Term) -> Vec<u8> {
 pub fn decode(bytes: &[u8]) -> Result<Term, ProtocolError> {
     let v: Value = ciborium::from_reader(bytes).map_err(|e| ProtocolError::Cbor(format!("{e}")))?;
     dec_term(&v)
+}
+
+/// The canonical byte encoding of a term for SIGNING purposes.
+///
+/// `says-I` signatures are over exactly these bytes of the signed
+/// subterm — this is the seam the Lean side models as the opaque
+/// `canonicalBytes` in `lean/DLC/Correspondence.lean`. It is the wire
+/// encoding itself: one deterministic encoder, no second "canonical
+/// form" to drift from it. (It lives here rather than in `dlc-crypto`
+/// because the dependency arrow points protocol → crypto, not the
+/// reverse.)
+pub fn canonical_bytes(term: &Term) -> Vec<u8> {
+    encode(term)
+}
+
+/// Encode a proposition (for verifier inputs — the claimed `Prop` —
+/// not part of the proof-term wire format, which embeds propositions
+/// via the same `enc_prop`).
+pub fn encode_prop(p: &Prop) -> Vec<u8> {
+    let v = enc_prop(p);
+    let mut buf = Vec::new();
+    ciborium::into_writer(&v, &mut buf).expect("encoding to Vec cannot fail");
+    buf
+}
+
+/// Decode a proposition encoded by [`encode_prop`].
+pub fn decode_prop(bytes: &[u8]) -> Result<Prop, ProtocolError> {
+    let v: Value = ciborium::from_reader(bytes).map_err(|e| ProtocolError::Cbor(format!("{e}")))?;
+    dec_prop(&v)
+}
+
+/// Encode a keyring (verifier input: principal-id → public-key rows).
+/// Shape: CBOR array of `[pid: bytes(32), alg: uint, pk: bytes]`.
+pub fn encode_keyring(k: &KeyRing) -> Vec<u8> {
+    let rows: Vec<Value> = k
+        .entries
+        .iter()
+        .map(|r| {
+            Value::Array(vec![
+                Value::Bytes(r.principal.0.to_vec()),
+                Value::Integer((r.alg as u64).into()),
+                Value::Bytes(r.public_key.clone()),
+            ])
+        })
+        .collect();
+    let mut buf = Vec::new();
+    ciborium::into_writer(&Value::Array(rows), &mut buf).expect("encoding to Vec cannot fail");
+    buf
+}
+
+/// Decode a keyring encoded by [`encode_keyring`].
+pub fn decode_keyring(bytes: &[u8]) -> Result<KeyRing, ProtocolError> {
+    let v: Value = ciborium::from_reader(bytes).map_err(|e| ProtocolError::Cbor(format!("{e}")))?;
+    let rows = v
+        .as_array()
+        .ok_or_else(|| ProtocolError::Cbor("keyring: expected array".into()))?;
+    let mut entries = Vec::with_capacity(rows.len());
+    for row in rows {
+        let a = row
+            .as_array()
+            .ok_or_else(|| ProtocolError::Cbor("keyring row: expected array".into()))?;
+        if a.len() != 3 {
+            return Err(ProtocolError::Cbor("keyring row: expected 3 fields".into()));
+        }
+        let pid_bytes = a[0]
+            .as_bytes()
+            .ok_or_else(|| ProtocolError::Cbor("keyring pid: expected bytes".into()))?;
+        let pid: [u8; 32] = pid_bytes
+            .as_slice()
+            .try_into()
+            .map_err(|_| ProtocolError::Cbor("keyring pid: expected 32 bytes".into()))?;
+        let alg: u8 = a[1]
+            .as_integer()
+            .and_then(|i| u8::try_from(i).ok())
+            .ok_or_else(|| ProtocolError::Cbor("keyring alg: expected u8".into()))?;
+        let pk = a[2]
+            .as_bytes()
+            .ok_or_else(|| ProtocolError::Cbor("keyring pk: expected bytes".into()))?
+            .clone();
+        entries.push(KeyRecord {
+            principal: PrincipalId(pid),
+            alg,
+            public_key: pk,
+        });
+    }
+    Ok(KeyRing { entries })
 }
 
 #[cfg(test)]

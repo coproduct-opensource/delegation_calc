@@ -12,6 +12,7 @@ path = "src/lib.rs"
 
 [dependencies]
 dlc-core = { path = "../dlc-core", version = "1.5.0" }
+dlc-crypto = { path = "../dlc-crypto", version = "1.5.0" }
 # NB: the `coproduct-algebra` (PRIVATE) dep + the DP-budget Quantale moved to the
 # workspace-excluded `dlc-grade-quantale` crate, so this PUBLIC crate's build (and
 # public CI) never resolves the private path. A feature-gate was insufficient —

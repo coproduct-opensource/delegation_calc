@@ -7,6 +7,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod envelope;
 pub mod export_proverif;
 pub mod export_tamarin;
 // `grade_quantale` (the DP-budget Quantale) depends on the PRIVATE `coproduct-algebra`

@@ -14,6 +14,12 @@ path = "src/lib.rs"
 [dependencies]
 dlc-core = { path = "../dlc-core", version = "1.5.0" }
 dlc-verifier = { path = "../dlc-verifier", version = "1.5.0" }
+dlc-crypto = { path = "../dlc-crypto", version = "1.5.0" }
+dlc-protocol = { path = "../dlc-protocol", version = "1.5.0" }
 
 [dev-dependencies]
 criterion = { workspace = true }
+
+[[bin]]
+name = "bench-vectors"
+path = "src/bin/bench_vectors.rs"

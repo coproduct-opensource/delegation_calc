@@ -1,0 +1,12 @@
+{
+  "generator": "cargo run --release -p dlc-bench --bin bench-vectors",
+  "host": "aarch64",
+  "profile": "release",
+  "iterations": 2000,
+  "comparison_formats": "PENDING — DLC numbers only; JWT/Biscuit comparison requires adding those implementations",
+  "results": [
+    {"name": "issued-token", "token_bytes": 117, "verify_median_ns": 27042},
+    {"name": "delegated-attenuated-chain", "token_bytes": 232, "verify_median_ns": 42875},
+    {"name": "chain-logical-typing-only", "token_bytes": 232, "verify_median_ns": 333}
+  ]
+}

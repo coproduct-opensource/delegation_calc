@@ -63,7 +63,7 @@ jobs:
       - name: lake build per-theorem libraries
         working-directory: delegation_calc/lean
         run: |
-          for lib in Decidability Correspondence NonInterference ObligationSoundness ProtocolCorrespondence CoproductAlgebra GradedBridge GradedDistributiveLaw GradedBridgeGeneric; do
+          for lib in Decidability Correspondence NonInterference ObligationSoundness ProtocolCorrespondence Witness CoproductAlgebra GradedBridge GradedDistributiveLaw GradedBridgeGeneric; do
             echo "::group::lake build $lib"
             lake build "$lib"
             echo "::endgroup::"
@@ -86,3 +86,15 @@ jobs:
         # Any new axiom dependency (or removed one) is a hard CI failure —
         # axiom drift is a silent soundness regression.
         run: bash scripts/check-axioms.sh
+
+      - name: Forbid tautological placeholder statements
+        working-directory: delegation_calc
+        # Phase-0 tripwire: `True`-bodied Props and `x = x` self-equality
+        # placeholders defeat the no-sorry gate while proving nothing.
+        run: bash scripts/check-tautologies.sh
+
+      - name: Public claims may not exceed ledger status
+        working-directory: delegation_calc
+        # README/RELEASES/paper/draft-ietf are checked against
+        # lean/theorem-status.json — overclaims are a build failure.
+        run: bash scripts/check-claims.sh

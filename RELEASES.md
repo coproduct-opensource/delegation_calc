@@ -1,18 +1,76 @@
 # DLC Releases
 
+## Unreleased — Phase 0: truth reconciliation (2026-07)
+
+An external audit (2026-07-01) found the v1.5.0-phase2 theorem claims
+below materially overstated, and one axiom refutable in-system. This
+entry records the corrections; the table in v1.5.0-phase2 is
+annotated rather than rewritten, so the record of what was claimed
+stays visible.
+
+**Corrections:**
+
+- **T2's axiom was inconsistent.** `Sig_EUF_CMA_propositional`
+  quantified over all `isPropositional` terms while the 6-constructor
+  `DerivCrypto` could only inhabit `var`/`lam`/`app`/`sign` subjects;
+  the theory including the axiom proved `False`. The refutation is now
+  machine-checked in `lean/DLC/Witness/AxiomAudit.lean`. The axiom is
+  **deleted**, and T2 is restated axiom-free at its honest strength: a
+  symbolic characterization — crypto typing ⇔ logical typing ∧ every
+  embedded signature verifies (`t2_propositional_correspondence`).
+  The attacker-based T2 (Dolev-Yao adversary, key compromise, wire
+  injectivity, EUF-CMA reduction) is **open**. The claimed "discharged
+  at M2.M13 by EasyCrypt game-hop" did not exist: the EasyCrypt
+  security axiom's body was literally `true`.
+- **T3 was not non-interference.** `t3_non_interference` is one-run
+  reflexivity of the logical relation with the typing derivation
+  discarded; it holds for ill-typed terms. Status: **stated**. The
+  two-run theorem with a fundamental lemma is open (Phase-2 scope).
+- **T4 was vacuous.** `pendingObligations` is provably the constant
+  empty list (`pendingObligations_eq_nil`, now proven in-file): no
+  `Term` constructor carries an `Obligation`, so the "proven"
+  non-introduction direction quantified over members of `[]`. Status:
+  **stated** until the calculus gains an obligation-carrying
+  constructor and a discharge redex.
+- **T1 was overstated.** What is proven — genuinely, sorry-free — is
+  decidability (soundness + completeness of `decideLean`) for the
+  propositional fragment `PropDeriv`: 22 constructors, additive
+  contexts, **no linear splitting**. The former "full calculus"
+  statement was the literal tautology `Γ = Γ ∧ M = M ∧ φ = φ` and the
+  complexity-bound statement was literally `True`; both are deleted.
+  The `O(|M|·log|Γ|)` bound is unproven in any form and is now
+  described as a target. Status: **proven_fragment (propositional)**.
+- **Placeholder purge.** The identity-serializer wire round-trip
+  witness, the `protocol_correspondence_stub : True` alias, the
+  tautological substitution "statements", and the grep-bait
+  `PrincipalCategory` instance are deleted.
+
+**New enforcement (so this cannot recur silently):**
+
+- `lean/theorem-status.json` — single source of truth for theorem
+  statuses; `scripts/ledger.sh` validates it (proven statuses require
+  sorry-free files + non-vacuity witnesses in `lean/DLC/Witness/`).
+- `scripts/check-tautologies.sh` — CI tripwire for `True`-bodied and
+  self-equality placeholder statements.
+- `scripts/check-claims.sh` — CI gate: README/RELEASES/paper/IETF-draft
+  may not claim more than `theorem-status.json` records.
+
 ## v1.5.0-phase2 — Crypto + Protocol Correspondence (Phase 2)
 
 **Milestone tag**: M2.M15.
-**Status**: all four headline theorems machine-checked in Lean 4 (T2 modulo one discharged-later axiom).
+**Status (as claimed at release)**: ~~all four headline theorems
+machine-checked in Lean 4 (T2 modulo one discharged-later axiom)~~ —
+**superseded by the Phase-0 corrections above**: T1 proven for the
+propositional fragment; T2/T3/T4 stated only.
 
-### Theorems
+### Theorems (table as claimed at release — see corrections above)
 
-| Theorem | Status | Source | Axioms |
+| Theorem | Claimed status | Actual status (2026-07 audit) | Source |
 |---|---|---|---|
-| **T1** decidability of proof-checking, `O(\|M\|·log\|Γ\|)` | proven (22/22 Term constructors) | `lean/DLC/Decidability.lean` | — |
-| **T2** cryptographic correspondence `Γ ⊢ M : φ ↔ Γ ⊢_K M : φ` | proven, conditional on EUF-CMA | `lean/DLC/Correspondence.lean` | `Sig_EUF_CMA_propositional` (discharged at M2.M13 by EasyCrypt game-hop) |
-| **T3** non-interference under delegation | proven (with refl, symm, **trans**) | `lean/DLC/NonInterference.lean` | — |
-| **T4** obligation soundness across reduction | proven | `lean/DLC/ObligationSoundness.lean` | — |
+| **T1** decidability of proof-checking | "proven (22/22 Term constructors)" | proven_fragment: propositional, additive contexts only; complexity bound unproven | `lean/DLC/Decidability.lean` |
+| **T2** cryptographic correspondence | "proven, conditional on EUF-CMA" | stated; former axiom was inconsistent (see Witness/AxiomAudit.lean); axiom-free symbolic characterization proven instead | `lean/DLC/Correspondence.lean` |
+| **T3** non-interference under delegation | "proven (with refl, symm, trans)" | stated; the "proof" was one-run reflexivity | `lean/DLC/NonInterference.lean` |
+| **T4** obligation soundness across reduction | "proven" | stated; vacuous over a provably-empty obligation list | `lean/DLC/ObligationSoundness.lean` |
 
 ### Models (Phase 2 load-bearing)
 

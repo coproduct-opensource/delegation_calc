@@ -1,0 +1,70 @@
+{
+  "_comment": "Single source of truth for headline-theorem statuses. scripts/ledger.sh VALIDATES every entry: a status of proven or proven_fragment requires (a) no sorry in the file, (b) the declared witness module to build, (c) the axiom snapshot to match. Docs (README/RELEASES/paper/draft-ietf) may not claim more than this file says — scripts/check-claims.sh enforces. Status vocabulary: proven | proven_fragment | stated | open | vacuous.",
+  "T1_decidability": {
+    "status": "proven_fragment",
+    "fragment": "propositional (PropDeriv: 22 constructors, additive contexts, no linear splitting)",
+    "file": "DLC/Decidability.lean",
+    "theorems": ["t1_propositional_soundness", "t1_propositional_completeness", "t1_propositional_decidability"],
+    "witness": "DLC/Witness/T1.lean",
+    "open": [
+      "full-calculus decidability (linear context splitting, modal/temporal/IFC constructors)",
+      "complexity bound O(|M| · log |Γ|) — unproven in any form, for any fragment"
+    ]
+  },
+  "T2_correspondence": {
+    "status": "stated",
+    "file": "DLC/Correspondence.lean",
+    "proven_content": "t2_propositional_correspondence — axiom-free symbolic characterization: crypto typing ⇔ logical typing ∧ allSigsVerify. Definitional-refinement strength (Aura 2008 class); NOT a cryptographic soundness theorem.",
+    "witness": "DLC/Witness/AxiomAudit.lean",
+    "history": "the former axiom Sig_EUF_CMA_propositional was refutable in-system (theory proved False); deleted 2026-07, refutation machine-checked in the witness",
+    "open": [
+      "attacker-based T2: verifier acceptance ⇒ derivation from uncompromised principals, vs explicit Dolev-Yao adversary with key compromise",
+      "wire-encoding injectivity for the real CBOR codec inside the theorem",
+      "EUF-CMA reduction (EasyCrypt/SSProve) — collaborator-gated"
+    ]
+  },
+  "T3_noninterference": {
+    "status": "stated",
+    "file": "DLC/NonInterference.lean",
+    "note": "t3_non_interference is one-run reflexivity with the typing derivation discarded; it carries no information-flow content and holds for ill-typed terms. Not non-interference.",
+    "open": [
+      "two-run non-interference: logical relation over pairs of derivations differing in high-labeled hypotheses, with a fundamental lemma by induction on the derivation"
+    ]
+  },
+  "T4_obligation": {
+    "status": "stated",
+    "file": "DLC/ObligationSoundness.lean",
+    "note": "t4_no_new_obligation is a real induction over a VACUOUS statement: pendingObligations is provably the constant [] (see pendingObligations_eq_nil — no Term constructor carries an Obligation).",
+    "open": [
+      "obligation-carrying term constructor + discharge redex in Reduce.lean",
+      "multiset accounting: obligations(M') = obligations(M) − discharged + introduced",
+      "label-ledger fusion: discharging an obligation cannot leak below its label"
+    ]
+  },
+  "protocol_correspondence": {
+    "status": "stated",
+    "file": "DLC/ProtocolCorrespondence.lean",
+    "proven_content": "l2_5_trace_lifting — restricted to the singleton [Says P φ] trace shape (the only shape liftToDeriv covers).",
+    "open": [
+      "total liftToDeriv over all Tamarin-model trace shapes with TraceWellFormed load-bearing",
+      "L2.3 wire round-trip + injectivity about the real CBOR encoder (former identity-serializer witness deleted 2026-07)"
+    ]
+  },
+  "substitution_lemma": {
+    "status": "open",
+    "file": "DLC/Subst.lean",
+    "proven_content": "syntactic shift/subst helper lemmas; typed substitution preservation for PropDeriv lives in DLC/Decidability.lean",
+    "open": [
+      "substitution composition over the full 21-constructor Term",
+      "substitution preservation for the full Deriv judgment (linear cases)"
+    ]
+  },
+  "subject_reduction": {
+    "status": "proven_fragment",
+    "fragment": "propositional (PropDeriv)",
+    "file": "DLC/Decidability.lean",
+    "theorems": ["propositional subject reduction via preservation lemmas"],
+    "witness": "DLC/Witness/T1.lean",
+    "open": ["subject reduction for the full Deriv judgment"]
+  }
+}

@@ -31,24 +31,32 @@ We present \emph{DLC}, the Delegation Logic Calculus: a decidable
 modal-linear-temporal authorization logic in which proof terms are
 simultaneously logical proofs, cryptographic witnesses, IFC labels,
 and obligation ledgers. DLC closes the chain-splicing gap identified
-in the March 2026 IETF OAuth thread on RFC 8693 (Token Exchange) by
+in the February 2026 IETF OAuth thread on RFC 8693 (Token Exchange) by
 making the same-principal condition a typing-rule premise and a
 multiset-rewriting requirement.
 
-The calculus is verified along four independent axes: a Lean 4
-mechanization of the type theory with no \texttt{sorry}, a Tamarin
-symbolic protocol model with the NonSplicing property verified,
-a ProVerif cross-prover model verifying the same property under a
-different proof engine, and a Rust reference implementation with
-round-trip-tested wire format. The four headline theorems---T1
-decidability, T2 cryptographic correspondence, T3 non-interference,
-T4 obligation soundness---are stated; partial proofs are in the
-companion artifact.
+The artifact spans four axes: a Lean~4 mechanization of the type
+theory (decidability---soundness and completeness of the
+checker---is proven for the propositional fragment; the remaining
+headline theorems are stated, with per-theorem status machine-checked
+into a public ledger), a Tamarin symbolic protocol model with the
+NonSplicing property verified, a ProVerif cross-prover model
+verifying the same property under a different proof engine, and a
+Rust wire-format implementation with round-trip-tested encoding. Of
+the four headline theorems---T1 decidability, T2 cryptographic
+correspondence, T3 non-interference, T4 obligation soundness---T1
+is proven for the propositional fragment, and
+T2's proven content is the axiom-free symbolic characterization
+(cryptographic typing coincides with logical typing plus signature
+validity); T3 and T4 are stated, with their gaps documented rather
+than papered over.
 
 The primary contribution is the \emph{diagonal}: a unified artifact
-spanning authorization logic, symbolic cryptography, computational
-cryptography, runtime wire format, and reproducible CI, with the
-same chain-splicing-defeating delegation rule across all five.
+spanning authorization logic, symbolic cryptography, a stated
+computational-cryptography bridge, runtime wire format, and
+reproducible CI, with the same chain-splicing-defeating delegation
+rule across all five---and a verification ledger that mechanically
+refuses any claim the proofs do not support.
 \end{abstract}
 
 \maketitle

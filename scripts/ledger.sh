@@ -1,13 +1,23 @@
 #!/usr/bin/env bash
 # scripts/ledger.sh — emit ledger.json with the current state of every check.
 #
-# This is the single command that produces DLC's verification artifact. Runs
-# every Lean build, every model checker, every drift check, and the LOC
-# budget gate. Outputs `ledger.json` at the repo root.
+# This is the single command that produces DLC's verification artifact.
 #
-# Week-1 stub: most checks return "pending" because the theorems and models
-# don't yet exist. The shape of `ledger.json` is locked here so downstream
-# consumers can pin against it.
+# Since 2026-07 (Phase 0, truth reconciliation) theorem statuses are no
+# longer inferred by grep heuristics: they are DECLARED in
+# `lean/theorem-status.json` (the single source of truth) and VALIDATED
+# here —
+#   * a status of `proven` / `proven_fragment` requires the file to be
+#     sorry-free AND its declared non-vacuity witness module to exist
+#     (CI builds the `Witness` lib, so a broken witness fails there);
+#   * outward-facing docs may not claim more than the status file says
+#     (scripts/check-claims.sh);
+#   * tautological placeholder statements are a build failure
+#     (scripts/check-tautologies.sh).
+#
+# The ledger also emits `phase_gates`: machine-checked exit criteria for
+# the current roadmap phase. Phase 0 (truth reconciliation) passes when
+# every hygiene check above is green.
 
 set -euo pipefail
 
@@ -17,63 +27,66 @@ REPO_ROOT="$PWD"
 commit_sha="$(git rev-parse HEAD 2>/dev/null || echo 'no-git')"
 timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-# --- Lean theorem statuses ---
-# Each theorem file is a separate lake_lib target; status has four levels:
-#
-#   stub             — file contains only `_stub : True := trivial`
-#   stated           — theorem statement exists (as `def Statement : Prop`)
-#                      but proof is not yet inhabited
-#   proven_partial   — proven for a restricted fragment (e.g. propositional)
-#   proven           — full theorem proven, no `sorry` axioms
-#
-# Detection is heuristic by source-file scan. Production (post-M1.Q1.d) runs
-# `lake build && lean --print-axioms` and compares to expected-axioms.json.
+# --- Theorem statuses: declared + validated -------------------------------
 
-lean_status() {
-  local file="$1"
-  local path="lean/$file"
-  if [[ ! -f "$path" ]]; then
-    echo '{"status":"missing"}'
-    return
-  fi
+theorems_json="$(python3 - <<'PY'
+import json, os, re, sys
 
-  # Heuristic (no proper parser; production runs `lake build && lean
-  # --print-axioms` instead). We use four signal greps directly on the file:
-  #   * `:= sorry` or `:= by sorry`  → `sorry_present`
-  #   * `theorem foo_stub` or stub theorem → `stub`
-  #   * `theorem` (non-stub)         → `proven_partial`
-  #   * `def *Statement *:.*Prop`     → `stated`
-  #
-  # The `sorry` check uses `:= sorry` / `:= by sorry` patterns specifically
-  # so the word appearing in a doc-comment phrase doesn't false-positive.
+status = json.load(open("lean/theorem-status.json"))
+out, problems = {}, []
 
-  local has_sorry
-  has_sorry=$(grep -Ec '(:=[[:space:]]+sorry|:=[[:space:]]+by[[:space:]]+sorry)' "$path" || true)
-  local has_stub_theorem
-  has_stub_theorem=$(grep -Ec '^theorem [a-zA-Z0-9_]+_stub' "$path" || true)
-  local has_real_theorem
-  # Require `theorem IDENT (` or `theorem IDENT :` to avoid matching prose
-  # like "theorem reads:" that wraps into a doc comment.
-  has_real_theorem=$(grep -E '^theorem [a-zA-Z0-9_][a-zA-Z_0-9]*[[:space:]]*[:({]' "$path" 2>/dev/null \
-                     | grep -Evc '_stub\b' || true)
-  local has_statement
-  has_statement=$(grep -Ec '^def [A-Z][a-zA-Z0-9_]*Statement.*:.*Prop' "$path" || true)
+SORRY_RE = re.compile(r'(:=\s+sorry|:=\s+by\s+sorry)')
 
-  if [[ "$has_sorry" -gt 0 ]]; then
-    echo '{"status":"sorry_present","axioms":["sorry"]}'
-  elif [[ "$has_real_theorem" -gt 0 ]]; then
-    echo '{"status":"proven_partial","axioms":[]}'
-  elif [[ "$has_statement" -gt 0 ]]; then
-    echo '{"status":"stated","axioms":[]}'
-  elif [[ "$has_stub_theorem" -gt 0 ]]; then
-    echo '{"status":"stub","axioms":[]}'
-  else
-    echo '{"status":"unknown","axioms":[]}'
-  fi
-}
+for key, entry in status.items():
+    if key.startswith("_"):
+        continue
+    st = entry.get("status", "open")
+    path = os.path.join("lean", entry.get("file", ""))
+    rec = {"status": st}
+    for f in ("fragment", "proven_content", "note"):
+        if f in entry:
+            rec[f] = entry[f]
+    rec["open"] = entry.get("open", [])
 
-# --- Model statuses ---
-# Tamarin / ProVerif / EasyCrypt scripts not yet present. Report "pending".
+    if not os.path.isfile(path):
+        problems.append(f"{key}: declared file {path} missing")
+        rec["status"] = "invalid"
+    elif st in ("proven", "proven_fragment"):
+        src = open(path, encoding="utf-8").read()
+        if SORRY_RE.search(src):
+            problems.append(f"{key}: status {st} but {path} contains sorry")
+            rec["status"] = "invalid"
+        wit = entry.get("witness")
+        if not wit:
+            problems.append(f"{key}: status {st} requires a witness module")
+            rec["status"] = "invalid"
+        elif not os.path.isfile(os.path.join("lean", wit)):
+            problems.append(f"{key}: witness {wit} missing")
+            rec["status"] = "invalid"
+        else:
+            rec["witness"] = wit
+    out[key] = rec
+
+print(json.dumps({"entries": out, "problems": problems}))
+PY
+)"
+
+statuses_valid=true
+if [[ "$(echo "$theorems_json" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["problems"]))')" != "0" ]]; then
+  statuses_valid=false
+  echo "ledger: THEOREM STATUS VALIDATION PROBLEMS:" >&2
+  echo "$theorems_json" | python3 -c 'import json,sys; [print("  " + p, file=sys.stderr) for p in json.load(sys.stdin)["problems"]]'
+fi
+
+# --- Hygiene gates ---------------------------------------------------------
+
+taut_ok=true
+scripts/check-tautologies.sh || taut_ok=false
+
+claims_ok=true
+scripts/check-claims.sh || claims_ok=false
+
+# --- Model statuses --------------------------------------------------------
 
 model_status() {
   local dir="$1"
@@ -81,8 +94,6 @@ model_status() {
     echo '{"status":"pending"}'
     return
   fi
-  # Count files in the model directory (excluding subdirs) to report
-  # whether a real model is present.
   local files
   files=$(find "models/$dir" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
   if [[ "$files" -gt 0 ]]; then
@@ -92,17 +103,19 @@ model_status() {
   fi
 }
 
-# --- Verifier LOC budget ---
-# Hard gate at 2000. Uses `tokei` if available, else `wc -l` as a coarse fallback.
+# --- Verifier LOC budget + stub detection ----------------------------------
+# The LOC gate is meaningless while the verifier is a stub, so the ledger
+# reports BOTH the line count and whether an actual implementation exists
+# (no unconditional `Err`/`todo!`/"not implemented" in the verify path).
+
 loc_status() {
   local src="crates/dlc-verifier/src"
   if [[ ! -d "$src" ]]; then
-    echo '{"lines":0,"budget":2000,"status":"missing"}'
+    echo '{"lines":0,"budget":2000,"status":"missing","implemented":false}'
     return
   fi
   local lines
   if command -v tokei >/dev/null 2>&1; then
-    # tokei's JSON uses `"code":N` (no space). Parse the Rust subtree's top-level code count.
     lines="$(tokei -o json "$src" 2>/dev/null \
       | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("Rust",{}).get("code",0))' \
       2>/dev/null)"
@@ -112,11 +125,16 @@ loc_status() {
   fi
   local status="ok"
   if [[ "$lines" -gt 2000 ]]; then status="over_budget"; fi
-  printf '{"lines":%s,"budget":2000,"status":"%s"}' "$lines" "$status"
+  local implemented=true
+  if grep -rqE 'not implemented|todo!|unimplemented!' "$src" 2>/dev/null; then
+    implemented=false
+  fi
+  printf '{"lines":%s,"budget":2000,"status":"%s","implemented":%s}' \
+    "$lines" "$status" "$implemented"
 }
 
-# --- Aeneas drift ---
-# Production runs `scripts/check-drift.sh`. Week-1 reports "pending".
+# --- Aeneas drift ----------------------------------------------------------
+
 drift_status() {
   if [[ -x scripts/check-drift.sh ]]; then
     scripts/check-drift.sh && echo '{"clean":true}' || echo '{"clean":false}'
@@ -125,10 +143,8 @@ drift_status() {
   fi
 }
 
-# --- Rust test summary ---
-# Counts passing tests across the workspace. A quick smoke; the ledger.json
-# this generates is for *status visibility*, not regression detection (that's
-# CI's job).
+# --- Rust test summary ------------------------------------------------------
+
 rust_tests_status() {
   if ! command -v cargo >/dev/null 2>&1; then
     echo '{"status":"cargo_unavailable"}'
@@ -136,7 +152,6 @@ rust_tests_status() {
   fi
   local out
   out=$(cargo test --workspace 2>&1 || true)
-  # Sum across all test binaries: `\d+ passed; \d+ failed`.
   local passed
   passed=$(echo "$out" | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+' | awk '{s+=$1} END {print s+0}')
   local failed
@@ -144,20 +159,29 @@ rust_tests_status() {
   printf '{"passed":%s,"failed":%s}' "${passed:-0}" "${failed:-0}"
 }
 
-# --- Emit ledger.json ---
+# --- Phase gates ------------------------------------------------------------
+# Machine-checked exit criteria per roadmap phase. Later phases extend this
+# object (phase1: end-to-end verify on test vectors; phase2: T3/T4 witnesses
+# flip to required; phase3: DLCAeneas equivalence built in CI).
+
+phase0_ok=false
+if [[ "$statuses_valid" == "true" && "$taut_ok" == "true" && "$claims_ok" == "true" ]]; then
+  phase0_ok=true
+fi
+
+theorems_entries="$(echo "$theorems_json" | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["entries"], indent=4))')"
+
+# --- Emit ledger.json -------------------------------------------------------
 cat > ledger.json <<EOF
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "commit": "$commit_sha",
   "generated_at": "$timestamp",
-  "theorems": {
-    "T1_decidability":         $(lean_status DLC/Decidability.lean),
-    "T2_correspondence":       $(lean_status DLC/Correspondence.lean),
-    "T3_noninterference":      $(lean_status DLC/NonInterference.lean),
-    "T4_obligation":           $(lean_status DLC/ObligationSoundness.lean),
-    "protocol_correspondence": $(lean_status DLC/ProtocolCorrespondence.lean),
-    "substitution_lemma":      $(lean_status DLC/Subst.lean),
-    "subject_reduction":       $(lean_status DLC/Reduce.lean)
+  "theorems": $theorems_entries,
+  "hygiene": {
+    "statuses_valid": $statuses_valid,
+    "tautology_check": $taut_ok,
+    "claims_consistency": $claims_ok
   },
   "models": {
     "tamarin":   $(model_status tamarin),
@@ -166,9 +190,21 @@ cat > ledger.json <<EOF
   },
   "aeneas_drift":  $(drift_status),
   "verifier_loc":  $(loc_status),
-  "rust_tests":    $(rust_tests_status)
+  "rust_tests":    $(rust_tests_status),
+  "phase_gates": {
+    "phase0_truth_reconciliation": $phase0_ok,
+    "phase1_working_verifier": false,
+    "phase2_first_of_kind_theorems": false,
+    "phase3_diagonal": false
+  }
 }
 EOF
 
 echo "ledger.json written:"
 cat ledger.json
+
+if [[ "$phase0_ok" != "true" ]]; then
+  echo "" >&2
+  echo "ledger: Phase-0 gate FAILING (see hygiene checks above)." >&2
+  exit 1
+fi

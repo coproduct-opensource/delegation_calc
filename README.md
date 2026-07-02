@@ -20,9 +20,14 @@ attacked separately:
 3. **Authenticated delegation for AI agents** (South et al. 2025; HDP; AIP;
    IETF on-behalf-of) — multi-hop agent chains, splice-resistance.
 
-DLC's contribution is the **correspondence theorem** (T2): the calculus and the
-cryptographic protocol agree exactly. Logical validity is verifiable validity is
-checkable validity.
+DLC's target contribution is the **correspondence theorem** (T2): the calculus
+and the cryptographic protocol agree exactly — logical validity is verifiable
+validity is checkable validity. **Status honesty:** what is proven today is an
+axiom-free symbolic characterization at the calculus level (crypto typing ⇔
+logical typing ∧ signature validity); the attacker-based statement about the
+executable verifier and real wire bytes is open. See the theorem table below
+and `lean/theorem-status.json` — CI rejects any doc in this repo that claims
+more than that file records.
 
 ## Why categorical — the protobuf thesis
 
@@ -75,15 +80,21 @@ scripts/             ledger.sh, check-drift.sh, aeneas-translate.sh
 
 ## The four theorems
 
-| | Theorem                              | File                                  |
-|-|--------------------------------------|---------------------------------------|
-|T1| Decidability — `O(|M|·log|Γ|)`       | `lean/DLC/Decidability.lean`          |
-|T2| Cryptographic correspondence         | `lean/DLC/Correspondence.lean`        |
-|T3| Non-interference under delegation    | `lean/DLC/NonInterference.lean`       |
-|T4| Obligation soundness                 | `lean/DLC/ObligationSoundness.lean`   |
+Statuses are the machine-validated ones from `lean/theorem-status.json`
+(2026-07 truth-reconciliation audit; see `RELEASES.md` for the corrections):
+
+| | Theorem | Status | File |
+|-|---------|--------|------|
+|T1| Decidability | **proven_fragment** — propositional fragment (additive contexts, no linear splitting); the `O(\|M\|·log\|Γ\|)` bound is a target, unproven | `lean/DLC/Decidability.lean` |
+|T2| Cryptographic correspondence | **stated** — axiom-free symbolic characterization proven; attacker-based form open (the former EUF-CMA axiom was inconsistent — refutation machine-checked in `Witness/AxiomAudit.lean`) | `lean/DLC/Correspondence.lean` |
+|T3| Non-interference under delegation | **stated** — current lemmas are one-run reflexivity, not NI | `lean/DLC/NonInterference.lean` |
+|T4| Obligation soundness | **stated** — non-introduction direction proven but vacuous (`pendingObligations ≡ []`) | `lean/DLC/ObligationSoundness.lean` |
 
 `make ledger` runs every check in `scripts/ledger.sh` and prints the current
-proof status. Reproducible under `nix run .#ledger`.
+proof status. Reproducible under `nix run .#ledger`. The ledger VALIDATES
+statuses (proven claims require sorry-free files plus non-vacuity witnesses in
+`lean/DLC/Witness/`), and `scripts/check-claims.sh` fails CI if any public
+document claims more.
 
 ## Relation to nucleus
 

@@ -202,11 +202,469 @@ propositional fragment (`PropDeriv`):
   `t1_propositional_soundness` (typing is preserved by `substAt` at
   arbitrary depth).
 
-What remains OPEN (tracked in the ledger):
+Also PROVEN, in this module (T3 rung 3a — the substitution composition
+stack, below):
 
 * the syntactic substitution-composition lemma over the full
-  21-constructor `Term` (the Ramos et al., arXiv 2512.09280, shape);
+  `Term` grammar (the Ramos et al., arXiv 2512.09280, shape) —
+  `substAt_substAt`, together with its supporting lemmas
+  `shift_shift_merge`, `shift_substAt_commute`, and
+  `substAt_shift_cancel`.
+
+What remains OPEN (tracked in the ledger):
+
 * substitution preservation for the full `Deriv` judgment, which
   requires the linear-context splitting cases. -/
+
+/-! ## Substitution composition stack (T3 rung 3a).
+
+The four lemmas below are purely syntactic identities about `shift` and
+`substAt` over the full `Term` grammar, proved by structural induction with
+all indices generalized. `substAt_substAt` is the substitution composition
+law; the other three are the shift/substitution commutation facts its
+variable cases need. See `spec/t3-two-run-design-2026-07.md`. -/
+
+/-- Merging two shifts when the outer cutoff lies within the inner shift's range. -/
+theorem shift_shift_merge (d d' : Nat) :
+    ∀ (M : Term) (c c' : Nat), c ≤ c' → c' ≤ c + d →
+      shift (shift M d c) d' c' = shift M (d + d') c := by
+  intro M
+  induction M with
+  | var v =>
+      intro c c' h1 h2
+      simp only [shift]
+      by_cases hv : v < c
+      · simp only [if_pos hv]
+        simp only [shift]
+        rw [if_pos (show v < c' by omega)]
+      · simp only [if_neg hv]
+        simp only [shift]
+        rw [if_neg (show ¬ v + d < c' by omega)]
+        exact congrArg Term.var (by omega)
+  | lam p b ih =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ih (c + 1) (c' + 1) (by omega) (by omega)]
+  | app f x ihf ihx =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ihf c c' h1 h2, ihx c c' h1 h2]
+  | sign p m sig ih =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ih c c' h1 h2]
+  | verify p m sig ih =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ih c c' h1 h2]
+  | delegate m n ihm ihn =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ihm c c' h1 h2, ihn c c' h1 h2]
+  | attenuate m ψ ih =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ih c c' h1 h2]
+  | discharge m n ihm ihn =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ihm c c' h1 h2, ihn c c' h1 h2]
+  | liftLabel l m ih =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ih c c' h1 h2]
+  | declassify l m π ihm ihπ =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ihm c c' h1 h2, ihπ c c' h1 h2]
+  | now t =>
+      intro c c' _ _
+      simp only [shift]
+  | withinIntro t m ih =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ih c c' h1 h2]
+  | pair a b iha ihb =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [iha c c' h1 h2, ihb c c' h1 h2]
+  | fst a ih =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ih c c' h1 h2]
+  | snd a ih =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ih c c' h1 h2]
+  | inl p a ih =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ih c c' h1 h2]
+  | inr p a ih =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ih c c' h1 h2]
+  | case s l r ihs ihl ihr =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ihs c c' h1 h2, ihl (c + 1) (c' + 1) (by omega) (by omega),
+          ihr (c + 1) (c' + 1) (by omega) (by omega)]
+  | tensorIntro a b iha ihb =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [iha c c' h1 h2, ihb c c' h1 h2]
+  | letTensor s b ihs ihb =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ihs c c' h1 h2, ihb (c + 2) (c' + 2) (by omega) (by omega)]
+  | letSays p s b ihs ihb =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ihs c c' h1 h2, ihb (c + 1) (c' + 1) (by omega) (by omega)]
+  | sfExtract m ih =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ih c c' h1 h2]
+
+/-- Shifting commutes with substitution when the cutoff is below the depth. -/
+theorem shift_substAt_commute (d : Nat) (P : Term) :
+    ∀ (M : Term) (i c : Nat), c ≤ i →
+      shift (substAt M P i) d c = substAt (shift M d c) P (i + d) := by
+  intro M
+  induction M with
+  | var v =>
+      intro i c hci
+      by_cases heq : v = i
+      · rw [heq, substAt_var_eq P i,
+            show shift (Term.var i) d c = Term.var (i + d) by
+              simp only [shift]; rw [if_neg (by omega)],
+            substAt_var_eq P (i + d)]
+        exact shift_shift_merge i d P 0 c (Nat.zero_le _) (by omega)
+      · by_cases hlt : v < i
+        · rw [substAt_var_lt P v i hlt]
+          simp only [shift]
+          by_cases hvc : v < c
+          · simp only [if_pos hvc]
+            rw [substAt_var_lt P v (i + d) (by omega)]
+          · simp only [if_neg hvc]
+            rw [substAt_var_lt P (v + d) (i + d) (by omega)]
+        · have hgt : i < v := by omega
+          rw [substAt_var_gt P v i hgt]
+          simp only [shift]
+          rw [if_neg (show ¬ v - 1 < c by omega), if_neg (show ¬ v < c by omega),
+              substAt_var_gt P (v + d) (i + d) (by omega)]
+          exact congrArg Term.var (by omega)
+  | lam p b ih =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [show i + d + 1 = i + 1 + d by omega, ih (i + 1) (c + 1) (by omega)]
+  | app f x ihf ihx =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [ihf i c hci, ihx i c hci]
+  | sign p m sig ih =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [ih i c hci]
+  | verify p m sig ih =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [ih i c hci]
+  | delegate m n ihm ihn =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [ihm i c hci, ihn i c hci]
+  | attenuate m ψ ih =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [ih i c hci]
+  | discharge m n ihm ihn =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [ihm i c hci, ihn i c hci]
+  | liftLabel l m ih =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [ih i c hci]
+  | declassify l m π ihm ihπ =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [ihm i c hci, ihπ i c hci]
+  | now t =>
+      intro i c _
+      simp only [shift, substAt]
+  | withinIntro t m ih =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [ih i c hci]
+  | pair a b iha ihb =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [iha i c hci, ihb i c hci]
+  | fst a ih =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [ih i c hci]
+  | snd a ih =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [ih i c hci]
+  | inl p a ih =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [ih i c hci]
+  | inr p a ih =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [ih i c hci]
+  | case s l r ihs ihl ihr =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [ihs i c hci, show i + d + 1 = i + 1 + d by omega,
+          ihl (i + 1) (c + 1) (by omega), ihr (i + 1) (c + 1) (by omega)]
+  | tensorIntro a b iha ihb =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [iha i c hci, ihb i c hci]
+  | letTensor s b ihs ihb =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [ihs i c hci, show i + d + 2 = i + 2 + d by omega,
+          ihb (i + 2) (c + 2) (by omega)]
+  | letSays p s b ihs ihb =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [ihs i c hci, show i + d + 1 = i + 1 + d by omega,
+          ihb (i + 1) (c + 1) (by omega)]
+  | sfExtract m ih =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [ih i c hci]
+
+/-- Substituting at an index covered by a (d+1)-shift cancels one
+shift. The substituted value `V` is arbitrary — it is never placed. -/
+theorem substAt_shift_cancel (d : Nat) (V : Term) :
+    ∀ (M : Term) (i c : Nat), c ≤ i → i ≤ c + d →
+      substAt (shift M (d + 1) c) V i = shift M d c := by
+  intro M
+  induction M with
+  | var v =>
+      intro i c h1 h2
+      simp only [shift]
+      by_cases hvc : v < c
+      · simp only [if_pos hvc]
+        rw [substAt_var_lt V v i (by omega)]
+      · simp only [if_neg hvc]
+        rw [substAt_var_gt V (v + (d + 1)) i (by omega)]
+        exact congrArg Term.var (by omega)
+  | lam p b ih =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ih (i + 1) (c + 1) (by omega) (by omega)]
+  | app f x ihf ihx =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ihf i c h1 h2, ihx i c h1 h2]
+  | sign p m sig ih =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ih i c h1 h2]
+  | verify p m sig ih =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ih i c h1 h2]
+  | delegate m n ihm ihn =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ihm i c h1 h2, ihn i c h1 h2]
+  | attenuate m ψ ih =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ih i c h1 h2]
+  | discharge m n ihm ihn =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ihm i c h1 h2, ihn i c h1 h2]
+  | liftLabel l m ih =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ih i c h1 h2]
+  | declassify l m π ihm ihπ =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ihm i c h1 h2, ihπ i c h1 h2]
+  | now t =>
+      intro i c _ _
+      simp only [shift, substAt]
+  | withinIntro t m ih =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ih i c h1 h2]
+  | pair a b iha ihb =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [iha i c h1 h2, ihb i c h1 h2]
+  | fst a ih =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ih i c h1 h2]
+  | snd a ih =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ih i c h1 h2]
+  | inl p a ih =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ih i c h1 h2]
+  | inr p a ih =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ih i c h1 h2]
+  | case s l r ihs ihl ihr =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ihs i c h1 h2, ihl (i + 1) (c + 1) (by omega) (by omega),
+          ihr (i + 1) (c + 1) (by omega) (by omega)]
+  | tensorIntro a b iha ihb =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [iha i c h1 h2, ihb i c h1 h2]
+  | letTensor s b ihs ihb =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ihs i c h1 h2, ihb (i + 2) (c + 2) (by omega) (by omega)]
+  | letSays p s b ihs ihb =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ihs i c h1 h2, ihb (i + 1) (c + 1) (by omega) (by omega)]
+  | sfExtract m ih =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ih i c h1 h2]
+
+/-- THE substitution composition law (j ≤ k). -/
+theorem substAt_substAt (N P : Term) :
+    ∀ (M : Term) (j k : Nat), j ≤ k →
+      substAt (substAt M N j) P k
+        = substAt (substAt M P (k + 1)) (substAt N P (k - j)) j := by
+  intro M
+  induction M with
+  | var v =>
+      intro j k hjk
+      by_cases hvj : v = j
+      · rw [hvj, substAt_var_eq N j, substAt_var_lt P j (k + 1) (by omega),
+            substAt_var_eq (substAt N P (k - j)) j]
+        have h := shift_substAt_commute j P N (k - j) 0 (Nat.zero_le _)
+        rw [show k - j + j = k by omega] at h
+        exact h.symm
+      · by_cases hvk : v = k + 1
+        · rw [hvk, substAt_var_gt N (k + 1) j (by omega),
+              show k + 1 - 1 = k by omega, substAt_var_eq P k,
+              substAt_var_eq P (k + 1)]
+          exact (substAt_shift_cancel k (substAt N P (k - j)) P j 0
+            (Nat.zero_le _) (by omega)).symm
+        · by_cases hlt : v < j
+          · rw [substAt_var_lt N v j hlt, substAt_var_lt P v k (by omega),
+                substAt_var_lt P v (k + 1) (by omega),
+                substAt_var_lt (substAt N P (k - j)) v j hlt]
+          · have hgt : j < v := by omega
+            by_cases hle : v ≤ k
+            · rw [substAt_var_gt N v j hgt,
+                  substAt_var_lt P (v - 1) k (by omega),
+                  substAt_var_lt P v (k + 1) (by omega),
+                  substAt_var_gt (substAt N P (k - j)) v j hgt]
+            · rw [substAt_var_gt N v j hgt,
+                  substAt_var_gt P (v - 1) k (by omega),
+                  substAt_var_gt P v (k + 1) (by omega),
+                  substAt_var_gt (substAt N P (k - j)) (v - 1) j (by omega)]
+  | lam p b ih =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ih (j + 1) (k + 1) (by omega),
+          show k + 1 - (j + 1) = k - j by omega]
+  | app f x ihf ihx =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ihf j k hjk, ihx j k hjk]
+  | sign p m sig ih =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ih j k hjk]
+  | verify p m sig ih =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ih j k hjk]
+  | delegate m n ihm ihn =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ihm j k hjk, ihn j k hjk]
+  | attenuate m ψ ih =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ih j k hjk]
+  | discharge m n ihm ihn =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ihm j k hjk, ihn j k hjk]
+  | liftLabel l m ih =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ih j k hjk]
+  | declassify l m π ihm ihπ =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ihm j k hjk, ihπ j k hjk]
+  | now t =>
+      intro j k _
+      simp only [substAt]
+  | withinIntro t m ih =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ih j k hjk]
+  | pair a b iha ihb =>
+      intro j k hjk
+      simp only [substAt]
+      rw [iha j k hjk, ihb j k hjk]
+  | fst a ih =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ih j k hjk]
+  | snd a ih =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ih j k hjk]
+  | inl p a ih =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ih j k hjk]
+  | inr p a ih =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ih j k hjk]
+  | case s l r ihs ihl ihr =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ihs j k hjk, ihl (j + 1) (k + 1) (by omega),
+          ihr (j + 1) (k + 1) (by omega),
+          show k + 1 - (j + 1) = k - j by omega]
+  | tensorIntro a b iha ihb =>
+      intro j k hjk
+      simp only [substAt]
+      rw [iha j k hjk, ihb j k hjk]
+  | letTensor s b ihs ihb =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ihs j k hjk, ihb (j + 2) (k + 2) (by omega),
+          show k + 2 + 1 = k + 1 + 2 by omega,
+          show k + 2 - (j + 2) = k - j by omega]
+  | letSays p s b ihs ihb =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ihs j k hjk, ihb (j + 1) (k + 1) (by omega),
+          show k + 1 - (j + 1) = k - j by omega]
+  | sfExtract m ih =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ih j k hjk]
 
 end DLC

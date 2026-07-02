@@ -38,6 +38,7 @@ lean_lib «DLC» where
     `DLC.Time,
     `DLC.Subst,
     `DLC.Reduce,
+    `DLC.ReduceMeta,
     `DLC.Graded,
     `DLC.IndexedMonad
   ]

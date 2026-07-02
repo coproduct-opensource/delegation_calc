@@ -4,7 +4,11 @@
     "status": "proven_fragment",
     "fragment": "propositional (PropDeriv: 22 constructors, additive contexts, no linear splitting)",
     "file": "DLC/Decidability.lean",
-    "theorems": ["t1_propositional_soundness", "t1_propositional_completeness", "t1_propositional_decidability"],
+    "theorems": [
+      "t1_propositional_soundness",
+      "t1_propositional_completeness",
+      "t1_propositional_decidability"
+    ],
     "witness": "DLC/Witness/T1.lean",
     "open": [
       "full-calculus decidability (linear context splitting, modal/temporal/IFC constructors)",
@@ -27,10 +31,10 @@
     "status": "stated",
     "file": "DLC/NonInterference.lean",
     "note": "t3_non_interference is one-run reflexivity with the typing derivation discarded; it carries no information-flow content and holds for ill-typed terms. Not non-interference.",
-    "proven_content": "t3_intro_two_run (DLC/NonInterferenceTwoRun.lean) — first rung: TWO-RUN NI for the introduction fragment at syntactic strength (observable conclusions provably reference no high hypothesis, so both runs are literally equal); typing derivation load-bearing, witnessed in DLC/Witness/T3.lean. Design + rung ladder: spec/t3-two-run-design-2026-07.md.",
+    "proven_content": "t3_intro_two_run (DLC/NonInterferenceTwoRun.lean) — first rung: TWO-RUN NI for the introduction fragment at syntactic strength (observable conclusions provably reference no high hypothesis, so both runs are literally equal); typing derivation load-bearing, witnessed in DLC/Witness/T3.lean. Design + rung ladder: spec/t3-two-run-design-2026-07.md. Rung 2 (DLC/ReduceMeta.lean): multi-step reduction Steps, determinism ⇒ semi-confluence, and Joinable as a transitive equivalence — the atom-level relation for the rung-3 LR.",
     "witness": "DLC/Witness/T3.lean",
     "open": [
-      "eliminations: fst/snd/app/case etc. reach low types through high intermediates — needs the LR redesign (projective products, binary arrows, joinability atoms) over multi-step reduction with confluence",
+      "rung 3: redesigned LR (projective products, binary arrows, Joinable atoms) + fundamental lemma over PropDeriv — eliminations reach low types through high intermediates",
       "the fundamental lemma over the full PropDeriv by induction on the derivation",
       "declassify stays excluded (NI modulo declassification)"
     ]
@@ -67,8 +71,12 @@
     "status": "proven_fragment",
     "fragment": "propositional (PropDeriv)",
     "file": "DLC/Decidability.lean",
-    "theorems": ["propositional subject reduction via preservation lemmas"],
+    "theorems": [
+      "propositional subject reduction via preservation lemmas"
+    ],
     "witness": "DLC/Witness/T1.lean",
-    "open": ["subject reduction for the full Deriv judgment"]
+    "open": [
+      "subject reduction for the full Deriv judgment"
+    ]
   }
 }

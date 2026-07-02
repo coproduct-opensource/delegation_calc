@@ -301,7 +301,8 @@ fn golden_vectors_match_and_verify() {
     json.push_str("  ],\n  \"vectors\": [\n");
     for (i, (name, token, claim, assumptions, expect_ok)) in entries.iter().enumerate() {
         // Every vector must actually behave as pinned.
-        let result = verify_with_assumptions(token, &wire::decode_prop(claim).unwrap(), &kr, assumptions);
+        let result =
+            verify_with_assumptions(token, &wire::decode_prop(claim).unwrap(), &kr, assumptions);
         match (expect_ok, &result) {
             (true, VerifyResult::Ok) => {}
             (false, VerifyResult::Fail { .. }) => {}
@@ -318,7 +319,10 @@ fn golden_vectors_match_and_verify() {
     }
     json.push_str("  ]\n}\n");
 
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../test-vectors/phase1-vectors.json");
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../test-vectors/phase1-vectors.json"
+    );
     if std::env::var("DLC_BLESS").is_ok() {
         std::fs::create_dir_all(std::path::Path::new(path).parent().unwrap()).unwrap();
         std::fs::write(path, &json).unwrap();

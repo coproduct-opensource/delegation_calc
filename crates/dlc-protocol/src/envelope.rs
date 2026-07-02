@@ -51,8 +51,7 @@ pub fn unwrap_sign1(
     cose: &[u8],
     keyring: &KeyRing,
 ) -> Result<(Vec<u8>, PrincipalId), ProtocolError> {
-    let sign1 =
-        CoseSign1::from_slice(cose).map_err(|e| ProtocolError::Cose(format!("{e}")))?;
+    let sign1 = CoseSign1::from_slice(cose).map_err(|e| ProtocolError::Cose(format!("{e}")))?;
     let kid: [u8; 32] = sign1
         .protected
         .header

@@ -37,13 +37,27 @@ fn main() {
 
     let keyring = KeyRing {
         entries: vec![
-            KeyRecord { principal: PrincipalId(pid_a), alg: ed25519::ALG_ED25519, public_key: pk_a.to_vec() },
-            KeyRecord { principal: PrincipalId(pid_b), alg: ed25519::ALG_ED25519, public_key: pk_b.to_vec() },
+            KeyRecord {
+                principal: PrincipalId(pid_a),
+                alg: ed25519::ALG_ED25519,
+                public_key: pk_a.to_vec(),
+            },
+            KeyRecord {
+                principal: PrincipalId(pid_b),
+                alg: ed25519::ALG_ED25519,
+                public_key: pk_b.to_vec(),
+            },
         ],
     };
 
     // Token 1: issued — Sign(B, Now) : B says ⊤.
-    let issued = sign_over(&seed_b, &pb, Term::Now(TimeBound { epoch_ms: 1_750_000_000_000 }));
+    let issued = sign_over(
+        &seed_b,
+        &pb,
+        Term::Now(TimeBound {
+            epoch_ms: 1_750_000_000_000,
+        }),
+    );
     let issued_claim = Prop::Says(pb.clone(), Box::new(Prop::Top));
 
     // Token 2: full chain — Attenuate(Delegate(grant_A, issued_B), ⊤).
@@ -62,11 +76,19 @@ fn main() {
     let chain_wire = wire::encode(&chain);
 
     let issued_ns = time_median(ITERS, || {
-        assert!(matches!(verify(&issued_wire, &issued_claim, &keyring), VerifyResult::Ok));
+        assert!(matches!(
+            verify(&issued_wire, &issued_claim, &keyring),
+            VerifyResult::Ok
+        ));
     });
     let chain_ns = time_median(ITERS, || {
         assert!(matches!(
-            verify_with_assumptions(&chain_wire, &chain_claim, &keyring, std::slice::from_ref(&assumption)),
+            verify_with_assumptions(
+                &chain_wire,
+                &chain_claim,
+                &keyring,
+                std::slice::from_ref(&assumption)
+            ),
             VerifyResult::Ok
         ));
     });
@@ -75,7 +97,10 @@ fn main() {
     let chain_term = wire::decode(&chain_wire).unwrap();
     let logic_ns = time_median(ITERS, || {
         let problem = TypingProblem {
-            ctx: dlc_core::judgment::Ctx { additive: vec![assumption.clone()], linear: vec![] },
+            ctx: dlc_core::judgment::Ctx {
+                additive: vec![assumption.clone()],
+                linear: vec![],
+            },
             term: chain_term.clone(),
             prop: chain_claim.clone(),
         };
@@ -94,7 +119,10 @@ fn main() {
         logic_ns,
     );
 
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../test-vectors/bench-results.json");
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../test-vectors/bench-results.json"
+    );
     std::fs::write(path, &json).expect("write bench-results.json");
     println!("{json}");
 }
@@ -110,7 +138,10 @@ fn sign_over(seed: &[u8; 32], principal: &Principal, inner: Term) -> Term {
     Term::Sign(
         principal.clone(),
         Box::new(inner),
-        Signature { alg: ed25519::ALG_ED25519, bytes: sig.to_vec() },
+        Signature {
+            alg: ed25519::ALG_ED25519,
+            bytes: sig.to_vec(),
+        },
     )
 }
 

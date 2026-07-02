@@ -140,9 +140,8 @@ fn cmd_verify(args: &[String]) -> Result<ExitCode, String> {
     // --cose: the token is a COSE_Sign1 envelope; check the presenter
     // signature and verify the inner payload.
     if args.iter().any(|a| a == "--cose") {
-        let (payload, presenter) =
-            dlc_protocol::envelope::unwrap_sign1(&wire_bytes, &keyring)
-                .map_err(|e| format!("cose: {e}"))?;
+        let (payload, presenter) = dlc_protocol::envelope::unwrap_sign1(&wire_bytes, &keyring)
+            .map_err(|e| format!("cose: {e}"))?;
         println!("presenter={}", hex_encode(&presenter.0));
         wire_bytes = payload;
     }
@@ -197,7 +196,9 @@ fn parse_claim(spec: &str) -> Result<Prop, String> {
     }
     if let Some(rest) = spec.strip_prefix("says:") {
         let (principal, inner) = split_principal(rest)?;
-        let inner = inner.strip_prefix(':').ok_or("says: expected `:` after principal")?;
+        let inner = inner
+            .strip_prefix(':')
+            .ok_or("says: expected `:` after principal")?;
         return Ok(Prop::Says(principal, Box::new(parse_claim(inner)?)));
     }
     Err(format!("unrecognized claim spec: {spec}"))

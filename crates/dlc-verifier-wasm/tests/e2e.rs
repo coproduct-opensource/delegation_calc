@@ -14,12 +14,17 @@ fn wasm_interface_accepts_valid_and_rejects_corrupt() {
     let pid = dlc_crypto::principal_id(&pk);
     let principal = Principal::Atom(PrincipalId(pid));
 
-    let inner = Term::Now(TimeBound { epoch_ms: 1_750_000_000_000 });
+    let inner = Term::Now(TimeBound {
+        epoch_ms: 1_750_000_000_000,
+    });
     let sig = ed25519::sign(&seed, &wire::canonical_bytes(&inner));
     let term = Term::Sign(
         principal.clone(),
         Box::new(inner),
-        Signature { alg: ed25519::ALG_ED25519, bytes: sig.to_vec() },
+        Signature {
+            alg: ed25519::ALG_ED25519,
+            bytes: sig.to_vec(),
+        },
     );
 
     let token = wire::encode(&term);

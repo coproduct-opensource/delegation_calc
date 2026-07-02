@@ -52,6 +52,7 @@ SCRIPT_FILE="$SCRIPT_DIR/PrintAll.lean"
   echo "import DLC.ProtocolCorrespondence"
   echo "import DLC.IndexedMonad"
   echo "import DLC.Witness.AxiomAudit"
+  echo "import DLC.NonInterferenceTwoRun"
   echo ""
   for t in "${THEOREMS[@]}"; do
     echo "#print axioms DLC.$t"

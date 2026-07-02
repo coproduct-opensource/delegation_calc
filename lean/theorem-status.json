@@ -27,8 +27,12 @@
     "status": "stated",
     "file": "DLC/NonInterference.lean",
     "note": "t3_non_interference is one-run reflexivity with the typing derivation discarded; it carries no information-flow content and holds for ill-typed terms. Not non-interference.",
+    "proven_content": "t3_intro_two_run (DLC/NonInterferenceTwoRun.lean) — first rung: TWO-RUN NI for the introduction fragment at syntactic strength (observable conclusions provably reference no high hypothesis, so both runs are literally equal); typing derivation load-bearing, witnessed in DLC/Witness/T3.lean. Design + rung ladder: spec/t3-two-run-design-2026-07.md.",
+    "witness": "DLC/Witness/T3.lean",
     "open": [
-      "two-run non-interference: logical relation over pairs of derivations differing in high-labeled hypotheses, with a fundamental lemma by induction on the derivation"
+      "eliminations: fst/snd/app/case etc. reach low types through high intermediates — needs the LR redesign (projective products, binary arrows, joinability atoms) over multi-step reduction with confluence",
+      "the fundamental lemma over the full PropDeriv by induction on the derivation",
+      "declassify stays excluded (NI modulo declassification)"
     ]
   },
   "T4_obligation": {

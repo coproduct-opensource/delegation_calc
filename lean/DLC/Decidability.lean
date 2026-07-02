@@ -2124,23 +2124,29 @@ depends on the noncomputable `t1_propositional_soundness_prop`. -/
 noncomputable def t1_propositional_decidability : T1_PropositionalDecidabilityStatement :=
   fun Γₐ M φ => PropDeriv.decidable_nonempty Γₐ M φ
 
-/-- T1 extended to the full calculus (M1.Q4.d). The complexity bound
-`O(|M| · log |Γ|)` is preserved because each modal / temporal / IFC
-constructor adds a constant amount of work per node — proven separately
-under `T1_ComplexityBoundStatement`. -/
-def T1_FullCalculusDecidabilityStatement : Prop :=
-  ∀ (Γ : Ctx) (M : Term) (φ : Prop'),
-    M.isInCalculus = true →
-    -- placeholder body; closure tracks `T1_PropositionalDecidabilityStatement`
-    -- with extended structural induction over the new constructors
-    Γ = Γ ∧ M = M ∧ φ = φ
+/-! ## T1 — what remains OPEN (tracked in the ledger; Phase-2 scope).
 
-/-- The complexity bound. To be stated as an explicit inequality on the
-Aeneas-extracted decision function once the function-correspondence theorem
-lands at M1.Q1.d. -/
-def T1_ComplexityBoundStatement : Prop :=
-  -- Real statement: ∃ c : Nat, ∀ Γ M φ, runtime(decide_pure Γ M φ) ≤ c * |M| * log₂(|Γ|+1)
-  True
+Two earlier definitions here (`T1_FullCalculusDecidabilityStatement`,
+`T1_ComplexityBoundStatement`) were tautological placeholders (`Γ = Γ ∧
+M = M ∧ φ = φ` and `True`). They are deleted, not restated: writing the
+real statements requires design work that has not been done, and a
+trivially-true stand-in misrepresents the theorem's status.
+
+Open problems:
+
+* **Full-calculus decidability.** `PropDeriv` covers the additive
+  fragment only. Decidability of `Deriv` — with linear context
+  splitting on `impE`/`tensorI`/`delegate`, the modal/temporal
+  constructors, and IFC labels — is unproven. Linear splitting is the
+  hard part: naive search over splits is exponential, so the statement
+  must come with the algorithm (input-consumption discipline or
+  lazy-splitting à la Hodas-Miller), not before it.
+
+* **Complexity bound.** The advertised `O(|M| · log |Γ|)` bound is
+  unproven in any form, for any fragment. It must be stated as an
+  explicit cost inequality on the Aeneas-extracted decision function
+  (or a fuel-instrumented `decideLean`) — or retired from the
+  marketing. Until then no `Prop` encoding of it belongs here. -/
 
 /-! ## Sanity checks against propositional examples. -/
 

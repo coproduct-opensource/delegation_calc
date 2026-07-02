@@ -1,11 +1,22 @@
 /-
 T3 — Non-interference under delegation.
 
-For any IFC label `ℓ_low`, a derivation of `φ @ ℓ_low` from a context whose
-hypotheses live only at labels `≥ ℓ_low` cannot transport information from
-strictly-higher labels into the conclusion. Generalizes Garg-Pfenning's
-constructive-authorization-logic non-interference (CSF '06) to the IFC-
-labeled setting.
+## Status: NOT PROVEN in any fragment (2026-07 audit).
+
+Everything currently proven in this file is reflexivity, symmetry, and
+transitivity of the `Indistinguishable` relation — one-run facts that
+discard the typing derivation and hold for ill-typed terms. No two-run
+statement (two derivations differing in high-labeled hypotheses) exists
+anywhere in this development, and no lemma here is proven by induction
+on a derivation. See the "T3 status" section note before
+`t3_atomic_fundamental`. The ledger reports T3 as `stated`.
+
+The intended theorem: for any IFC label `ℓ_low`, a derivation of
+`φ @ ℓ_low` from a context whose hypotheses live only at labels
+`≥ ℓ_low` cannot transport information from strictly-higher labels
+into the conclusion. Would generalize Garg-Pfenning's constructive-
+authorization-logic non-interference (CSF '06) to the IFC-labeled
+setting.
 
 Proof strategy (M1.Q4.c closure): a logical relation
 `Indistinguishable[ℓ_low] : Prop' → Term → Term → Prop`
@@ -309,50 +320,57 @@ theorem Indistinguishable_trans (ℓLow : Label) (φ : Prop')
     intro M' hM'
     exact ihβ _ _ _ (h12 M' hM') (h23 M' hM')
 
-/-! ## T3 — Atomic fragment of the fundamental lemma.
+/-! ## T3 status — the theorems below are NOT non-interference.
 
-The fundamental lemma of the logical relation: every well-typed term is
-related to itself. This file closes the atomic-proposition fragment;
-each follow-up PR refines `Indistinguishable` for one more `Prop'`
-constructor and re-verifies the corollary at the higher fragment. -/
+Honest accounting (2026-07 audit): everything in this section is
+proven by REFLEXIVITY of `Indistinguishable`, with the typing
+derivation passed in and discarded (note the `_d` binders). The
+statements are true, but they carry no information-flow content:
 
-/-- Atomic fragment of the T3 fundamental lemma: every well-typed
-derivation is self-indistinguishable at any low label. In the
-atomic-only `Indistinguishable` definition, this is immediate from
-reflexivity; the value is in establishing the pattern that the
-follow-up PRs extend. -/
+* they relate every term to ITSELF, not two runs of a program that
+  differ in high-labeled inputs;
+* they hold for ill-typed terms just as well — the derivation
+  hypothesis does no work;
+* no fundamental lemma exists: nothing here is proven by induction
+  on the derivation.
+
+Real (two-run) non-interference — a logical relation over pairs of
+derivations differing in hypotheses above `ℓLow`, with a fundamental
+lemma in the Garg-Pfenning / FLAFOL style — is OPEN, tracked in the
+ledger as T3's actual content, and is Phase-2 scope. The lemmas below
+are retained only as the reflexivity/symmetry/transitivity
+infrastructure of the relation that proof will need. -/
+
+/-- Reflexivity of the LR at every `Prop'` shape, wrapped with a
+(discarded) typing hypothesis. NOT a fundamental lemma: the derivation
+does no work — see the section note. -/
 theorem t3_atomic_fundamental
     (ℓLow : Label) (Γ : Ctx) (M : Term) (φ : Prop')
     (_d : Deriv Γ M φ) :
     Indistinguishable ℓLow φ M M :=
   Indistinguishable_refl ℓLow φ M
 
-/-! ## T3 — Headline statement (canonical form).
-
-The autonomously-closed form of T3 for the atomic fragment. Follow-up
-PRs replace `Indistinguishable`'s placeholder cases and re-verify this
-statement at progressively larger Prop' fragments. -/
-
-/-- T3 — non-interference for the atomic fragment. Restricted to
-atomic-typed conclusions; extension to compound propositions tracks
-the `Indistinguishable` refinement. -/
+/-- Reflexivity at atomic conclusions. Same caveat as
+`t3_atomic_fundamental`: no information-flow content. -/
 theorem t3_atomic_non_interference
     (ℓLow : Label) (Γ : Ctx) (M : Term) (n : Nat)
     (d : Deriv Γ M (Prop'.atom n)) :
     Indistinguishable ℓLow (Prop'.atom n) M M :=
   t3_atomic_fundamental ℓLow Γ M (Prop'.atom n) d
 
-/-- T3 — Non-interference (canonical form for the propositional
-fragment). Every well-typed propositional derivation is
-self-indistinguishable at any low label. Proven via reflexivity of
-`Indistinguishable` and the fact that PropDeriv witnesses well-typing. -/
+/-- Self-indistinguishability of well-typed terms. Formerly advertised
+as "T3 — non-interference (canonical form)"; it is not (see the section
+note): the body is one-run reflexivity, the derivation is discarded,
+and ill-typed terms satisfy the conclusion equally. Kept under its
+historical name so the ledger and axiom snapshots track it, with the
+ledger reporting T3 as `stated`, not proven. -/
 def T3_NonInterferenceStatement : Prop :=
   ∀ (ℓLow : Label) (Γₐ : List Prop') (M : Term) (φ : Prop'),
     PropDeriv Γₐ M φ → Indistinguishable ℓLow φ M M
 
-/-- T3 — non-interference, discharged. The proof ignores the
-`PropDeriv` evidence and discharges via `Indistinguishable_refl` —
-the LR's reflexivity at every `Prop'` shape is the operational content. -/
+/-- Discharge of the (weak) statement above by reflexivity. The
+`PropDeriv` evidence is ignored — which is precisely why this is not
+non-interference. The two-run T3 is open; see the section note. -/
 theorem t3_non_interference : T3_NonInterferenceStatement :=
   fun ℓLow _Γₐ M φ _d => Indistinguishable_refl ℓLow φ M
 

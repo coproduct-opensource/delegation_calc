@@ -1,15 +1,18 @@
 /-
 §4.4 -- Protocol-Logic Correspondence theorem.
 
-The Phase-2 keystone: connects Tamarin protocol traces to DLC derivations.
-Composes the two halves:
+Connects Tamarin protocol traces to DLC derivations. The intended
+composition has two halves:
 
   L2.3 (wire ↔ symbolic encoding):  models/tamarin/dlc.spthy facts ↔
                                      crates/dlc-protocol/src/wire.rs CBOR
   L2.5 (trace ↔ derivation):         List TraceEvent ↔ Deriv Γ M φ
 
-Together they give T2's symbolic half (the computational half is L2.4's
-EasyCrypt reduction).
+STATUS (2026-07): only a restricted L2.5 is proven (singleton-trace
+shape; see `l2_5_trace_lifting`). L2.3 has no Lean-side statement yet
+(the former identity-serializer witness was vacuous and is deleted),
+and the intended computational half — L2.4's EasyCrypt reduction —
+does not exist (skeleton with a placeholder axiom encoding nothing).
 
 Phase-2 plan reference: months 12-14 (L2.5); M2.M15 closure tag
 `v1.5.0-phase2`. The full lifting proof is graduate-thesis-grade; this
@@ -24,8 +27,9 @@ namespace DLC
 
 /-! ## L2.3 -- Wire round-trip statement.
 
-Carried over from the L2.3 PR (PR #19). The Rust round-trip is proved
-operationally by 22 unit tests in `crates/dlc-protocol/src/wire.rs`;
+Carried over from the L2.3 PR (PR #19). The Rust round-trip is
+evidenced operationally by 25 unit tests in
+`crates/dlc-protocol/src/wire.rs`;
 the Lean statement here is what the Aeneas function-correspondence
 theorem will close once `wire.rs` is extracted. -/
 

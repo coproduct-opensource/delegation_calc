@@ -64,8 +64,8 @@ with named gaps. Single largest credibility boost.
 1. Introduction (2 pages): problem, contributions, paper structure.
 2. The calculus (3 pages): syntax, judgments, key typing rules, the
    `delegate` rule with the no-chain-splicing condition.
-3. Metatheory (4 pages): T1-T4 statements, what's proven, what's
-   stated, citations to the Lean development.
+3. Metatheory (4 pages): T1-T4 statements, what's proven and what's
+   merely stated, citations to the Lean development.
 4. Symbolic verification (3 pages): Tamarin + ProVerif models, the
    NonSplicing lemma, the cross-prover modeling-gap story
    (`HonestSk` event, honest-key table).

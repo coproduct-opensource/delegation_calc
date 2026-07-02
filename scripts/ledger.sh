@@ -35,7 +35,8 @@ import json, os, re, sys
 status = json.load(open("lean/theorem-status.json"))
 out, problems = {}, []
 
-SORRY_RE = re.compile(r'(:=\s+sorry|:=\s+by\s+sorry)')
+SORRY_RE = re.compile(r'(:=\s+sorry|:=\s+by\s+sorry|^\s*sorry(\s|$))',
+                      re.MULTILINE)
 
 for key, entry in status.items():
     if key.startswith("_"):

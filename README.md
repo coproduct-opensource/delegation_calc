@@ -8,10 +8,12 @@
 [![OSSF Scorecard](https://api.scorecard.dev/projects/github.com/coproduct-opensource/delegation_calc/badge)](https://scorecard.dev/viewer/?uri=github.com/coproduct-opensource/delegation_calc)
 
 
-A decidable modal-linear-temporal authorization logic in which proof terms are
+A modal-linear-temporal authorization logic designed so that proof terms are
 **simultaneously** logical proofs, cryptographic witnesses, IFC labels, and
-obligation ledgers. The artifact unifies three lineages that have so far been
-attacked separately:
+obligation ledgers. (Design intent, partially realized: decidability is proven
+for the propositional fragment; the cryptographic and obligation layers are
+stubs/stated today — see the status table below.) The artifact unifies three
+lineages that have so far been attacked separately:
 
 1. **Authorization logics** (Garg-Pfenning, BL, ICL, DKAL) — the `says` modality,
    speaks-for, and constructive proof terms.
@@ -47,15 +49,16 @@ theory as the **protobuf for agent-to-agent knowledge** — and `delegation_calc
 is that wire format for **authority** (the `says` modality + checkable proof
 terms). Worst case the bet is wrong and we merely hold more structure than anyone
 else; best case it is an isomorphism of mathematical reality as foundational as
-the Peano axioms. Full argument:
-[`coproduct-doctrine/CATEGORICAL-FOUNDATIONS.md`](../coproduct-doctrine/CATEGORICAL-FOUNDATIONS.md).
+the Peano axioms. Full argument: `coproduct-doctrine/CATEGORICAL-FOUNDATIONS.md`
+(internal sibling repo; not public).
 
 ## Status
 
-Week-1 skeleton. Phase-1 closure (`v1.0.0-phase1`) is the first artifact gate.
-See `spec/IDENTIFIERS.md` for the locked identifiers and the plan at
-`../../.claude/plans/let-s-web-search-and-sequential-forest.md` for the full
-roadmap.
+Early-stage. 2026-07: Phase 0 (truth reconciliation) landed — theorem
+statuses are machine-validated (`lean/theorem-status.json`), overclaims
+fail CI, and the corrections are recorded in `RELEASES.md`. Phase 1
+(working end-to-end verifier) is next. See `spec/IDENTIFIERS.md` for the
+locked identifiers.
 
 ## Layout
 

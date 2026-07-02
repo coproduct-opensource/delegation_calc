@@ -12,7 +12,7 @@
  * specified; the reduction proof itself needs cryptographer pairing
  * (Blanchet or equivalent) per the plan's collaborator engagement
  * section. CI parse-checks the file; the security lemma is stated as
- * an `axiom` (= unproved assumption) and the reduction lemma is
+ * a placeholder axiom whose body is literally `true` (it encodes nothing) and the reduction lemma is
  * documented as deferred work.
  *
  * Companion symbolic model: models/tamarin/dlc.spthy + models/proverif/dlc.pv.
@@ -98,16 +98,17 @@ module EUF_CMA (A : EUF_Adv) = {
   }
 }.
 
-(* The EUF-CMA assumption: every PPT adversary has negligible advantage.
-   Stated as an `axiom` because EUF-CMA is a cryptographic assumption,
-   not a theorem -- we don't prove it; we assume Ed25519 satisfies it
-   (which has its own published reductions to elliptic-curve DLOG-style
-   assumptions). *)
-axiom EUF_CMA_secure :
+(* PLACEHOLDER — THIS AXIOM ENCODES NOTHING (2026-07 audit).
+   The body below is literally `true`: it is NOT the EUF-CMA
+   assumption, it is a parse-checkable stand-in that carries zero
+   cryptographic content. Nothing may cite this file as "the EUF-CMA
+   assumption as an axiom" until the body is the real advantage bound
+     Pr[EUF_CMA(A).main() @ &m : res] <= eps
+   for a concrete negligible eps, stated over the game above. Renamed
+   from `EUF_CMA_secure` so a grep for the honest name fails until the
+   real statement exists. *)
+axiom placeholder_euf_cma_shape_only :
   forall (A <: EUF_Adv {-EUF_CMA}),
-    (* Pr[A wins the EUF-CMA game] <= eps for some negligible eps. *)
-    (* For a skeleton we state this qualitatively; a concrete advantage
-       bound goes in alongside the reduction lemma below. *)
     true.
 
 (* ========================================================================= *)
@@ -172,7 +173,7 @@ module SymbolicSayForgery (A : SymbolicSayAdv) = {
  *      identical-until-bad rewrite.
  *   3. Game hop 2: bridge to EUF_CMA via the ReductionAdv simulator.
  *   4. Conclusion: advantage of A in the symbolic game = advantage of
- *      ReductionAdv in EUF_CMA, which by EUF_CMA_secure is negligible.
+ *      ReductionAdv in EUF_CMA, which, once the real EUF-CMA axiom replaces placeholder_euf_cma_shape_only, is negligible.
  *
  * Until that proof closes, this stays as documentation. The Tamarin
  * model already shows the SYMBOLIC bound; what L2.4 adds is the

@@ -42,14 +42,13 @@ headline theorems are stated, with per-theorem status machine-checked
 into a public ledger), a Tamarin symbolic protocol model with the
 NonSplicing property verified, a ProVerif cross-prover model
 verifying the same property under a different proof engine, and a
-Rust wire-format implementation with round-trip-tested encoding. Of
-the four headline theorems---T1 decidability, T2 cryptographic
-correspondence, T3 non-interference, T4 obligation soundness---T1
-is proven for the propositional fragment, and
-T2's proven content is the axiom-free symbolic characterization
-(cryptographic typing coincides with logical typing plus signature
-validity); T3 and T4 are stated, with their gaps documented rather
-than papered over.
+Rust wire-format implementation with round-trip-tested encoding.
+Of the four headline theorems: T1 (decidability) is proven for the
+propositional fragment; T2's (cryptographic correspondence) proven
+content is the axiom-free symbolic characterization---cryptographic
+typing coincides with logical typing plus signature validity; T3
+(non-interference) and T4 (obligation soundness) are stated only,
+with their gaps documented rather than papered over.
 
 The primary contribution is the \emph{diagonal}: a unified artifact
 spanning authorization logic, symbolic cryptography, a stated

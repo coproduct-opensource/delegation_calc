@@ -96,9 +96,11 @@
         </li>
         <li>
           <t>
-            a cryptographic witness whose verification proves both
-            logical validity and authenticity of every principal's
-            contribution (the correspondence theorem);
+            a cryptographic witness whose verification is designed to
+            prove both logical validity and authenticity of every
+            principal's contribution (the correspondence theorem, T2 —
+            an open obligation at this revision; see Security
+            Considerations);
           </t>
         </li>
         <li>

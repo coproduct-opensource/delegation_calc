@@ -201,15 +201,27 @@ rule:
 Γ ⊢_K ⟨M, σ⟩_p : p says φ
 ```
 
-**T2** says: for every `K` extractable from `Γ`,
+**T2, target form** (OPEN — this is the intended theorem, not a proven
+one): for every `K` extractable from `Γ`,
 
 ```
                 Γ ⊢ M : φ    ⇔    Γ ⊢_K M : φ
 ```
 
-The forward direction is by induction on the derivation of `⊢`; the reverse
-is by induction on `⊢_K`, using the Ed25519 EUF-CMA assumption discharged by
-the EasyCrypt bridge (L2.4).
+**Status (2026-07 audit):** the unqualified iff is NOT proven, and an
+earlier attempt to axiomatize its forward direction was refutable
+in-system (machine-checked in `lean/DLC/Witness/AxiomAudit.lean`).
+What IS proven, axiom-free, is the symbolic characterization for the
+propositional fragment (`lean/DLC/Correspondence.lean`):
+
+```
+     Γₐ ⊢_K M : φ    ⇔    Γₐ ⊢ M : φ  ∧  allSigsVerify K M
+```
+
+The EUF-CMA reduction that the target form's reverse direction needs
+does not yet exist: the EasyCrypt L2.4 file is a skeleton whose
+placeholder axiom encodes nothing. See `lean/theorem-status.json` for
+the tracked open obligations.
 
 ## 11. Reduction
 

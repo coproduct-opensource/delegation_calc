@@ -10,75 +10,105 @@ the partial or complete proof.
 \subsection{T1 -- Decidability of proof-checking}
 
 \begin{theorem}[T1, propositional fragment]
-For every context $\Gamma$, term $M$, and proposition $\varphi$ in the
-propositional fragment of DLC, the question ``does $M$ prove $\varphi$
-in $\Gamma$?'' is decidable.  The decision procedure runs in time
-$O(|M| \cdot \log |\Gamma|)$.
+For every additive context $\Gamma_a$, term $M$, and proposition
+$\varphi$ in the propositional fragment of DLC, the question ``does
+$M$ prove $\varphi$ in $\Gamma_a$?'' is decidable.
 \end{theorem}
 
-\paragraph{Status: \texttt{stated}; Rust \texttt{decide\_pure} runs on the full calculus.}
-A Lean function \texttt{decideLean} mirroring the Rust implementation
-is forthcoming; the soundness direction (\texttt{decideLean} returns
-\texttt{true} implies $\mathsf{Nonempty}(\mathsf{Deriv}~\Gamma~M~\varphi)$) is
-the next mechanization target.  Completeness in Lean is deferred to
-collaborator engagement.
+\paragraph{Status: \texttt{proven\_fragment}.}
+Mechanized in \texttt{lean/DLC/Decidability.lean}: a decision function
+\texttt{decideLean}, its soundness and completeness against the
+syntax-directed judgment \texttt{PropDeriv} (22 constructors, additive
+contexts), and the resulting \texttt{Decidable} instance --- all
+sorry-free, with a non-vacuity witness
+(\texttt{lean/DLC/Witness/T1.lean}) demonstrating both acceptance of a
+well-typed term and rejection, through completeness, of an ill-typed
+one.  Two gaps are open and tracked in the ledger: decidability for
+the \emph{full} calculus (linear context splitting is the hard part
+--- the propositional fragment does not exercise it), and any
+complexity bound.  The $O(|M| \cdot \log |\Gamma|)$ figure that
+earlier revisions of this artifact advertised is a design target,
+unproven in any form, for any fragment.
 
 The Rust function (\texttt{crates/dlc-core/src/decide.rs}) handles all
-21 term constructors, including the no-chain-splicing condition on
-\texttt{delegate}.  Nine unit tests, including a negative
+22 term constructors, including the no-chain-splicing condition on
+\texttt{delegate}, but does not enforce linear context splitting.
+Nine unit tests, including a negative
 \texttt{delegate\_rejects\_chain\_splicing} case, document the
 implementation.
 
 \subsection{T2 -- Cryptographic correspondence}
 
-\begin{theorem}[T2]
-For every keyring $K$ extractable from $\Gamma$:
+\begin{theorem}[T2, symbolic characterization --- the proven form]
+For every keyring $K$, additive context $\Gamma_a$, term $M$, and
+proposition $\varphi$ in the propositional fragment:
 \[
-\Gamma \vdash M : \varphi \iff \Gamma \vdash_K M : \varphi
+\Gamma_a \vdash_K M : \varphi
+\iff
+\Gamma_a \vdash M : \varphi \;\wedge\; \mathsf{allSigsVerify}_K(M)
 \]
-That is, the logical and cryptographic typing judgments coincide.
+Cryptographic typing coincides with logical typing plus verification
+of every signature embedded in the subject term.
 \end{theorem}
 
-\paragraph{Status: \texttt{stated}; conditional form planned via VCVio.}
-T2 has a symbolic half and a computational half.  The symbolic half
-states $\Gamma \vdash M : \varphi$ implies $\Gamma \vdash_K M : \varphi$
-when all signatures verify, and conversely; this is structural
-induction.  The computational half states that an adversary
-distinguishing the two judgments would break Ed25519's EUF-CMA
-security; this is a game-hopping reduction.
+\paragraph{Status: characterization \texttt{proven} (axiom-free);
+attacker-based form \texttt{open}.}
+The characterization above is mechanized in both directions in
+\texttt{lean/DLC/Correspondence.lean}; \texttt{\#print axioms} reports
+only \texttt{propext}.  We state its strength plainly: $\vdash_K$ is
+\emph{defined} as the refinement of the syntax-directed propositional
+judgment by a verification premise on \textsc{says-I}, so this is a
+definitional-refinement correspondence of the same class as Aura's
+(Jia et al., 2008), not a cryptographic soundness theorem.  An earlier
+revision of this artifact instead postulated the unqualified iff
+$\Gamma \vdash M : \varphi \iff \Gamma \vdash_K M : \varphi$ modulo an
+axiom \texttt{Sig\_EUF\_CMA\_propositional}; that axiom was refutable
+in-system (the theory including it proved \texttt{False}), a finding
+now machine-checked as a regression test in
+\texttt{lean/DLC/Witness/AxiomAudit.lean}.
 
-The companion artifact's \texttt{models/easycrypt/Game.eca} states the
-reduction skeleton (EUF-CMA game, symbolic non-forgery game, four-step
-game-hop sequence sketched).  An alternative path---closing T2
-entirely within Lean using VCVio (Tuma et al.,
-2026)~\cite{tuma2026vcvio}---is the autonomous-arc target.  Either
-route yields the same theorem; VCVio is preferred for staying within
-a single proof assistant.
+The attacker-based T2 --- acceptance by the executable verifier
+implies a derivation from the assumptions of principals whose keys are
+uncompromised, against an explicit Dolev-Yao adversary, with
+wire-encoding injectivity inside the statement and an EUF-CMA
+reduction at the base --- is open.  It requires a working verifier and
+a mechanized wire-format model before it can even be stated against
+real artifacts; \texttt{models/easycrypt/Game.eca} documents the
+intended game-hop sequence but contains no proof content (its
+placeholder axiom encodes nothing).  Candidate mechanization routes
+are EasyCrypt with cryptographer pairing, or VCVio (Tuma et al.,
+2026)~\cite{tuma2026vcvio} within Lean.
 
 \subsection{T3 -- Non-interference under delegation}
 
-\begin{theorem}[T3]
-For every IFC label $\ell_{\mathit{low}}$ and every well-typed
-derivation
-$\Gamma \vdash M : \varphi$ in which all hypotheses of $\Gamma$ sit at
-labels $\geq \ell_{\mathit{low}}$, the term $M$ does not reveal information
-to an observer at $\ell_{\mathit{low}}$.  Formally, $M$ is related to
-itself by the logical relation
-$\mathsf{Indistinguishable}_{\ell_{\mathit{low}}}~\varphi$.
+\begin{theorem}[T3, target statement --- open]
+For every IFC label $\ell_{\mathit{low}}$ and every pair of well-typed
+derivations of the same term shape that differ only in hypotheses at
+labels $\not\leq \ell_{\mathit{low}}$, the two runs are
+indistinguishable to an observer at $\ell_{\mathit{low}}$.
 \end{theorem}
 
-\paragraph{Status: \texttt{stated}; atomic-fragment closure planned.}
-T3 follows the standard logical-relations recipe: define
-$\mathsf{Indistinguishable}_{\ell_{\mathit{low}}}~\varphi~M~M'$ by induction
-on $\varphi$; prove the fundamental lemma by induction on
-$\mathsf{Deriv}$; conclude non-interference as a corollary.
+\paragraph{Status: \texttt{stated}; no form of non-interference is
+currently proven.}
+We are explicit about what exists: the Lean development
+(\texttt{lean/DLC/NonInterference.lean}) defines the unary-relation
+infrastructure ($\mathsf{Indistinguishable}$ with reflexivity,
+symmetry, transitivity), and its only theorems relate every term
+\emph{to itself} with the typing derivation discarded --- one-run
+reflexivity facts that hold for ill-typed terms and carry no
+information-flow content.  An earlier revision of this section
+presented self-relatedness as the formal content of T3; that was a
+conflation, and the Lean file now disavows it in-source.  The real
+theorem requires a \emph{two-run} logical relation over pairs of
+derivations differing in high-labeled hypotheses and a fundamental
+lemma proven by induction on the derivation
+(Garg-Pfenning~CSF'06 / FLAFOL~PLDI'20 style).
 
 iris-tini (Gregersen \& Bay, POPL
 2021)~\cite{gregersen2021tini} provides the reference proof technique
 in Coq+Iris.  DLC's setting is simpler (no higher-order state, no
-recursive types), so a plain Lean construction without Iris suffices.
-This is autonomously reachable; cf. our companion document
-\texttt{spec/t2-t3-lean-feasibility-2026-05.md} for the analysis.
+recursive types), so a plain Lean construction without Iris should
+suffice; cf.\ \texttt{spec/t2-t3-lean-feasibility-2026-05.md}.
 
 \subsection{T4 -- Obligation soundness}
 
@@ -91,19 +121,25 @@ That is, reduction never introduces an obligation that was not
 syntactically present beforehand.
 \end{theorem}
 
-\paragraph{Status: \texttt{proven\_partial}; \texttt{pendingObligations\_shift} closed.}
-The supporting lemma $\mathsf{pendingObligations}~(\mathsf{shift}~t~\delta~c)
-= \mathsf{pendingObligations}~t$ is fully proven by 22-case induction
-on $t$ (file: \texttt{lean/DLC/ObligationSoundness.lean}).  The
-substitution sub-lemma and the case analysis over $\mathsf{step}$ are the
-next mechanization steps.  Prior closure attempt at PR \#16 commit
-\texttt{b2768fb} (340 LOC) failed on tactic-detail bugs that smaller
-PRs would have caught; the current strategy splits the proof into a
-substitution-subset lemma PR and a step-case-analysis PR.
-
-The full obligation-soundness statement (tracking multiset
-multiplicities and discharge consumption) is deferred to the M3 runtime
-layer where \texttt{Discharged} evidence is concrete.
+\paragraph{Status: \texttt{stated} --- the proven direction is
+vacuous.}
+The non-introduction direction above \emph{is} mechanized
+(\texttt{t4\_no\_new\_obligation}, a full case analysis over
+$\mathsf{step}$'s redexes with a substitution-subset lemma), but we
+report it as \texttt{stated}, not proven, because the statement is
+currently without content: no \texttt{Term} constructor carries an
+\texttt{Obligation}, so $\mathsf{pendingObligations}$ is provably the
+constant empty list --- a fact we prove explicitly as
+\texttt{pendingObligations\_eq\_nil} in
+\texttt{lean/DLC/ObligationSoundness.lean}.  The theorem quantifies
+over members of $[]$.  T4 acquires content only after the calculus
+gains an obligation-carrying constructor (the \textsc{box-I} payload)
+and a discharge redex in the operational semantics; the ledger's T4
+witness (a term with a non-empty obligation list) is unsatisfiable
+until then, and the case-analysis machinery is retained for reuse at
+that point.  The full obligation-soundness statement (multiset
+multiplicities, discharge consumption, and the label-ledger fusion
+property) is future work on the same schedule.
 
 \subsection{Summary of mechanization status}
 

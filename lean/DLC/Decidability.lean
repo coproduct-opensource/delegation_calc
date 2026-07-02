@@ -395,9 +395,9 @@ For the propositional fragment, restricted to additive contexts (no linear
 hypotheses), `decideLean` produces only well-typed derivations.
 
 This proves the soundness direction: `decideLean = some φ` implies a
-derivation exists. The complementary completeness direction (`Deriv` exists
-→ `decideLean = some φ`) closes in the next sub-PR and together they yield
-the `Decidable (Nonempty (Deriv Γ M φ))` instance T1's headline form requires. -/
+derivation exists. The complementary completeness direction is
+`t1_propositional_completeness` later in this file; together they yield
+the `PropDeriv.decidable_nonempty` instance. -/
 theorem t1_propositional_soundness (M : Term) :
     ∀ (Γₐ : List Prop') (φ : Prop'),
       M.isPropositional = true →

@@ -72,25 +72,25 @@ propositional fragment; T2/T3/T4 stated only.
 | **T3** non-interference under delegation | "proven (with refl, symm, trans)" | stated; the "proof" was one-run reflexivity | `lean/DLC/NonInterference.lean` |
 | **T4** obligation soundness across reduction | "proven" | stated; vacuous over a provably-empty obligation list | `lean/DLC/ObligationSoundness.lean` |
 
-### Models (Phase 2 load-bearing)
+### Models (table as claimed at release — 2026-07 annotations in parens)
 
 | Component | Status |
 |---|---|
-| Tamarin (`models/tamarin/dlc.spthy`) — symbolic-model fidelity (L2.1) | green |
+| Tamarin (`models/tamarin/dlc.spthy`) — symbolic-model fidelity (L2.1) | green (5 rules, 3 lemmas — deliberately small) |
 | ProVerif (`models/proverif/dlc.pv`) — cross-check (L2.2) | green |
-| Wire encoding (`crates/dlc-protocol::wire`) — round-trip (L2.3) | green |
-| EasyCrypt skeleton (`models/easycrypt/`) — computational bridge (L2.4) | skeleton complete |
-| Trace-to-derivation lifting (L2.5) | skeleton + exporters complete |
+| Wire encoding (`crates/dlc-protocol::wire`) — round-trip (L2.3) | green in Rust unit tests (the Lean-side round-trip "witness" was the identity serializer; deleted 2026-07, L2.3 open in Lean) |
+| EasyCrypt skeleton (`models/easycrypt/`) — computational bridge (L2.4) | skeleton only: parse-checks; placeholder axiom body is literally `true`; no proof content |
+| Trace-to-derivation lifting (L2.5) | covers exactly the singleton `[Says P φ]` trace shape |
 
 ### Rust ↔ Lean correspondence (M1.Q1.d)
 
 - Charon + Aeneas pipeline wired via `coproduct-opensource/aeneas-ci@v1.0.2`
-- `lean/DLC/Aeneas/DlcCore/` committed: 4,764 lines of Aeneas-generated Lean (Types, Funs, FunsExternal_Template)
+- `lean/DLC/Aeneas/DlcCore/` committed: 4,764 lines of Aeneas-generated Lean (Types, Funs, FunsExternal_Template) — **generated but never imported or built by any Lean target; no correspondence theorem exists yet**
 - `fail-on-drift: true` — any change to `crates/dlc-core/` without matching Aeneas regeneration is a hard CI failure
 
 ### Verifier surface
 
-- `dlc-verifier` reference checker: <2000 LOC (CI-gated)
+- `dlc-verifier` reference checker: <2000 LOC (CI-gated) — **the budget is currently trivially met because the verifier is a stub that rejects everything; the ledger reports `implemented: false`**
 - `dlc-verifier-wasm` builds clean
 
 ### Key PR sequence (this release)
@@ -103,9 +103,9 @@ propositional fragment; T2/T3/T4 stated only.
 - #57 Aeneas pipeline wired
 - #58 Aeneas bootstrap commit (`fail-on-drift: true`)
 
-### Outstanding (Phase 3 scope)
+### Outstanding (Phase 3 scope, as listed at release)
 
-- T2 axiom discharge: EasyCrypt game-hop closing `Sig_EUF_CMA_propositional` (M2.M13, in flight)
+- ~~T2 axiom discharge: EasyCrypt game-hop closing `Sig_EUF_CMA_propositional` (M2.M13, in flight)~~ — superseded: the axiom was inconsistent and is deleted (see Phase-0 corrections above); nothing was in flight
 - Wasm verifier hard-gate at 2000 LOC (currently soft)
 - Function-correspondence Lean theorem (mapping `DLC.decideLean` to Aeneas-emitted `dlc_core::decide::infer`) — Phase 3
 

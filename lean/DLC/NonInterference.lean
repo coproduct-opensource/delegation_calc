@@ -24,34 +24,24 @@ expressing observational equivalence at label `ℓ_low`. The fundamental
 lemma — every well-typed term is related to itself by
 `Indistinguishable[ℓ_low]` — implies the non-interference statement.
 
-This file closes the **atomic-fragment** case (the closure plan's
-`proof-t3-atomic-fragment` deliverable):
+What this file currently contains:
 
-- `Indistinguishable` is defined by structural induction on `φ`; the
-  `Prop'.atom` case requires propositional term-equality, every other
-  case currently returns `True` (placeholder for the follow-up PRs that
-  fill in `imp`, `says`, `at`, etc.).
-- `Indistinguishable_refl` proves the relation is reflexive — every term
-  is indistinguishable from itself at any label and proposition. This is
-  the key building block for the fundamental lemma.
-- `t3_atomic_fundamental` is the fundamental-lemma corollary: any
-  well-typed derivation is self-indistinguishable. Reduces immediately
-  to reflexivity in this fragment.
+- `Indistinguishable`, defined by structural induction on `φ` — most
+  `Prop'` cases have structural content; `imp`/`lolli` are the
+  remaining `True` placeholders.
+- `Indistinguishable_refl` / `_symm` / `_trans` — one-run facts about
+  the relation itself. Reflexivity is what the misleadingly-named
+  theorems below discharge; it is NOT a fundamental lemma (nothing
+  here inducts on a derivation).
 
-The follow-up PRs (`proof-t3-{imp,says,at}-fragment`) replace the `True`
-placeholders with the proper structural cases. The full T3 (M1.Q4.c)
-lands when all 13 `Prop'` cases are filled in and the fundamental lemma
-case-splits over the 24 `Deriv` constructors with the IFC-labeled
-context's well-formedness side condition.
-
-Load-bearing dependencies for the full proof:
+Load-bearing dependencies for the real proof:
   * Subject reduction (M1.Q2.c).
   * Substitution lemma (M1.Q2.a).
   * Galois connections between IFC labels (nucleus's
     `GaloisConnectionProofs.lean`).
 
 Per CLAUDE.md, no `sorry`. Placeholder propositions (`True` for the
-unfilled `Indistinguishable` cases) are honest about scope.
+unfilled `Indistinguishable` cases) are declared in place.
 -/
 
 import DLC.Judgment
@@ -68,17 +58,6 @@ standard logical-relations shape:
 
   R[ℓ_low](φ, M, M') ⟺
     M and M' produce indistinguishable outputs at any label ≤ ℓ_low.
-
-Cases refined so far:
-* `Prop'.atom n` — leaf: term-level propositional equality.
-* `Prop'.at φ ℓ` — **the label-modal core of non-interference**: if
-  `ℓ ≤ ℓ_low` the value is observable at the low label and the
-  relation recurses into `φ`; if `ℓ ⊄ ℓ_low` the value is "high"
-  (unobservable) and the relation trivializes to `True`. This is the
-  canonical Garg-Pfenning shape for IFC-labelled non-interference.
-* `Prop'.boxed O φ` — the obligation is structural, not observational;
-  the relation delegates to `φ`.
-* `Prop'.within τ φ` — the time bound is structural; delegate to `φ`.
 
 Cases refined so far:
 * `Prop'.atom n` / `Prop'.speaksFor p q` — leaf cases: propositional

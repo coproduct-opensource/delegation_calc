@@ -64,7 +64,13 @@ The bridge between $\vdash$ and $\vdash_K$ is T2 (Section~\ref{sec:metatheory}).
 \subsection{Key typing rules}
 
 We present the rules carrying the contribution claims.  The full
-~40-rule system is in the companion artifact.
+system (28 \textsf{Deriv} rules over 22 term constructors) is in the
+companion artifact.  Caveat: two rules are mechanized in weaker form
+than presented here --- \textsc{attenuate} is degenerate ($\psi =
+\varphi$; the propositional-implication side condition is deferred)
+and \textsc{discharge}'s obligation evidence is a placeholder
+(\texttt{atom 0}) pending the obligation-carrying term constructor
+(see Section~\ref{sec:metatheory}, T4).
 
 \paragraph{Affirmation introduction (\textsc{says-I})}
 

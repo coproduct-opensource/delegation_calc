@@ -79,9 +79,12 @@ This paper makes the following claims:
   and ProVerif, demonstrating that the unification of two
   symbolic provers detects modeling gaps that single-prover work
   misses (Section~\ref{sec:symbolic}).
-\item A Rust reference implementation with 76 unit tests, including
-  a CBOR wire format with round-trip-tested encoding for all
-  21 term constructors and Tamarin/ProVerif fact exporters.
+\item A Rust implementation of the logic kernel and wire format with
+  80 unit tests, including a CBOR codec with round-trip-tested
+  encoding for all 22 term constructors and Tamarin/ProVerif fact
+  exporters.  (The end-to-end verifier and the cryptographic
+  operations are stubs at this revision; the ledger reports
+  \texttt{implemented: false} until they are real.)
 \item A reproducible verification ledger (\texttt{make ledger})
   emitting a single JSON document containing the status of every
   theorem, every model, every drift check, and every test count.

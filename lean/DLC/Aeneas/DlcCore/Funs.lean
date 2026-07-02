@@ -3232,7 +3232,7 @@ def subst.subst
   subst.subst_at body value 0#u32
 
 /-- [dlc_core::reduce::step]:
-    Source: 'crates/dlc-core/src/reduce.rs', lines 26:0-124:1
+    Source: 'crates/dlc-core/src/reduce.rs', lines 34:0-132:1
     Visibility: public -/
 def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
   match term with
@@ -4546,7 +4546,7 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
 partial_fixpoint
 
 /-- [dlc_core::reduce::reduce_with_fuel]: loop body 0:
-    Source: 'crates/dlc-core/src/reduce.rs', lines 132:4-139:1
+    Source: 'crates/dlc-core/src/reduce.rs', lines 140:4-147:1
     Visibility: public -/
 @[rust_loop_body]
 def reduce.reduce_with_fuel_loop.body
@@ -4565,7 +4565,7 @@ def reduce.reduce_with_fuel_loop.body
     | some next => ok (cont (iter1, next))
 
 /-- [dlc_core::reduce::reduce_with_fuel]: loop 0:
-    Source: 'crates/dlc-core/src/reduce.rs', lines 132:4-139:1
+    Source: 'crates/dlc-core/src/reduce.rs', lines 140:4-147:1
     Visibility: public -/
 @[rust_loop]
 def reduce.reduce_with_fuel_loop
@@ -4577,7 +4577,7 @@ def reduce.reduce_with_fuel_loop
     (iter, cur)
 
 /-- [dlc_core::reduce::reduce_with_fuel]:
-    Source: 'crates/dlc-core/src/reduce.rs', lines 130:0-139:1
+    Source: 'crates/dlc-core/src/reduce.rs', lines 138:0-147:1
     Visibility: public -/
 def reduce.reduce_with_fuel
   (term : syntax.Term) (fuel : Std.U32) : Result (syntax.Term × Std.U32) := do

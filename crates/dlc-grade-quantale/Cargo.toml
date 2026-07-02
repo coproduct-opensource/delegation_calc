@@ -1,0 +1,18 @@
+# EXCLUDED from the public workspace (see root Cargo.toml `exclude`): depends on
+# the PRIVATE `coproduct-algebra`, so it must never be part of the public
+# `cargo --workspace` build/CI. Build locally (with a sibling coproduct-algebra
+# checkout) via `cargo build --manifest-path crates/dlc-grade-quantale/Cargo.toml`.
+[package]
+name = "dlc-grade-quantale"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+publish = false
+description = "The DP budget as a coproduct_algebra::Quantale (research; private-dep, excluded from the public workspace)."
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+coproduct-algebra = { path = "../../../coproduct-algebra" }
+dlc-core = { path = "../dlc-core" }

@@ -10,22 +10,12 @@ description = "Wire format for DLC proof terms; Tamarin/ProVerif exporters"
 [lib]
 path = "src/lib.rs"
 
-[features]
-default = []
-# The `grade_quantale` module depends on `coproduct-algebra`, a PRIVATE crate.
-# delegation_calc is PUBLIC, so that dependency must NOT be in the default build:
-# a public→private dep breaks public CI (which cannot clone the private repo) and
-# violates the dependency boundary. Enable this feature locally — with a sibling
-# `coproduct-algebra` checkout — to build the DP-budget quantale. Once
-# `coproduct-algebra` is published/open-sourced, switch the dep to a version/git
-# pin and this feature may become default.
-grade-quantale = ["dep:coproduct-algebra"]
-
 [dependencies]
 dlc-core = { path = "../dlc-core", version = "1.5.0" }
-# shared algebra substrate — the DP budget is the additive (non-idempotent) instance of its
-# `Quantale`. Optional + PRIVATE → gated behind the `grade-quantale` feature (see above).
-coproduct-algebra = { path = "../../../coproduct-algebra", optional = true }
+# NB: the `coproduct-algebra` (PRIVATE) dep + the DP-budget Quantale moved to the
+# workspace-excluded `dlc-grade-quantale` crate, so this PUBLIC crate's build (and
+# public CI) never resolves the private path. A feature-gate was insufficient —
+# cargo loads an optional path dep's manifest regardless of features.
 ciborium = { workspace = true }
 coset = { workspace = true }
 serde = { workspace = true }

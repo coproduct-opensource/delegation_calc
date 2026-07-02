@@ -1,43 +1,67 @@
 /-
-T2 — Cryptographic correspondence (conditional form, propositional fragment).
+T2 — Cryptographic correspondence: the honest symbolic characterization.
 
-The keystone theorem:
+This file proves, WITHOUT AXIOMS, the propositional-fragment
+characterization of the cryptographic typing judgment:
 
-  ∀ Γ M φ K, (Deriv Γ M φ) ↔ (DerivCrypto K Γ M φ)
+  `DerivCrypto K Γₐ M φ`  ⟺  `PropDeriv Γₐ M φ` ∧ `M.allSigsVerify K`
 
-This file closes T2 in **conditional form** for the propositional fragment:
+i.e. a term crypto-typechecks under keyring `K` exactly when it
+logically typechecks AND every signature embedded in it verifies
+under `K`. Both directions are constructive inductions; `#print
+axioms t2_propositional_correspondence` reports only `propext`.
 
-- The **crypto→logical direction** is proven unconditionally — any
-  cryptographically-validated derivation erases trivially to a logical
-  derivation (the verify premise on `saysI` is just dropped).
+## What this is, and what it is not
 
-- The **logical→crypto direction** is the autonomously-unreachable half:
-  it requires the EUF-CMA assumption (no signature forgery) to guarantee
-  that for any logical proof, valid signatures from the named principals
-  exist. We capture this as `axiom Sig_EUF_CMA_propositional`. The
-  M2.M13 EasyCrypt reduction (Blanchet pairing per the Phase-1 plan's §8)
-  discharges this axiom computationally via the game-hop sketch in
-  `models/easycrypt/Game.eca`.
+This is a *symbolic, definitional-refinement* correspondence: the
+cryptographic judgment is `PropDeriv` refined with a verification
+premise on `says-I`, and the theorem characterizes exactly what that
+refinement adds. It is the same class of result as Aura's (Jia et al.,
+ICFP 2008) definitional logic↔signature correspondence. It is NOT a
+cryptographic soundness theorem: there is no attacker, no key
+compromise, no serialization injectivity, and no unforgeability
+reduction here.
 
-The conditional `t2_propositional_correspondence` iff is then immediate.
+## Open problems (tracked in the ledger; Phase-4 scope)
 
-Per CLAUDE.md the file has zero `sorry`. Only the EUF-CMA discharge is
-an axiom; `#print axioms t2_propositional_correspondence` reports it.
+The attacker-based T2 — "verifier acceptance implies a derivation from
+the assumptions of principals whose keys are uncompromised, against an
+explicit Dolev-Yao adversary, by reduction to EUF-CMA" — is OPEN. It
+requires (a) an executable verifier (Phase 1), (b) wire-encoding
+injectivity for the real CBOR codec (Phase 3), and (c) an EasyCrypt/
+SSProve EUF-CMA reduction (Phase 4, collaborator-gated). No statement
+of it appears in this file because no honest statement of it can yet
+be made against real artifacts.
+
+## History
+
+An earlier revision of this file postulated
+`axiom Sig_EUF_CMA_propositional : M.isPropositional = true →
+Nonempty (Deriv Γ M φ) → Nonempty (DerivCrypto K Γ M φ)` over a
+6-constructor `DerivCrypto`. That axiom was REFUTABLE in-system:
+`isPropositional` accepts `pair`-subject terms which the 6-constructor
+judgment provably cannot inhabit, so the theory including the axiom
+proved `False`. The machine-checked refutation is preserved as a
+regression test in `DLC.Witness.AxiomAudit`. The axiom is deleted, not
+repaired: the lifting direction is now the *proven*
+`t2_logical_to_crypto`, whose extra hypothesis (`allSigsVerify`) makes
+explicit exactly what the axiom silently assumed.
 -/
 
 import DLC.Judgment
-import DLC.Decidability  -- for `Term.isPropositional`
+import DLC.Decidability
 
 namespace DLC
 
-/-! ## Crypto operators (abstract, M2.M15 binds them concretely).
+/-! ## Crypto operators (abstract; bound to real implementations in Phase 1).
 
 `canonicalBytes` is the deterministic byte encoding of a Term used for
-signing; mirrors `crates/dlc-crypto/src/signed_term.rs::canonical_bytes`.
-`verifyInKeyring` decides whether a signature is valid for a principal-
-message pair under a keyring; mirrors `crates/dlc-crypto/src/ed25519`'s
-verification path. Both are opaque at the symbolic level — T2's content
-is structural and does not depend on the specifics. -/
+signing; it mirrors what `crates/dlc-crypto`'s canonical-bytes function
+must compute (currently stubbed in Rust — see the ledger's crypto
+status). `verifyInKeyring` decides signature validity for a
+principal-message pair under a keyring. Both are `opaque`: the
+characterization below is structural and holds for every
+interpretation of these constants. -/
 
 /-- Deterministic byte encoding of a Term suitable for signing. -/
 opaque canonicalBytes : Term → List UInt8
@@ -45,140 +69,400 @@ opaque canonicalBytes : Term → List UInt8
 /-- Decide whether `sig` is a valid signature by `p` on `m` under `K`. -/
 opaque verifyInKeyring : KeyRing → Principal → List UInt8 → Signature → Bool
 
+/-! ## `allSigsVerify` — the signature-validity content of crypto typing.
+
+A term satisfies `allSigsVerify K` when every `sign` node it contains
+carries a signature that verifies (under `K`) against the canonical
+bytes of the signed subterm. This is precisely the delta between
+logical and cryptographic typing in the propositional fragment — see
+`t2_propositional_correspondence`. -/
+
+/-- Every `sign` node embedded in the term verifies under `K`. -/
+def Term.allSigsVerify (K : KeyRing) : Term → Bool
+  | Term.var _            => true
+  | Term.lam _ body       => body.allSigsVerify K
+  | Term.app f x          => f.allSigsVerify K && x.allSigsVerify K
+  | Term.sign p m sig     =>
+      verifyInKeyring K p (canonicalBytes m) sig && m.allSigsVerify K
+  | Term.verify _ m _     => m.allSigsVerify K
+  | Term.delegate m n     => m.allSigsVerify K && n.allSigsVerify K
+  | Term.attenuate m _    => m.allSigsVerify K
+  | Term.discharge m n    => m.allSigsVerify K && n.allSigsVerify K
+  | Term.liftLabel _ m    => m.allSigsVerify K
+  | Term.declassify _ m π => m.allSigsVerify K && π.allSigsVerify K
+  | Term.now _            => true
+  | Term.withinIntro _ m  => m.allSigsVerify K
+  | Term.pair a b         => a.allSigsVerify K && b.allSigsVerify K
+  | Term.fst a            => a.allSigsVerify K
+  | Term.snd a            => a.allSigsVerify K
+  | Term.inl _ a          => a.allSigsVerify K
+  | Term.inr _ a          => a.allSigsVerify K
+  | Term.case s l r       =>
+      s.allSigsVerify K && l.allSigsVerify K && r.allSigsVerify K
+  | Term.tensorIntro a b  => a.allSigsVerify K && b.allSigsVerify K
+  | Term.letTensor s b    => s.allSigsVerify K && b.allSigsVerify K
+  | Term.letSays _ s b    => s.allSigsVerify K && b.allSigsVerify K
+  | Term.sfExtract m      => m.allSigsVerify K
+
 /-! ## `DerivCrypto K` — the cryptographic typing judgment.
 
-Mirrors `Deriv` restricted to constructors whose Term shape is in the
-propositional fragment (`var`, `lam`, `app`, `sign`), with one
-difference: the `saysI` rule carries an additional crypto-verification
-premise `verifyInKeyring K p (canonicalBytes M) sig = true`.
+Mirrors `PropDeriv` (the syntax-directed propositional-fragment
+judgment from `DLC.Decidability`) constructor-for-constructor, with
+one difference: `saysI` carries the verification premise
+`verifyInKeyring K p (canonicalBytes M) sig = true`.
 
-`DerivCrypto K Γ M φ` is thus a *refinement* of `Deriv Γ M φ`: every
-inhabitant erases to a `Deriv` (by dropping the verify premise), but
-not every `Deriv` lifts to a `DerivCrypto` without producing valid
-signatures (the autonomously-unreachable direction). -/
-inductive DerivCrypto (K : KeyRing) : Ctx → Term → Prop' → Type where
+`PropDeriv` (not the full `Deriv`) is the right base because it is
+syntax-directed: each subject shape has exactly one applicable rule,
+so the refinement adds the signature check and nothing else. Mirroring
+the full `Deriv` is not possible without re-importing the
+inconsistency documented in `DLC.Witness.AxiomAudit` — `Deriv` has
+rules (`withinE`, the placeholder-subject `saysE`/`boxI`) that re-type
+subjects the cryptographic side cannot re-derive. -/
+inductive DerivCrypto (K : KeyRing) : List Prop' → Term → Prop' → Type where
   /-- `var-A` — additive variable lookup. -/
-  | varA (Γ : Ctx) (i : Nat) (φ : Prop')
-      (h : Γ.additive[i]? = some φ) :
-      DerivCrypto K Γ (Term.var i) φ
-
-  /-- `var-L` — linear variable lookup; singleton linear context. -/
-  | varL (Γₐ : List Prop') (φ : Prop') :
-      DerivCrypto K { additive := Γₐ, linear := [φ] } (Term.var 0) φ
-
-  /-- `weaken-A` — additive weakening. -/
-  | weakenA (Γ : Ctx) (φ' φ : Prop') (M : Term)
-      (d : DerivCrypto K Γ M φ) :
-      DerivCrypto K (Ctx.consA φ' Γ) M φ
+  | varA (Γₐ : List Prop') (i : Nat) (φ : Prop')
+      (h : Γₐ[i]? = some φ) :
+      DerivCrypto K Γₐ (Term.var i) φ
 
   /-- `imp-I` — implication introduction. -/
-  | impI (Γ : Ctx) (φ ψ : Prop') (M : Term)
-      (d : DerivCrypto K (Ctx.consA φ Γ) M ψ) :
-      DerivCrypto K Γ (Term.lam φ M) (Prop'.imp φ ψ)
+  | impI (Γₐ : List Prop') (φ ψ : Prop') (M : Term)
+      (d : DerivCrypto K (φ :: Γₐ) M ψ) :
+      DerivCrypto K Γₐ (Term.lam φ M) (Prop'.imp φ ψ)
 
-  /-- `imp-E` — implication elimination with linear-context split. -/
-  | impE (Γₐ : List Prop') (Γ₁ Γ₂ : List Prop') (φ ψ : Prop') (M N : Term)
-      (dM : DerivCrypto K { additive := Γₐ, linear := Γ₁ } M (Prop'.imp φ ψ))
-      (dN : DerivCrypto K { additive := Γₐ, linear := Γ₂ } N φ) :
-      DerivCrypto K { additive := Γₐ, linear := Γ₁ ++ Γ₂ } (Term.app M N) ψ
+  /-- `imp-E` — implication elimination. -/
+  | impE (Γₐ : List Prop') (φ ψ : Prop') (M N : Term)
+      (dM : DerivCrypto K Γₐ M (Prop'.imp φ ψ))
+      (dN : DerivCrypto K Γₐ N φ) :
+      DerivCrypto K Γₐ (Term.app M N) ψ
 
-  /-- `says-I` with cryptographic side condition. THIS is the rule that
-  distinguishes `DerivCrypto K` from `Deriv`: the signature must verify
-  under the keyring `K` against the canonical bytes of the inner term. -/
-  | saysI (Γ : Ctx) (p : Principal) (φ : Prop') (M : Term) (sig : Signature)
-      (d : DerivCrypto K Γ M φ)
+  /-- `says-I` with cryptographic side condition. THIS is the rule
+  that distinguishes `DerivCrypto K` from `PropDeriv`: the embedded
+  signature must verify under `K` against the canonical bytes of the
+  signed subterm. -/
+  | saysI (Γₐ : List Prop') (p : Principal) (φ : Prop') (M : Term)
+          (sig : Signature)
+      (d : DerivCrypto K Γₐ M φ)
       (hver : verifyInKeyring K p (canonicalBytes M) sig = true) :
-      DerivCrypto K Γ (Term.sign p M sig) (Prop'.says p φ)
+      DerivCrypto K Γₐ (Term.sign p M sig) (Prop'.says p φ)
 
-/-! ## T2 — the unconditional direction (crypto → logical).
+  /-- `verify` — `says`-elimination. Strips the modality; the
+  introduction-side check (`saysI.hver`) is where signature validity
+  is enforced. -/
+  | verifyE (Γₐ : List Prop') (p : Principal) (φ : Prop') (M : Term)
+            (sig : Signature)
+      (d : DerivCrypto K Γₐ M (Prop'.says p φ)) :
+      DerivCrypto K Γₐ (Term.verify p M sig) φ
 
-Erase the verify premise; the result is a `Deriv`. This is the
-load-bearing PROVEN content of T2 in this PR. -/
+  /-- `and-I` — additive conjunction introduction (pair). -/
+  | andI (Γₐ : List Prop') (φ ψ : Prop') (a b : Term)
+      (dA : DerivCrypto K Γₐ a φ)
+      (dB : DerivCrypto K Γₐ b ψ) :
+      DerivCrypto K Γₐ (Term.pair a b) (Prop'.and φ ψ)
 
-/-- Crypto-typed derivation implies logical derivation. The verify
-premise on `saysI` is consumed without affecting the underlying
-proof tree.
+  /-- `and-E-left` — left projection. -/
+  | andEL (Γₐ : List Prop') (φ ψ : Prop') (a : Term)
+      (d : DerivCrypto K Γₐ a (Prop'.and φ ψ)) :
+      DerivCrypto K Γₐ (Term.fst a) φ
 
-`noncomputable def` rather than `theorem` because `Deriv` is `Type`-
-valued, not `Prop`-valued (the result is a constructive map between
-derivation trees). The `noncomputable` annotation suppresses code
-generation — the metatheory has no runtime role. -/
-noncomputable def t2_crypto_to_logical (K : KeyRing) :
-    ∀ (Γ : Ctx) (M : Term) (φ : Prop'),
-      DerivCrypto K Γ M φ → Deriv Γ M φ := by
-  intro Γ M φ dc
+  /-- `and-E-right` — right projection. -/
+  | andER (Γₐ : List Prop') (φ ψ : Prop') (a : Term)
+      (d : DerivCrypto K Γₐ a (Prop'.and φ ψ)) :
+      DerivCrypto K Γₐ (Term.snd a) ψ
+
+  /-- `within-I` — wrap `φ` with the time modality `◇_τ`. -/
+  | withinI (Γₐ : List Prop') (τ : TimeBound) (φ : Prop') (M : Term)
+      (d : DerivCrypto K Γₐ M φ) :
+      DerivCrypto K Γₐ (Term.withinIntro τ M) (Prop'.within τ φ)
+
+  /-- `or-I-left` — inject into the left disjunct. -/
+  | orI_L (Γₐ : List Prop') (φ ψ : Prop') (a : Term)
+      (d : DerivCrypto K Γₐ a φ) :
+      DerivCrypto K Γₐ (Term.inl ψ a) (Prop'.or φ ψ)
+
+  /-- `or-I-right` — inject into the right disjunct. -/
+  | orI_R (Γₐ : List Prop') (φ ψ : Prop') (a : Term)
+      (d : DerivCrypto K Γₐ a ψ) :
+      DerivCrypto K Γₐ (Term.inr φ a) (Prop'.or φ ψ)
+
+  /-- `tensor-I` — multiplicative conjunction (additive shape in the
+  propositional fragment). -/
+  | tensorI (Γₐ : List Prop') (φ ψ : Prop') (a b : Term)
+      (dA : DerivCrypto K Γₐ a φ)
+      (dB : DerivCrypto K Γₐ b ψ) :
+      DerivCrypto K Γₐ (Term.tensorIntro a b) (Prop'.tensor φ ψ)
+
+  /-- `or-E` — case-elimination of a disjunction. -/
+  | orE (Γₐ : List Prop') (φ ψ χ : Prop') (S L R : Term)
+      (dS : DerivCrypto K Γₐ S (Prop'.or φ ψ))
+      (dL : DerivCrypto K (φ :: Γₐ) L χ)
+      (dR : DerivCrypto K (ψ :: Γₐ) R χ) :
+      DerivCrypto K Γₐ (Term.case S L R) χ
+
+  /-- `says-extract` — let-binder form of says-elim. -/
+  | letSaysE (Γₐ : List Prop') (p : Principal) (φ ψ : Prop') (S B : Term)
+      (dS : DerivCrypto K Γₐ S (Prop'.says p φ))
+      (dB : DerivCrypto K (φ :: Γₐ) B ψ) :
+      DerivCrypto K Γₐ (Term.letSays p S B) ψ
+
+  /-- `sf-extract` — extract a speaks-for from `p says (q ⇒ p)`. -/
+  | sfExtractE (Γₐ : List Prop') (p q : Principal) (M : Term)
+      (d : DerivCrypto K Γₐ M (Prop'.says p (Prop'.speaksFor q p))) :
+      DerivCrypto K Γₐ (Term.sfExtract M) (Prop'.speaksFor q p)
+
+  /-- `delegate` — chain composition; no-splicing is built into the
+  constructor's principal indices, exactly as in `PropDeriv.delegate`. -/
+  | delegate (Γₐ : List Prop') (p q : Principal) (φ : Prop') (M N : Term)
+      (dM : DerivCrypto K Γₐ M (Prop'.says p (Prop'.speaksFor q p)))
+      (dN : DerivCrypto K Γₐ N (Prop'.says q φ)) :
+      DerivCrypto K Γₐ (Term.delegate M N)
+                       (Prop'.says (Principal.acting p q) φ)
+
+  /-- `now τ` — unit-like introduction form for `Top`. -/
+  | now (Γₐ : List Prop') (τ : TimeBound) :
+      DerivCrypto K Γₐ (Term.now τ) Prop'.top
+
+  /-- `attenuate` (degenerate form) — mirrors `PropDeriv.attenuate`. -/
+  | attenuate (Γₐ : List Prop') (p : Principal) (φ : Prop') (M : Term)
+      (d : DerivCrypto K Γₐ M (Prop'.says p φ)) :
+      DerivCrypto K Γₐ (Term.attenuate M φ) (Prop'.says p φ)
+
+  /-- `lift_ℓ(M)` — IFC label introduction. -/
+  | liftLabel (Γₐ : List Prop') (φ : Prop') (ℓ : Label) (M : Term)
+      (d : DerivCrypto K Γₐ M φ) :
+      DerivCrypto K Γₐ (Term.liftLabel ℓ M) (Prop'.at φ ℓ)
+
+  /-- `declassify_ℓ'(M, π)` — controlled IFC label lowering. -/
+  | declassify (Γₐ : List Prop') (φ : Prop') (ℓ ℓ' : Label) (M π : Term)
+      (d : DerivCrypto K Γₐ M (Prop'.at φ ℓ))
+      (dπ : DerivCrypto K Γₐ π (Prop'.atom 0)) :
+      DerivCrypto K Γₐ (Term.declassify ℓ' M π) (Prop'.at φ ℓ')
+
+  /-- `discharge(M, N)` — `□_O φ` elimination. Dead in the
+  propositional fragment for the same reason as `PropDeriv.discharge`
+  (no `boxI`); kept for syntactic completeness. -/
+  | discharge (Γₐ : List Prop') (O : Obligation) (φ : Prop') (M N : Term)
+      (dM : DerivCrypto K Γₐ M (Prop'.boxed O φ))
+      (dN : DerivCrypto K Γₐ N (Prop'.atom 0)) :
+      DerivCrypto K Γₐ (Term.discharge M N) φ
+
+  /-- `let x⊗y = S in B` — tensor elimination (additive variant). -/
+  | letTensor (Γₐ : List Prop') (φ ψ χ : Prop') (S B : Term)
+      (dS : DerivCrypto K Γₐ S (Prop'.tensor φ ψ))
+      (dB : DerivCrypto K (φ :: ψ :: Γₐ) B χ) :
+      DerivCrypto K Γₐ (Term.letTensor S B) χ
+
+/-! ## Direction 1 — crypto typing erases to logical typing. -/
+
+/-- Erase the verification premises; the result is a `PropDeriv`.
+`noncomputable def` because both judgments are `Type`-valued (the
+result is a constructive map between derivation trees). -/
+noncomputable def t2_crypto_to_logical (K : KeyRing)
+    {Γₐ : List Prop'} {M : Term} {φ : Prop'}
+    (dc : DerivCrypto K Γₐ M φ) : PropDeriv Γₐ M φ := by
   induction dc with
-  | varA Γ i φ h => exact Deriv.varA Γ i φ h
-  | varL Γₐ φ => exact Deriv.varL Γₐ φ
-  | weakenA Γ φ' φ M _ ih => exact Deriv.weakenA Γ φ' φ M ih
-  | impI Γ φ ψ M _ ih => exact Deriv.impI Γ φ ψ M ih
-  | impE Γₐ Γ₁ Γ₂ φ ψ M N _ _ ihM ihN =>
-      exact Deriv.impE Γₐ Γ₁ Γ₂ φ ψ M N ihM ihN
-  | saysI Γ p φ M sig _ _ ih =>
-      -- Drop the `hver` premise; the underlying Deriv suffices.
-      exact Deriv.saysI Γ p φ M sig ih
+  | varA Γₐ i φ h => exact .varA Γₐ i φ h
+  | impI Γₐ φ ψ M _ ih => exact .impI Γₐ φ ψ M ih
+  | impE Γₐ φ ψ M N _ _ ihM ihN => exact .impE Γₐ φ ψ M N ihM ihN
+  | saysI Γₐ p φ M sig _ _ ih => exact .saysI Γₐ p φ M sig ih
+  | verifyE Γₐ p φ M sig _ ih => exact .verifyE Γₐ p φ M sig ih
+  | andI Γₐ φ ψ a b _ _ ihA ihB => exact .andI Γₐ φ ψ a b ihA ihB
+  | andEL Γₐ φ ψ a _ ih => exact .andEL Γₐ φ ψ a ih
+  | andER Γₐ φ ψ a _ ih => exact .andER Γₐ φ ψ a ih
+  | withinI Γₐ τ φ M _ ih => exact .withinI Γₐ τ φ M ih
+  | orI_L Γₐ φ ψ a _ ih => exact .orI_L Γₐ φ ψ a ih
+  | orI_R Γₐ φ ψ a _ ih => exact .orI_R Γₐ φ ψ a ih
+  | tensorI Γₐ φ ψ a b _ _ ihA ihB => exact .tensorI Γₐ φ ψ a b ihA ihB
+  | orE Γₐ φ ψ χ S L R _ _ _ ihS ihL ihR =>
+      exact .orE Γₐ φ ψ χ S L R ihS ihL ihR
+  | letSaysE Γₐ p φ ψ S B _ _ ihS ihB =>
+      exact .letSaysE Γₐ p φ ψ S B ihS ihB
+  | sfExtractE Γₐ p q M _ ih => exact .sfExtractE Γₐ p q M ih
+  | delegate Γₐ p q φ M N _ _ ihM ihN =>
+      exact .delegate Γₐ p q φ M N ihM ihN
+  | now Γₐ τ => exact .now Γₐ τ
+  | attenuate Γₐ p φ M _ ih => exact .attenuate Γₐ p φ M ih
+  | liftLabel Γₐ φ ℓ M _ ih => exact .liftLabel Γₐ φ ℓ M ih
+  | declassify Γₐ φ ℓ ℓ' M π _ _ ihM ihπ =>
+      exact .declassify Γₐ φ ℓ ℓ' M π ihM ihπ
+  | discharge Γₐ O φ M N _ _ ihM ihN =>
+      exact .discharge Γₐ O φ M N ihM ihN
+  | letTensor Γₐ φ ψ χ S B _ _ ihS ihB =>
+      exact .letTensor Γₐ φ ψ χ S B ihS ihB
 
-/-! ## T2 — the conditional direction (logical → crypto), gated by EUF-CMA.
+/-- Crypto typing implies every embedded signature verifies. Together
+with `t2_crypto_to_logical` this is the forward half of the
+characterization: crypto typing carries exactly the logical derivation
+plus signature validity, nothing more. -/
+theorem t2_crypto_sigs_verify (K : KeyRing)
+    {Γₐ : List Prop'} {M : Term} {φ : Prop'}
+    (dc : DerivCrypto K Γₐ M φ) : M.allSigsVerify K = true := by
+  induction dc with
+  | varA Γₐ i φ h => rfl
+  | impI Γₐ φ ψ M _ ih => simpa [Term.allSigsVerify] using ih
+  | impE Γₐ φ ψ M N _ _ ihM ihN =>
+      simp [Term.allSigsVerify, ihM, ihN]
+  | saysI Γₐ p φ M sig _ hver ih =>
+      simp [Term.allSigsVerify, hver, ih]
+  | verifyE Γₐ p φ M sig _ ih => simpa [Term.allSigsVerify] using ih
+  | andI Γₐ φ ψ a b _ _ ihA ihB =>
+      simp [Term.allSigsVerify, ihA, ihB]
+  | andEL Γₐ φ ψ a _ ih => simpa [Term.allSigsVerify] using ih
+  | andER Γₐ φ ψ a _ ih => simpa [Term.allSigsVerify] using ih
+  | withinI Γₐ τ φ M _ ih => simpa [Term.allSigsVerify] using ih
+  | orI_L Γₐ φ ψ a _ ih => simpa [Term.allSigsVerify] using ih
+  | orI_R Γₐ φ ψ a _ ih => simpa [Term.allSigsVerify] using ih
+  | tensorI Γₐ φ ψ a b _ _ ihA ihB =>
+      simp [Term.allSigsVerify, ihA, ihB]
+  | orE Γₐ φ ψ χ S L R _ _ _ ihS ihL ihR =>
+      simp [Term.allSigsVerify, ihS, ihL, ihR]
+  | letSaysE Γₐ p φ ψ S B _ _ ihS ihB =>
+      simp [Term.allSigsVerify, ihS, ihB]
+  | sfExtractE Γₐ p q M _ ih => simpa [Term.allSigsVerify] using ih
+  | delegate Γₐ p q φ M N _ _ ihM ihN =>
+      simp [Term.allSigsVerify, ihM, ihN]
+  | now Γₐ τ => rfl
+  | attenuate Γₐ p φ M _ ih => simpa [Term.allSigsVerify] using ih
+  | liftLabel Γₐ φ ℓ M _ ih => simpa [Term.allSigsVerify] using ih
+  | declassify Γₐ φ ℓ ℓ' M π _ _ ihM ihπ =>
+      simp [Term.allSigsVerify, ihM, ihπ]
+  | discharge Γₐ O φ M N _ _ ihM ihN =>
+      simp [Term.allSigsVerify, ihM, ihN]
+  | letTensor Γₐ φ ψ χ S B _ _ ihS ihB =>
+      simp [Term.allSigsVerify, ihS, ihB]
 
-This direction requires producing valid signatures from a logical proof
-tree. In the symbolic world it's trivial (any byte string verifies
-under a permissive keyring); in the computational world it requires the
-signer to actually have signed, which is what EUF-CMA controls. We
-capture this as an axiom for the propositional fragment.
+/-! ## Direction 2 — logical typing plus signature validity lifts. -/
 
-The axiom is **discharged** at M2.M13 by the EasyCrypt computational
-reduction (Blanchet pairing per the Phase-1 plan §8). Until then,
-`#print axioms t2_propositional_correspondence` reports the dependence
-on this axiom — the artifact is honest about its assumptions. -/
+/-- A logical derivation whose subject's embedded signatures all verify
+lifts to a cryptographic derivation. This PROVEN lemma replaces the
+deleted `Sig_EUF_CMA_propositional` axiom; the `allSigsVerify`
+hypothesis is exactly what that axiom silently (and, over the full
+`Deriv`, inconsistently) assumed. -/
+noncomputable def t2_logical_to_crypto (K : KeyRing)
+    {Γₐ : List Prop'} {M : Term} {φ : Prop'}
+    (d : PropDeriv Γₐ M φ) :
+    M.allSigsVerify K = true → DerivCrypto K Γₐ M φ := by
+  induction d with
+  | varA Γₐ i φ h => exact fun _ => .varA Γₐ i φ h
+  | impI Γₐ φ ψ M _ ih =>
+      intro hsig
+      simp only [Term.allSigsVerify] at hsig
+      exact .impI Γₐ φ ψ M (ih hsig)
+  | impE Γₐ φ ψ M N _ _ ihM ihN =>
+      intro hsig
+      simp only [Term.allSigsVerify, Bool.and_eq_true] at hsig
+      exact .impE Γₐ φ ψ M N (ihM hsig.1) (ihN hsig.2)
+  | saysI Γₐ p φ M sig _ ih =>
+      intro hsig
+      simp only [Term.allSigsVerify, Bool.and_eq_true] at hsig
+      exact .saysI Γₐ p φ M sig (ih hsig.2) hsig.1
+  | verifyE Γₐ p φ M sig _ ih =>
+      intro hsig
+      simp only [Term.allSigsVerify] at hsig
+      exact .verifyE Γₐ p φ M sig (ih hsig)
+  | andI Γₐ φ ψ a b _ _ ihA ihB =>
+      intro hsig
+      simp only [Term.allSigsVerify, Bool.and_eq_true] at hsig
+      exact .andI Γₐ φ ψ a b (ihA hsig.1) (ihB hsig.2)
+  | andEL Γₐ φ ψ a _ ih =>
+      intro hsig
+      simp only [Term.allSigsVerify] at hsig
+      exact .andEL Γₐ φ ψ a (ih hsig)
+  | andER Γₐ φ ψ a _ ih =>
+      intro hsig
+      simp only [Term.allSigsVerify] at hsig
+      exact .andER Γₐ φ ψ a (ih hsig)
+  | withinI Γₐ τ φ M _ ih =>
+      intro hsig
+      simp only [Term.allSigsVerify] at hsig
+      exact .withinI Γₐ τ φ M (ih hsig)
+  | orI_L Γₐ φ ψ a _ ih =>
+      intro hsig
+      simp only [Term.allSigsVerify] at hsig
+      exact .orI_L Γₐ φ ψ a (ih hsig)
+  | orI_R Γₐ φ ψ a _ ih =>
+      intro hsig
+      simp only [Term.allSigsVerify] at hsig
+      exact .orI_R Γₐ φ ψ a (ih hsig)
+  | tensorI Γₐ φ ψ a b _ _ ihA ihB =>
+      intro hsig
+      simp only [Term.allSigsVerify, Bool.and_eq_true] at hsig
+      exact .tensorI Γₐ φ ψ a b (ihA hsig.1) (ihB hsig.2)
+  | orE Γₐ φ ψ χ S L R _ _ _ ihS ihL ihR =>
+      intro hsig
+      simp only [Term.allSigsVerify, Bool.and_eq_true] at hsig
+      exact .orE Γₐ φ ψ χ S L R (ihS hsig.1.1) (ihL hsig.1.2) (ihR hsig.2)
+  | letSaysE Γₐ p φ ψ S B _ _ ihS ihB =>
+      intro hsig
+      simp only [Term.allSigsVerify, Bool.and_eq_true] at hsig
+      exact .letSaysE Γₐ p φ ψ S B (ihS hsig.1) (ihB hsig.2)
+  | sfExtractE Γₐ p q M _ ih =>
+      intro hsig
+      simp only [Term.allSigsVerify] at hsig
+      exact .sfExtractE Γₐ p q M (ih hsig)
+  | delegate Γₐ p q φ M N _ _ ihM ihN =>
+      intro hsig
+      simp only [Term.allSigsVerify, Bool.and_eq_true] at hsig
+      exact .delegate Γₐ p q φ M N (ihM hsig.1) (ihN hsig.2)
+  | now Γₐ τ => exact fun _ => .now Γₐ τ
+  | attenuate Γₐ p φ M _ ih =>
+      intro hsig
+      simp only [Term.allSigsVerify] at hsig
+      exact .attenuate Γₐ p φ M (ih hsig)
+  | liftLabel Γₐ φ ℓ M _ ih =>
+      intro hsig
+      simp only [Term.allSigsVerify] at hsig
+      exact .liftLabel Γₐ φ ℓ M (ih hsig)
+  | declassify Γₐ φ ℓ ℓ' M π _ _ ihM ihπ =>
+      intro hsig
+      simp only [Term.allSigsVerify, Bool.and_eq_true] at hsig
+      exact .declassify Γₐ φ ℓ ℓ' M π (ihM hsig.1) (ihπ hsig.2)
+  | discharge Γₐ O φ M N _ _ ihM ihN =>
+      intro hsig
+      simp only [Term.allSigsVerify, Bool.and_eq_true] at hsig
+      exact .discharge Γₐ O φ M N (ihM hsig.1) (ihN hsig.2)
+  | letTensor Γₐ φ ψ χ S B _ _ ihS ihB =>
+      intro hsig
+      simp only [Term.allSigsVerify, Bool.and_eq_true] at hsig
+      exact .letTensor Γₐ φ ψ χ S B (ihS hsig.1) (ihB hsig.2)
 
-/-- EUF-CMA assumption for the propositional fragment: every logical
-derivation has a corresponding cryptographic witness. Discharged by the
-M2.M13 EasyCrypt reduction. -/
-axiom Sig_EUF_CMA_propositional :
-    ∀ (K : KeyRing) (Γ : Ctx) (M : Term) (φ : Prop'),
-      M.isPropositional = true →
-      Nonempty (Deriv Γ M φ) →
-      Nonempty (DerivCrypto K Γ M φ)
+/-! ## T2 — the symbolic characterization theorem. -/
 
-/-! ## T2 — the headline conditional correspondence theorem. -/
-
-/-- T2 (conditional form, propositional fragment). The logical and
-cryptographic typing judgments coincide for propositional terms,
-**modulo** the EUF-CMA assumption captured by
-`Sig_EUF_CMA_propositional`. The crypto→logical direction is proven
-unconditionally; the logical→crypto direction uses the axiom. -/
+/-- T2 (symbolic characterization, propositional fragment). A term
+crypto-typechecks under `K` iff it logically typechecks and every
+embedded signature verifies under `K`. Axiom-free; see the module
+docstring for what this does and does not claim. -/
 theorem t2_propositional_correspondence
-    (K : KeyRing) (Γ : Ctx) (M : Term) (φ : Prop')
-    (hprop : M.isPropositional = true) :
-    Nonempty (Deriv Γ M φ) ↔ Nonempty (DerivCrypto K Γ M φ) := by
-  refine ⟨?_, ?_⟩
-  · -- Forward direction: gated by EUF-CMA axiom.
-    exact Sig_EUF_CMA_propositional K Γ M φ hprop
-  · -- Reverse direction: unconditional.
-    intro ⟨dc⟩
-    exact ⟨t2_crypto_to_logical K Γ M φ dc⟩
+    (K : KeyRing) (Γₐ : List Prop') (M : Term) (φ : Prop') :
+    Nonempty (DerivCrypto K Γₐ M φ) ↔
+      Nonempty (PropDeriv Γₐ M φ) ∧ M.allSigsVerify K = true := by
+  constructor
+  · intro ⟨dc⟩
+    exact ⟨⟨t2_crypto_to_logical K dc⟩, t2_crypto_sigs_verify K dc⟩
+  · intro ⟨⟨d⟩, hsig⟩
+    exact ⟨t2_logical_to_crypto K d hsig⟩
 
-/-! ## Sanity check.
-
-A simple `varA`-derivation lifts to a `DerivCrypto K` at the same shape
-(the `saysI` constraint never fires for var-only proofs). -/
+/-! ## Sanity checks. -/
 
 namespace CorrespondenceChecks
 
-/-- Look up the only hypothesis in a single-additive context — the
-crypto version. Mirrors the example from `JudgmentChecks`. -/
+/-- Look up the only hypothesis in a singleton context — the crypto
+version. No signature nodes, so no verification obligations. -/
 example (K : KeyRing) :
-    DerivCrypto K { additive := [Prop'.atom 0], linear := [] }
-                (Term.var 0) (Prop'.atom 0) :=
+    DerivCrypto K [Prop'.atom 0] (Term.var 0) (Prop'.atom 0) :=
   DerivCrypto.varA _ 0 _ rfl
 
-/-- The reverse direction of T2 (crypto → logical) applied to the
-trivial witness above. `noncomputable` because the dependency
-`t2_crypto_to_logical` is itself noncomputable. -/
+/-- Erasure applied to the trivial witness above. -/
 noncomputable example (K : KeyRing) :
-    Deriv { additive := [Prop'.atom 0], linear := [] }
-          (Term.var 0) (Prop'.atom 0) :=
-  t2_crypto_to_logical K _ _ _ (DerivCrypto.varA _ 0 _ rfl)
+    PropDeriv [Prop'.atom 0] (Term.var 0) (Prop'.atom 0) :=
+  t2_crypto_to_logical K (DerivCrypto.varA _ 0 _ rfl)
+
+/-- A signature-free term crypto-typechecks iff it typechecks:
+`allSigsVerify` is definitionally `true` on `var`. -/
+example (K : KeyRing) :
+    Nonempty (DerivCrypto K [Prop'.atom 0] (Term.var 0) (Prop'.atom 0)) ↔
+      Nonempty (PropDeriv [Prop'.atom 0] (Term.var 0) (Prop'.atom 0)) ∧
+        (Term.var 0).allSigsVerify K = true :=
+  t2_propositional_correspondence K _ _ _
 
 end CorrespondenceChecks
 

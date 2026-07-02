@@ -1,0 +1,1 @@
+'DLC.Witness.legacy_axiom_refutable' depends on axioms: [propext]

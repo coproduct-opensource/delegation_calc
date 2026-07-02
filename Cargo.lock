@@ -327,6 +327,7 @@ dependencies = [
  "ciborium",
  "coset",
  "dlc-core",
+ "dlc-crypto",
  "serde",
  "thiserror",
 ]

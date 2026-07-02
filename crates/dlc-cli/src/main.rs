@@ -41,6 +41,7 @@ fn main() -> ExitCode {
         Some("grant") => cmd_grant(&args[1..]),
         Some("delegate") => cmd_delegate(&args[1..]),
         Some("attenuate") => cmd_attenuate(&args[1..]),
+        Some("wrap") => cmd_wrap(&args[1..]),
         Some("verify") => cmd_verify(&args[1..]),
         _ => Err(USAGE.to_string()),
     };
@@ -54,7 +55,7 @@ fn main() -> ExitCode {
 }
 
 const USAGE: &str = "dlc — Delegation Logic Calculus CLI
-usage: dlc <keygen|issue|grant|delegate|attenuate|verify> [options]
+usage: dlc <keygen|issue|grant|delegate|attenuate|wrap|verify> [options]
 see crate docs for the full flow";
 
 // ----- subcommands ---------------------------------------------------------
@@ -108,9 +109,19 @@ fn cmd_attenuate(args: &[String]) -> Result<ExitCode, String> {
     Ok(ExitCode::SUCCESS)
 }
 
+/// Wrap a token in a COSE_Sign1 envelope signed by the presenter.
+fn cmd_wrap(args: &[String]) -> Result<ExitCode, String> {
+    let seed = require_seed(args)?;
+    let token_hex = flag(args, "--token").ok_or("wrap: --token required")?;
+    let cose = dlc_protocol::envelope::wrap_sign1(&hex_decode(&token_hex)?, &seed)
+        .map_err(|e| format!("wrap: {e}"))?;
+    println!("cose={}", hex_encode(&cose));
+    Ok(ExitCode::SUCCESS)
+}
+
 fn cmd_verify(args: &[String]) -> Result<ExitCode, String> {
     let token_hex = flag(args, "--token").ok_or("verify: --token required")?;
-    let wire_bytes = hex_decode(&token_hex)?;
+    let mut wire_bytes = hex_decode(&token_hex)?;
     let claim_spec = flag(args, "--claim").ok_or("verify: --claim required")?;
     let claimed = parse_claim(&claim_spec)?;
 
@@ -124,6 +135,16 @@ fn cmd_verify(args: &[String]) -> Result<ExitCode, String> {
             alg: ed25519::ALG_ED25519,
             public_key: hex_decode(pk_hex)?,
         });
+    }
+
+    // --cose: the token is a COSE_Sign1 envelope; check the presenter
+    // signature and verify the inner payload.
+    if args.iter().any(|a| a == "--cose") {
+        let (payload, presenter) =
+            dlc_protocol::envelope::unwrap_sign1(&wire_bytes, &keyring)
+                .map_err(|e| format!("cose: {e}"))?;
+        println!("presenter={}", hex_encode(&presenter.0));
+        wire_bytes = payload;
     }
 
     let mut assumptions = Vec::new();

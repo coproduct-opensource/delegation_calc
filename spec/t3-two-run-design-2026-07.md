@@ -79,12 +79,50 @@ reflexivity lemmas stay labeled as infrastructure.
 
 ## Rung ladder after this PR
 
-1. Add multi-step reduction + confluence for the propositional
-   fragment (independent value: first `Reduce`-metatheory).
-2. Redefine LR (projective, binary-arrow, joinable atoms); re-prove
-   refl/symm/trans.
-3. Fundamental lemma: binder-free fragment first (no impI/impE), then
+1. ~~Add multi-step reduction + confluence~~ DONE (rung 2,
+   `DLC/ReduceMeta.lean`: `Steps`, semi-confluence by determinism,
+   `Joinable` transitive).
+2. ~~Substitution composition~~ DONE (rung 3a, `substAt_substAt` +
+   shift-lemma stack in `DLC/Subst.lean`).
+3. Redefine LR (value-style at positive types, binary arrows,
+   Joinable atoms); re-prove refl/symm/trans; anti-reduction closure.
+4. Fundamental lemma: binder-free fragment first (no impI/impE), then
    arrows via reduction closure.
-4. Declassify: excluded throughout (NI modulo declassification is the
+5. Declassify: excluded throughout (NI modulo declassification is the
    correct statement; unrestricted declassify falsifies the lemma, as
    it must).
+
+## FINDING (2026-07-02, blocks rung 3b): `step` is head-redex-only —
+## progress FAILS; congruence rules are prerequisite
+
+`Reduce.step` fires ONLY head redexes (β, delegate-β, fst/snd of a
+LITERAL pair, case of a literal injection, letTensor of a literal
+tensor, letSays/sfExtract of a literal sign); every other shape is
+`none`. Consequently:
+
+* `fst (fst (pair (pair a b) c))` is STUCK — the outer projection
+  demands a literal pair and nothing reduces the inner one. Closed,
+  well-typed, and unevaluable: PROGRESS fails for the propositional
+  fragment under the current semantics.
+* Therefore NO logical-relation formulation can carry the fundamental
+  lemma's elimination cases: value-style relations need `fst M ↠
+  fst (pair …)` when `M ↠ pair …` (a congruence step), and projective
+  relations need anti-reduction at nested types (also congruence).
+  This is a defect of the operational semantics, not of any candidate
+  relation.
+
+**Rung 3b-0 (new, prerequisite):** extend `step` with deterministic
+evaluation contexts — reduce the scrutinee/function position when the
+head rule does not yet fire: `app` (function position), `fst`/`snd`,
+`case` (scrutinee), `delegate` (left, then right), `letSays`/
+`sfExtract` (scrutinee), `letTensor` (scrutinee). Keep it a FUNCTION
+(fixed order ⇒ determinism ⇒ `ReduceMeta` survives verbatim).
+Process per CLAUDE.md: spec first (reduction section), then
+`dlc-core/src/reduce.rs`, then `Reduce.lean`; wire format untouched
+(no Tamarin change needed — reduction is not on the wire). Proof
+repairs required and expected: `propDeriv_subject_reduction`
+(congruence cases = inversion + IH; PropDeriv is syntax-directed so
+inversion is available) and `t4_no_new_obligation` (congruence cases
+= list-membership through one reduced component, by IH). Progress for
+the closed propositional fragment becomes provable afterwards and
+should be proven as the rung's witness.

@@ -26,13 +26,22 @@ lemma — every well-typed term is related to itself by
 
 What this file currently contains:
 
-- `Indistinguishable`, defined by structural induction on `φ` — most
-  `Prop'` cases have structural content; `imp`/`lolli` are the
-  remaining `True` placeholders.
+- `Indistinguishable`, defined by structural induction on `φ`. Every
+  case has structural content, but two shapes make it UNSUITABLE for a
+  two-run fundamental lemma (see `spec/t3-two-run-design-2026-07.md`
+  §"why"): the product cases apply both component types to the WHOLE
+  term (non-projective), and the arrow cases are the conservative
+  diagonal form (`∀ M', R M' M' → …`), chosen so reflexivity closes
+  without reduction machinery.
 - `Indistinguishable_refl` / `_symm` / `_trans` — one-run facts about
   the relation itself. Reflexivity is what the misleadingly-named
   theorems below discharge; it is NOT a fundamental lemma (nothing
   here inducts on a derivation).
+
+The first REAL two-run statement lives in
+`DLC.NonInterferenceTwoRun` (intro-fragment confinement, syntactic
+strength, typing load-bearing — with witness `DLC.Witness.T3`); the
+full theorem's rung ladder is in the design doc.
 
 Load-bearing dependencies for the real proof:
   * Subject reduction (M1.Q2.c).

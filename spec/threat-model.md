@@ -19,11 +19,15 @@ The adversary is **Dolev-Yao** (DY) plus the standard symbolic-model assumptions
 - **Full network control.** The adversary observes, drops, reorders, replays,
   and injects arbitrary messages on every channel between honest principals.
 - **Polynomially-bounded computation** in the symbolic model; **EUF-CMA-secure
-  signatures** in the computational model (the EasyCrypt L2.4 bridge).
+  signatures** in the computational model (the intended EasyCrypt L2.4
+  bridge — a skeleton with no proof content as of 2026-07; its
+  placeholder axiom encodes nothing).
 - **Perfect cryptography in symbolic abstraction.** Hash functions are
   collision-resistant; encryption is IND-CPA where relevant; signatures
   cannot be forged without the secret key. The computational bridge L2.4
-  discharges the gap to bit-level adversaries for the signature scheme.
+  is INTENDED to discharge the gap to bit-level adversaries for the
+  signature scheme; that discharge does not yet exist (open, tracked in
+  `lean/theorem-status.json`).
 - **Static corruption.** The adversary may corrupt a polynomial-bounded set
   of principals *at protocol start* and obtain their secret keys. **Adaptive
   corruption is out of scope for Phase-1.** Reason: adaptive corruption blows
@@ -96,8 +100,8 @@ freshness, not soundness.
 Where DLC's typing rules implicitly invoke the DY adversary:
 
 - `says-I` assumes the signature `σ` is unforgeable without the private key
-  of `p`. The symbolic model treats it as a primitive; L2.4 reduces it to
-  EUF-CMA.
+  of `p`. The symbolic model treats it as a primitive; L2.4 is intended
+  to reduce it to EUF-CMA (reduction not yet done — skeleton only).
 - `verify` in `⊢_K` assumes the public-key lookup `K.lookup(p)` is correct.
   Key rotation is handled by interpreting `K` as time-indexed (verifier picks
   the key valid at the proof term's `timestamp` metadata).
@@ -119,9 +123,10 @@ For Phase-1 closure:
 - **Quantum adversaries.** Out of scope; Ed25519 is broken under Shor. A
   post-quantum DLC is the v2 of the artifact.
 - **Side channels.** Per §1.
-- **Denial-of-service.** The verifier's complexity bound (T1: O(|M|·log|Γ|))
-  is what limits DoS, but a malicious *issuer* can still mint giant proof
-  terms; rate-limiting at the issuance layer is out of scope.
+- **Denial-of-service.** The verifier's complexity-bound target
+  (T1 target, unproven: O(|M|·log|Γ|)) is what would limit DoS, but a
+  malicious *issuer* can still mint giant proof terms; rate-limiting
+  at the issuance layer is out of scope.
 - **Network confidentiality.** DLC proof terms are intended to be public; if
   a deployment wants confidentiality, it wraps DLC in TLS or similar — not a
   property of the calculus.

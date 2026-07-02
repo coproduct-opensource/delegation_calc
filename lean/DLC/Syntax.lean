@@ -30,7 +30,7 @@ inductive Prop' : Type where
   | tensor : Prop' → Prop' → Prop'
   | lolli : Prop' → Prop' → Prop'
   -- No `deriving Repr, DecidableEq` here: the constituent `Label` (alias for
-  -- nucleus's Aeneas-generated `portcullis_core.CapabilityLattice`) does not
+  -- nucleus's Aeneas-generated `nucleus_ifc_kernel.CapabilityLattice`) does not
   -- carry derived instances. Equalities that need to be computed land via
   -- targeted `Decidable` instances at the use sites where they're needed.
 
@@ -71,7 +71,7 @@ inductive Term : Type where
   | letSays : Principal → Term → Term → Term
   | sfExtract : Term → Term
   -- No `deriving Repr, DecidableEq` here: the constituent `Label` (alias for
-  -- nucleus's Aeneas-generated `portcullis_core.CapabilityLattice`) does not
+  -- nucleus's Aeneas-generated `nucleus_ifc_kernel.CapabilityLattice`) does not
   -- carry derived instances. Equalities that need to be computed land via
   -- targeted `Decidable` instances at the use sites where they're needed.
 

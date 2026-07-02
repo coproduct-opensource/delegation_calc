@@ -1,15 +1,18 @@
 /-
 §4.4 -- Protocol-Logic Correspondence theorem.
 
-The Phase-2 keystone: connects Tamarin protocol traces to DLC derivations.
-Composes the two halves:
+Connects Tamarin protocol traces to DLC derivations. The intended
+composition has two halves:
 
   L2.3 (wire ↔ symbolic encoding):  models/tamarin/dlc.spthy facts ↔
                                      crates/dlc-protocol/src/wire.rs CBOR
   L2.5 (trace ↔ derivation):         List TraceEvent ↔ Deriv Γ M φ
 
-Together they give T2's symbolic half (the computational half is L2.4's
-EasyCrypt reduction).
+STATUS (2026-07): only a restricted L2.5 is proven (singleton-trace
+shape; see `l2_5_trace_lifting`). L2.3 has no Lean-side statement yet
+(the former identity-serializer witness was vacuous and is deleted),
+and the intended computational half — L2.4's EasyCrypt reduction —
+does not exist (skeleton with a placeholder axiom encoding nothing).
 
 Phase-2 plan reference: months 12-14 (L2.5); M2.M15 closure tag
 `v1.5.0-phase2`. The full lifting proof is graduate-thesis-grade; this
@@ -24,8 +27,9 @@ namespace DLC
 
 /-! ## L2.3 -- Wire round-trip statement.
 
-Carried over from the L2.3 PR (PR #19). The Rust round-trip is proved
-operationally by 22 unit tests in `crates/dlc-protocol/src/wire.rs`;
+Carried over from the L2.3 PR (PR #19). The Rust round-trip is
+evidenced operationally by 25 unit tests in
+`crates/dlc-protocol/src/wire.rs`;
 the Lean statement here is what the Aeneas function-correspondence
 theorem will close once `wire.rs` is extracted. -/
 
@@ -37,31 +41,21 @@ def WireRoundTripProperty
     (decode : Bytes → Option Term) : Prop :=
   ∀ M : Term, decode (encode M) = some M
 
-/-- L2.3 -- Wire encoding round-trip statement.
+/-! ### L2.3 status — OPEN (tracked in the ledger; Phase-3 scope).
 
-Asserts the *existence* of a serialisation `(Bytes, encode, decode)`
-on `Term` that round-trips losslessly. The canonical witness lives
-in Rust (`crates/dlc-protocol::wire`); the Aeneas-extracted versions
-of those functions will instantiate this existential at M2.M15.
+An earlier revision stated L2.3 as the existential "some
+`(Bytes, encode, decode)` round-trips" and discharged it with the
+identity serialiser (`⟨Term, id, some, fun _ => rfl⟩`). That witness
+is vacuous — the existential is satisfied by a "serialiser" that never
+produces bytes — so both the statement and its theorem are deleted.
 
-This is *strictly stronger* than the previous `∀ M, M = M` placeholder:
-the body is a real round-trip equality on `Option Term`, so a witness
-must produce, for every term, a bytes encoding that the decoder
-reads back as exactly that term. Trivial bogus pairs (e.g.
-`encode := fun _ => []`, `decode := fun _ => none`) falsify the
-property; the placeholder didn't. -/
-def WireRoundTripStatement : Prop :=
-  ∃ (Bytes : Type) (encode : Term → Bytes) (decode : Bytes → Option Term),
-    WireRoundTripProperty encode decode
-
-/-- The wire round-trip statement is inhabited via the trivial
-identity-on-`Term` serialiser. This proves the *shape* is satisfiable;
-the meaningful theorem is the round-trip property on the Aeneas-
-extracted CBOR encoder once it lands, which is strictly stronger
-because its `Bytes` is `ByteArray` and the encoder is content-
-addressable. -/
-theorem wire_round_trip_exists : WireRoundTripStatement :=
-  ⟨Term, id, some, fun _ => rfl⟩
+The meaningful L2.3 is `WireRoundTripProperty encode decode` (plus
+injectivity of `encode`, the Comparse bar) instantiated at the REAL
+CBOR codec: either the Aeneas extraction of
+`crates/dlc-protocol/src/wire.rs`, or a Lean-side model proven
+equivalent to it. Neither exists yet in Lean; the Rust codec's
+round-trip is currently evidenced only by its unit tests. No `Prop`
+stand-in belongs here until the encoder does. -/
 
 /-! ## Trace events mirroring the Tamarin model.
 
@@ -176,34 +170,23 @@ theorem l2_5_trace_lifting : L2_5_TraceLiftingStatement := by
       subst hφ
       exact ⟨Deriv.varA _ 0 (Prop'.says P φ_t) rfl⟩
 
-/-! ## §4.4 -- Composed correspondence.
+/-! ## §4.4 status — OPEN (tracked in the ledger; Phase-3 scope).
 
-Composes L2.3 (round-trip) with L2.5 (lifting). Given a Tamarin trace,
-this lifts to a DLC derivation, and the wire encoding of that derivation
-round-trips losslessly. The composition is the symbolic half of T2; the
-full T2 layers L2.4's EasyCrypt computational bridge on top. -/
+An earlier revision "composed" L2.5 with the identity-serialiser L2.3
+witness into a `protocol_logic_correspondence` theorem. Since the wire
+conjunct was vacuous (see the L2.3 note above), the composition proved
+nothing beyond `l2_5_trace_lifting`, and it is deleted along with the
+`protocol_correspondence_stub : True` alias.
 
-/-- §4.4 -- Protocol-logic correspondence (statement).
+The real §4.4 requires, in order:
+1. a total `liftToDeriv` over every trace shape the Tamarin model
+   emits, with `TraceWellFormed` load-bearing (today `liftToDeriv`
+   covers exactly the singleton `[Says P φ]` shape — see its
+   docstring);
+2. L2.3 about the real CBOR encoder (round-trip + injectivity);
+3. their composition, stated against the executable verifier.
 
-Combines L2.5 (any successfully-lifted trace inhabits Deriv) with
-L2.3 (some wire encoder/decoder pair round-trips). Stated with the
-same restriction as L2.5 (over trace shapes `liftToDeriv` actually
-handles); the full unrestricted correspondence is M2.M15 follow-up. -/
-def ProtocolLogicCorrespondenceStatement : Prop :=
-  ∀ (t : TamarinTrace) (Γ : Ctx) (M : Term) (φ : Prop'),
-    TraceWellFormed t →
-    liftToDeriv t = some (Γ, M, φ) →
-    Nonempty (Deriv Γ M φ) ∧ WireRoundTripStatement
-
-/-- §4.4 -- Proven: composes `l2_5_trace_lifting` with
-`wire_round_trip_exists`. -/
-theorem protocol_logic_correspondence : ProtocolLogicCorrespondenceStatement := by
-  intro t Γ M φ hwf hlift
-  refine ⟨l2_5_trace_lifting t Γ M φ hwf hlift, wire_round_trip_exists⟩
-
-/-! ## Backward-compat alias. -/
-
-/-- The original stub. Kept as `abbrev` for any reference to the old name. -/
-abbrev protocol_correspondence_stub : True := trivial
+Until those exist, `l2_5_trace_lifting` above is the honest extent of
+the protocol-logic correspondence: restricted, and labeled as such. -/
 
 end DLC

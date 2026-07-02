@@ -18,7 +18,7 @@ post-quantum delegation; LLMbda Calculus (Garby et al.,
 2026)~\cite{garby2026llmbda} proves termination-insensitive
 noninterference for an LLM-invoking lambda calculus.
 
-Yet a vulnerability surfaced in March 2026 on the IETF OAuth mailing
+Yet a vulnerability surfaced in February 2026 on the IETF OAuth mailing
 list~\cite{ietf2026splicing}, \emph{delegation chain splicing}, remains
 imperfectly addressed.  An attacker presenting mismatched
 \texttt{subject\_token} and \texttt{actor\_token} inputs to an STS
@@ -39,10 +39,13 @@ construction across four independent axes:
   \texttt{Delegate\_Accept} multiset-rewriting rule's input pattern
   unifies the principal across both signature consumptions
   (Section~\ref{sec:symbolic}).
-\item \textbf{In the cryptographic correspondence (T2)}: an EUF-CMA
-  adversary spanning a spliced chain reduces to forgery of one of the
-  two underlying signatures, which by Ed25519's EUF-CMA security is
-  negligible (Section~\ref{sec:computational}).
+\item \textbf{In the cryptographic correspondence (T2; target
+  strength, open)}: an EUF-CMA adversary spanning a spliced chain
+  should reduce to forgery of one of the two underlying signatures.
+  Section~\ref{sec:computational} states this reduction as an open
+  obligation; what is proven today is the axiom-free symbolic
+  characterization (crypto typing $\iff$ logical typing $\wedge$
+  signature validity).
 \item \textbf{In the wire format}: each delegation step is content-
   addressed by SHA-256 of its canonical bytes, so any chain-
   splicing attempt produces detectable hash discontinuities
@@ -65,25 +68,35 @@ This paper makes the following claims:
 \begin{enumerate}
 \item A modal-linear-temporal authorization logic with a no-chain-
   splicing delegation rule, mechanized in Lean~4 with no
-  \texttt{sorry} on the proofs that are closed (T4 non-introduction,
-  graded comonad laws, indexed monad laws, four structural
-  substitution lemmas).
+  \texttt{sorry} on the proofs that are closed: T1 propositional
+  decidability (soundness and completeness of the checker, with a
+  \texttt{Decidable} instance), the T2 symbolic characterization,
+  graded comonad laws, indexed monad laws, and the structural
+  substitution lemmas. Statuses are recorded in a machine-validated
+  ledger (\texttt{lean/theorem-status.json}); CI rejects any document
+  claiming more.
 \item A symbolic protocol model verified independently in Tamarin
   and ProVerif, demonstrating that the unification of two
   symbolic provers detects modeling gaps that single-prover work
   misses (Section~\ref{sec:symbolic}).
-\item A Rust reference implementation with 76 unit tests, including
-  a CBOR wire format with round-trip-tested encoding for all
-  21 term constructors and Tamarin/ProVerif fact exporters.
+\item A Rust implementation of the logic kernel and wire format with
+  80 unit tests, including a CBOR codec with round-trip-tested
+  encoding for all 22 term constructors and Tamarin/ProVerif fact
+  exporters.  (The end-to-end verifier and the cryptographic
+  operations are stubs at this revision; the ledger reports
+  \texttt{implemented: false} until they are real.)
 \item A reproducible verification ledger (\texttt{make ledger})
   emitting a single JSON document containing the status of every
   theorem, every model, every drift check, and every test count.
 \item An honest assessment (Section~\ref{sec:conclusion}) of what is
   proven, what is stated, and what remains for collaborator
-  engagement.  We make no claim to having closed T2 unconditionally
-  or T3 in full; both are stated and partially proven, with
-  documented paths to closure via VCVio~\cite{tuma2026vcvio} for T2
-  and hand-rolled logical relations for T3.
+  engagement.  We make no claim to having closed T2 beyond its
+  axiom-free symbolic characterization, and no claim to any form of
+  T3: the current T3 lemmas are one-run reflexivity infrastructure
+  for the logical relation, not non-interference.  Documented paths
+  to closure run via VCVio~\cite{tuma2026vcvio} for T2's
+  computational half and a two-run logical relation with a
+  fundamental lemma for T3.
 \end{enumerate}
 
 \paragraph{Paper structure}

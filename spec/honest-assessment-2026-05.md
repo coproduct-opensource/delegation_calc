@@ -1,5 +1,12 @@
 # DLC Honest Self-Assessment vs. SOTA (May 2026)
 
+> **SUPERSEDED (2026-07).** Status language in this essay reflects
+> May 2026 and was itself too generous: the "zero sorry" mechanization
+> it takes at face value was placeholder-shaped (tautological
+> statements, a refutable T2 axiom, a vacuous T4). Current validated
+> statuses live in `lean/theorem-status.json`; corrections in
+> `RELEASES.md`. Kept for the SOTA comparison, which remains useful.
+
 This is a skeptical, evidence-based comparison of what we've built against the
 initial moonshot specification. Treat every claim as adversarial review.
 
@@ -10,9 +17,11 @@ The spec set a single bar: **a named artifact a graduate student cites in
 cryptographic protocol) joined by **T2, the cryptographic correspondence
 theorem** — the property that makes citation *necessary* rather than optional.
 
-Four headline theorems all mechanized in Lean 4 with zero `sorry`:
-- **T1** Decidability of proof-checking, `O(|M| · log |Γ|)`.
-- **T2** Cryptographic correspondence: `Γ ⊢ M : φ ⇔ Γ ⊢_K M : φ`.
+Four headline theorems all mechanized in Lean 4 with zero `sorry`
+(claim as written 2026-05; superseded — see banner above. Actual:
+T1 proven_fragment, T2–T4 stated; the T1 bound is an unproven target):
+- **T1** Decidability of proof-checking, `O(|M| · log |Γ|)` (bound: target, unproven).
+- **T2** Cryptographic correspondence: `Γ ⊢ M : φ ⇔ Γ ⊢_K M : φ` (target form; open).
 - **T3** Non-interference across delegation under IFC labels.
 - **T4** Obligation soundness across reduction.
 

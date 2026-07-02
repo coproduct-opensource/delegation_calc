@@ -40,12 +40,15 @@ jobs:
         with:
           path: |
             ~/.opam
-          key: opam-easycrypt-${{ runner.os }}-v1
+          key: opam-easycrypt-${{ runner.os }}-v2
 
       - name: Install opam + EasyCrypt
         run: |
           sudo apt-get update
-          sudo apt-get install -y opam libgmp-dev libpcre3-dev pkg-config
+          # libmpfr-dev: required since EasyCrypt's dep universe started
+          # resolving conf-mpfr (via why3/bitwuzla, 2026-07); without it the
+          # install step fails before the parse-check ever runs.
+          sudo apt-get install -y opam libgmp-dev libmpfr-dev libpcre3-dev pkg-config
           opam init -y --disable-sandboxing --bare
           eval $(opam env)
           opam switch list | grep -q "default " || opam switch create default 4.14.1

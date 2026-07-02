@@ -1,5 +1,9 @@
 # T2 and T3 in Lean 4 — SOTA Feasibility (May 2026)
 
+> **Status note (2026-07).** Written before the truth-reconciliation
+> audit; status language herein reflects May 2026 plans, not current
+> reality. Validated statuses: `lean/theorem-status.json`.
+
 **Question:** Could T2 (EUF-CMA reduction) and T3 (non-interference under
 delegation) actually be done in **Lean 4**, autonomously, without
 collaborator pairing?

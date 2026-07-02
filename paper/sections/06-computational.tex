@@ -37,14 +37,15 @@ negligible, hence so is the left.
 Two viable routes:
 
 \begin{enumerate}
-\item \textbf{EasyCrypt.}  The skeleton in
-  \texttt{models/easycrypt/Game.eca} is structurally complete: type
-  declarations, signing oracles, the EUF-CMA module, the
-  \texttt{SymbolicSayForgery} module, the EUF-CMA assumption as an
-  axiom, and the reduction lemma documented (proof body absent;
-  CI parse-checks via \texttt{easycrypt -batch}).  Closure
-  requires cryptographer pairing (Blanchet was the named
-  collaborator in our plan).
+\item \textbf{EasyCrypt.}  \texttt{models/easycrypt/Game.eca} is a
+  skeleton only: type declarations, signing-oracle and game module
+  shapes, and the game-hop sequence as comments.  It contains no
+  proof content --- the placeholder axiom's body is literally
+  \texttt{true}, so it encodes no cryptographic assumption, and no
+  reduction lemma has a proof body (CI parse-checks via
+  \texttt{easycrypt -batch}, nothing more).  Closure requires
+  cryptographer pairing (Blanchet was the named collaborator in our
+  plan).
 
 \item \textbf{VCVio.}  Tuma et al.~(2026)~\cite{tuma2026vcvio}
   mechanize EUF-CMA for Schnorr signatures in Lean 4 using a

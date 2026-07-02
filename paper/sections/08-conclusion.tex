@@ -1,37 +1,48 @@
 % Section 8 -- Conclusion and Future Work
 % Target: 1 page.
 
-DLC unifies authorization logic, symbolic cryptography, computational
-cryptography, runtime wire format, and reproducible CI in a single
-artifact where the same chain-splicing-defeating rule appears at every
-layer.  The unification is the contribution; the individual pieces
-build on Garg-Pfenning (logic), Cremers-Blanchet (symbolic crypto),
-and Tuma et al.~(VCVio, computational crypto in Lean).
+DLC unifies authorization logic, symbolic cryptography, a stated
+computational-cryptography bridge, runtime wire format, and
+reproducible CI in a single artifact where the same
+chain-splicing-defeating rule appears at every layer.  The
+unification is the contribution; the individual pieces build on
+Garg-Pfenning (logic), Cremers-Blanchet (symbolic crypto), and Tuma
+et al.~(VCVio, computational crypto in Lean).
 
-\paragraph{What is proven.}  Twelve theorems with no \texttt{sorry}
-and no new axioms:
+\paragraph{What is proven.}  Sorry-free, with \texttt{propext} as the
+only axiom (statuses machine-validated against
+\texttt{lean/theorem-status.json}):
 \begin{itemize}
-\item T4 non-introduction direction (\texttt{pendingObligations\_shift}
-  closed; substitution-subset and step-case-analysis open).
-\item Three graded comonad laws (identity, associativity, DpBudget
-  saturating-add associativity).
-\item Four strong indexed monad laws (left-id, right-id,
-  associativity, strength left-unit).
-\item Four structural substitution lemmas (\texttt{shift\_zero} plus three
-  \texttt{substAt\_var\_*} cases).
-\item Three Tamarin lemmas (secrecy, non-splicing, executability).
-\item Three ProVerif queries (same, by independent prover).
+\item T1 for the propositional fragment: soundness and completeness
+  of \texttt{decideLean} against the 22-constructor syntax-directed
+  judgment, with a \texttt{Decidable} instance and a non-vacuity
+  witness.
+\item The T2 symbolic characterization (crypto typing $\iff$ logical
+  typing $\wedge$ signature validity), both directions --- plus the
+  machine-checked refutation of the earlier revision's T2 axiom
+  (\texttt{Witness/AxiomAudit.lean}).
+\item T4's non-introduction direction as a full step-case analysis
+  --- reported \texttt{stated} because it is currently vacuous
+  (\texttt{pendingObligations\_eq\_nil}); the vacuity itself is a
+  proven, tripwire-protected fact.
+\item Three graded comonad laws; four strong indexed monad laws;
+  the structural shift/substitution lemmas.
+\item Three Tamarin lemmas (secrecy, non-splicing, executability) and
+  three ProVerif queries (same properties, independent prover) ---
+  over a deliberately small 5-rule model.
 \end{itemize}
 
-\paragraph{What is stated but open.}  T1 full-calculus decidability,
-T2 cryptographic correspondence, T3 non-interference, T4 multiset
-form, substitution composition, subject reduction, the \S 4.4
-protocol-logic correspondence.  Each has a documented closure path:
-T1 via porting the Rust \texttt{decide\_pure} to Lean; T2 via VCVio
-EUF-CMA reduction; T3 via hand-rolled logical relations in Lean
-without Iris; T4 multiset form via the M3 runtime layer's
-\texttt{Discharged} evidence; substitution composition via Ramos
-et al.'s 709-line Metatheory framework once that becomes available.
+\paragraph{What is stated but open.}  T1 full-calculus decidability
+(linear splitting) and any complexity bound; the attacker-based T2
+(Dolev-Yao adversary, wire injectivity, EUF-CMA reduction --- the
+EasyCrypt file is a skeleton with no proof content); T3 in any form
+(the current Lean lemmas are one-run reflexivity infrastructure, not
+non-interference); T4's contentful form (obligation-carrying
+constructor, discharge redex, multiset accounting); substitution
+composition; full-\textsf{Deriv} subject reduction; the \S 4.4
+protocol-logic correspondence beyond singleton traces.  Each is
+tracked with its closure path in the repository's machine-validated
+ledger.
 
 \paragraph{What is not in this paper.}  We make no claim to having
 established DLC as a paradigm.  That bar requires (a) full closure of
@@ -47,34 +58,39 @@ methodological contributions on their own.
 in priority order:
 
 \begin{enumerate}
-\item Close T4 non-introduction in full (substitution-subset lemma,
-  step-case analysis).  Autonomously reachable in $\sim$2 weeks.
-\item Close T1 propositional soundness via a Lean \texttt{decideLean}
-  mirroring the Rust implementation.  Autonomously reachable in
-  $\sim$3 weeks.
-\item Close T2 via VCVio.  Autonomously reachable in $\sim$5-8 weeks.
-\item Close T3 atomic-fragment + \texttt{lift} cases as a logical
-  relations skeleton.  Autonomously reachable in $\sim$5 weeks;
-  full T3 needs $\sim$3-5 months including the Lean infrastructure
-  layer.
+\item Implement the verifier and cryptographic layer end-to-end
+  (Ed25519 verification, canonical bytes, COSE envelope, published
+  test vectors) --- pure engineering, and the gating item for any
+  claim about the wire format.
+\item Real two-run T3 with a fundamental lemma
+  (propositional$+$\textsf{says} fragment first), and a non-vacuous
+  T4 (obligation-carrying constructor, discharge redex, multiset
+  accounting).
+\item T1 for linear contexts, with the complexity-bound target either
+  proven or permanently retired.
+\item The attacker-based T2: Aeneas-extracted checker equivalence,
+  Comparse-style wire injectivity, then the symbolic-adversary
+  statement, then the EUF-CMA reduction (EasyCrypt or VCVio) ---
+  the last two with collaborators.
 \end{enumerate}
 
 In the longer term, collaborator engagement: Pfenning/Garg on T1/T3
 proof technique, Cremers on Tamarin/ProVerif review, Blanchet on the
-VCVio EUF-CMA reduction's tightness, Myers on IFC and obligation
+EUF-CMA reduction's tightness, Myers on IFC and obligation
 algebra.  An IETF SECDISPATCH presentation of the wire-format draft
 is the natural standards-track entry point.
 
 \paragraph{The diagonal as the contribution.}  We close by stating
-the contribution claim in its strongest form: DLC is the first
-delegation calculus in which the same chain-splicing-defeating rule
-appears across (a) a Lean-mechanized type system, (b) a Tamarin
-symbolic model, (c) a ProVerif independent symbolic model, (d) an
-EasyCrypt computational skeleton, (e) a Rust runtime with content-
-addressed wire format.  Each layer is independently verifiable; their
-agreement is the artifact's load-bearing methodological claim.  Whether
-DLC ultimately earns the name of a paradigm depends on closures and
-adoption that lie beyond this paper's horizon.  What this paper
-contributes is the diagonal itself, with enough mechanical evidence
-along each axis to make the unification credibly defensible under
-external review.
+the contribution claim at its honest strength: DLC is, to our
+knowledge, the first delegation calculus in which the same
+chain-splicing-defeating rule appears across (a) a Lean-mechanized
+type system, (b) a Tamarin symbolic model, (c) a ProVerif independent
+symbolic model, (d) an EasyCrypt computational skeleton (shape only;
+no proof content yet), (e) a Rust wire format with content-addressed
+encoding.  The layers agree today by construction and convention;
+making their agreement a machine-checked theorem is precisely the
+open program laid out above.  Whether DLC ultimately earns the name
+of a paradigm depends on closures and adoption beyond this paper's
+horizon.  What this paper contributes is the diagonal itself, with
+the mechanical evidence per axis stated at exactly the strength the
+artifact's machine-validated ledger will defend.

@@ -1,16 +1,30 @@
 /-
 T4 — Obligation soundness across reduction.
 
-For any reduction `M ▷ M'`, the set of pending obligations in `M'` is exactly
-the set in `M` minus those discharged by the reduction step, plus those
-introduced by it.
+## Status: the proven theorem is currently VACUOUS (2026-07 audit).
 
-The proof structure (M1.Q3.d): induction over the reduction relation, using
-subject reduction (M1.Q2.c) and the substitution lemma (M1.Q2.a). Lands at
-M1.Q3.d.
+`t4_no_new_obligation` below is a genuine ~180-line case analysis over
+`step`'s redexes — but it quantifies over members of a list that is
+provably ALWAYS EMPTY: no `Term` constructor carries an `Obligation`,
+so `pendingObligations M = []` for every `M`. That fact is proven
+explicitly as `pendingObligations_eq_nil` below; the ledger gates T4's
+status on a non-vacuity witness (a term with a non-empty obligation
+list) that today CANNOT exist.
 
-This file states T4 as `T4_ObligationSoundnessStatement : Prop`. Proof
-closure flips the `def` to a `theorem` with body.
+Making T4 contentful is Phase-2 scope and requires extending the
+calculus first:
+1. an obligation-carrying term constructor (the `box-I` payload —
+   today `Deriv.boxI` reuses `Term.app`, so obligations never inhabit
+   syntax);
+2. a discharge redex in `Reduce.lean`;
+3. then the real T4: multiset accounting
+   `obligations(M') = obligations(M) − discharged + introduced`,
+   for which the non-introduction direction proven here becomes one
+   inequality.
+
+The case-analysis machinery below (substAt subset lemma, per-redex
+membership arithmetic) is retained because the real proof will reuse
+it verbatim once `pendingObligations` has non-trivial base cases.
 -/
 
 import DLC.Reduce
@@ -335,7 +349,10 @@ arithmetic for the three rearrangement redexes (delegate, fst/snd,
 sfExtract). The remaining 14 outer constructors contradict the
 `step M = some M'` hypothesis. -/
 
-/-- T4 — Reduction never introduces a new obligation. -/
+/-- T4 — Reduction never introduces a new obligation. CAVEAT: vacuous
+until the calculus has an obligation-carrying constructor — both sides
+of the implication range over `pendingObligations _ = []` (see
+`pendingObligations_eq_nil` and the module docstring). -/
 theorem t4_no_new_obligation
     (M M' : Term) (h : step M = some M') :
     ∀ (o : Obligation),
@@ -510,10 +527,49 @@ theorem t4_no_new_obligation
     | _ => simp [step] at h
 
 /-- T4 — Obligation soundness statement (non-introduction direction).
-Kept as `abbrev` aliasing the proved theorem's statement. -/
+Kept as `abbrev` aliasing the proved theorem's statement. VACUOUS
+today — see the module docstring and `pendingObligations_eq_nil`. -/
 abbrev T4_ObligationSoundnessStatement : Prop :=
   ∀ (M M' : Term), step M = some M' →
     ∀ (o : Obligation),
       o ∈ pendingObligations M' → o ∈ pendingObligations M
+
+/-! ## The vacuity, machine-checked.
+
+This is the audit finding made explicit: `pendingObligations` is the
+constant empty-list function, so every statement quantifying over its
+members holds trivially. When Phase 2 adds an obligation-carrying
+constructor, this lemma MUST break — its deletion is the signal that
+T4 has acquired content, and the ledger's T4 witness (a term with
+non-empty obligations) becomes satisfiable. -/
+
+/-- No term has pending obligations: the syntax has no
+obligation-carrying constructor. Proof: 22-case structural induction,
+every case reducing to `[]` or an append of empty lists. -/
+theorem pendingObligations_eq_nil (M : Term) :
+    pendingObligations M = [] := by
+  induction M with
+  | var _ => rfl
+  | lam _ body ih => simpa [pendingObligations] using ih
+  | app f x ihF ihX => simp [pendingObligations, ihF, ihX]
+  | sign _ m _ ih => simpa [pendingObligations] using ih
+  | verify _ m _ ih => simpa [pendingObligations] using ih
+  | delegate m n ihM ihN => simp [pendingObligations, ihM, ihN]
+  | attenuate m _ ih => simpa [pendingObligations] using ih
+  | discharge m _ ih _ => simpa [pendingObligations] using ih
+  | liftLabel _ m ih => simpa [pendingObligations] using ih
+  | declassify _ m π ihM ihπ => simp [pendingObligations, ihM, ihπ]
+  | now _ => rfl
+  | withinIntro _ m ih => simpa [pendingObligations] using ih
+  | pair a b ihA ihB => simp [pendingObligations, ihA, ihB]
+  | fst a ih => simpa [pendingObligations] using ih
+  | snd a ih => simpa [pendingObligations] using ih
+  | inl _ a ih => simpa [pendingObligations] using ih
+  | inr _ a ih => simpa [pendingObligations] using ih
+  | case s l r ihS ihL ihR => simp [pendingObligations, ihS, ihL, ihR]
+  | tensorIntro a b ihA ihB => simp [pendingObligations, ihA, ihB]
+  | letTensor s b ihS ihB => simp [pendingObligations, ihS, ihB]
+  | letSays _ s b ihS ihB => simp [pendingObligations, ihS, ihB]
+  | sfExtract m ih => simpa [pendingObligations] using ih
 
 end DLC

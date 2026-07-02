@@ -25,9 +25,11 @@ Appel \& Felten~\cite{appel1999pcfs} introduce the
 accompanied by a logical proof of its authorization.  PCFS, Bauer's
 PCA-on-the-web work, and Garg's proof-carrying file system extend
 this.  All use higher-order logic that is not decidable.  DLC's
-contribution is occupying the decidability sweet-spot: the modal
-fragment we use admits a structural checker (T1) at $O(|M| \cdot \log |\Gamma|)$,
-making browser-side verification practical.
+contribution is occupying the decidability sweet-spot: the
+propositional fragment admits a mechanized structural checker (T1),
+and the design targets an $O(|M| \cdot \log |\Gamma|)$ bound for the
+full calculus --- a target that is stated, not proven, at this
+revision (Section~\ref{sec:metatheory}).
 
 \subsection{Authenticated delegation for AI agents}
 
@@ -57,8 +59,8 @@ natural lift of macaroon caveats to a typed setting.
 \subsection{OAuth and the RFC 8693 lineage}
 
 RFC 8693 (Token Exchange)~\cite{rfc8693} introduces the nested
-\texttt{act} claim for delegation chains.  The March 2026 IETF OAuth
-mailing-list thread on chain splicing~\cite{ietf2026splicing}
+\texttt{act} claim for delegation chains.  The February--March 2026 IETF
+OAuth mailing-list thread on chain splicing~\cite{ietf2026splicing}
 documented the cross-validation gap: an STS validating
 \texttt{subject\_token} and \texttt{actor\_token} independently can
 issue tokens asserting chains that never occurred.

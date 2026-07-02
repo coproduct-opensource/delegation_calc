@@ -8,10 +8,12 @@
 [![OSSF Scorecard](https://api.scorecard.dev/projects/github.com/coproduct-opensource/delegation_calc/badge)](https://scorecard.dev/viewer/?uri=github.com/coproduct-opensource/delegation_calc)
 
 
-A decidable modal-linear-temporal authorization logic in which proof terms are
+A modal-linear-temporal authorization logic designed so that proof terms are
 **simultaneously** logical proofs, cryptographic witnesses, IFC labels, and
-obligation ledgers. The artifact unifies three lineages that have so far been
-attacked separately:
+obligation ledgers. (Design intent, partially realized: decidability is proven
+for the propositional fragment; the cryptographic and obligation layers are
+stubs/stated today — see the status table below.) The artifact unifies three
+lineages that have so far been attacked separately:
 
 1. **Authorization logics** (Garg-Pfenning, BL, ICL, DKAL) — the `says` modality,
    speaks-for, and constructive proof terms.
@@ -20,9 +22,14 @@ attacked separately:
 3. **Authenticated delegation for AI agents** (South et al. 2025; HDP; AIP;
    IETF on-behalf-of) — multi-hop agent chains, splice-resistance.
 
-DLC's contribution is the **correspondence theorem** (T2): the calculus and the
-cryptographic protocol agree exactly. Logical validity is verifiable validity is
-checkable validity.
+DLC's target contribution is the **correspondence theorem** (T2): the calculus
+and the cryptographic protocol agree exactly — logical validity is verifiable
+validity is checkable validity. **Status honesty:** what is proven today is an
+axiom-free symbolic characterization at the calculus level (crypto typing ⇔
+logical typing ∧ signature validity); the attacker-based statement about the
+executable verifier and real wire bytes is open. See the theorem table below
+and `lean/theorem-status.json` — CI rejects any doc in this repo that claims
+more than that file records.
 
 ## Why categorical — the protobuf thesis
 
@@ -42,15 +49,16 @@ theory as the **protobuf for agent-to-agent knowledge** — and `delegation_calc
 is that wire format for **authority** (the `says` modality + checkable proof
 terms). Worst case the bet is wrong and we merely hold more structure than anyone
 else; best case it is an isomorphism of mathematical reality as foundational as
-the Peano axioms. Full argument:
-[`coproduct-doctrine/CATEGORICAL-FOUNDATIONS.md`](../coproduct-doctrine/CATEGORICAL-FOUNDATIONS.md).
+the Peano axioms. Full argument: `coproduct-doctrine/CATEGORICAL-FOUNDATIONS.md`
+(internal sibling repo; not public).
 
 ## Status
 
-Week-1 skeleton. Phase-1 closure (`v1.0.0-phase1`) is the first artifact gate.
-See `spec/IDENTIFIERS.md` for the locked identifiers and the plan at
-`../../.claude/plans/let-s-web-search-and-sequential-forest.md` for the full
-roadmap.
+Early-stage. 2026-07: Phase 0 (truth reconciliation) landed — theorem
+statuses are machine-validated (`lean/theorem-status.json`), overclaims
+fail CI, and the corrections are recorded in `RELEASES.md`. Phase 1
+(working end-to-end verifier) is next. See `spec/IDENTIFIERS.md` for the
+locked identifiers.
 
 ## Layout
 
@@ -75,15 +83,21 @@ scripts/             ledger.sh, check-drift.sh, aeneas-translate.sh
 
 ## The four theorems
 
-| | Theorem                              | File                                  |
-|-|--------------------------------------|---------------------------------------|
-|T1| Decidability — `O(|M|·log|Γ|)`       | `lean/DLC/Decidability.lean`          |
-|T2| Cryptographic correspondence         | `lean/DLC/Correspondence.lean`        |
-|T3| Non-interference under delegation    | `lean/DLC/NonInterference.lean`       |
-|T4| Obligation soundness                 | `lean/DLC/ObligationSoundness.lean`   |
+Statuses are the machine-validated ones from `lean/theorem-status.json`
+(2026-07 truth-reconciliation audit; see `RELEASES.md` for the corrections):
+
+| | Theorem | Status | File |
+|-|---------|--------|------|
+|T1| Decidability | **proven_fragment** — propositional fragment (additive contexts, no linear splitting); the `O(\|M\|·log\|Γ\|)` bound is a target, unproven | `lean/DLC/Decidability.lean` |
+|T2| Cryptographic correspondence | **stated** — axiom-free symbolic characterization proven; attacker-based form open (the former EUF-CMA axiom was inconsistent — refutation machine-checked in `Witness/AxiomAudit.lean`) | `lean/DLC/Correspondence.lean` |
+|T3| Non-interference under delegation | **stated** — current lemmas are one-run reflexivity, not NI | `lean/DLC/NonInterference.lean` |
+|T4| Obligation soundness | **stated** — non-introduction direction proven but vacuous (`pendingObligations ≡ []`) | `lean/DLC/ObligationSoundness.lean` |
 
 `make ledger` runs every check in `scripts/ledger.sh` and prints the current
-proof status. Reproducible under `nix run .#ledger`.
+proof status. Reproducible under `nix run .#ledger`. The ledger VALIDATES
+statuses (proven claims require sorry-free files plus non-vacuity witnesses in
+`lean/DLC/Witness/`), and `scripts/check-claims.sh` fails CI if any public
+document claims more.
 
 ## Relation to nucleus
 

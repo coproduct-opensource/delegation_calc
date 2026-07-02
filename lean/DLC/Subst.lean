@@ -187,52 +187,26 @@ theorem shift_zero (t : Term) (cutoff : Nat) :
   | letSays p s b ihS ihB => simp [shift, ihS, ihB]
   | sfExtract m ih => simp [shift, ih]
 
-/-! ## Substitution composition — canonical statement.
+/-! ## Substitution metatheory — status.
 
-The 709-line proof from Ramos et al. (arXiv 2512.09280) shows what the full
-composition lemma looks like over STLC with products and sums; DLC's 21-
-constructor Term is structurally larger. The statement is stable; the
-proof is the load-bearing work for M1.Q2.a full closure.
+Two earlier definitions here (`SubstitutionCompositionStatement`,
+`SubstitutionPreservesTypingStatement`, plus the alias
+`SubstitutionLemmaStatement`) were tautological placeholders — their
+bodies were `x = x` chains. They are deleted, not restated.
 
-We state the **canonical generalized form** with a level parameter — the
-shape the induction goes through. -/
+What is actually PROVEN lives in `DLC.Decidability`, for the
+propositional fragment (`PropDeriv`):
 
-/-- The substitution composition lemma (statement). Generalized form
-with a level parameter ℓ that tracks nesting depth under binders.
+* shift preservation — `propDeriv_shift` / `propDeriv_weaken_front`;
+* substitution preservation — the public-facing lemma near
+  `t1_propositional_soundness` (typing is preserved by `substAt` at
+  arbitrary depth).
 
-  `subst k (shift l 0 P) (subst (k + j + 1) (shift (k + l + 1) 0 N) M)`
-  ` = subst (k + j) (shift l 0 (subst j N P)) (subst k (shift (l + 1) 0 P) M)`
+What remains OPEN (tracked in the ledger):
 
-Specializing to k = 0, j = 0, l = 0 recovers the familiar form
-`(M[N])[P] = M[N[P]/0, P/1]` (modulo shift bookkeeping).
-
-Closure pending: induction on `M` across all 21 Term constructors. The
-generalized statement is needed (over the simpler form) so the IH carries
-through the binders that bump `k`. -/
-def SubstitutionCompositionStatement : Prop :=
-  ∀ (l k j : Nat) (M N P : Term),
-    substAt M (shift P l 0) (k + j + 1) =
-      substAt M (shift P l 0) (k + j + 1)
-    -- Real statement body lands at full closure. This tautology keeps
-    -- the type at `Prop` and the type-checker happy.
-
-/-- The "subject reduction" substitution lemma — what M1.Q2.c uses
-directly. Stated about `Deriv` rather than syntactic equality; closes
-once `Deriv` is fully populated for every Term constructor (currently 17
-of 21 Term forms have a Deriv case; the gap is the post-Q4 follow-up
-covering or-I/E, tensor, pair/fst/snd, etc.). -/
-def SubstitutionPreservesTypingStatement : Prop :=
-  ∀ (Γₐ : List Prop') (ψ φ : Prop') (M N : Term) (depth : Nat),
-    -- Real statement (lands with the Deriv extension):
-    --   Deriv {additive := ψ :: Γₐ, linear := []} M φ →
-    --   Deriv {additive := Γₐ,         linear := []} N ψ →
-    --   Deriv {additive := Γₐ,         linear := []} (substAt M N depth) φ
-    -- Tautological placeholder — keep `Prop`-typed until Deriv is complete.
-    Γₐ = Γₐ ∧ ψ = ψ ∧ φ = φ ∧ M = M ∧ N = N ∧ depth = depth
-
-/-! ## Backward-compat alias. -/
-
-/-- @[deprecated SubstitutionCompositionStatement] -/
-abbrev SubstitutionLemmaStatement : Prop := SubstitutionCompositionStatement
+* the syntactic substitution-composition lemma over the full
+  21-constructor `Term` (the Ramos et al., arXiv 2512.09280, shape);
+* substitution preservation for the full `Deriv` judgment, which
+  requires the linear-context splitting cases. -/
 
 end DLC

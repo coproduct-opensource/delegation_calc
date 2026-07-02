@@ -23,6 +23,14 @@ use crate::syntax::Term;
 
 /// One deterministic step of reduction, or `None` for values, frozen
 /// forms, and terms stuck on a frozen scrutinee.
+///
+/// The congruence arms spell out `match step(x) { Some(..) => .., None
+/// => None }` instead of `Option::map` DELIBERATELY: closures are the
+/// weak spot of the Charon/Aeneas pipeline this crate must stay
+/// translatable under (the committed `lean/DLC/Aeneas/DlcCore` tree is
+/// generated from exactly this shape), so the clippy lint is
+/// suppressed rather than obeyed.
+#[allow(clippy::manual_map)]
 pub fn step(term: &Term) -> Option<Term> {
     match term {
         // β: (λx:φ.M) N ▷ M[N/x]; ξ-app in the function position.

@@ -9,9 +9,10 @@
 
 pub mod export_proverif;
 pub mod export_tamarin;
-// Depends on the PRIVATE `coproduct-algebra`; gated off the default (public) build.
-#[cfg(feature = "grade-quantale")]
-pub mod grade_quantale;
+// `grade_quantale` (the DP-budget Quantale) depends on the PRIVATE `coproduct-algebra`
+// and lives in the workspace-excluded `dlc-grade-quantale` crate so the public build
+// never resolves that path (a feature-gate is insufficient — cargo still loads an
+// optional path dep's manifest).
 pub mod wire;
 
 /// Errors during wire encoding / decoding.

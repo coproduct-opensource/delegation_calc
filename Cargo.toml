@@ -9,6 +9,10 @@ members = [
     "crates/dlc-bench",
     "crates/dlc-fuzz",
 ]
+# Depends on the PRIVATE `coproduct-algebra` — kept OUT of the public workspace so
+# `cargo --workspace` (and public CI) never resolves that path. Build it standalone
+# with a sibling coproduct-algebra checkout.
+exclude = ["crates/dlc-grade-quantale"]
 resolver = "2"
 
 [workspace.package]

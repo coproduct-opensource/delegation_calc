@@ -21,7 +21,7 @@ namespace DLC
 
 /-- A DLC IFC label. Aliased to nucleus's `CapabilityLattice` (13-dim).
 M1.Q4.a established this binding. -/
-abbrev Label := portcullis_core.CapabilityLattice
+abbrev Label := nucleus_ifc_kernel.CapabilityLattice
 
 /-! ## `DecidableEq` instances for the Aeneas-generated capability types.
 
@@ -33,12 +33,12 @@ here so DLC's `Label` (an `abbrev` of `CapabilityLattice`) carries
 computable equality. This is load-bearing for `Prop'.beq` on the
 `Prop'.at` constructor (T1 propositional completeness) and for
 deciding `Prop'` equality more broadly. -/
-deriving instance DecidableEq for portcullis_core.CapabilityLevel
-deriving instance DecidableEq for portcullis_core.CapabilityLattice
+deriving instance DecidableEq for nucleus_ifc_kernel.CapabilityLevel
+deriving instance DecidableEq for nucleus_ifc_kernel.CapabilityLattice
 
 namespace Label
 
-open portcullis_core (CapabilityLevel)
+open nucleus_ifc_kernel (CapabilityLevel)
 
 /-- The 3-element linear order on `CapabilityLevel`:
   `.Never < .LowRisk < .Always`.

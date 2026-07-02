@@ -64,12 +64,12 @@ componentwise `levelMax`, and `levelMax` has `.Never` as identity and
 is associative. -/
 
 /-- Componentwise: `levelMax .Never x = x`. -/
-theorem levelMax_bottom_left (x : portcullis_core.CapabilityLevel) :
+theorem levelMax_bottom_left (x : nucleus_ifc_kernel.CapabilityLevel) :
     Label.levelMax .Never x = x := by
   cases x <;> rfl
 
 /-- Componentwise: `levelMax x .Never = x`. -/
-theorem levelMax_bottom_right (x : portcullis_core.CapabilityLevel) :
+theorem levelMax_bottom_right (x : nucleus_ifc_kernel.CapabilityLevel) :
     Label.levelMax x .Never = x := by
   cases x <;> rfl
 
@@ -84,7 +84,7 @@ theorem Label.join_bottom_right (ℓ : Label) : Label.join ℓ Label.bottom = �
   simp [Label.join, Label.bottom, levelMax_bottom_right]
 
 /-- Componentwise: `levelMax` is associative. -/
-theorem levelMax_assoc (a b c : portcullis_core.CapabilityLevel) :
+theorem levelMax_assoc (a b c : nucleus_ifc_kernel.CapabilityLevel) :
     Label.levelMax (Label.levelMax a b) c =
       Label.levelMax a (Label.levelMax b c) := by
   cases a <;> cases b <;> cases c <;> rfl

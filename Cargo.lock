@@ -283,6 +283,8 @@ version = "1.5.0"
 dependencies = [
  "criterion",
  "dlc-core",
+ "dlc-crypto",
+ "dlc-protocol",
  "dlc-verifier",
 ]
 

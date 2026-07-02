@@ -53,15 +53,19 @@
         information-flow-control (IFC) label algebra of every claim. A
         DLC token is a content-addressed Merkle DAG whose nodes carry
         proof-term structure, COSE_Sign1 signatures, and IFC labels;
-        verification is O(|M| log |Keyring|) in proof and keyring size
-        and requires no network access. This specification defines the
-        CBOR wire format, the verification algorithm, and the
-        interoperability requirements with W3C Verifiable Credentials
-        (via the JSON-LD context at dlc.coproduct.dev/contexts/dlc-v1)
-        and OAuth 2.0 token exchange (RFC 8693). Four mechanized Lean 4
-        theorems (T1 decidability, T2 cryptographic correspondence, T3
-        non-interference, T4 obligation soundness) accompany this
-        specification at the cited reference implementation.
+        verification is designed to run in time linear in proof size
+        (with logarithmic keyring lookups) and to require no network
+        access. This specification defines the CBOR wire format, the
+        verification algorithm, and the interoperability requirements
+        with W3C Verifiable Credentials (via the JSON-LD context at
+        dlc.coproduct.dev/contexts/dlc-v1) and OAuth 2.0 token exchange
+        (RFC 8693). The companion Lean 4 mechanization proves
+        decidability of proof-checking for the propositional fragment
+        (T1) and a symbolic characterization of the cryptographic
+        typing judgment (T2); non-interference (T3) and obligation
+        soundness (T4) are stated, with per-theorem status tracked in
+        the reference implementation's machine-validated verification
+        ledger.
       </t>
     </abstract>
   </front>
@@ -194,8 +198,11 @@
         </li>
       </ol>
       <t>
-        Total time complexity is O(|M| log |Keyring|), with the log
-        factor from hash-indexed keyring lookup.
+        The algorithm is designed for total time O(|M| log |Keyring|),
+        with the log factor from hash-indexed keyring lookup. This
+        bound is a design target: it has not been formally proven for
+        either the algorithm as specified or the reference
+        implementation.
       </t>
     </section>
 
@@ -216,14 +223,20 @@
       <name>Security Considerations</name>
       <t>
         The cryptographic correspondence theorem (T2 in the companion
-        Lean development) states that the wire-format verification
-        algorithm succeeds if and only if the underlying proof term is
-        well-typed in the DLC calculus. This rules out confused-deputy
-        attacks <xref target="HARDY1988"/>, RFC 8693 chain splicing,
-        and JWT confusion attacks (in which a verifier accepts an HS256
-        token under an RS256 expectation by treating the public key as
-        the HMAC secret), because any such attack would be a proof
-        distinguishing the logical and cryptographic typing judgments.
+        Lean development) is INTENDED to state that the wire-format
+        verification algorithm succeeds if and only if the underlying
+        proof term is well-typed in the DLC calculus, which would rule
+        out confused-deputy attacks <xref target="HARDY1988"/>,
+        RFC 8693 chain splicing, and JWT confusion attacks by making
+        any such attack a proof distinguishing the logical and
+        cryptographic typing judgments. What is currently proven is a
+        symbolic characterization at the calculus level (cryptographic
+        typing coincides with logical typing plus verification of every
+        embedded signature); the statement about the executable
+        wire-format verifier, against an active attacker with key
+        compromise, is an open obligation tracked in the reference
+        implementation's verification ledger. Readers MUST NOT rely on
+        T2 for the wire format until that obligation closes.
       </t>
       <t>
         Long-term-key compromise is modeled as an explicit LtkReveal

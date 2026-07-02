@@ -113,20 +113,26 @@ layer where \texttt{Discharged} evidence is concrete.
 \toprule
 Theorem & Status & File \\
 \midrule
-T1 (propositional, soundness) & \texttt{stated} (Rust impl. runs) & \texttt{Decidability.lean} \\
-T2 (full) & \texttt{stub} & \texttt{Correspondence.lean} \\
-T2 (symbolic half) & implicit in \texttt{Tamarin+ProVerif} & \\
-T3 (full) & \texttt{stated} & \texttt{NonInterference.lean} \\
-T4 (non-introduction) & \texttt{proven\_partial} & \texttt{ObligationSoundness.lean} \\
-Substitution composition & \texttt{stated}; 4 structural lemmas proven & \texttt{Subst.lean} \\
-Subject reduction & \texttt{stated} & \texttt{Reduce.lean} \\
+T1 (propositional fragment) & \texttt{proven\_fragment}: soundness, completeness, \texttt{Decidable} & \texttt{Decidability.lean} \\
+T1 (full calculus; complexity bound) & \texttt{open} & --- \\
+T2 (symbolic characterization) & \texttt{proven}, axiom-free & \texttt{Correspondence.lean} \\
+T2 (attacker-based; computational) & \texttt{open} & --- \\
+T3 (any form) & \texttt{stated}; current lemmas are one-run reflexivity & \texttt{NonInterference.lean} \\
+T4 (non-introduction) & proven but \emph{vacuous} (\texttt{pendingObligations} $\equiv$ \texttt{[]}) & \texttt{ObligationSoundness.lean} \\
+Substitution composition & \texttt{open}; structural shift/subst lemmas proven & \texttt{Subst.lean} \\
+Subject reduction & \texttt{proven\_fragment} (propositional) & \texttt{Decidability.lean} \\
 Graded comonad laws & \texttt{proven} (3 laws) & \texttt{Graded.lean} \\
 Indexed monad laws & \texttt{proven} (4 laws incl.\ strength) & \texttt{IndexedMonad.lean} \\
 \bottomrule
 \end{tabular}
-\caption{Mechanization status as of May 2026.  Twelve theorems are
-fully proven with no \texttt{sorry} and no new axioms.  Four headline
-theorems are stated with proof closures detailed in
-Section~\ref{sec:conclusion}.}
+\caption{Mechanization status as of July 2026, after the Phase-0
+truth-reconciliation audit.  Statuses mirror
+\texttt{lean/theorem-status.json}, which CI validates against the
+sources; ``vacuous'' and ``open'' entries are stated in-file as
+explicit open problems rather than placeholder \texttt{Prop}s.  An
+earlier revision of this table overstated T2--T4; see the repository's
+\texttt{RELEASES.md} for the corrections, including the machine-checked
+refutation of the former T2 axiom
+(\texttt{Witness/AxiomAudit.lean}).}
 \label{tab:status}
 \end{table}

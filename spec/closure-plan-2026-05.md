@@ -1,5 +1,16 @@
 # Closure Plan — T1, T2, T3, T4 Realistically Considered
 
+> **SUPERSEDED (2026-07).** The sequence below was executed in a way
+> that produced degenerate closures (a refutable T2 axiom, a vacuous
+> T4, a reflexivity-only T3, tautological T1 full-calculus statements)
+> — its completion criteria were grep-shaped, not content-shaped. The
+> 2026-07 truth-reconciliation pass (see `RELEASES.md` and
+> `lean/theorem-status.json`) reset statuses honestly and added
+> machine-enforced gates (`scripts/check-tautologies.sh`,
+> `scripts/check-claims.sh`, witness-gated statuses in
+> `scripts/ledger.sh`). Kept for the per-theorem precedent research,
+> which remains useful.
+
 **Premise:** The honest assessment in `spec/honest-assessment-2026-05.md`
 identified T1-T4 closure as the gap between "infrastructure" and "named
 artifact." This document plans **what's autonomously achievable** vs.

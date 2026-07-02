@@ -49,3 +49,6 @@ crates/dlc-fuzz/fuzz/target/
 crates/dlc-fuzz/fuzz/artifacts/
 crates/dlc-fuzz/fuzz/corpus/
 crates/dlc-fuzz/fuzz/Cargo.lock
+
+# check-axioms.sh scratch (auto-generated, never commit)
+lean/.print-axioms/

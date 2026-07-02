@@ -61,9 +61,8 @@
   "substitution_lemma": {
     "status": "open",
     "file": "DLC/Subst.lean",
-    "proven_content": "syntactic shift/subst helper lemmas; typed substitution preservation for PropDeriv lives in DLC/Decidability.lean",
+    "proven_content": "substAt_substAt — THE composition law substAt (substAt M N j) P k = substAt (substAt M P (k+1)) (substAt N P (k-j)) j for j ≤ k, over the full 22-constructor Term, with supporting shift_shift_merge / shift_substAt_commute / substAt_shift_cancel (T3 rung 3a; unblocks the fundamental lemma's imp-I case). Typed substitution preservation for PropDeriv lives in DLC/Decidability.lean.",
     "open": [
-      "substitution composition over the full 21-constructor Term",
       "substitution preservation for the full Deriv judgment (linear cases)"
     ]
   },

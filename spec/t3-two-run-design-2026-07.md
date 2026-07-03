@@ -84,13 +84,32 @@ reflexivity lemmas stay labeled as infrastructure.
    `Joinable` transitive).
 2. ~~Substitution composition~~ DONE (rung 3a, `substAt_substAt` +
    shift-lemma stack in `DLC/Subst.lean`).
-3. Redefine LR (value-style at positive types, binary arrows,
-   Joinable atoms); re-prove refl/symm/trans; anti-reduction closure.
-4. Fundamental lemma: binder-free fragment first (no impI/impE), then
-   arrows via reduction closure.
-5. Declassify: excluded throughout (NI modulo declassification is the
+3. ~~Congruence rules in `step`~~ DONE (rung 3b-0,
+   `DLC/Reduce.lean` + `DLC/Progress.lean`: nested eliminations
+   evaluate; progress proven).
+4. ~~Redefine LR (value-style positives, binary arrows over CLOSED
+   args, Joinable atoms); PER (symm/trans); anti-reduction~~ DONE
+   (rung 3b, `DLC/NonInterferenceLR.lean`).
+5. ~~Fundamental lemma~~ DONE (rung 3c,
+   `DLC/NonInterferenceFundamental.lean`: `fundamental` over all 22
+   `PropDeriv` cases with the closedness/msubst infrastructure in
+   `DLC/NonInterferenceEnv.lean`; corollary `t3_two_run_general`;
+   witness in `DLC/Witness/T3.lean`). The proof is over the
+   *computational core* — the four frozen eliminations
+   (verify/attenuate/declassify/discharge) are excluded because they
+   produce stuck non-values no reduction-based relation can connect;
+   that exclusion is `progress`'s `CoreTerm` gate, not an omission.
+6. Declassify: excluded throughout (NI modulo declassification is the
    correct statement; unrestricted declassify falsifies the lemma, as
    it must).
+
+## LADDER COMPLETE (2026-07-03)
+
+T3 is proven for the propositional computational core: the first
+mechanized non-interference theorem for a says-logic in Lean, on
+`[propext, Quot.sound]`. What remains open is the extension from the
+propositional fragment (`PropDeriv`) to the full `Deriv` with linear
+context splitting — a strictly larger calculus, tracked in the ledger.
 
 ## FINDING (2026-07-02, blocks rung 3b): `step` is head-redex-only —
 ## progress FAILS; congruence rules are prerequisite

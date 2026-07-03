@@ -76,6 +76,13 @@ def usesVar : Term → Nat → Bool
   | .letSays _ s b, i => usesVar s i || usesVar b (i + 1)
   | .sfExtract m, i => usesVar m i
 
+/-- No free variable at or above `k` (indices below `k` may occur). -/
+def ClosedAbove (t : Term) (k : Nat) : Prop :=
+  ∀ i, k ≤ i → usesVar t i = false
+
+/-- No free variables at all. -/
+def Closed (t : Term) : Prop := ClosedAbove t 0
+
 /-- Substitution at an unused index does not depend on the value: both
 runs produce the same term. This is the syntactic heart of the two-run
 corollary. -/

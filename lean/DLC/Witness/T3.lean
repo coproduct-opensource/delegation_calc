@@ -15,6 +15,7 @@ future T3 claim:
 -/
 
 import DLC.NonInterferenceTwoRun
+import DLC.NonInterferenceFundamental
 
 namespace DLC.Witness
 
@@ -77,5 +78,45 @@ example :
   injection h with h1
   injection h1 with h2
   exact absurd h2 (by decide)
+
+/-! ## Rung 3c — the fundamental lemma, witnessed.
+
+The rung-1 witness above only exercised the intro fragment. Rung 3c's
+`t3_two_run_general` handles ELIMINATIONS: the witness term below
+projects the low hypothesis back out of a pair that also packages the
+high one — an `andEL ∘ andI` derivation, i.e. genuine computation that
+the intro-only rung-1 theorem cannot type. The conclusion is `LRel` at
+`atom 0`, which unfolds to `Joinable`: the two runs are equal up to
+reduction (both compute to the low input), not syntactically. -/
+
+/-- Rung 3c witness term: `fst ⟨x₁, x₀⟩` — slot 1 is the LOW atom, slot
+0 the HIGH hypothesis. Note the high variable OCCURS in the term; only
+typing + the label gate make the two runs indistinguishable. -/
+abbrev M3c : Term := Term.fst (Term.pair (Term.var 1) (Term.var 0))
+
+/-- Its derivation at the low atom, by hand: project the left component
+of the pair typed by `andI`. -/
+def d3c : PropDeriv Γw M3c (Prop'.atom 0) :=
+  .andEL Γw (Prop'.atom 0) ψHigh (Term.pair (Term.var 1) (Term.var 0))
+    (.andI Γw (Prop'.atom 0) ψHigh (Term.var 1) (Term.var 0)
+      (.varA Γw 1 (Prop'.atom 0) rfl)
+      (.varA Γw 0 ψHigh rfl))
+
+/-- The low environment: one self-related closed term for the `atom 0`
+slot (`LRel` at an atom is `Joinable`, so `Joinable.refl`). -/
+def env3c : EnvRel ℓLow [Prop'.atom 0]
+    [Term.now { epochMs := 0 }] [Term.now { epochMs := 0 }] :=
+  .cons (Joinable.refl _) closedAbove_now closedAbove_now .nil
+
+/-- Rung 3c POSITIVE: the two instantiations of the HIGH slot by two
+visibly different closed terms yield `Joinable` runs — both reduce to
+`now 0`, the low input. Direct application of `t3_two_run_general` at
+the concrete derivation `d3c`. -/
+example :
+    Joinable
+      (msubst M3c [Term.now { epochMs := 1 }, Term.now { epochMs := 0 }])
+      (msubst M3c [Term.now { epochMs := 2 }, Term.now { epochMs := 0 }]) :=
+  t3_two_run_general ℓLow d3c rfl high_not_le
+    closedAbove_now closedAbove_now env3c
 
 end DLC.Witness

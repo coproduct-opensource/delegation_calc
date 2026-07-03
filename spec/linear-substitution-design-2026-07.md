@@ -54,6 +54,14 @@ syntax or wire-format change** — the cheaper of the two paths:
 - **L1 — disambiguation invariant.** `CtxWellFormed Γ`: `Γ.linear` occupies `var`
   indices `≥ Γ.additive.length`. Prove every `Deriv` rule preserves it (the split
   `Γ₁ ++ Γ₂` distributes the linear suffix). *Bounded; this is the next dispatch.*
+  **Two binding constraints (from the D-review of this doc, PR #101):**
+  (i) `varL` as written permits *nonempty* `Γₐ` — `var 0 → linear` even when
+  `additive[0]` exists, which the checker does NOT honor. L1 must therefore
+  actually **restrict** `varL` under the invariant (linear singleton only when it
+  cannot collide with an additive index), not merely add an orthogonal predicate.
+  (ii) `CtxWellFormed`'s additive-first lookup order must be **proven equivalent** to
+  `decide.rs`'s (`additive.get` then linear-on-miss) — machine-checked, not asserted
+  in prose — so "mirrors the shipped checker" is a theorem.
 - **L2 — linear context split algebra.** The `++` bookkeeping every linear
   elimination uses (`impE`, `saysE`, `delegate`, `tensorE`, `boxI`/discharge):
   membership/partition/associativity over `Γ₁ ++ Γ₂`, and the "resources are
@@ -78,5 +86,6 @@ syntax or wire-format change** — the cheaper of the two paths:
 - `declassify` stays excluded (NI modulo declassification, as in T3).
 - Complexity bound (`O(|M|·log|Γ|)`) is a *separate* open item, not on this lever.
 
-**Next tick:** dispatch L1 (`CtxWellFormed` + per-rule preservation) — bounded,
-hand-verifiable, and the gate that makes L4's statement well-posed.
+**Next tick:** dispatch L1 (`CtxWellFormed` + per-rule preservation + the two
+binding constraints above) — bounded, hand-verifiable, and the gate that makes L4's
+statement well-posed.

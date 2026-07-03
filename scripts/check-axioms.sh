@@ -58,6 +58,7 @@ SCRIPT_FILE="$SCRIPT_DIR/PrintAll.lean"
   echo "import DLC.NonInterferenceLR"
   echo "import DLC.NonInterferenceEnv"
   echo "import DLC.NonInterferenceFundamental"
+  echo "import DLC.CtxWellFormed"
   echo ""
   for t in "${THEOREMS[@]}"; do
     echo "#print axioms DLC.$t"

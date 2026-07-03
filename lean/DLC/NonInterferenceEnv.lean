@@ -37,12 +37,9 @@ namespace DLC
 
 /-! ## Closedness -/
 
-/-- No free variable at or above `k` (indices below `k` may occur). -/
-def ClosedAbove (t : Term) (k : Nat) : Prop :=
-  ∀ i, k ≤ i → usesVar t i = false
-
-/-- No free variables at all. -/
-def Closed (t : Term) : Prop := ClosedAbove t 0
+-- `ClosedAbove` / `Closed` live in `DLC.NonInterferenceTwoRun`
+-- (usesVar's home) so `DLC.NonInterferenceLR` can use them without an
+-- import cycle.
 
 theorem closed_closedAbove {t : Term} {k : Nat} (h : Closed t) : ClosedAbove t k :=
   fun i _ => h i (Nat.zero_le i)

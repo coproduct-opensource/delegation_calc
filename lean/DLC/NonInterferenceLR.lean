@@ -17,8 +17,11 @@ Shape, by connective:
   related components;
 * `and φ ψ` — PROJECTIVE: the projections are related. Congruence
   (rung 3b-0) is what makes projections of non-value terms evaluate;
-* `imp` / `lolli` — genuinely BINARY arrows: related arguments map to
-  related applications;
+* `imp` / `lolli` — genuinely BINARY arrows over CLOSED related
+  arguments (the closed-LR formulation: the fundamental lemma's
+  binder cases commute substitutions past the environment via
+  `msubstAt_substAt_comm`, which requires the placed argument
+  closed);
 * `top` — trivial; `bot`, `boxed O φ` — trivially `True`
   (uninhabited-in-fragment types: no observation is possible).
 
@@ -32,6 +35,7 @@ the `Steps`-congruence lifting lemmas the fundamental lemma will use.
 
 import DLC.ReduceMeta
 import DLC.Progress
+import DLC.NonInterferenceTwoRun
 import DLC.IFCLabel
 
 namespace DLC
@@ -70,9 +74,11 @@ def LRel (ℓLow : Label) : Prop' → Term → Term → Prop
         Steps N (Term.tensorIntro a₂ b₂) ∧
         LRel ℓLow φ a₁ a₂ ∧ LRel ℓLow ψ b₁ b₂
   | .imp φ ψ, M, N =>
-      ∀ X Y, LRel ℓLow φ X Y → LRel ℓLow ψ (Term.app M X) (Term.app N Y)
+      ∀ X Y, Closed X → Closed Y → LRel ℓLow φ X Y →
+        LRel ℓLow ψ (Term.app M X) (Term.app N Y)
   | .lolli φ ψ, M, N =>
-      ∀ X Y, LRel ℓLow φ X Y → LRel ℓLow ψ (Term.app M X) (Term.app N Y)
+      ∀ X Y, Closed X → Closed Y → LRel ℓLow φ X Y →
+        LRel ℓLow ψ (Term.app M X) (Term.app N Y)
 
 /-! ## Values are inert -/
 
@@ -202,11 +208,11 @@ theorem lrel_expand_left (ℓLow : Label) :
       obtain ⟨a₁, b₁, a₂, b₂, hM, hN, hp, hq⟩ := hr
       exact ⟨a₁, b₁, a₂, b₂, .head h hM, hN, hp, hq⟩
   | imp φ ψ ihφ ihψ =>
-      intro M M' N h hr X Y hXY
-      exact ihψ (step_app_congr h) (hr X Y hXY)
+      intro M M' N h hr X Y hX hY hXY
+      exact ihψ (step_app_congr h) (hr X Y hX hY hXY)
   | lolli φ ψ ihφ ihψ =>
-      intro M M' N h hr X Y hXY
-      exact ihψ (step_app_congr h) (hr X Y hXY)
+      intro M M' N h hr X Y hX hY hXY
+      exact ihψ (step_app_congr h) (hr X Y hX hY hXY)
 
 /-- Right-side expansion, by the same argument. -/
 theorem lrel_expand_right (ℓLow : Label) :
@@ -254,11 +260,11 @@ theorem lrel_expand_right (ℓLow : Label) :
       obtain ⟨a₁, b₁, a₂, b₂, hM, hN, hp, hq⟩ := hr
       exact ⟨a₁, b₁, a₂, b₂, hM, .head h hN, hp, hq⟩
   | imp φ ψ ihφ ihψ =>
-      intro M N N' h hr X Y hXY
-      exact ihψ (step_app_congr h) (hr X Y hXY)
+      intro M N N' h hr X Y hX hY hXY
+      exact ihψ (step_app_congr h) (hr X Y hX hY hXY)
   | lolli φ ψ ihφ ihψ =>
-      intro M N N' h hr X Y hXY
-      exact ihψ (step_app_congr h) (hr X Y hXY)
+      intro M N N' h hr X Y hX hY hXY
+      exact ihψ (step_app_congr h) (hr X Y hX hY hXY)
 
 /-- Multi-step expansion on the left. -/
 theorem lrel_expand_steps_left (ℓLow : Label) (φ : Prop') {M M' N : Term}
@@ -321,11 +327,11 @@ theorem lrel_symm (ℓLow : Label) :
       obtain ⟨a₁, b₁, a₂, b₂, hM, hN, hp, hq⟩ := hr
       exact ⟨a₂, b₂, a₁, b₁, hN, hM, ihφ hp, ihψ hq⟩
   | imp φ ψ ihφ ihψ =>
-      intro M N hr X Y hXY
-      exact ihψ (hr Y X (ihφ hXY))
+      intro M N hr X Y hX hY hXY
+      exact ihψ (hr Y X hY hX (ihφ hXY))
   | lolli φ ψ ihφ ihψ =>
-      intro M N hr X Y hXY
-      exact ihψ (hr Y X (ihφ hXY))
+      intro M N hr X Y hX hY hXY
+      exact ihψ (hr Y X hY hX (ihφ hXY))
 
 /-- Transitivity. The value-style cases use determinism
 (`steps_to_value_unique`) to identify the two reducts of the middle
@@ -400,13 +406,13 @@ theorem lrel_trans (ℓLow : Label) :
       cases heq
       exact ⟨a₁, b₁, c₂, d₂, hM, hP, ihφ hp₁ hp₂, ihψ hq₁ hq₂⟩
   | imp φ ψ ihφ ihψ =>
-      intro M N P h₁ h₂ X Y hXY
+      intro M N P h₁ h₂ X Y hX hY hXY
       have hYY : LRel ℓLow φ Y Y := ihφ (lrel_symm ℓLow φ hXY) hXY
-      exact ihψ (h₁ X Y hXY) (h₂ Y Y hYY)
+      exact ihψ (h₁ X Y hX hY hXY) (h₂ Y Y hY hY hYY)
   | lolli φ ψ ihφ ihψ =>
-      intro M N P h₁ h₂ X Y hXY
+      intro M N P h₁ h₂ X Y hX hY hXY
       have hYY : LRel ℓLow φ Y Y := ihφ (lrel_symm ℓLow φ hXY) hXY
-      exact ihψ (h₁ X Y hXY) (h₂ Y Y hYY)
+      exact ihψ (h₁ X Y hX hY hXY) (h₂ Y Y hY hY hYY)
 
 
 /-! ## Design witnesses.

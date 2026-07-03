@@ -60,10 +60,14 @@ RULES = [
      lambda: st("T2_correspondence") == "proven",
      HONESTY_COMMON + ["symbolic characterization", "characterization"],
      "T2 is stated; only the symbolic characterization is proven"),
+    # T3 is proven_fragment (propositional core), NOT full-Deriv proven.
+    # ok() stays exact-"proven" (full); a fragment-scoped claim passes
+    # via the qualifiers, an unqualified "T3 proven" still overclaims.
     (r"\bT3\b.*\b(proven|machine.checked)\b",
      lambda: st("T3_noninterference") == "proven",
-     HONESTY_COMMON + ["reflexivity"],
-     "T3 is stated; the current lemma is one-run reflexivity"),
+     HONESTY_COMMON + ["reflexivity", "fragment", "propositional",
+                       "core", "modulo declassification"],
+     "T3 is proven only for the propositional core — name the fragment"),
     (r"\bT4\b.*\b(proven|machine.checked)\b",
      lambda: st("T4_obligation") == "proven",
      HONESTY_COMMON + ["non-introduction"],

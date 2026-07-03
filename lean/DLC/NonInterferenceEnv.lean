@@ -1117,6 +1117,26 @@ theorem msubstAt_substAt_comm {X : Term} (hX : Closed X) (γ : List Term) :
           substAt_substAt X t B d d (Nat.le_refl d),
           Nat.sub_self, substAt_closed hX t 0]
 
+/-- Generalized binder commutation: pulling a closed substitution at any
+index `e ≤ d` under an environment fold at depth `d+1`. (The `e = d`
+case is `msubstAt_substAt_comm`; letTensor's two-binder redex needs
+`(e, d) = (0, 1)`.) -/
+theorem msubstAt_substAt_comm_gen {X : Term} (hX : Closed X) (γ : List Term)
+    {e d : Nat} (hed : e ≤ d) :
+    ∀ (B : Term), substAt (msubstAt B γ (d + 1)) X e
+      = msubstAt (substAt B X e) γ d := by
+  induction γ with
+  | nil => intro B; rfl
+  | cons t γ' ih =>
+      intro B
+      -- Same induction as `msubstAt_substAt_comm`; the per-element law is
+      -- `substAt_substAt` at (j, k) := (e, d), whose placed value
+      -- `substAt X t (d - e)` collapses to `X` by closedness.
+      simp only [msubstAt]
+      rw [ih (substAt B t (d + 1)),
+          substAt_substAt X t B e d hed,
+          substAt_closed hX t (d - e)]
+
 /-! ### Closing an open term with a full environment -/
 
 private theorem msubstAt_closes_gen :

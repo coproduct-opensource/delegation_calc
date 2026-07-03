@@ -28,15 +28,15 @@
     ]
   },
   "T3_noninterference": {
-    "status": "stated",
+    "status": "proven_fragment",
     "file": "DLC/NonInterference.lean",
-    "note": "t3_non_interference is one-run reflexivity with the typing derivation discarded; it carries no information-flow content and holds for ill-typed terms. Not non-interference.",
-    "proven_content": "t3_intro_two_run (DLC/NonInterferenceTwoRun.lean) — first rung: TWO-RUN NI for the introduction fragment at syntactic strength (observable conclusions provably reference no high hypothesis, so both runs are literally equal); typing derivation load-bearing, witnessed in DLC/Witness/T3.lean. Design + rung ladder: spec/t3-two-run-design-2026-07.md. Rung 2 (DLC/ReduceMeta.lean): multi-step reduction Steps, determinism ⇒ semi-confluence, and Joinable as a transitive equivalence — the atom-level relation for the rung-3 LR. Rung 3b (DLC/NonInterferenceLR.lean): the redesigned relation LRel — projective products, binary arrows, value-style positives, Joinable atoms — with PER structure (lrel_symm, lrel_trans via determinism + the PER composition trick), anti-reduction closure (lrel_expand), and the ξ-congruence lifting lemmas. Machine-checked design witness: LRel is NOT reflexive on stuck terms (reflexivity-for-well-typed IS the fundamental lemma).",
+    "proven_content": "FUNDAMENTAL LEMMA proven (DLC/NonInterferenceFundamental.lean, fundamental): every core PropDeriv derivation maps LRel-related closed environments to LRel-related instances, over the redesigned relation LRel (DLC/NonInterferenceLR.lean) and congruent reduction. Corollary t3_two_run_general: an observable-typed core computation cannot distinguish two ARBITRARY closed instantiations of a high-labeled hypothesis — genuine two-run non-interference, the first mechanized NI for a says-logic in Lean. lrel_self gives reflexivity-on-well-typed (which the PER refused for free). Witness DLC/Witness/T3.lean: an ELIMINATION (fst) at an observable atom type concludes Joinable (non-vacuous), typing load-bearing. Ladder rungs 1,2,3a,3b-0,3b,3c all in spec/t3-two-run-design-2026-07.md.",
     "witness": "DLC/Witness/T3.lean",
     "open": [
-      "rung 3c: the fundamental lemma over PropDeriv — related closed substitutions map derivations to LRel-related instances (imp-I via head expansion + substAt_substAt; eliminations via the ξ-lifting lemmas)",
-      "declassify stays excluded (NI modulo declassification)"
-    ]
+      "extend from PropDeriv (propositional fragment) to the full Deriv judgment with linear context splitting",
+      "declassify remains excluded by design (NI modulo declassification is the correct statement; unrestricted declassify falsifies NI)"
+    ],
+    "fragment": "propositional computational core (PropDeriv minus the frozen eliminations verify/attenuate/declassify/declassify; NI modulo declassification)"
   },
   "T4_obligation": {
     "status": "stated",

@@ -58,9 +58,17 @@ inductive Deriv : Ctx → Term → Prop' → Type where
       Deriv Γ (Term.var i) φ
 
   /-- `var-L` — linear variable lookup. The context must contain the
-  hypothesis as its sole linear element. -/
+  hypothesis as its sole linear element, and the linear variable lives at
+  the de Bruijn index **`Γₐ.length`** — one past the additive context — so
+  it can never collide with an additive index (`additive` occupies
+  `0 .. Γₐ.length - 1`). This is the L1 disambiguation invariant
+  (`spec/linear-substitution-design-2026-07.md`): it removes the `var 0`
+  overlap that made the substitution lemma ill-posed and honors the shipped
+  checker's additive-first lookup (`decide.rs`). When `Γₐ = []` this reduces
+  to `Term.var 0`, matching the old form on the empty-additive contexts the
+  checker actually supports. -/
   | varL (Γₐ : List Prop') (φ : Prop') :
-      Deriv { additive := Γₐ, linear := [φ] } (Term.var 0) φ
+      Deriv { additive := Γₐ, linear := [φ] } (Term.var Γₐ.length) φ
 
   /-- `weaken-A` — additive weakening. -/
   | weakenA (Γ : Ctx) (φ' φ : Prop') (M : Term)

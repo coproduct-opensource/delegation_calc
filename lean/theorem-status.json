@@ -89,5 +89,21 @@
     "open": [
       "progress for the full Deriv judgment / frozen forms are verifier-checked by design"
     ]
+  },
+  "linear_lever_L1": {
+    "status": "proven_fragment",
+    "fragment": "L1 disambiguation: varL restricted to var(additive.length); CtxWellFormed holds by construction; ctxLookup agrees with the var rules and matches decide.rs on the additive + empty-additive-linear domains",
+    "file": "DLC/CtxWellFormed.lean",
+    "theorems": [
+      "CtxWellFormed_all",
+      "ctxLookup_agrees",
+      "ctxLookup_sound",
+      "ctxLookup_eq_checker_additive"
+    ],
+    "finding": "ctxLookup_ne_checker_witness (machine-checked): disambiguated Deriv is STRICTLY MORE EXPRESSIVE than decide.rs — the shipped checker refuses a linear var under a nonempty additive context (consults linear only at index 0, shadowed by additive[0]). The checker is INCOMPLETE w.r.t. Deriv here, not unsound. Closing it is a decide.rs change, separate item.",
+    "open": [
+      "L2 linear split algebra (LinearSplitRoutes stated, unproven, deferred)",
+      "decide.rs completeness fix for nonempty-additive linear vars (separate, checker-side)"
+    ]
   }
 }

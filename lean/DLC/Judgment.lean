@@ -160,7 +160,12 @@ inductive Deriv : Ctx → Term → Prop' → Type where
       -- proposition we encode as `Prop'.atom 0`; the obligation table
       -- correspondence is set up at M1.Q3 along with `crate::graded`.
       (dN : Deriv Ctx.empty N (Prop'.atom 0)) :
-      Deriv Γ (Term.app M N)
+      -- Concludes at `Term.boxed O M N`, NOT `Term.app M N`. Reusing
+      -- application left `O` bound by the rule but absent from the term,
+      -- so `pendingObligations` (a function of syntax) could never see it
+      -- and T4 was provably vacuous. See
+      -- `spec/t4-obligation-design-2026-07.md`.
+      Deriv Γ (Term.boxed O M N)
             (Prop'.boxed O φ)
 
   /-- `discharge` — `□_O φ` elimination. Consume the obligation evidence

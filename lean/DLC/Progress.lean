@@ -34,6 +34,7 @@ def CoreTerm : Term → Bool
   | Term.verify _ _ _ => false
   | Term.delegate m n => CoreTerm m && CoreTerm n
   | Term.attenuate _ _ => false
+  | Term.boxed _ _ _ => false
   | Term.discharge _ _ => false
   | Term.liftLabel _ m => CoreTerm m
   | Term.declassify _ _ _ => false

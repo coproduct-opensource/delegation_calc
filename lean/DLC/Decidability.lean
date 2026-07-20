@@ -57,6 +57,7 @@ def Term.isPropositional : Term → Bool
   | Term.attenuate m _    => m.isPropositional
   | Term.liftLabel _ m    => m.isPropositional
   | Term.declassify _ m π => m.isPropositional && π.isPropositional
+  | Term.boxed _ m n      => m.isPropositional && n.isPropositional
   | Term.discharge m n    => m.isPropositional && n.isPropositional
   | Term.letTensor s b    => s.isPropositional && b.isPropositional
 
@@ -71,6 +72,7 @@ def Term.isInCalculus : Term → Bool
   | Term.verify _ m _       => m.isInCalculus
   | Term.delegate m n       => m.isInCalculus && n.isInCalculus
   | Term.attenuate m _      => m.isInCalculus
+  | Term.boxed _ m n        => m.isInCalculus && n.isInCalculus
   | Term.discharge m n      => m.isInCalculus && n.isInCalculus
   | Term.liftLabel _ m      => m.isInCalculus
   | Term.declassify _ m π   => m.isInCalculus && π.isInCalculus
@@ -364,13 +366,43 @@ def decideLean (Γ : Ctx) : Term → Option Prop'
       | some (Prop'.atom 0) => some (Prop'.at φ ℓ')
       | _ => none
     | _ => none
+  | .boxed _ _ _ =>
+    -- FAIL-CLOSED, DEFERRED TO R5 OF THE T4 LADDER.
+    --
+    -- R3's job is to mirror `Term.boxed` into the hand-written Lean
+    -- mechanically. Typing it here is not mechanical, and the attempt
+    -- surfaced a real asymmetry worth recording before R5 picks it up:
+    --
+    --   * `decide.rs` IGNORES the obligation evidence -- its arm is
+    --     `Term::Boxed(o, m, _evidence)`, returning `Prop::Boxed(o, ty(m))`.
+    --   * `Deriv.boxI` REQUIRES `dN : Deriv Ctx.empty N (Prop'.atom 0)` --
+    --     evidence, well-typed, in the EMPTY context.
+    --
+    -- So a Lean arm that faithfully mirrored the Rust would accept terms
+    -- the calculus cannot derive, and `t1_propositional_soundness` would
+    -- become unprovable -- correctly so, since it would be false. A
+    -- faithful arm must instead check `decideLean Ctx.empty n = some
+    -- (Prop'.atom 0)`, which is STRICTER than the Rust.
+    --
+    -- That asymmetry is not new: the `discharge` arm below already
+    -- validates evidence its Rust counterpart ignores. R5 should decide
+    -- whether decide.rs tightens or the Lean documents the gap, alongside
+    -- `pendingObligations` and the non-vacuity witness.
+    --
+    -- Until then the checker REJECTS box introduction. Fail-closed: no
+    -- theorem is weakened, and no term is accepted that the calculus
+    -- cannot derive.
+    none
   | .discharge m n =>
     -- `discharge(M, N)`: eliminate the `boxed O φ` modality with
     -- obligation evidence N : atom 0. Mirrors Rust `Term::Discharge`.
-    -- In the propositional fragment, no rule produces `boxed`
-    -- (boxI uses Term.app which is ambiguous with impE) — so this
-    -- branch is *syntactically present* but never matches in practice.
-    -- Soundness is vacuously preserved.
+    --
+    -- REACHABLE AS OF THE T4 LADDER'S R3. This branch was previously
+    -- unreachable: `boxI` concluded at `Term.app`, so nothing could
+    -- produce a `boxed` type for it to eliminate, and the comment here
+    -- recorded that its soundness was "vacuously preserved". Now that
+    -- `Deriv.boxI` concludes at `Term.boxed` and the arm above produces
+    -- `Prop'.boxed`, this branch can actually match.
     match decideLean Γ m with
     | some (Prop'.boxed _ inner) =>
       match decideLean Γ n with
@@ -777,6 +809,11 @@ theorem t1_propositional_soundness (M : Term) :
             | succ k => simp [decideLean, hM, hπ] at hdec
           all_goals (simp [decideLean, hM, hπ] at hdec)
       all_goals (simp [decideLean, hM] at hdec)
+  case boxed o m n ihm ihn =>
+    intro Γₐ φ _ hdec
+    -- `decideLean` rejects box introduction (fail-closed until R5 of the
+    -- T4 ladder -- see the `.boxed` arm), so the hypothesis is false.
+    simp [decideLean] at hdec
   case discharge m n ihm ihn =>
     intro Γₐ φ hprop hdec
     have hprop' := hprop
@@ -2073,6 +2110,10 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
             | succ k => simp [decideLean, hM, hπ] at hdec
           all_goals (simp [decideLean, hM, hπ] at hdec)
       all_goals (simp [decideLean, hM] at hdec)
+  case boxed o m n ihm ihn =>
+    intro Γₐ φ hdec
+    -- Same as above: fail-closed `decideLean` makes the hypothesis false.
+    simp [decideLean] at hdec
   case discharge m n ihm ihn =>
     intro Γₐ φ hdec
     cases hM : decideLean { additive := Γₐ, linear := [] } m with

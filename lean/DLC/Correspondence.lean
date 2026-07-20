@@ -87,6 +87,11 @@ def Term.allSigsVerify (K : KeyRing) : Term → Bool
   | Term.verify _ m _     => m.allSigsVerify K
   | Term.delegate m n     => m.allSigsVerify K && n.allSigsVerify K
   | Term.attenuate m _    => m.allSigsVerify K
+  -- Both sub-terms must be walked. Omitting this arm would let a `sign`
+  -- nested inside a boxed proof escape verification, the obligation acting
+  -- as a check shield -- the same hole rustc caught in the Rust mirror
+  -- (`dlc-verifier/src/check.rs`) during R2c.
+  | Term.boxed _ m n      => m.allSigsVerify K && n.allSigsVerify K
   | Term.discharge m n    => m.allSigsVerify K && n.allSigsVerify K
   | Term.liftLabel _ m    => m.allSigsVerify K
   | Term.declassify _ m π => m.allSigsVerify K && π.allSigsVerify K

@@ -51,6 +51,14 @@ inductive Term : Type where
   | verify : Principal → Term → Signature → Term
   | delegate : Term → Term → Term
   | attenuate : Term → Prop' → Term
+  /-- `box_O(M, N)` -- the `□_O φ` introduction form. The obligation is a
+  TERM index, not merely a component of the typing derivation, mirroring
+  `Term::Boxed` in `crates/dlc-core/src/syntax.rs` and the grammar in
+  `spec/syntax.md`. This is what lets `pendingObligations : Term → List
+  Obligation` (T4) read the obligation from syntax alone; while `boxI`
+  concluded at `Term.app`, no term could carry an obligation and T4 was
+  provably vacuous. See `spec/t4-obligation-design-2026-07.md`. -/
+  | boxed : Obligation → Term → Term → Term
   | discharge : Term → Term → Term
   | liftLabel : Label → Term → Term
   | declassify : Label → Term → Term → Term

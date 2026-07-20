@@ -60,6 +60,7 @@ def usesVar : Term → Nat → Bool
   | .verify _ m _, i => usesVar m i
   | .delegate m n, i => usesVar m i || usesVar n i
   | .attenuate m _, i => usesVar m i
+  | .boxed _ m n, i => usesVar m i || usesVar n i
   | .discharge m n, i => usesVar m i || usesVar n i
   | .liftLabel _ m, i => usesVar m i
   | .declassify _ m π, i => usesVar m i || usesVar π i
@@ -118,6 +119,10 @@ theorem substAt_indep {M : Term} :
       intro i h N₁ N₂
       simp only [usesVar] at h
       simp only [substAt, ih h N₁ N₂]
+  | boxed o m n ihm ihn =>
+      intro i h N₁ N₂
+      simp only [usesVar, Bool.or_eq_false_iff] at h
+      simp only [substAt, ihm h.1 N₁ N₂, ihn h.2 N₁ N₂]
   | discharge m n ihm ihn =>
       intro i h N₁ N₂
       simp only [usesVar, Bool.or_eq_false_iff] at h

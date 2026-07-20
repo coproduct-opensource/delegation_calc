@@ -35,6 +35,8 @@ def shift : Term → Nat → Nat → Term
       Term.delegate (shift m delta cutoff) (shift n delta cutoff)
   | Term.attenuate m psi, delta, cutoff =>
       Term.attenuate (shift m delta cutoff) psi
+  | Term.boxed o m n, delta, cutoff =>
+      Term.boxed o (shift m delta cutoff) (shift n delta cutoff)
   | Term.discharge m n, delta, cutoff =>
       Term.discharge (shift m delta cutoff) (shift n delta cutoff)
   | Term.liftLabel l m, delta, cutoff =>
@@ -85,6 +87,8 @@ def substAt : Term → Term → Nat → Term
       Term.delegate (substAt m value depth) (substAt n value depth)
   | Term.attenuate m psi, value, depth =>
       Term.attenuate (substAt m value depth) psi
+  | Term.boxed o m n, value, depth =>
+      Term.boxed o (substAt m value depth) (substAt n value depth)
   | Term.discharge m n, value, depth =>
       Term.discharge (substAt m value depth) (substAt n value depth)
   | Term.liftLabel l m, value, depth =>
@@ -171,6 +175,7 @@ theorem shift_zero (t : Term) (cutoff : Nat) :
   | verify p m sig ih => simp [shift, ih]
   | delegate m n ihM ihN => simp [shift, ihM, ihN]
   | attenuate m psi ih => simp [shift, ih]
+  | boxed o m n ihM ihN => simp [shift, ihM, ihN]
   | discharge m n ihM ihN => simp [shift, ihM, ihN]
   | liftLabel l m ih => simp [shift, ih]
   | declassify l m π ihM ihπ => simp [shift, ihM, ihπ]
@@ -265,6 +270,10 @@ theorem shift_shift_merge (d d' : Nat) :
       intro c c' h1 h2
       simp only [shift]
       rw [ih c c' h1 h2]
+  | boxed o m n ihm ihn =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ihm c c' h1 h2, ihn c c' h1 h2]
   | discharge m n ihm ihn =>
       intro c c' h1 h2
       simp only [shift]
@@ -378,6 +387,10 @@ theorem shift_substAt_commute (d : Nat) (P : Term) :
       intro i c hci
       simp only [shift, substAt]
       rw [ih i c hci]
+  | boxed o m n ihm ihn =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [ihm i c hci, ihn i c hci]
   | discharge m n ihm ihn =>
       intro i c hci
       simp only [shift, substAt]
@@ -481,6 +494,10 @@ theorem substAt_shift_cancel (d : Nat) (V : Term) :
       intro i c h1 h2
       simp only [shift, substAt]
       rw [ih i c h1 h2]
+  | boxed o m n ihm ihn =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ihm i c h1 h2, ihn i c h1 h2]
   | discharge m n ihm ihn =>
       intro i c h1 h2
       simp only [shift, substAt]
@@ -602,6 +619,10 @@ theorem substAt_substAt (N P : Term) :
       intro j k hjk
       simp only [substAt]
       rw [ih j k hjk]
+  | boxed o m n ihm ihn =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ihm j k hjk, ihn j k hjk]
   | discharge m n ihm ihn =>
       intro j k hjk
       simp only [substAt]

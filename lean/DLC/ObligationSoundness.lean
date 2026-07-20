@@ -49,6 +49,12 @@ def pendingObligations : Term → List Obligation
   | Term.delegate m n           =>
       pendingObligations m ++ pendingObligations n
   | Term.attenuate m _          => pendingObligations m
+  -- R3 PRESERVES the current (vacuous) semantics deliberately: this
+  -- recurses without contributing `O`. R5 changes it to
+  -- `o :: (pendingObligations m ++ pendingObligations n)`, which is what
+  -- finally makes T4 non-vacuous. Changing it here would alter a theorem's
+  -- content in a rung scoped to be mechanical.
+  | Term.boxed _ m n            => pendingObligations m ++ pendingObligations n
   | Term.discharge m _          => pendingObligations m
   | Term.liftLabel _ m          => pendingObligations m
   | Term.declassify _ m π       =>
@@ -99,6 +105,7 @@ theorem pendingObligations_shift (t : Term) (delta cutoff : Nat) :
   | attenuate _ _ ih => simp [shift, pendingObligations, ih]
   | discharge _ _ ihM ihN => simp [shift, pendingObligations, ihM, ihN]
   | liftLabel _ _ ih => simp [shift, pendingObligations, ih]
+  | boxed _ _ _ ihM ihπ => simp [shift, pendingObligations, ihM, ihπ]
   | declassify _ _ _ ihM ihπ => simp [shift, pendingObligations, ihM, ihπ]
   | now _ => simp [shift, pendingObligations]
   | withinIntro _ _ ih => simp [shift, pendingObligations, ih]
@@ -207,6 +214,21 @@ theorem pendingObligations_substAt_subset (body : Term) :
     unfold substAt at hmem
     unfold pendingObligations at hmem
     exact ih value depth o hmem
+  | boxed _ m π ihM ihπ =>
+    intro value depth o hmem
+    have hmem' : o ∈ pendingObligations (substAt m value depth) ++
+                     pendingObligations (substAt π value depth) := hmem
+    rcases List.mem_append.mp hmem' with hM | hπ
+    · rcases ihM value depth o hM with h | h
+      · left
+        show o ∈ pendingObligations m ++ pendingObligations π
+        exact List.mem_append.mpr (Or.inl h)
+      · right; exact h
+    · rcases ihπ value depth o hπ with h | h
+      · left
+        show o ∈ pendingObligations m ++ pendingObligations π
+        exact List.mem_append.mpr (Or.inr h)
+      · right; exact h
   | declassify _ m π ihM ihπ =>
     intro value depth o hmem
     have hmem' : o ∈ pendingObligations (substAt m value depth) ++
@@ -418,6 +440,7 @@ theorem t4_no_new_obligation
   | attenuate _ _ _ => intro M' h; simp [step] at h
   | discharge _ _ _ _ => intro M' h; simp [step] at h
   | liftLabel _ _ _ => intro M' h; simp [step] at h
+  | boxed _ _ _ _ _ => intro M' h; simp [step] at h
   | declassify _ _ _ _ _ => intro M' h; simp [step] at h
   | now _ => intro M' h; simp [step] at h
   | withinIntro _ _ _ => intro M' h; simp [step] at h
@@ -583,6 +606,7 @@ theorem pendingObligations_eq_nil (M : Term) :
   | attenuate m _ ih => simpa [pendingObligations] using ih
   | discharge m _ ih _ => simpa [pendingObligations] using ih
   | liftLabel _ m ih => simpa [pendingObligations] using ih
+  | boxed _ m π ihM ihπ => simp [pendingObligations, ihM, ihπ]
   | declassify _ m π ihM ihπ => simp [pendingObligations, ihM, ihπ]
   | now _ => rfl
   | withinIntro _ m ih => simpa [pendingObligations] using ih

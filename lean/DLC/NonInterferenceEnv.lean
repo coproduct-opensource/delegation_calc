@@ -93,6 +93,10 @@ theorem closedAbove_attenuate_iff {m : Term} {ψ : Prop'} {k : Nat} :
     ClosedAbove (Term.attenuate m ψ) k ↔ ClosedAbove m k := by
   simp only [ClosedAbove, usesVar]
 
+theorem closedAbove_boxed_iff {o : Obligation} {m n : Term} {k : Nat} :
+    ClosedAbove (Term.boxed o m n) k ↔ ClosedAbove m k ∧ ClosedAbove n k := by
+  simp only [ClosedAbove, usesVar, Bool.or_eq_false_iff, imp_and, forall_and]
+
 theorem closedAbove_discharge_iff {m n : Term} {k : Nat} :
     ClosedAbove (Term.discharge m n) k ↔ ClosedAbove m k ∧ ClosedAbove n k := by
   simp only [ClosedAbove, usesVar, Bool.or_eq_false_iff, imp_and, forall_and]
@@ -231,6 +235,11 @@ private theorem shift_closedAbove_aux (d : Nat) :
       intro k c h hc
       simp only [shift]
       rw [ih k c (closedAbove_attenuate_iff.mp h) hc]
+  | boxed o m n ihm ihn =>
+      intro k c h hc
+      obtain ⟨hm, hn⟩ := closedAbove_boxed_iff.mp h
+      simp only [shift]
+      rw [ihm k c hm hc, ihn k c hn hc]
   | discharge m n ihm ihn =>
       intro k c h hc
       obtain ⟨hm, hn⟩ := closedAbove_discharge_iff.mp h
@@ -342,6 +351,11 @@ private theorem substAt_closedAbove_aux (v : Term) :
       intro k i h hi
       simp only [substAt]
       rw [ih k i (closedAbove_attenuate_iff.mp h) hi]
+  | boxed o m n ihm ihn =>
+      intro k i h hi
+      obtain ⟨hm, hn⟩ := closedAbove_boxed_iff.mp h
+      simp only [substAt]
+      rw [ihm k i hm hi, ihn k i hn hi]
   | discharge m n ihm ihn =>
       intro k i h hi
       obtain ⟨hm, hn⟩ := closedAbove_discharge_iff.mp h
@@ -470,6 +484,11 @@ theorem substAt_closes_gen {v : Term} (hv : Closed v) :
       intro n k hb hk
       simp only [substAt]
       exact closedAbove_attenuate_iff.mpr (ih n k (closedAbove_attenuate_iff.mp hb) hk)
+  | boxed o m n' ihm ihn =>
+      intro n k hb hk
+      obtain ⟨hm, hn⟩ := closedAbove_boxed_iff.mp hb
+      simp only [substAt]
+      exact closedAbove_boxed_iff.mpr ⟨ihm n k hm hk, ihn n k hn hk⟩
   | discharge m n' ihm ihn =>
       intro n k hb hk
       obtain ⟨hm, hn⟩ := closedAbove_discharge_iff.mp hb
@@ -709,6 +728,7 @@ private theorem step_preserves_closed_aux :
               ⟨ihm m' hm (closed_of_closed_delegate_left hc),
                closed_of_closed_delegate_right hc⟩
   | attenuate _ _ _ => intro M' h _; simp [step] at h
+  | boxed o _ _ _ _ => intro M' h _; simp [step] at h
   | discharge _ _ _ _ => intro M' h _; simp [step] at h
   | liftLabel _ _ _ => intro M' h _; simp [step] at h
   | declassify _ _ _ _ _ => intro M' h _; simp [step] at h

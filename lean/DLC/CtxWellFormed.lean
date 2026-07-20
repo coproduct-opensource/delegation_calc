@@ -365,6 +365,61 @@ theorem linearSplitRoutes_old_form_refuted :
   · injection h1 with hx _; injection hx with hn; exact absurd hn (by decide)
   · simp at h2
 
+/-! ## Linear de Bruijn LEVELS — the fix for split-context addressing.
+
+`ctxLookup` addresses the linear hypothesis at `additive.length` and only
+when the linear context is a SINGLETON. Loop 5 showed that does not survive
+context splitting: every split branch has the same additive length, so every
+branch addresses its linear hypothesis at the same index, and splicing two
+singleton premises yields a conclusion whose variables resolve to nothing
+(`ctxLookup_nonsingleton_linear_none`). The witness is in
+`spec/linear-substitution-design-2026-07.md`.
+
+Option (A) — de Bruijn LEVELS for linear variables — is validated here
+before any rule changes. A linear hypothesis at position `k` is addressed by
+
+    Term.var (Γ.additive.length + k)
+
+so its address is its ABSOLUTE position in the spliced context, not its
+position relative to whichever premise introduced it.
+
+Staged deliberately: `ctxLookupL` lands ALONGSIDE `ctxLookup` with an
+agreement theorem, so nothing that depends on L1 moves yet. The migration
+still owed is on the SPLIT RULES, which must shift the right premise's term
+by `Γ₁.length` (e.g. `impE` emitting `Term.app M (shift N Γ₁.length
+Γₐ.length)`) so its addresses land in the right half of `Γ₁ ++ Γ₂`. That is
+a change to `Deriv`'s rules and is not taken here. -/
+
+/-- Level-based context lookup: additive first, then the linear hypothesis at
+position `i - additive.length`. Generalises `ctxLookup`'s singleton case to
+arbitrary linear contexts. -/
+def ctxLookupL (Γ : Ctx) (i : Nat) : Option Prop' :=
+  match Γ.additive[i]? with
+  | some φ => some φ
+  | none   => Γ.linear[i - Γ.additive.length]?
+
+/-- **Backward compatible.** On the singleton linear contexts L1 already
+handles, the level-based lookup agrees with `varL`'s address. -/
+theorem ctxLookupL_varL (Γₐ : List Prop') (φ : Prop') :
+    ctxLookupL { additive := Γₐ, linear := [φ] } Γₐ.length = some φ := by
+  simp [ctxLookupL]
+
+/-- **The case that broke L1, resolved.** A two-element linear context
+addresses its hypotheses DISTINCTLY, where `ctxLookup` resolved neither.
+This is the `impE`-splice counterexample from loop 5. -/
+theorem ctxLookupL_resolves_split (φ ψ : Prop') :
+    ctxLookupL { additive := [], linear := [φ, ψ] } 0 = some φ ∧
+    ctxLookupL { additive := [], linear := [φ, ψ] } 1 = some ψ :=
+  ⟨rfl, rfl⟩
+
+/-- Contrast, kept explicit: the OLD lookup resolves neither index in that
+same context. This is what makes the migration necessary rather than
+cosmetic. -/
+theorem ctxLookup_fails_on_split (φ ψ : Prop') :
+    ctxLookup { additive := [], linear := [φ, ψ] } 0 = none ∧
+    ctxLookup { additive := [], linear := [φ, ψ] } 1 = none :=
+  ⟨rfl, rfl⟩
+
 /-! ## Regression: `weakenA` must shift.
 
 `Ctx.consA` prepends to the additive context, so a de Bruijn index that is

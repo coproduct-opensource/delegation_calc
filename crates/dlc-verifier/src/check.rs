@@ -125,6 +125,12 @@ fn all_sigs_verify(term: &Term, keyring: &KeyRing) -> Result<(), String> {
             all_sigs_verify(l, keyring)?;
             all_sigs_verify(r, keyring)
         }
+        // says-E: both sub-terms walked, for the same reason as Boxed --
+        // otherwise a `Sign` nested inside the bound body escapes verification.
+        Term::SaysBind(_, s, b) => {
+            all_sigs_verify(s, keyring)?;
+            all_sigs_verify(b, keyring)
+        }
         Term::LetSays(_, s, b) => {
             all_sigs_verify(s, keyring)?;
             all_sigs_verify(b, keyring)

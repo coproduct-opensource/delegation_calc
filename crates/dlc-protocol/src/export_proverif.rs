@@ -101,6 +101,11 @@ fn walk_term(term: &Term, out: &mut String) {
             walk_term(a, out);
             walk_term(b, out);
         }
+        // says-E binds x in the body; structural descent only.
+        Term::SaysBind(_, s, b) => {
+            walk_term(s, out);
+            walk_term(b, out);
+        }
         Term::LetSays(_, s, b) => {
             walk_term(s, out);
             walk_term(b, out);

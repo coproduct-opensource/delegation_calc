@@ -61,6 +61,15 @@ pub enum Term {
     Delegate(Box<Term>, Box<Term>),
     /// Attenuation: weakens an affirmation along provable implication.
     Attenuate(Box<Term>, Box<Prop>),
+    /// says-E: `let ⟨x⟩_p = M in N`, written `saysBind_p(M, N)` in
+    /// `spec/syntax.md`. BINDS `x:φ` in `N` — a real binder, so `shift` and
+    /// `subst` bump the cutoff by one under `N`. The conclusion preserves the
+    /// modality (`p says ψ`).
+    ///
+    /// Added 2026-07-20. The rule existed but concluded at `Term::App`, which
+    /// is not a binder, so the cutoff was never bumped for `N` and the says-E
+    /// case of any shift/substitution lemma was off by one and unprovable.
+    SaysBind(Principal, Box<Term>, Box<Term>),
     /// Obligation attachment: `box_O(M, N)` introducing `□_O φ` from a proof
     /// `M : φ` and obligation evidence `N : O`.
     ///

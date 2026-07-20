@@ -5,7 +5,7 @@
 //! cross-organizational caching.
 //!
 //! Encoding strategy: each `Term` variant becomes a CBOR array
-//! `[tag, arg1, arg2, ...]` where `tag` is the constructor index (0..22)
+//! `[tag, arg1, arg2, ...]` where `tag` is the constructor index (0..23)
 //! and the arguments are recursively encoded. Sub-types (`Prop`,
 //! `Principal`, `Label`, `Obligation`, `TimeBound`, `Signature`) use the
 //! same tag-arrayed shape.
@@ -210,6 +210,14 @@ fn enc_term(t: &Term) -> Value {
             enc_term(b),
         ]),
         Term::SfExtract(m) => Value::Array(vec![Value::Integer(21.into()), enc_term(m)]),
+        // says-E `let ⟨x⟩_p = M in N` -- tag 23, APPENDED for the same reason
+        // as 22: explicit positional tags, so no existing encoding moves.
+        Term::SaysBind(p, s, b) => Value::Array(vec![
+            Value::Integer(23.into()),
+            enc_principal(p),
+            enc_term(s),
+            enc_term(b),
+        ]),
         // box_O(M, N) -- tag 22, APPENDED. Tags here are explicit positional
         // integers, so a new variant leaves every existing term's encoding
         // byte-identical: `canonical_bytes` is unchanged for anything that
@@ -467,6 +475,11 @@ fn dec_term(v: &Value) -> Result<Term, ProtocolError> {
             Box::new(dec_term(&a[3])?),
         )),
         21 => Ok(Term::SfExtract(Box::new(dec_term(&a[1])?))),
+        23 => Ok(Term::SaysBind(
+            dec_principal(&a[1])?,
+            Box::new(dec_term(&a[2])?),
+            Box::new(dec_term(&a[3])?),
+        )),
         22 => Ok(Term::Boxed(
             dec_obligation(&a[1])?,
             Box::new(dec_term(&a[2])?),
@@ -812,7 +825,7 @@ mod tests {
     }
 
     #[test]
-    fn canonical_roundtrip_all_23_constructors() {
+    fn canonical_roundtrip_all_24_constructors() {
         // Every constructor of `Term` is exercised exactly once. If a
         // new variant is added without a corresponding case here, the
         // exhaustive `match` in `Term`'s encoder would compile-fail
@@ -909,6 +922,10 @@ mod tests {
             // `Obligation::Top` here would leave that recursion untested
             // from the `Term` side.
             (
+                "SaysBind",
+                Term::SaysBind(p(), Box::new(Term::Var(0)), Box::new(Term::Var(1))),
+            ),
+            (
                 "Boxed",
                 Term::Boxed(
                     Obligation::Tensor(Box::new(Obligation::Top), Box::new(Obligation::Bot)),
@@ -932,8 +949,8 @@ mod tests {
         // require.
         assert_eq!(
             cases.len(),
-            23,
-            "expected 23 Term constructors; if this count changed, update the canonical test"
+            24,
+            "expected 24 Term constructors; if this count changed, update the canonical test"
         );
     }
 

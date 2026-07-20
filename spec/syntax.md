@@ -106,6 +106,7 @@ M, N ::= x                             variable (de-Bruijn index)
        | verify_p(M, σ)                check signature; eliminates p says
        | delegate(M, N)                build (p ⊓ q) says φ from (q⇒p) + (q says φ)
        | attenuate(M, ψ)               weaken affirmation along provable implication
+       | saysBind_p(M, N)              let ⟨x⟩_p = M in N — says-E (§4)
        | box_O(M, N)                   attach obligation O to a proof of φ
        | discharge(M, N)               consume obligation O to extract φ
        | lift_ℓ(M)                     IFC label introduction
@@ -130,6 +131,25 @@ M, N ::= x                             variable (de-Bruijn index)
 - `attenuate(M, ψ)` is the macaroon caveat operation, lifted to the calculus.
   Crucially, the type rule requires `ψ ≤_L φ` in the IFC lattice — you cannot
   "attenuate" a low-integrity statement into a high-integrity one.
+- `saysBind_p(M, N)` is the term for **says-E** (`spec/typing-rules.md` §4),
+  written `let ⟨x⟩_p = M in N` there. It BINDS `x:φ` in `N`, so it is a real
+  binder: `shift`/`substAt` bump the cutoff by one under `N`. The conclusion
+  PRESERVES the modality (`p says ψ`), which is what distinguishes it from a
+  plain elimination.
+
+  **This production was missing from the grammar** until 2026-07-20, exactly
+  as `box_O` was — §4 stated the rule with a let-binder term while the
+  grammar had no production for it, so the Lean encoding concluded at
+  `Term.app M N` instead. `Term.app` is not a binder, so `shift` never bumped
+  the cutoff for `N`, and the says-E case of any shift/substitution lemma was
+  unprovable (off by one). See `spec/linear-substitution-design-2026-07.md`.
+
+  **Anomaly, recorded not resolved:** `lean/DLC/Judgment.lean` also carries a
+  `letSaysE` rule with the SAME premises but a conclusion that STRIPS the
+  modality (`ψ` rather than `p says ψ`). That rule appears nowhere in this
+  spec's rule index (§13) and uses `Term.letSays`. Whether it should be
+  specced or removed is open; it is not part of the says-E fix.
+
 - `box_O(M, N)` is the introduction form for `□_O φ`: `M` proves `φ`, `N` is
   the obligation evidence. **The obligation `O` is carried by the term, not
   only by the typing derivation.** This follows the annotation discipline

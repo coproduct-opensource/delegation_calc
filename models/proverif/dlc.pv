@@ -26,6 +26,25 @@
 
 free c: channel.
 free speaks_for_tag: bitstring.
+free box_tag: bitstring.
+free evidence_tag: bitstring.
+
+(* The obligation channel. PRIVATE and load-bearing.
+ *
+ * Tamarin models the one-shot semantics with a LINEAR `Obligation` fact that
+ * Discharge_Accept consumes. ProVerif has no linear facts -- its Horn-clause
+ * abstraction is monotonic, so a derivable fact stays derivable forever, and
+ * a table entry (`insert`/`get`) is never consumed. Modelling the obligation
+ * as a table would therefore make one-shot UNPROVABLE here, not merely
+ * unproven.
+ *
+ * A private channel is the faithful analogue: a message emitted with `out`
+ * is received by exactly one `in`. The box process emits one obligation
+ * message; each discharge consumes one. That is the same resource discipline
+ * Tamarin's linear fact provides, expressed in the calculus ProVerif does
+ * have. Injectivity of the correspondence (`inj-event` below) is then
+ * meaningful rather than vacuous. *)
+free obl_ch: channel [private].
 
 (* ========================================================================= *)
 (* Signature equational theory                                                *)
@@ -69,6 +88,12 @@ event Says(pkey, bitstring).
 event SpeaksForIssued(pkey, pkey).
 event DelegateAccept(pkey, pkey, bitstring).
 event LtkReveal(pkey).
+
+(* Obligation fragment -- mirrors Box_Issue / Evidence_Issue /
+   Discharge_Accept in models/tamarin/dlc.spthy. *)
+event BoxIssued(pkey, bitstring, bitstring).
+event EvidenceIssued(pkey, bitstring).
+event DischargeAccept(pkey, pkey, bitstring, bitstring).
 
 (* ========================================================================= *)
 (* Queries -- the load-bearing properties                                     *)
@@ -161,6 +186,50 @@ query P: pkey, Q: pkey;
  *   workflow at .github/workflows/proverif.yml for both runs. *)
 
 (* ========================================================================= *)
+(* Obligation queries -- the ProVerif half of the R2a cross-check            *)
+(*                                                                            *)
+(* Cross-checking Tamarin's no_silent_discharge and one_shot_discharge.      *)
+(* See spec/t4-obligation-design-2026-07.md (rung R2b).                      *)
+(* ========================================================================= *)
+
+(* no_silent_discharge (correspondence):
+ *   If a verifier accepts a discharge, then the box really was issued by P
+ *   AND evidence for its obligation really was issued by Q -- unless one of
+ *   their keys was revealed. The direct analogue of Tamarin's lemma of the
+ *   same name, and the wire-level form of "obligations cannot be silently
+ *   dropped" (spec/syntax.md). *)
+query P: pkey, Q: pkey, o: bitstring, prop: bitstring;
+  event(DischargeAccept(P, Q, o, prop)) ==>
+    (event(BoxIssued(P, o, prop)) && event(EvidenceIssued(Q, o)))
+    || event(LtkReveal(P))
+    || event(LtkReveal(Q)).
+
+(* one_shot_discharge (INJECTIVE correspondence):
+ *   Each accepted discharge consumes a DISTINCT box issuance -- no single
+ *   box can be discharged twice. `inj-event` is ProVerif's expression of
+ *   the no-replay property that Tamarin gets from consuming a linear fact.
+ *
+ *   This query is only meaningful because the obligation travels on the
+ *   private channel `obl_ch` (see its declaration): a channel message is
+ *   consumed by exactly one input. Had the obligation been modelled as a
+ *   table entry, `get` would never consume it and injectivity would fail --
+ *   which would be an artifact of the encoding, not a fact about the
+ *   protocol. *)
+query P: pkey, Q: pkey, o: bitstring, prop: bitstring;
+  inj-event(DischargeAccept(P, Q, o, prop)) ==>
+    inj-event(BoxIssued(P, o, prop))
+    || event(LtkReveal(P))
+    || event(LtkReveal(Q)).
+
+(* discharge_reachable (reachability):
+ *   DischargeAccept is reachable at all. Without this, the two queries
+ *   above could hold VACUOUSLY by the discharge branch never firing --
+ *   the same trap exec_discharge guards in the Tamarin model. ProVerif
+ *   reports `is false` for the negation, confirming reachability. *)
+query P: pkey, Q: pkey, o: bitstring, prop: bitstring;
+  event(DischargeAccept(P, Q, o, prop)).
+
+(* ========================================================================= *)
 (* Processes                                                                  *)
 (* ========================================================================= *)
 
@@ -188,11 +257,69 @@ let honest(skP: skey) =
       )
   )
   | (
+    (* box_O(M, N): attach a fresh obligation to a proposition P affirms.
+       Emits the DUAL Says event -- see the note below. Also emits the
+       obligation itself on the private channel, which is what makes the
+       discharge one-shot. *)
+    ! ( new o: bitstring;
+        new boxprop: bitstring;
+        let m_box = (box_tag, o, boxprop) in
+        event BoxIssued(pkP, o, boxprop);
+        event Says(pkP, m_box);
+        out(obl_ch, (pkP, o, boxprop));
+        out(c, (box_tag, pkP, o, boxprop, sign(m_box, skP)))
+      )
+  )
+  | (
+    (* Evidence that obligation o has been met. The o is adversary-supplied
+       (in(c, o)) -- evidence may be offered for any identifier the attacker
+       can name; the signature is what binds it to this principal. *)
+    ! ( in(c, o: bitstring);
+        let m_ev = (evidence_tag, o) in
+        event EvidenceIssued(pkP, o);
+        event Says(pkP, m_ev);
+        out(c, (evidence_tag, pkP, o, sign(m_ev, skP)))
+      )
+  )
+  | (
     (* Static reveal: P optionally leaks their secret key once. *)
     ( event LtkReveal(pkP);
       out(c, skP)
     )
   ).
+
+(* NOTE on the dual `Says` events in the two branches above.
+ *
+ * Both obligation branches emit `Says(pkP, m)` for the message they sign, in
+ * addition to their own event. This mirrors the SpeaksFor branch and is
+ * required for the SAME reason: a signed tuple can be taken apart by the
+ * attacker and its signature re-paired into the `(prop, sign(prop, skQ))`
+ * shape the verifier accepts as a Says half.
+ *
+ * This is not hypothetical. The first draft of the Tamarin rules omitted
+ * these dual events and CI FALSIFIED non_splicing with a 7-step trace (PR
+ * #112). Tagging the signed payload does not prevent it -- unification is
+ * not the threat, decomposition is. Any principal that signs anything has
+ * made a says-affirmation at the trace level. *)
+
+(* Discharger: accepts a discharge only when the box and the evidence both
+   verify against REGISTERED principals, and only by consuming one obligation
+   message from the private channel.
+
+   The `in(obl_ch, ...)` is the linearity: one message in, one discharge out.
+   The `get honest_keys` guards mirror the verifier's, rejecting
+   attacker-fabricated public keys. *)
+let discharger =
+  in(obl_ch, (pkP: pkey, o: bitstring, prop: bitstring));
+  in(c, (=box_tag, =pkP, =o, =prop, boxSig: bitstring));
+  in(c, (=evidence_tag, pkQ: pkey, =o, evSig: bitstring));
+  get honest_keys(=pkP) in
+  get honest_keys(=pkQ) in
+  let m_box = checksign(boxSig, pkP) in
+  let m_ev = checksign(evSig, pkQ) in
+  if m_box = (box_tag, o, prop) then
+    if m_ev = (evidence_tag, o) then
+      event DischargeAccept(pkP, pkQ, o, prop).
 
 (* Verifier: accepts a delegated says only when both signatures verify
    against the SAME pair of *registered* (honest-keyring) principals.
@@ -226,3 +353,4 @@ process
       out(c, pkP);
       honest(skP) )
   | ( ! verifier )
+  | ( ! discharger )

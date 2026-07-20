@@ -120,20 +120,23 @@ rule Delegate_Accept:
 // boxes are distinguishable, and the token is signed so a verifier can
 // attribute it.
 //
-// The signature is over <'box', ~o, ~prop> -- NOT over ~prop alone. This
-// tagging is what stops a box token from being replayed as the Says half of
-// a Delegate_Accept: that rule's input pattern is the pair
-// <prop, sign(prop, skQ)>, which cannot unify with this 5-tuple. The same
-// class of confusion is what the SpeaksFor_Issue comment above records
-// Tamarin finding, so it is worth foreclosing by construction here.
+// The signature is over <'box', ~o, ~prop> -- NOT over ~prop alone -- so the
+// tag travels inside the signed payload and a verifier can tell a box token
+// from a plain affirmation.
+//
+// NOTE: tagging alone does NOT stop a splice, and an earlier draft of this
+// comment wrongly claimed it did (reasoning that the 5-tuple token cannot
+// unify with Delegate_Accept's <prop, sign(prop, skQ)> pattern). CI falsified
+// non_splicing and showed why that reasoning is wrong -- see below.
+//
 // Both rules below emit a DUAL `Says` event alongside their own. This is not
-// bookkeeping — it is required for soundness, and omitting it falsifies
+// bookkeeping - it is required for soundness, and omitting it falsifies
 // `non_splicing`.
 //
 // Tamarin tuples are transparently decomposable by the adversary, so from a
 // token <'box', $P, ~o, ~prop, sign(<'box', ~o, ~prop>, sk)> the adversary can
 // project out the signature and re-pair it as <<'box', ~o, ~prop>, sign(...)>
-// — which is exactly the shape Delegate_Accept accepts as its Says half. Any
+// - which is exactly the shape Delegate_Accept accepts as its Says half. Any
 // principal that signs ANYTHING has therefore made a says-affirmation at the
 // trace level, and the model must say so.
 //

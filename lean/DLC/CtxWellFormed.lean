@@ -551,4 +551,52 @@ theorem weakenA_shifts_regression :
   -- `shift (var 0) 1 0 = var 1`, and `consA B ⟨[A], []⟩ = ⟨[B, A], []⟩`
   simpa [shift, Ctx.consA] using ⟨dW⟩
 
+/-! ## The linear-LEVEL / shift-INDEX convention clash (L3a, 2026-07-20)
+
+L3a (`deriv_shift_aux`, additive weakening-in-the-middle over full `Deriv`)
+proves 26 of its 28 cases. `tensorE` resists, and not for a proof-engineering
+reason: the L1 LEVEL convention for linear variables and `shift`'s INDEX
+convention for binders are mutually inconsistent there.
+
+The two theorems below pin both halves of the clash, so that whichever
+resolution is adopted, the inconsistent pair cannot silently return. They are
+kept as regressions in the same spirit as
+`linearSplitRoutes_old_form_refuted`. -/
+
+/-- **Half one — linear binders consume ZERO de Bruijn slots.**
+
+`Deriv.varL` concludes at `Term.var Γₐ.length`: the index depends only on the
+ADDITIVE context length, so every linear hypothesis in a given context is
+denoted by the SAME term. Here one term (`var 1`) inhabits two types under one
+additive context, differing only in the linear hypothesis.
+
+This is not the `weakenA` unsoundness — these are two DIFFERENT contexts, so
+no single context assigns two types to one term. It is a statement about
+INFORMATION: the term carries nothing that distinguishes linear hypotheses. -/
+theorem varL_linear_binders_are_indistinguishable :
+    ∀ (Γₐ : List Prop') (φ ψ : Prop'),
+      Nonempty (Deriv { additive := Γₐ, linear := [φ] } (Term.var Γₐ.length) φ)
+      ∧ Nonempty (Deriv { additive := Γₐ, linear := [ψ] } (Term.var Γₐ.length) ψ) :=
+  fun Γₐ φ ψ => ⟨⟨Deriv.varL Γₐ φ⟩, ⟨Deriv.varL Γₐ ψ⟩⟩
+
+/-- **Half two — `shift` reserves TWO de Bruijn slots for `letTensor`'s body.**
+
+`Deriv.tensorE` binds its two hypotheses LINEARLY (`ψ :: φ :: Γ₂` in the linear
+context), and by the theorem above those consume no index slots. Yet `shift`
+skips two. So L3a's `tensorE` goal demands the body shifted at cutoff
+`Γl.length + 2` while the induction hypothesis supplies `Γl.length`, and no
+shift-commutation lemma can bridge them -- nor should one, since additive
+variables at levels in `[Γl.length, Γl.length + 2)` would then wrongly fail to
+move.
+
+The `+ 2` is CORRECT for `letTensorA`, whose two binders really are additive.
+`Term.letTensor` is overloaded across the two rules with incompatible shift
+semantics -- the same species as the `saysE` / `letSaysE` overload that
+`Term.saysBind` resolved. -/
+theorem shift_letTensor_reserves_two_slots :
+    ∀ (S B : Term) (d c : Nat),
+      shift (Term.letTensor S B) d c
+        = Term.letTensor (shift S d c) (shift B d (c + 2)) :=
+  fun _ _ _ _ => rfl
+
 end DLC

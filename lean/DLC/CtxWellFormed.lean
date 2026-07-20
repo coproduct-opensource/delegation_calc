@@ -420,6 +420,31 @@ theorem ctxLookup_fails_on_split (φ ψ : Prop') :
     ctxLookup { additive := [], linear := [φ, ψ] } 1 = none :=
   ⟨rfl, rfl⟩
 
+/-! ## Regression: `impE` addresses its right premise by LEVEL.
+
+The loop-5 counterexample, now fixed. `impE` splices two singleton linear
+premises; before the migration both used `var 0` and NEITHER resolved in the
+conclusion's context. `impE` now shifts its right premise by `Γ₁.length`, so
+the right half's addresses land where they actually live in `Γ₁ ++ Γ₂`.
+
+If that shift is ever dropped, this stops compiling. -/
+
+/-- The spliced conclusion's variables resolve, and resolve DISTINCTLY. -/
+theorem impE_levels_regression (A B : Prop') :
+    Nonempty (Deriv { additive := [], linear := [Prop'.imp A B] ++ [A] }
+                    (Term.app (Term.var 0) (Term.var 1)) B) := by
+  have dM : Deriv { additive := [], linear := [Prop'.imp A B] }
+                  (Term.var 0) (Prop'.imp A B) := Deriv.varL [] _
+  have dN : Deriv { additive := [], linear := [A] } (Term.var 0) A := Deriv.varL [] A
+  exact ⟨by simpa [shift] using
+    Deriv.impE [] [Prop'.imp A B] [A] A B (Term.var 0) (Term.var 0) dM dN⟩
+
+/-- …and each index resolves to the half it came from. -/
+theorem impE_levels_addresses (A B : Prop') :
+    ctxLookupL { additive := [], linear := [Prop'.imp A B, A] } 0 = some (Prop'.imp A B) ∧
+    ctxLookupL { additive := [], linear := [Prop'.imp A B, A] } 1 = some A :=
+  ⟨rfl, rfl⟩
+
 /-! ## Regression: `weakenA` must shift.
 
 `Ctx.consA` prepends to the additive context, so a de Bruijn index that is

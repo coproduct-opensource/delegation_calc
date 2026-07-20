@@ -95,7 +95,8 @@ inductive Deriv : Ctx → Term → Prop' → Type where
   | impE (Γₐ : List Prop') (Γ₁ Γ₂ : List Prop') (φ ψ : Prop') (M N : Term)
       (dM : Deriv { additive := Γₐ, linear := Γ₁ } M (Prop'.imp φ ψ))
       (dN : Deriv { additive := Γₐ, linear := Γ₂ } N φ) :
-      Deriv { additive := Γₐ, linear := Γ₁ ++ Γ₂ } (Term.app M N) ψ
+      Deriv { additive := Γₐ, linear := Γ₁ ++ Γ₂ }
+            (Term.app M (shift N Γ₁.length Γₐ.length)) ψ
 
   -- Note: `andI` (with the correct `Term.pair` shape) lives further
   -- below, alongside the additive product / coproduct elim and intro

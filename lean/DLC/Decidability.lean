@@ -488,7 +488,9 @@ theorem t1_propositional_soundness (M : Term) :
           rw [hα, hβφ] at dF
           -- dF : Deriv ... f (Prop'.imp φ' φ); dX : Deriv ... x φ'.
           -- impE produces Deriv ... (Term.app f x) φ.
-          exact ⟨Deriv.impE Γₐ [] [] φ' φ f x dF dX⟩
+          -- impE now shifts its right premise by Γ₁.length (linear LEVELS).
+          -- Here Γ₁ = [], so the shift is the identity (`shift_zero`).
+          exact ⟨by simpa [shift_zero] using Deriv.impE Γₐ [] [] φ' φ f x dF dX⟩
         · rw [if_neg hbeq] at hdec
           simp at hdec
       · simp at hdec
@@ -1643,7 +1645,8 @@ noncomputable def propDeriv_to_deriv :
   | impI Γₐ φ ψ M _ ih => exact Deriv.impI _ φ ψ M ih
   | impE Γₐ φ ψ M N _ _ ihM ihN =>
       -- impE wants Γ₁ ++ Γ₂ = []; both empty works.
-      exact Deriv.impE Γₐ [] [] φ ψ M N ihM ihN
+      -- Γ₁ = [] so impE's level-shift on the right premise is the identity.
+      exact by simpa [shift_zero] using Deriv.impE Γₐ [] [] φ ψ M N ihM ihN
   | saysI Γₐ p φ M sig _ ih => exact Deriv.saysI _ p φ M sig ih
   | verifyE Γₐ p φ M sig _ ih => exact Deriv.verifyE _ p φ M sig ih
   | andI Γₐ φ ψ a b _ _ ihA ihB =>

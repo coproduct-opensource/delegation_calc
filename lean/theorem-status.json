@@ -107,11 +107,15 @@
       "CtxWellFormed_all",
       "ctxLookup_agrees",
       "ctxLookup_sound",
-      "ctxLookup_eq_checker_additive"
+      "ctxLookup_eq_checker_additive",
+      "linearSplitRoutes_holds",
+      "linearSplitRoutes_old_form_refuted"
     ],
-    "finding": "ctxLookup_ne_checker_witness (machine-checked): disambiguated Deriv is STRICTLY MORE EXPRESSIVE than decide.rs — the shipped checker refuses a linear var under a nonempty additive context (consults linear only at index 0, shadowed by additive[0]). The checker is INCOMPLETE w.r.t. Deriv here, not unsound. Closing it is a decide.rs change, separate item.",
+    "finding": "ctxLookup_ne_checker_witness (machine-checked): disambiguated Deriv is STRICTLY MORE EXPRESSIVE than decide.rs — the shipped checker refuses a linear var under a nonempty additive context (consults linear only at index 0, shadowed by additive[0]). The checker is INCOMPLETE w.r.t. Deriv here, not unsound. Closing it is a decide.rs change, separate item. | L2 FINDING (2026-07-20): the deferred LinearSplitRoutes Prop was FALSE as stated, not merely unproven. It lacked the additive-miss hypothesis (ctxLookup consults additive first, so an additive hit leaves the linear halves unconstrained) AND mis-scoped the index claim by precedence (i = len ∧ A ∨ B parses as (i = len ∧ A) ∨ B). Its docstring had correctly certified it was not a sorry and not a tautology -- neither of which implies truth. Corrected, proven as linearSplitRoutes_holds, and the old form kept refuted as linearSplitRoutes_old_form_refuted.",
     "open": [
-      "L2 linear split algebra (LinearSplitRoutes stated, unproven, deferred)",
+      "L3 additive substitution preservation over full Deriv (the easier half; reuses the PropDeriv induction shape)",
+      "L4 linear substitution preservation (the substructural core; needs L1+L2, multi-week)",
+      "L5 subject reduction over full Deriv, then T3-full / T1-full / progress-full",
       "decide.rs completeness fix for nonempty-additive linear vars (separate, checker-side)"
     ]
   }

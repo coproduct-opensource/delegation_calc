@@ -365,4 +365,33 @@ theorem linearSplitRoutes_old_form_refuted :
   · injection h1 with hx _; injection hx with hn; exact absurd hn (by decide)
   · simp at h2
 
+/-! ## Regression: `weakenA` must shift.
+
+`Ctx.consA` prepends to the additive context, so a de Bruijn index that is
+not shifted silently re-points at the newly-added hypothesis. Until
+2026-07-20 `Deriv.weakenA` concluded at an UNSHIFTED `M`, which let one term
+inhabit two types in one context — and the weakened one was wrong.
+
+Concretely: with `Γ.additive = [A]`, `varA` gives `var 0 : A`; the old rule
+then gave `var 0 : A` in `[B, A]`, where `var 0` denotes `B`.
+
+The theorem below pins the corrected behaviour: after weakening, the
+derivation is about `shift (var 0) 1 0 = var 1`, which is where `A` actually
+lives in `[B, A]`. If `weakenA` ever loses its shift, this stops compiling.
+
+Only `Deriv` was affected. `PropDeriv` — where T1 completeness, T3 and
+progress live — has no `weakenA` at all, so no proven theorem was falsified;
+the exposure was to the future L3-L5 extension of T3 onto full `Deriv`. -/
+
+/-- Weakening shifts: the weakened derivation is about `var 1`, not `var 0`. -/
+theorem weakenA_shifts_regression :
+    ∀ (A B : Prop'),
+      Nonempty (Deriv { additive := [B, A], linear := [] } (Term.var 1) A) := by
+  intro A B
+  have d0 : Deriv { additive := [A], linear := [] } (Term.var 0) A :=
+    Deriv.varA _ 0 A rfl
+  have dW := Deriv.weakenA { additive := [A], linear := [] } B A (Term.var 0) d0
+  -- `shift (var 0) 1 0 = var 1`, and `consA B ⟨[A], []⟩ = ⟨[B, A], []⟩`
+  simpa [shift, Ctx.consA] using ⟨dW⟩
+
 end DLC

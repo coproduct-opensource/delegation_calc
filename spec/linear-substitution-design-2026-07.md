@@ -172,6 +172,76 @@ syntax or wire-format change** — the cheaper of the two paths:
   progress-full** follow by re-running the existing fragment proofs over the extended
   substitution/reduction machinery, with `declassify` still excluded by design.
 
+## STOP — L1's invariant does not survive context splitting (2026-07-20, loop 5)
+
+The doc's own escape hatch says: *"If L4 proves impossible under the
+shared-index invariant, revisit path 1 — but only then, and with the full
+ceremony."* This is the trigger, and the evidence is machine-checked.
+
+### The chain
+
+1. `varL` requires a SINGLETON linear context (`linear := [φ]`), and
+   addresses the variable at `Term.var Γₐ.length`. That is L1's resolution.
+2. `ctxLookup_nonsingleton_linear_none` — the repo's own L1 lemma — proves a
+   NON-singleton linear context resolves to `none` at every index
+   `≥ Γₐ.length`.
+3. So any `Deriv` conclusion carrying two or more linear hypotheses has NO
+   resolvable linear variable at all.
+4. But every split rule (`impE`, `tensorI`, `delegate`, `discharge`,
+   `letSaysE`, `tensorE`) produces exactly such a conclusion, by splicing two
+   singleton premises into `Γ₁ ++ Γ₂`.
+
+### The witness
+
+Both halves type-check independently, each using `varL` at index
+`Γₐ.length = 0`; `impE` splices them:
+
+    dM : Deriv ⟨[], [imp A B]⟩ (var 0) (imp A B)     -- var 0 means `imp A B`
+    dN : Deriv ⟨[], [A]⟩       (var 0) A             -- var 0 means `A`
+    -------------------------------------------------------------------
+    Deriv ⟨[], [imp A B, A]⟩ (app (var 0) (var 0)) B
+
+The conclusion is derivable. Its two `var 0` occurrences denote DIFFERENT
+hypotheses, and `ctxLookup ⟨[], [imp A B, A]⟩ 0 = none` — neither resolves in
+the conclusion's own context. A well-typed term whose free variables are not
+readable against the context it is typed in.
+
+### Why L2 did not catch it
+
+`linearSplitRoutes_holds` (L2, PR #120) is TRUE, but its hypothesis
+`ctxLookup ⟨Γₐ, Γ₁ ++ Γ₂⟩ i = some φ` forces `Γ₁ ++ Γ₂ = [φ]`. It therefore
+only bites when ONE HALF OF THE SPLIT IS EMPTY — i.e. on the degenerate
+splits. Genuine two-sided splits are exactly the ones it says nothing about.
+That is not a defect in L2; it is L2 correctly describing a calculus in which
+only one linear variable is ever addressable.
+
+### What this means
+
+Every split branch has the SAME additive length, so every branch addresses
+its linear hypothesis at the SAME index. Splicing branches cannot preserve
+the reading. L1's "linear lives at `additive.length`" is well-defined per
+premise and ill-defined at the conclusion — so **L4 (linear substitution) is
+not merely hard under this representation; it is ill-posed**, because
+"the variable at index i" has no meaning in a spliced conclusion.
+
+### Options (a decision about representation, for the owner)
+
+- **(A) de Bruijn LEVELS for linear variables.** The literature's answer:
+  levels do not need reindexing when the context changes. Addressing linear
+  hypotheses by level rather than index makes the reading splice-stable.
+- **(B) Separate the namespaces — revisit "path 1".** Give linear variables
+  their own term constructor (e.g. `Term.lvar`) so they never share the index
+  space with additive variables. The doc rejected this to avoid a `Term` /
+  wire-format change; that rejection was explicitly conditional on L4 being
+  possible without it, and it is not.
+- **(C) Accept the single-linear-variable fragment.** State plainly that only
+  one linear hypothesis is ever addressable, and scope T3-full to that
+  fragment. Honest, cheap, and much weaker than the campaign intends.
+
+L3a is separately blocked on `saysE` (see above). Both blockers are decisions
+about `Deriv`'s presentation rather than proof effort, and neither should be
+taken unilaterally.
+
 ## Non-goals / honest scope
 
 - No `Term` / wire-format change (path 1 rejected). If L4 proves impossible under the

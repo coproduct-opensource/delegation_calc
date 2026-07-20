@@ -60,6 +60,8 @@ def shift : Term → Nat → Nat → Term
       Term.tensorIntro (shift a delta cutoff) (shift b delta cutoff)
   | Term.letTensor scrut body, delta, cutoff =>
       Term.letTensor (shift scrut delta cutoff) (shift body delta (cutoff + 2))
+  | Term.saysBind p scrut body, delta, cutoff =>
+      Term.saysBind p (shift scrut delta cutoff) (shift body delta (cutoff + 1))
   | Term.letSays p scrut body, delta, cutoff =>
       Term.letSays p (shift scrut delta cutoff) (shift body delta (cutoff + 1))
   | Term.sfExtract m, delta, cutoff =>
@@ -112,6 +114,8 @@ def substAt : Term → Term → Nat → Term
       Term.tensorIntro (substAt a value depth) (substAt b value depth)
   | Term.letTensor scrut body, value, depth =>
       Term.letTensor (substAt scrut value depth) (substAt body value (depth + 2))
+  | Term.saysBind p scrut body, value, depth =>
+      Term.saysBind p (substAt scrut value depth) (substAt body value (depth + 1))
   | Term.letSays p scrut body, value, depth =>
       Term.letSays p (substAt scrut value depth) (substAt body value (depth + 1))
   | Term.sfExtract m, value, depth =>
@@ -189,6 +193,7 @@ theorem shift_zero (t : Term) (cutoff : Nat) :
   | case s l r ihS ihL ihR => simp [shift, ihS, ihL, ihR]
   | tensorIntro a b ihA ihB => simp [shift, ihA, ihB]
   | letTensor s b ihS ihB => simp [shift, ihS, ihB]
+  | saysBind p s b ihS ihB => simp [shift, ihS, ihB]
   | letSays p s b ihS ihB => simp [shift, ihS, ihB]
   | sfExtract m ih => simp [shift, ih]
 
@@ -332,6 +337,11 @@ theorem shift_shift_comm (d₁ d₂ : Nat) :
       simp only [shift]
       rw [ihs c₁ c₂ h, ihb (c₁ + 2) (c₂ + 2) (by omega),
           show c₂ + 2 + d₁ = c₂ + d₁ + 2 from by omega]
+  | saysBind p s b ihs ihb =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ihs c₁ c₂ h, ihb (c₁ + 1) (c₂ + 1) (by omega),
+          show c₂ + 1 + d₁ = c₂ + d₁ + 1 from by omega]
   | letSays p s b ihs ihb =>
       intro c₁ c₂ h
       simp only [shift]
@@ -439,6 +449,10 @@ theorem shift_shift_merge (d d' : Nat) :
       intro c c' h1 h2
       simp only [shift]
       rw [ihs c c' h1 h2, ihb (c + 2) (c' + 2) (by omega) (by omega)]
+  | saysBind p s b ihs ihb =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ihs c c' h1 h2, ihb (c + 1) (c' + 1) (by omega) (by omega)]
   | letSays p s b ihs ihb =>
       intro c c' h1 h2
       simp only [shift]
@@ -557,6 +571,11 @@ theorem shift_substAt_commute (d : Nat) (P : Term) :
       simp only [shift, substAt]
       rw [ihs i c hci, show i + d + 2 = i + 2 + d by omega,
           ihb (i + 2) (c + 2) (by omega)]
+  | saysBind p s b ihs ihb =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [ihs i c hci, show i + d + 1 = i + 1 + d by omega,
+          ihb (i + 1) (c + 1) (by omega)]
   | letSays p s b ihs ihb =>
       intro i c hci
       simp only [shift, substAt]
@@ -663,6 +682,10 @@ theorem substAt_shift_cancel (d : Nat) (V : Term) :
       intro i c h1 h2
       simp only [shift, substAt]
       rw [ihs i c h1 h2, ihb (i + 2) (c + 2) (by omega) (by omega)]
+  | saysBind p s b ihs ihb =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ihs i c h1 h2, ihb (i + 1) (c + 1) (by omega) (by omega)]
   | letSays p s b ihs ihb =>
       intro i c h1 h2
       simp only [shift, substAt]
@@ -791,6 +814,11 @@ theorem substAt_substAt (N P : Term) :
       rw [ihs j k hjk, ihb (j + 2) (k + 2) (by omega),
           show k + 2 + 1 = k + 1 + 2 by omega,
           show k + 2 - (j + 2) = k - j by omega]
+  | saysBind p s b ihs ihb =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ihs j k hjk, ihb (j + 1) (k + 1) (by omega),
+          show k + 1 - (j + 1) = k - j by omega]
   | letSays p s b ihs ihb =>
       intro j k hjk
       simp only [substAt]

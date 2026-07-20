@@ -178,6 +178,22 @@ theorem closedAbove_letTensor_iff {s b : Term} {k : Nat} :
     simp only [usesVar, Bool.or_eq_false_iff]
     exact ⟨hs i hi, hb (i + 2) (by omega)⟩
 
+theorem closedAbove_saysBind_iff {p : Principal} {s b : Term} {k : Nat} :
+    ClosedAbove (Term.saysBind p s b) k ↔ ClosedAbove s k ∧ ClosedAbove b (k + 1) := by
+  constructor
+  · intro h
+    refine ⟨fun i hi => ?_, fun i hi => ?_⟩
+    · have h' := h i hi
+      simp only [usesVar, Bool.or_eq_false_iff] at h'
+      exact h'.1
+    · have h' := h (i - 1) (by omega)
+      simp only [usesVar, Bool.or_eq_false_iff] at h'
+      have h'' := h'.2
+      rwa [show i - 1 + 1 = i from by omega] at h''
+  · rintro ⟨hs, hb⟩ i hi
+    simp only [usesVar, Bool.or_eq_false_iff]
+    exact ⟨hs i hi, hb (i + 1) (by omega)⟩
+
 theorem closedAbove_letSays_iff {p : Principal} {s b : Term} {k : Nat} :
     ClosedAbove (Term.letSays p s b) k ↔ ClosedAbove s k ∧ ClosedAbove b (k + 1) := by
   constructor
@@ -298,6 +314,11 @@ private theorem shift_closedAbove_aux (d : Nat) :
       obtain ⟨hs, hb⟩ := closedAbove_letTensor_iff.mp h
       simp only [shift]
       rw [ihs k c hs hc, ihb (k + 2) (c + 2) hb (by omega)]
+  | saysBind p s b ihs ihb =>
+      intro k c h hc
+      obtain ⟨hs, hb⟩ := closedAbove_saysBind_iff.mp h
+      simp only [shift]
+      rw [ihs k c hs hc, ihb (k + 1) (c + 1) hb (by omega)]
   | letSays p s b ihs ihb =>
       intro k c h hc
       obtain ⟨hs, hb⟩ := closedAbove_letSays_iff.mp h
@@ -414,6 +435,11 @@ private theorem substAt_closedAbove_aux (v : Term) :
       obtain ⟨hs, hb⟩ := closedAbove_letTensor_iff.mp h
       simp only [substAt]
       rw [ihs k i hs hi, ihb (k + 2) (i + 2) hb (by omega)]
+  | saysBind p s b ihs ihb =>
+      intro k i h hi
+      obtain ⟨hs, hb⟩ := closedAbove_saysBind_iff.mp h
+      simp only [substAt]
+      rw [ihs k i hs hi, ihb (k + 1) (i + 1) hb (by omega)]
   | letSays p s b ihs ihb =>
       intro k i h hi
       obtain ⟨hs, hb⟩ := closedAbove_letSays_iff.mp h
@@ -551,6 +577,12 @@ theorem substAt_closes_gen {v : Term} (hv : Closed v) :
       simp only [substAt]
       exact closedAbove_letTensor_iff.mpr
         ⟨ihs n k hs hk, ihb (n + 2) (k + 2) hb' (by omega)⟩
+  | saysBind p s b ihs ihb =>
+      intro n k hb hk
+      obtain ⟨hs, hb'⟩ := closedAbove_saysBind_iff.mp hb
+      simp only [substAt]
+      exact closedAbove_saysBind_iff.mpr
+        ⟨ihs n k hs hk, ihb (n + 1) (k + 1) hb' (by omega)⟩
   | letSays p s b ihs ihb =>
       intro n k hb hk
       obtain ⟨hs, hb'⟩ := closedAbove_letSays_iff.mp hb
@@ -639,6 +671,10 @@ theorem closed_of_closed_delegate_right {m n : Term} (h : Closed (Term.delegate 
     Closed n :=
   (closedAbove_delegate_iff.mp h).2
 
+theorem closed_of_closed_saysBind_scrut {p : Principal} {s b : Term}
+    (h : Closed (Term.saysBind p s b)) : Closed s :=
+  (closedAbove_saysBind_iff.mp h).1
+
 theorem closed_of_closed_letSays_scrut {p : Principal} {s b : Term}
     (h : Closed (Term.letSays p s b)) : Closed s :=
   (closedAbove_letSays_iff.mp h).1
@@ -664,6 +700,10 @@ theorem closedAbove_of_closed_case_left {s l r : Term}
 theorem closedAbove_of_closed_case_right {s l r : Term}
     (h : Closed (Term.case s l r)) : ClosedAbove r 1 :=
   (closedAbove_case_iff.mp h).2.2
+
+theorem closedAbove_of_closed_saysBind_body {p : Principal} {s b : Term}
+    (h : Closed (Term.saysBind p s b)) : ClosedAbove b 1 :=
+  (closedAbove_saysBind_iff.mp h).2
 
 theorem closedAbove_of_closed_letSays_body {p : Principal} {s b : Term}
     (h : Closed (Term.letSays p s b)) : ClosedAbove b 1 :=
@@ -838,6 +878,29 @@ private theorem step_preserves_closed_aux :
             exact closedAbove_letTensor_iff.mpr
               ⟨ihs s' hs (closed_of_closed_letTensor_scrut hc),
                closedAbove_of_closed_letTensor_body hc⟩
+  | saysBind p s b ihs _ =>
+      intro M' h hc
+      unfold step at h
+      split at h
+      · -- s = sign p' m sig; head rule guards on p = p'.
+        split at h
+        · -- says-extract-β: M' = subst b m.
+          simp only [Option.some.injEq] at h
+          subst h
+          exact closed_subst
+            (closed_of_closed_sign (closed_of_closed_saysBind_scrut hc))
+            (closedAbove_of_closed_saysBind_body hc)
+        · -- p ≠ p': step returned none — contradiction.
+          simp at h
+      · -- ξ-letsays.
+        cases hs : step s with
+        | none => simp [hs] at h
+        | some s' =>
+            simp [hs] at h
+            subst h
+            exact closedAbove_saysBind_iff.mpr
+              ⟨ihs s' hs (closed_of_closed_saysBind_scrut hc),
+               closedAbove_of_closed_saysBind_body hc⟩
   | letSays p s b ihs _ =>
       intro M' h hc
       unfold step at h

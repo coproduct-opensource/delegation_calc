@@ -48,6 +48,7 @@ def CoreTerm : Term → Bool
   | Term.case s l r => CoreTerm s && CoreTerm l && CoreTerm r
   | Term.tensorIntro a b => CoreTerm a && CoreTerm b
   | Term.letTensor s b => CoreTerm s && CoreTerm b
+  | Term.saysBind _ s b => CoreTerm s && CoreTerm b
   | Term.letSays _ s b => CoreTerm s && CoreTerm b
   | Term.sfExtract m => CoreTerm m
 

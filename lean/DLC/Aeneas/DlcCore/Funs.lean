@@ -725,7 +725,7 @@ def judgment.Ctx.Insts.CoreCloneClone.clone
   ok { additive := v, linear := v1 }
 
 /-- [dlc_core::decide::infer]:
-    Source: 'crates/dlc-core/src/decide.rs', lines 47:0-286:1
+    Source: 'crates/dlc-core/src/decide.rs', lines 47:0-298:1
     Visibility: public -/
 def decide.infer
   (ctx : judgment.Ctx) (term : syntax.Term) : Result (Option syntax.Prop) := do
@@ -918,6 +918,44 @@ def decide.infer
       | syntax.Prop.Says p _ =>
         let p1 ← syntax.Prop.Insts.CoreCloneClone.clone psi
         ok (some (syntax.Prop.Says p p1))
+      | syntax.Prop.SpeaksFor _ _ => ok none
+      | syntax.Prop.At _ _ => ok none
+      | syntax.Prop.Boxed _ _ => ok none
+      | syntax.Prop.Within _ _ => ok none
+      | syntax.Prop.Tensor _ _ => ok none
+      | syntax.Prop.Lolli _ _ => ok none
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
+        syntax.Prop residual
+  | syntax.Term.SaysBind principal scrut body =>
+    let o ← decide.infer ctx scrut
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
+    match cf with
+    | core.ops.control_flow.ControlFlow.Continue val =>
+      match val with
+      | syntax.Prop.Top => ok none
+      | syntax.Prop.Bot => ok none
+      | syntax.Prop.Atom _ => ok none
+      | syntax.Prop.Imp _ _ => ok none
+      | syntax.Prop.And _ _ => ok none
+      | syntax.Prop.Or _ _ => ok none
+      | syntax.Prop.Says p phi =>
+        let b ←
+          principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq p principal
+        if b
+        then
+          let c ← judgment.Ctx.Insts.CoreCloneClone.clone ctx
+          let extended ← judgment.Ctx.cons_a c phi
+          let o1 ← decide.infer extended body
+          let cf1 ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o1
+          match cf1 with
+          | core.ops.control_flow.ControlFlow.Continue val1 =>
+            let p1 ← principal.Principal.Insts.CoreCloneClone.clone principal
+            ok (some (syntax.Prop.Says p1 val1))
+          | core.ops.control_flow.ControlFlow.Break residual =>
+            core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
+              syntax.Prop residual
+        else ok none
       | syntax.Prop.SpeaksFor _ _ => ok none
       | syntax.Prop.At _ _ => ok none
       | syntax.Prop.Boxed _ _ => ok none
@@ -2047,7 +2085,7 @@ def judgment.KeyRing.Insts.CoreCmpEq : core.cmp.Eq judgment.KeyRing := {
 }
 
 /-- [dlc_core::syntax::{impl core::clone::Clone for dlc_core::syntax::Signature}::clone]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 126:9-126:14
+    Source: 'crates/dlc-core/src/syntax.rs', lines 135:9-135:14
     Visibility: public -/
 def syntax.Signature.Insts.CoreCloneClone.clone
   (self : syntax.Signature) : Result syntax.Signature := do
@@ -2090,6 +2128,11 @@ def syntax.Term.Insts.CoreCloneClone.clone
     let t ← syntax.Term.Insts.CoreCloneClone.clone __self_0
     let p ← syntax.Prop.Insts.CoreCloneClone.clone __self_1
     ok (syntax.Term.Attenuate t p)
+  | syntax.Term.SaysBind __self_0 __self_1 __self_2 =>
+    let p ← principal.Principal.Insts.CoreCloneClone.clone __self_0
+    let t ← syntax.Term.Insts.CoreCloneClone.clone __self_1
+    let t1 ← syntax.Term.Insts.CoreCloneClone.clone __self_2
+    ok (syntax.Term.SaysBind p t t1)
   | syntax.Term.Boxed __self_0 __self_1 __self_2 =>
     let o ← obligation.Obligation.Insts.CoreCloneClone.clone __self_0
     let t ← syntax.Term.Insts.CoreCloneClone.clone __self_1
@@ -2175,7 +2218,7 @@ def judgment.TypingProblem.Insts.CoreCloneClone : core.clone.Clone
 }
 
 /-- [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Signature}::fmt]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 126:16-126:21
+    Source: 'crates/dlc-core/src/syntax.rs', lines 135:16-135:21
     Visibility: public -/
 def syntax.Signature.Insts.CoreFmtDebug.fmt
   (self : syntax.Signature) (f : core.fmt.Formatter) :
@@ -2189,7 +2232,7 @@ def syntax.Signature.Insts.CoreFmtDebug.fmt
     "alg") dyn (toStr "bytes") dyn1
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Signature}]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 126:16-126:21 -/
+    Source: 'crates/dlc-core/src/syntax.rs', lines 135:16-135:21 -/
 @[reducible]
 def syntax.Signature.Insts.CoreFmtDebug : core.fmt.Debug syntax.Signature := {
   fmt := syntax.Signature.Insts.CoreFmtDebug.fmt
@@ -2262,6 +2305,16 @@ def syntax.Term.Insts.CoreFmtDebug.fmt
         syntax.Prop.Insts.CoreFmtDebug)) __self_1
     core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Attenuate")
       __self_01 __self_11
+  | syntax.Term.SaysBind __self_0 __self_1 __self_2 =>
+    let __self_01 := Dyn.mk _ principal.Principal.Insts.CoreFmtDebug __self_0
+    let __self_11 :=
+      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
+        __self_1
+    let __self_21 :=
+      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
+        syntax.Term.Insts.CoreFmtDebug)) __self_2
+    core.fmt.Formatter.debug_tuple_field3_finish f (toStr "SaysBind") __self_01
+      __self_11 __self_21
   | syntax.Term.Boxed __self_0 __self_1 __self_2 =>
     let __self_01 := Dyn.mk _ obligation.Obligation.Insts.CoreFmtDebug __self_0
     let __self_11 :=
@@ -3033,7 +3086,7 @@ def syntax.Term.Insts.CoreCloneClone : core.clone.Clone syntax.Term := {
 }
 
 /-- [dlc_core::subst::shift]:
-    Source: 'crates/dlc-core/src/subst.rs', lines 18:0-107:1
+    Source: 'crates/dlc-core/src/subst.rs', lines 18:0-113:1
     Visibility: public -/
 def subst.shift
   (term : syntax.Term) (delta : Std.I32) (cutoff : Std.U32) :
@@ -3078,6 +3131,12 @@ def subst.shift
     let t ← subst.shift m delta cutoff
     let p ← syntax.Prop.Insts.CoreCloneClone.clone psi
     ok (syntax.Term.Attenuate t p)
+  | syntax.Term.SaysBind p scrut body =>
+    let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+    let t ← subst.shift scrut delta cutoff
+    let i ← cutoff + 1#u32
+    let t1 ← subst.shift body delta i
+    ok (syntax.Term.SaysBind p1 t t1)
   | syntax.Term.Boxed o m n =>
     let o1 ← obligation.Obligation.Insts.CoreCloneClone.clone o
     let t ← subst.shift m delta cutoff
@@ -3148,7 +3207,7 @@ def subst.shift
 partial_fixpoint
 
 /-- [dlc_core::subst::subst_at]:
-    Source: 'crates/dlc-core/src/subst.rs', lines 119:0-199:1 -/
+    Source: 'crates/dlc-core/src/subst.rs', lines 125:0-210:1 -/
 def subst.subst_at
   (body : syntax.Term) (value : syntax.Term) (depth : Std.U32) :
   Result syntax.Term
@@ -3190,6 +3249,12 @@ def subst.subst_at
     let t ← subst.subst_at m value depth
     let p ← syntax.Prop.Insts.CoreCloneClone.clone psi
     ok (syntax.Term.Attenuate t p)
+  | syntax.Term.SaysBind p scrut body1 =>
+    let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+    let t ← subst.subst_at scrut value depth
+    let i ← depth + 1#u32
+    let t1 ← subst.subst_at body1 value i
+    ok (syntax.Term.SaysBind p1 t t1)
   | syntax.Term.Boxed o m n =>
     let o1 ← obligation.Obligation.Insts.CoreCloneClone.clone o
     let t ← subst.subst_at m value depth
@@ -3260,7 +3325,7 @@ def subst.subst_at
 partial_fixpoint
 
 /-- [dlc_core::subst::subst]:
-    Source: 'crates/dlc-core/src/subst.rs', lines 115:0-117:1
+    Source: 'crates/dlc-core/src/subst.rs', lines 121:0-123:1
     Visibility: public -/
 def subst.subst
   (body : syntax.Term) (value : syntax.Term) : Result syntax.Term := do
@@ -3314,6 +3379,13 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
         let t1 ← syntax.Term.Insts.CoreCloneClone.clone x
         ok (some (syntax.Term.App f2 t1))
     | syntax.Term.Attenuate _ _ =>
+      let o ← reduce.step f
+      match o with
+      | none => ok none
+      | some f2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone x
+        ok (some (syntax.Term.App f2 t1))
+    | syntax.Term.SaysBind _ _ _ =>
       let o ← reduce.step f
       match o with
       | none => ok none
@@ -3509,6 +3581,13 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
         | some n2 =>
           let t2 ← syntax.Term.Insts.CoreCloneClone.clone m
           ok (some (syntax.Term.Delegate t2 n2))
+      | syntax.Term.SaysBind _ _ _ =>
+        let o ← reduce.step n
+        match o with
+        | none => ok none
+        | some n2 =>
+          let t2 ← syntax.Term.Insts.CoreCloneClone.clone m
+          ok (some (syntax.Term.Delegate t2 n2))
       | syntax.Term.Boxed _ _ _ =>
         let o ← reduce.step n
         match o with
@@ -3642,6 +3721,13 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
       | some m2 =>
         let t2 ← syntax.Term.Insts.CoreCloneClone.clone n
         ok (some (syntax.Term.Delegate m2 t2))
+    | syntax.Term.SaysBind _ _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t2 ← syntax.Term.Insts.CoreCloneClone.clone n
+        ok (some (syntax.Term.Delegate m2 t2))
     | syntax.Term.Boxed _ _ _ =>
       let o ← reduce.step m
       match o with
@@ -3755,6 +3841,7 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
         let t2 ← syntax.Term.Insts.CoreCloneClone.clone n
         ok (some (syntax.Term.Delegate m2 t2))
   | syntax.Term.Attenuate _ _ => ok none
+  | syntax.Term.SaysBind _ _ _ => ok none
   | syntax.Term.Boxed _ _ _ => ok none
   | syntax.Term.Discharge _ _ => ok none
   | syntax.Term.LiftLabel _ _ => ok none
@@ -3796,6 +3883,11 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
       | none => ok none
       | some m2 => ok (some (syntax.Term.Fst m2))
     | syntax.Term.Attenuate _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 => ok (some (syntax.Term.Fst m2))
+    | syntax.Term.SaysBind _ _ _ =>
       let o ← reduce.step m
       match o with
       | none => ok none
@@ -3913,6 +4005,11 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
       | none => ok none
       | some m2 => ok (some (syntax.Term.Snd m2))
     | syntax.Term.Attenuate _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 => ok (some (syntax.Term.Snd m2))
+    | syntax.Term.SaysBind _ _ _ =>
       let o ← reduce.step m
       match o with
       | none => ok none
@@ -4050,6 +4147,14 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
         let t2 ← syntax.Term.Insts.CoreCloneClone.clone r
         ok (some (syntax.Term.Case s2 t1 t2))
     | syntax.Term.Attenuate _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone l
+        let t2 ← syntax.Term.Insts.CoreCloneClone.clone r
+        ok (some (syntax.Term.Case s2 t1 t2))
+    | syntax.Term.SaysBind _ _ _ =>
       let o ← reduce.step s
       match o with
       | none => ok none
@@ -4226,6 +4331,13 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
       | some s2 =>
         let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
         ok (some (syntax.Term.LetTensor s2 t1))
+    | syntax.Term.SaysBind _ _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.LetTensor s2 t1))
     | syntax.Term.Boxed _ _ _ =>
       let o ← reduce.step s
       match o with
@@ -4386,6 +4498,14 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
         let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
         ok (some (syntax.Term.LetSays p1 s2 t1))
     | syntax.Term.Attenuate _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.LetSays p1 s2 t1))
+    | syntax.Term.SaysBind _ _ _ =>
       let o ← reduce.step s
       match o with
       | none => ok none
@@ -4558,6 +4678,11 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
       match o with
       | none => ok none
       | some m2 => ok (some (syntax.Term.SfExtract m2))
+    | syntax.Term.SaysBind _ _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 => ok (some (syntax.Term.SfExtract m2))
     | syntax.Term.Boxed _ _ _ =>
       let o ← reduce.step m
       match o with
@@ -4709,7 +4834,7 @@ def syntax.Term.Insts.CoreMarkerStructuralPartialEq :
 }
 
 /-- [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Signature> for dlc_core::syntax::Signature}::eq]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 126:23-126:32
+    Source: 'crates/dlc-core/src/syntax.rs', lines 135:23-135:32
     Visibility: public -/
 def syntax.Signature.Insts.CoreCmpPartialEqSignature.eq
   (self : syntax.Signature) (other : syntax.Signature) : Result Bool := do
@@ -4720,7 +4845,7 @@ def syntax.Signature.Insts.CoreCmpPartialEqSignature.eq
   else ok false
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Signature> for dlc_core::syntax::Signature}]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 126:23-126:32 -/
+    Source: 'crates/dlc-core/src/syntax.rs', lines 135:23-135:32 -/
 @[reducible]
 def syntax.Signature.Insts.CoreCmpPartialEqSignature : core.cmp.PartialEq
   syntax.Signature syntax.Signature := {
@@ -4748,6 +4873,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.Verify _ _ _ => fail panic
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel _ _ => fail panic
@@ -4777,6 +4903,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.Verify _ _ _ => fail panic
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel _ _ => fail panic
@@ -4806,6 +4933,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.Verify _ _ _ => fail panic
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel _ _ => fail panic
@@ -4844,6 +4972,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.Verify _ _ _ => fail panic
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel _ _ => fail panic
@@ -4882,6 +5011,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
         else ok false
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel _ _ => fail panic
@@ -4911,6 +5041,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
         then syntax.Term.Insts.CoreCmpPartialEqTerm.eq __self_1 __arg1_1
         else ok false
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel _ _ => fail panic
@@ -4940,6 +5071,44 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
         if b
         then syntax.Prop.Insts.CoreCmpPartialEqProp.eq __self_1 __arg1_1
         else ok false
+      | syntax.Term.SaysBind _ _ _ => fail panic
+      | syntax.Term.Boxed _ _ _ => fail panic
+      | syntax.Term.Discharge _ _ => fail panic
+      | syntax.Term.LiftLabel _ _ => fail panic
+      | syntax.Term.Declassify _ _ _ => fail panic
+      | syntax.Term.Now _ => fail panic
+      | syntax.Term.WithinIntro _ _ => fail panic
+      | syntax.Term.Pair _ _ => fail panic
+      | syntax.Term.Fst _ => fail panic
+      | syntax.Term.Snd _ => fail panic
+      | syntax.Term.Inl _ _ => fail panic
+      | syntax.Term.Inr _ _ => fail panic
+      | syntax.Term.Case _ _ _ => fail panic
+      | syntax.Term.TensorIntro _ _ => fail panic
+      | syntax.Term.LetTensor _ _ => fail panic
+      | syntax.Term.LetSays _ _ _ => fail panic
+      | syntax.Term.SfExtract _ => fail panic
+    | syntax.Term.SaysBind __self_0 __self_1 __self_2 =>
+      match other with
+      | syntax.Term.Var _ => fail panic
+      | syntax.Term.Lam _ _ => fail panic
+      | syntax.Term.App _ _ => fail panic
+      | syntax.Term.Sign _ _ _ => fail panic
+      | syntax.Term.Verify _ _ _ => fail panic
+      | syntax.Term.Delegate _ _ => fail panic
+      | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind __arg1_0 __arg1_1 __arg1_2 =>
+        let b ←
+          principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq __self_0
+            __arg1_0
+        if b
+        then
+          let b1 ←
+            syntax.Term.Insts.CoreCmpPartialEqTerm.eq __self_1 __arg1_1
+          if b1
+          then syntax.Term.Insts.CoreCmpPartialEqTerm.eq __self_2 __arg1_2
+          else ok false
+        else ok false
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel _ _ => fail panic
@@ -4965,6 +5134,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.Verify _ _ _ => fail panic
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed __arg1_0 __arg1_1 __arg1_2 =>
         let b ←
           obligation.Obligation.Insts.CoreCmpPartialEqObligation.eq __self_0
@@ -5001,6 +5171,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.Verify _ _ _ => fail panic
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge __arg1_0 __arg1_1 =>
         let b ← syntax.Term.Insts.CoreCmpPartialEqTerm.eq __self_0 __arg1_0
@@ -5030,6 +5201,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.Verify _ _ _ => fail panic
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel __arg1_0 __arg1_1 =>
@@ -5059,6 +5231,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.Verify _ _ _ => fail panic
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel _ _ => fail panic
@@ -5093,6 +5266,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.Verify _ _ _ => fail panic
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel _ _ => fail panic
@@ -5119,6 +5293,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.Verify _ _ _ => fail panic
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel _ _ => fail panic
@@ -5149,6 +5324,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.Verify _ _ _ => fail panic
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel _ _ => fail panic
@@ -5178,6 +5354,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.Verify _ _ _ => fail panic
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel _ _ => fail panic
@@ -5204,6 +5381,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.Verify _ _ _ => fail panic
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel _ _ => fail panic
@@ -5230,6 +5408,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.Verify _ _ _ => fail panic
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel _ _ => fail panic
@@ -5259,6 +5438,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.Verify _ _ _ => fail panic
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel _ _ => fail panic
@@ -5288,6 +5468,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.Verify _ _ _ => fail panic
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel _ _ => fail panic
@@ -5322,6 +5503,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.Verify _ _ _ => fail panic
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel _ _ => fail panic
@@ -5351,6 +5533,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.Verify _ _ _ => fail panic
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel _ _ => fail panic
@@ -5380,6 +5563,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.Verify _ _ _ => fail panic
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel _ _ => fail panic
@@ -5416,6 +5600,7 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.Verify _ _ _ => fail panic
       | syntax.Term.Delegate _ _ => fail panic
       | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
       | syntax.Term.Boxed _ _ _ => fail panic
       | syntax.Term.Discharge _ _ => fail panic
       | syntax.Term.LiftLabel _ _ => fail panic
@@ -5461,7 +5646,7 @@ def syntax.Term.Insts.CoreCmpEq : core.cmp.Eq syntax.Term := {
 }
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::clone::Clone for dlc_core::syntax::Signature}]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 126:9-126:14 -/
+    Source: 'crates/dlc-core/src/syntax.rs', lines 135:9-135:14 -/
 @[reducible]
 def syntax.Signature.Insts.CoreCloneClone : core.clone.Clone syntax.Signature
   := {
@@ -5469,21 +5654,21 @@ def syntax.Signature.Insts.CoreCloneClone : core.clone.Clone syntax.Signature
 }
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::marker::StructuralPartialEq for dlc_core::syntax::Signature}]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 126:23-126:32 -/
+    Source: 'crates/dlc-core/src/syntax.rs', lines 135:23-135:32 -/
 @[reducible]
 def syntax.Signature.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq syntax.Signature := {
 }
 
 /-- [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Signature}::assert_fields_are_eq]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 126:34-126:36
+    Source: 'crates/dlc-core/src/syntax.rs', lines 135:34-135:36
     Visibility: public -/
 def syntax.Signature.Insts.CoreCmpEq.assert_fields_are_eq
   (self : syntax.Signature) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Signature}]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 126:34-126:36 -/
+    Source: 'crates/dlc-core/src/syntax.rs', lines 135:34-135:36 -/
 @[reducible]
 def syntax.Signature.Insts.CoreCmpEq : core.cmp.Eq syntax.Signature := {
   partialEqInst := syntax.Signature.Insts.CoreCmpPartialEqSignature

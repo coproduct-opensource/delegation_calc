@@ -87,6 +87,13 @@ def step : Term → Option Term
   -- says-extract / let-says: `let ⟨x⟩_p = ⟨m, _⟩_p in body ▷ body[m/x]`
   -- when the principals agree (a sign under the wrong principal is a
   -- stuck value — typing rules it out); ξ-letsays on the scrutinee.
+  | Term.saysBind p s body =>
+      match s with
+      | Term.sign p' m _ => if p = p' then some (subst body m) else none
+      | _ =>
+          match step s with
+          | some s' => some (Term.saysBind p s' body)
+          | none => none
   | Term.letSays p s body =>
       match s with
       | Term.sign p' m _ => if p = p' then some (subst body m) else none

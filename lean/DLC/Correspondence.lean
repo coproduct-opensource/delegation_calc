@@ -106,6 +106,7 @@ def Term.allSigsVerify (K : KeyRing) : Term → Bool
       s.allSigsVerify K && l.allSigsVerify K && r.allSigsVerify K
   | Term.tensorIntro a b  => a.allSigsVerify K && b.allSigsVerify K
   | Term.letTensor s b    => s.allSigsVerify K && b.allSigsVerify K
+  | Term.saysBind _ s b    => s.allSigsVerify K && b.allSigsVerify K
   | Term.letSays _ s b    => s.allSigsVerify K && b.allSigsVerify K
   | Term.sfExtract m      => m.allSigsVerify K
 

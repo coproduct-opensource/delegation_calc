@@ -25,6 +25,30 @@ Shape, by connective:
 * `top` — trivial; `bot`, `boxed O φ` — trivially `True`
   (uninhabited-in-fragment types: no observation is possible).
 
+  CAVEAT ADDED 2026-07-20 (T4 ladder R5). The `boxed` justification is
+  still correct but is now load-bearing in a way it was not before, and
+  the next person to extend T3 must not skip past it.
+
+  `LRel ℓLow (.boxed O φ) M N = True` says T3 relates ANY two terms at an
+  obligation-carrying type. That is sound here only because
+  `Prop'.boxed` is uninhabited in THIS fragment: `PropDeriv` has no rule
+  introducing a term at a boxed type (it appears solely as the premise of
+  `PropDeriv.discharge`). So the trivial case is unreachable, not
+  permissive.
+
+  That changes the moment T3 extends to the full `Deriv` judgment, which
+  DOES have `boxI` — and as of R1–R5 there is now a term constructor,
+  `Term.boxed`, that inhabits it. At that point `True` stops being
+  "unreachable" and becomes "T3 makes no claim about obligation-carrying
+  propositions", which is a genuine hole in the theorem rather than an
+  economy in the definition.
+
+  Extending T3 to `Deriv` (T3's own remaining open item, and roadmap
+  item 3) therefore requires giving `.boxed` a real clause — plausibly
+  the `at`/`says` shape: both sides must step to `Term.boxed` with the
+  same obligation and `LRel`-related payloads. Do not lift the
+  fragment without doing so.
+
 THE RELATION IS A PER, NOT REFLEXIVE. `LRel ℓLow φ M M` fails for,
 e.g., a stuck non-sign term at a `says` type — by design: reflexivity
 restricted to well-typed terms IS the fundamental lemma (rung 3c).

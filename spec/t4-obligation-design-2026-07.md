@@ -135,8 +135,30 @@ campaign used.
 * **R5** — `pendingObligations` base case, a non-vacuity witness
   (`DLC/Witness/T4.lean`: a term with a non-empty obligation list, which
   today *cannot exist*), then the multiset accounting theorem.
-* **R6** — T3's `LRel` case for the new form; re-establish the
-  fundamental lemma.
+* ~~**R6** — T3's `LRel` case for the new form; re-establish the
+  fundamental lemma.~~ **NON-TASK. The ladder is complete at R5.**
+
+  This rung was mis-scoped when the note was written. `LRel` is indexed by
+  the TYPE, not the term constructor —
+  `LRel : Prop' → Term → Term → Prop` — and `Prop'.boxed` already had its
+  clause long before this ladder. Adding a *term* constructor required
+  nothing in `NonInterferenceLR.lean` or `NonInterferenceFundamental.lean`,
+  which is exactly why R3 and R4 built `NonInterference` clean with no
+  changes to either file.
+
+  The abort condition never fired, and could not have: T3's fundamental
+  lemma was never in the blast radius. R3 and R4 needed added cases only in
+  structural helpers (`usesVar`, `ClosedAbove`), and axiom snapshots held at
+  34/34 across the whole ladder.
+
+  **What R6 was reaching for is real, but it is not a T4 rung.** See the
+  caveat now recorded in `NonInterferenceLR.lean`'s docstring:
+  `LRel ℓLow (.boxed O φ) M N = True`, sound today only because
+  `Prop'.boxed` is uninhabited in `PropDeriv`. When T3 extends to the full
+  `Deriv` judgment — which has `boxI`, now inhabited by `Term.boxed` — that
+  `True` stops being unreachable and becomes a hole. Giving `.boxed` a real
+  clause is a prerequisite of that extension, which is T3's own open item
+  and a months-scale campaign in its own right, not a rung here.
 
 Status discipline: T4 stays at its current status until R5's witness
 builds. `scripts/ledger.sh` will not accept `proven*` without one, and

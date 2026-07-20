@@ -225,6 +225,22 @@ lemma secrecy_ltk:
     ==>
        (Ex #r. LtkReveal(P) @ #r)"
 
+// Lemma 1b -- Executability of secrecy_ltk's PREMISE.
+//
+// This is the guard that would have caught the vacuity described above, and
+// its absence is why that bug survived. `secrecy_ltk` is an all-traces
+// implication: if its premise can never fire, it holds trivially and still
+// reports `verified`. Every other all-traces lemma in this file has a
+// paired exists-trace lemma (exec_delegation, exec_discharge); secrecy_ltk
+// did not.
+//
+// If `HonestLtk` ever stops being emitted as an action -- the exact
+// regression that made the old `!Ltk` premise unsatisfiable -- this lemma
+// fails loudly instead of secrecy_ltk passing quietly.
+lemma exec_honest_ltk:
+  exists-trace
+  "Ex P sk #j. HonestLtk(P, sk) @ #j"
+
 // Lemma 2 -- NonSplicing (the load-bearing property).
 //
 // If the verifier accepts (P acting Q) says prop, then BOTH halves must

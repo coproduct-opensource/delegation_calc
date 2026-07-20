@@ -263,6 +263,18 @@ pub fn infer(ctx: &Ctx, term: &Term) -> Option<Prop> {
         }
 
         // says-extract: let ⟨x⟩_p = M in N. Bind the underlying proof.
+        // says-E (`let ⟨x⟩_p = M in N`): like LetSays, but the conclusion
+        // PRESERVES the modality — `p says ψ` rather than `ψ`.
+        Term::SaysBind(principal, scrut, body) => {
+            let inner = match infer(ctx, scrut)? {
+                Prop::Says(p, phi) if p == *principal => *phi,
+                _ => return None,
+            };
+            let extended = ctx.clone().cons_a(inner);
+            let psi = infer(&extended, body)?;
+            Some(Prop::Says(principal.clone(), Box::new(psi)))
+        }
+
         Term::LetSays(principal, scrut, body) => {
             let inner = match infer(ctx, scrut)? {
                 Prop::Says(p, phi) if p == *principal => *phi,

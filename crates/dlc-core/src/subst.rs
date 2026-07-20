@@ -97,6 +97,12 @@ pub fn shift(term: &Term, delta: i32, cutoff: u32) -> Term {
         ),
 
         // Says elimination forms
+        Term::SaysBind(p, scrut, body) => Term::SaysBind(
+            p.clone(),
+            Box::new(shift(scrut, delta, cutoff)),
+            // binds x:φ in the body
+            Box::new(shift(body, delta, cutoff + 1)),
+        ),
         Term::LetSays(p, scrut, body) => Term::LetSays(
             p.clone(),
             Box::new(shift(scrut, delta, cutoff)),
@@ -189,6 +195,11 @@ fn subst_at(body: &Term, value: &Term, depth: u32) -> Term {
             Box::new(subst_at(body, value, depth + 2)),
         ),
 
+        Term::SaysBind(p, scrut, body) => Term::SaysBind(
+            p.clone(),
+            Box::new(subst_at(scrut, value, depth)),
+            Box::new(subst_at(body, value, depth + 1)),
+        ),
         Term::LetSays(p, scrut, body) => Term::LetSays(
             p.clone(),
             Box::new(subst_at(scrut, value, depth)),

@@ -21,7 +21,7 @@ structure time.TimeBound where
   epoch_ms : Std.U64
 
 /-- [dlc_core::syntax::Signature]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 127:0-132:1
+    Source: 'crates/dlc-core/src/syntax.rs', lines 136:0-141:1
     Visibility: public -/
 structure syntax.Signature where
   alg : Std.U8
@@ -101,7 +101,7 @@ inductive syntax.Prop where
 | Lolli : syntax.Prop → syntax.Prop → syntax.Prop
 
 /-- [dlc_core::syntax::Term]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 48:0-120:1
+    Source: 'crates/dlc-core/src/syntax.rs', lines 48:0-129:1
     Visibility: public -/
 @[discriminant isize]
 inductive syntax.Term where
@@ -120,6 +120,11 @@ inductive syntax.Term where
   syntax.Term
 | Delegate : syntax.Term → syntax.Term → syntax.Term
 | Attenuate : syntax.Term → syntax.Prop → syntax.Term
+| SaysBind :
+  principal.Principal →
+  syntax.Term →
+  syntax.Term →
+  syntax.Term
 | Boxed : obligation.Obligation → syntax.Term → syntax.Term → syntax.Term
 | Discharge : syntax.Term → syntax.Term → syntax.Term
 | LiftLabel : ifc.Label → syntax.Term → syntax.Term

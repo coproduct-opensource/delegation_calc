@@ -74,6 +74,7 @@ def pendingObligations : Term → List Obligation
       pendingObligations s ++ pendingObligations l ++ pendingObligations r
   | Term.tensorIntro a b        => pendingObligations a ++ pendingObligations b
   | Term.letTensor s b          => pendingObligations s ++ pendingObligations b
+  | Term.saysBind _ s b          => pendingObligations s ++ pendingObligations b
   | Term.letSays _ s b          => pendingObligations s ++ pendingObligations b
   | Term.sfExtract m            => pendingObligations m
 
@@ -121,6 +122,7 @@ theorem pendingObligations_shift (t : Term) (delta cutoff : Nat) :
   | case _ _ _ ihS ihL ihR => simp [shift, pendingObligations, ihS, ihL, ihR]
   | tensorIntro _ _ ihA ihB => simp [shift, pendingObligations, ihA, ihB]
   | letTensor _ _ ihS ihB => simp [shift, pendingObligations, ihS, ihB]
+  | saysBind _ _ _ ihS ihB => simp [shift, pendingObligations, ihS, ihB]
   | letSays _ _ _ ihS ihB => simp [shift, pendingObligations, ihS, ihB]
   | sfExtract _ ih => simp [shift, pendingObligations, ih]
 
@@ -354,6 +356,21 @@ theorem pendingObligations_substAt_subset (body : Term) :
         show o ∈ pendingObligations s ++ pendingObligations b
         exact List.mem_append.mpr (Or.inr h)
       · right; exact h
+  | saysBind _ s b ihS ihB =>
+    intro value depth o hmem
+    have hmem' : o ∈ pendingObligations (substAt s value depth) ++
+                     pendingObligations (substAt b value (depth + 1)) := hmem
+    rcases List.mem_append.mp hmem' with hS | hB
+    · rcases ihS value depth o hS with h | h
+      · left
+        show o ∈ pendingObligations s ++ pendingObligations b
+        exact List.mem_append.mpr (Or.inl h)
+      · right; exact h
+    · rcases ihB value (depth + 1) o hB with h | h
+      · left
+        show o ∈ pendingObligations s ++ pendingObligations b
+        exact List.mem_append.mpr (Or.inr h)
+      · right; exact h
   | letSays _ s b ihS ihB =>
     intro value depth o hmem
     have hmem' : o ∈ pendingObligations (substAt s value depth) ++
@@ -565,6 +582,29 @@ theorem t4_no_new_obligation
           exact List.mem_append.mpr (Or.inl (List.mem_append.mpr (Or.inl hA)))
       · exact List.mem_append.mpr (Or.inl (List.mem_append.mpr (Or.inr hB)))
     · -- ξ-lettensor.
+      cases hs : step s with
+      | none => simp [hs] at h
+      | some s' =>
+        simp [hs] at h
+        subst h
+        rcases List.mem_append.mp hmem with hS | hB
+        · exact List.mem_append.mpr (Or.inl (ihS s' hs o hS))
+        · exact List.mem_append.mpr (Or.inr hB)
+  | saysBind p s b ihS _ =>
+    intro M' h o hmem
+    unfold step at h
+    split at h
+    · -- s = sign p' m sig; the head rule guards on p = p'.
+      split at h
+      · -- says-extract-β: M' = subst b m.
+        simp only [Option.some.injEq] at h
+        subst h
+        rcases pendingObligations_substAt_subset _ _ _ o hmem with hB | hM
+        · exact List.mem_append.mpr (Or.inr hB)
+        · exact List.mem_append.mpr (Or.inl hM)
+      · -- p ≠ p': step returned none — contradiction.
+        simp at h
+    · -- ξ-letsays.
       cases hs : step s with
       | none => simp [hs] at h
       | some s' =>

@@ -126,8 +126,13 @@ inductive Deriv : Ctx → Term → Prop' → Type where
           (φ ψ : Prop') (M N : Term)
       (dM : Deriv { additive := Γₐ, linear := Γ₁ } M (Prop'.says p φ))
       (dN : Deriv { additive := φ :: Γₐ, linear := Γ₂ } N ψ) :
+      -- `let ⟨x⟩_p = M in N` (spec/typing-rules.md §4). Was `Term.app M N`
+      -- with a comment conceding it was a placeholder -- which made this
+      -- rule's shift case off by one and unprovable, since `app` is not a
+      -- binder. Now a real binder, and a SPLIT rule, so it carries the
+      -- linear-LEVEL shift like letSaysE (nbinders = 1, binding additive).
       Deriv { additive := Γₐ, linear := Γ₁ ++ Γ₂ }
-            (Term.app M N)  -- placeholder; the real term is a let-binder
+            (Term.saysBind p M (shift N Γ₁.length (Γₐ.length + 1)))
             (Prop'.says p ψ)
 
   /-- `delegate` — chain composition. Take a speaks-for affirmation by `p` and

@@ -318,7 +318,7 @@ axiom syntax.Term.Insts.CoreCmpPartialEqTerm.ne
   : syntax.Term → syntax.Term → Result Bool
 
 /-- [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Signature> for dlc_core::syntax::Signature}::ne]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 126:23-126:32
+    Source: 'crates/dlc-core/src/syntax.rs', lines 135:23-135:32
     Visibility: public -/
 axiom syntax.Signature.Insts.CoreCmpPartialEqSignature.ne
   : syntax.Signature → syntax.Signature → Result Bool

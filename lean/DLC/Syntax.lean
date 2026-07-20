@@ -76,6 +76,15 @@ inductive Term : Type where
   | tensorIntro : Term → Term → Term
   | letTensor : Term → Term → Term
   -- Says-elimination forms
+  /-- `says-E` — `let ⟨x⟩_p = M in N`, the spec's `saysBind_p(M, N)`
+  (`spec/syntax.md`, `spec/typing-rules.md` §4). BINDS `x:φ` in the body, so
+  `shift`/`substAt` bump under it. The conclusion PRESERVES the modality
+  (`p says ψ`), which is what separates it from `letSays`.
+
+  Added 2026-07-20: the rule concluded at `Term.app M N`, which is not a
+  binder, so the cutoff was never bumped for the body and the says-E case of
+  any shift lemma was off by one and unprovable. -/
+  | saysBind : Principal → Term → Term → Term
   | letSays : Principal → Term → Term → Term
   | sfExtract : Term → Term
   -- No `deriving Repr, DecidableEq` here: the constituent `Label` (alias for

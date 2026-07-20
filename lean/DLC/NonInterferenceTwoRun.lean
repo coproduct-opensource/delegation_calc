@@ -74,6 +74,7 @@ def usesVar : Term → Nat → Bool
   | .case s l r, i => usesVar s i || usesVar l (i + 1) || usesVar r (i + 1)
   | .tensorIntro a b, i => usesVar a i || usesVar b i
   | .letTensor s b, i => usesVar s i || usesVar b (i + 2)
+  | .saysBind _ s b, i => usesVar s i || usesVar b (i + 1)
   | .letSays _ s b, i => usesVar s i || usesVar b (i + 1)
   | .sfExtract m, i => usesVar m i
 
@@ -171,6 +172,10 @@ theorem substAt_indep {M : Term} :
       simp only [usesVar, Bool.or_eq_false_iff] at h
       simp only [substAt, iha h.1 N₁ N₂, ihb h.2 N₁ N₂]
   | letTensor s b ihs ihb =>
+      intro i h N₁ N₂
+      simp only [usesVar, Bool.or_eq_false_iff] at h
+      simp only [substAt, ihs h.1 N₁ N₂, ihb h.2 N₁ N₂]
+  | saysBind p s b ihs ihb =>
       intro i h N₁ N₂
       simp only [usesVar, Bool.or_eq_false_iff] at h
       simp only [substAt, ihs h.1 N₁ N₂, ihb h.2 N₁ N₂]

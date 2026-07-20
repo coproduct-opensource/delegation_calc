@@ -50,6 +50,7 @@ def Term.isPropositional : Term → Bool
   | Term.inr _ a          => a.isPropositional
   | Term.tensorIntro a b  => a.isPropositional && b.isPropositional
   | Term.case s l r       => s.isPropositional && l.isPropositional && r.isPropositional
+  | Term.saysBind _ s b    => s.isPropositional && b.isPropositional
   | Term.letSays _ s b    => s.isPropositional && b.isPropositional
   | Term.sfExtract m      => m.isPropositional
   | Term.delegate m n     => m.isPropositional && n.isPropositional
@@ -86,6 +87,7 @@ def Term.isInCalculus : Term → Bool
   | Term.case s l r         => s.isInCalculus && l.isInCalculus && r.isInCalculus
   | Term.tensorIntro a b    => a.isInCalculus && b.isInCalculus
   | Term.letTensor s b      => s.isInCalculus && b.isInCalculus
+  | Term.saysBind _ s b      => s.isInCalculus && b.isInCalculus
   | Term.letSays _ s b      => s.isInCalculus && b.isInCalculus
   | Term.sfExtract m        => m.isInCalculus
 
@@ -299,6 +301,20 @@ def decideLean (Γ : Ctx) : Term → Option Prop'
       | some χL, some χR => if Prop'.beq χL χR then some χL else none
       | _, _ => none
     | _ => none
+  | .saysBind _ _ _ =>
+    -- FAIL-CLOSED, exactly as the `.boxed` arm above and for the same reason.
+    --
+    -- `decide.rs` DOES type says-E (`Term::SaysBind` -> `p says ψ`), but
+    -- `PropDeriv` — the fragment `t1_propositional_soundness_prop` targets —
+    -- has no says-E rule at all. An arm that succeeded here would claim a
+    -- derivation the propositional fragment cannot build, and T1 soundness
+    -- would be unprovable, correctly, because it would be false.
+    --
+    -- So the checker REJECTS says-E for now. No theorem is weakened and
+    -- nothing is accepted that the fragment cannot derive. Resolving it means
+    -- either adding says-E to PropDeriv or documenting the Lean/Rust gap —
+    -- the same open question the `.boxed` arm carries.
+    none
   | .letSays p s b =>
     -- says-elim let-binder: scrutinee must be `p says φ`; body lives
     -- in extended context with φ added; result is body's type ψ
@@ -816,6 +832,10 @@ theorem t1_propositional_soundness (M : Term) :
     intro Γₐ φ _ hdec
     -- `decideLean` rejects box introduction (fail-closed until R5 of the
     -- T4 ladder -- see the `.boxed` arm), so the hypothesis is false.
+    simp [decideLean] at hdec
+  case saysBind p m n ihm ihn =>
+    intro Γₐ φ _ hdec
+    -- likewise fail-closed for says-E.
     simp [decideLean] at hdec
   case discharge m n ihm ihn =>
     intro Γₐ φ hprop hdec
@@ -2137,6 +2157,9 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
   case boxed o m n ihm ihn =>
     intro Γₐ φ hdec
     -- Same as above: fail-closed `decideLean` makes the hypothesis false.
+    simp [decideLean] at hdec
+  case saysBind p m n ihm ihn =>
+    intro Γₐ φ hdec
     simp [decideLean] at hdec
   case discharge m n ihm ihn =>
     intro Γₐ φ hdec

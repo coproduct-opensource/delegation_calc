@@ -62,8 +62,41 @@ jobs:
 
       - name: lake build per-theorem libraries
         working-directory: delegation_calc/lean
+        # Every `lean_lib` in lakefile.lean must be built here or explicitly
+        # excluded. A lib that is neither is a SILENT GATE OUTAGE, not a
+        # missing build: check-axioms.sh imports across libs, so a single
+        # unbuilt olean makes `lake env lean` fail and the axiom soundness
+        # gate stops running altogether — while the job still reports the
+        # failure as a generic step error.
+        #
+        # This is not hypothetical. #102 (2026-07-03) added `lean_lib
+        # «CtxWellFormed»` and imported DLC.CtxWellFormed into the axiom
+        # script, but not to this list. The axiom gate was dark from
+        # 2026-07-03 to 2026-07-20 — three weekly canaries — on a codebase
+        # that had just deleted an axiom found refutable in-system.
         run: |
-          for lib in Decidability Correspondence NonInterference ObligationSoundness ProtocolCorrespondence Progress Witness CoproductAlgebra GradedBridge GradedDistributiveLaw GradedBridgeGeneric; do
+          LIBS="Decidability CtxWellFormed Correspondence NonInterference \
+                ObligationSoundness ProtocolCorrespondence Progress Witness \
+                CoproductAlgebra GradedBridge GradedDistributiveLaw GradedBridgeGeneric"
+          # DLC: built by the lean-mathlib-cache action above (build-target: DLC).
+          # DLCAeneas: Aeneas-generated translation; gated by scripts/check-drift.sh.
+          EXCLUDED="DLC DLCAeneas"
+
+          missing=""
+          for lib in $(grep -oE 'lean_lib «[A-Za-z0-9_]+»' lakefile.lean \
+                       | sed 's/lean_lib «//; s/»//'); do
+            case " $LIBS $EXCLUDED " in
+              *" $lib "*) ;;
+              *) missing="$missing $lib" ;;
+            esac
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::lean_lib(s) declared in lakefile.lean but not wired into CI:$missing"
+            echo "Add each to LIBS in this step, or to EXCLUDED with a reason."
+            exit 1
+          fi
+
+          for lib in $LIBS; do
             echo "::group::lake build $lib"
             lake build "$lib"
             echo "::endgroup::"

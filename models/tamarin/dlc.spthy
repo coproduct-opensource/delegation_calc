@@ -36,9 +36,15 @@ builtins: signing
 // Key registration -- each principal P has a long-term Ed25519 keypair
 // =========================================================================
 
+// `HonestLtk` is emitted as an ACTION, and it is load-bearing for
+// `secrecy_ltk`. Persistent state facts like `!Ltk` are NOT actions and
+// cannot appear in a trace formula: a lemma that quantifies over
+// `!Ltk(P, sk) @ #j` has an unsatisfiable premise and holds VACUOUSLY.
+// See the note on secrecy_ltk below. (models/proverif/dlc.pv already had
+// the analogous `HonestSk` event for exactly this reason.)
 rule Register_pk:
     [ Fr(~sk) ]
-  -->
+  --[ HonestLtk($P, ~sk) ]->
     [ !Ltk($P, ~sk), !Pk($P, pk(~sk)), Out(pk(~sk)) ]
 
 // Static long-term-key reveal. Models a principal whose secret key is
@@ -196,10 +202,26 @@ rule Discharge_Accept:
 // Lemma 1 -- Secrecy of long-term keys. The adversary never derives an
 // honest principal's secret key (i.e. one that was not explicitly
 // revealed via Reveal_ltk).
+//
+// WAS VACUOUS UNTIL 2026-07-20. The premise read `!Ltk(P, sk) @ #j`, but
+// `!Ltk` is a persistent STATE fact -- Register_pk produced it with `-->`,
+// emitting no actions at all -- so no rule ever had it as an action. A
+// trace formula can only quantify over actions, so the premise was
+// unsatisfiable and the implication held for the empty set of traces.
+// Tamarin reported `verified (2 steps)`: two steps because it discharged
+// the premise immediately, not because the protocol was analysed.
+//
+// Tamarin DID warn ("Inexistant lemma actions: lemma `secrecy_ltk'
+// references action fact "Ltk" ... but no rule has such an action"), but
+// the CI gate greps only for `falsified|incomplete`, so a wellformedness
+// failure passed silently for the lifetime of the file.
+//
+// The premise now uses the `HonestLtk` action emitted by Register_pk, so
+// the lemma ranges over real traces and has to be earned.
 lemma secrecy_ltk:
   all-traces
   "All P sk #i #j.
-       KU(sk) @ #i & !Ltk(P, sk) @ #j
+       KU(sk) @ #i & HonestLtk(P, sk) @ #j
     ==>
        (Ex #r. LtkReveal(P) @ #r)"
 

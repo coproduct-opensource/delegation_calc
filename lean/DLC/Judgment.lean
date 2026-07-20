@@ -14,6 +14,7 @@ affirmation modality including its Ed25519 signature carrier (§4).
 
 import DLC.Syntax
 import DLC.Principal
+import DLC.Subst
 
 namespace DLC
 
@@ -70,10 +71,20 @@ inductive Deriv : Ctx → Term → Prop' → Type where
   | varL (Γₐ : List Prop') (φ : Prop') :
       Deriv { additive := Γₐ, linear := [φ] } (Term.var Γₐ.length) φ
 
-  /-- `weaken-A` — additive weakening. -/
+  /-- `weaken-A` — additive weakening. The conclusion SHIFTS the term.
+
+  `Ctx.consA` PREPENDS to the additive context, so every de Bruijn index in
+  `M` must move up by one or it silently re-points at the new hypothesis.
+  Before 2026-07-20 this rule concluded at `M` unshifted, which was unsound:
+  with `Γ.additive = [A]` and `M = var 0`, `varA` gives `var 0 : A`, and the
+  old `weakenA` then gave `var 0 : A` in `[B, A]` — where `var 0` denotes
+  `B`. The same term inhabited two types in one context, and the `A` one was
+  simply wrong. `weakenA_shifts_regression` below pins the fix.
+
+  De Bruijn INDICES require this shift; de Bruijn levels would not. -/
   | weakenA (Γ : Ctx) (φ' φ : Prop') (M : Term)
       (d : Deriv Γ M φ) :
-      Deriv (Ctx.consA φ' Γ) M φ
+      Deriv (Ctx.consA φ' Γ) (shift M 1 0) φ
 
   /-- `imp-I` — implication introduction. -/
   | impI (Γ : Ctx) (φ ψ : Prop') (M : Term)

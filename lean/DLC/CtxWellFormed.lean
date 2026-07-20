@@ -282,17 +282,87 @@ theorem ctxLookup_nonsingleton_linear_none (Γ : Ctx) (i : Nat)
     | nil => rw [h] at hlin; simp at hlin
     | cons b tl' => simp
 
-/-- **L2-deferred (stated, not `sorry`d).** The genuine substructural core
-the split rules will need in L4: a linear variable resolved in a `Γ₁ ++ Γ₂`
-context routes to **exactly one** side of the split, and `N`'s own linear
-resources merge into that side. This is a `Prop` *statement* consumed by
-L2's split algebra and L4's linear-substitution proof; it is deliberately
-left unproven here (proving it needs the L2 membership/partition machinery
-that does not yet exist). It is **not** a `sorry` — no proof is claimed —
-and it is **not** a tautology (a real ∀ with a genuine disjunction). Listed
-as deferred in the L1 report. -/
+/-! ## L2 — the linear split algebra.
+
+The `++` bookkeeping every linear elimination uses (`impE`, `saysE`,
+`delegate`, `tensorE`, `boxI`/`discharge`): a linear variable resolved in a
+`Γ₁ ++ Γ₂` context routes to EXACTLY ONE side of the split.
+
+### The previously-stated form was FALSE, not merely unproven.
+
+`LinearSplitRoutes` was carried as a deferred `Prop` with the note that it
+"is **not** a `sorry` -- no proof is claimed -- and it is **not** a tautology
+(a real ∀ with a genuine disjunction)". Both of those were true. Neither
+implies the statement holds, and it did not. It read:
+
+    ∀ i φ, ctxLookup ⟨Γₐ, Γ₁ ++ Γ₂⟩ i = some φ →
+      i = Γₐ.length ∧ (Γ₁ = [φ] ∧ Γ₂ = []) ∨ (Γ₁ = [] ∧ Γ₂ = [φ])
+
+Two independent defects:
+
+1. **No additive-miss hypothesis.** `ctxLookup` consults `additive` FIRST
+   and only falls through to `linear` on a miss. So when `i` hits the
+   additive context the linear halves are entirely unconstrained, and
+   neither disjunct need hold. `linearSplitRoutes_old_form_refuted` below
+   exhibits this: `Γₐ = [atom 0]`, `i = 0`, `Γ₁ = [atom 5]`, `Γ₂ = [atom 6]`.
+2. **Precedence.** `∧` binds tighter than `∨`, so `i = Γₐ.length ∧ A ∨ B`
+   parses as `(i = Γₐ.length ∧ A) ∨ B` -- the index claim attached only to
+   the left branch, leaving `i` unconstrained on the right. The intended
+   reading scopes it over both.
+
+The corrected statement adds the missing hypothesis and the parentheses,
+and is proven below rather than deferred. -/
+
+/-- A linear variable resolved in a split context routes to exactly one
+side. The `Γₐ[i]? = none` premise is load-bearing: it is what makes this a
+statement about LINEAR variables rather than about `ctxLookup` in general
+(see `linearSplitRoutes_old_form_refuted`). -/
 def LinearSplitRoutes (Γₐ Γ₁ Γ₂ : List Prop') : Prop :=
-  ∀ i φ, ctxLookup { additive := Γₐ, linear := Γ₁ ++ Γ₂ } i = some φ →
-    i = Γₐ.length ∧ (Γ₁ = [φ] ∧ Γ₂ = []) ∨ (Γ₁ = [] ∧ Γ₂ = [φ])
+  ∀ i φ, Γₐ[i]? = none →
+    ctxLookup { additive := Γₐ, linear := Γ₁ ++ Γ₂ } i = some φ →
+      i = Γₐ.length ∧ ((Γ₁ = [φ] ∧ Γ₂ = []) ∨ (Γ₁ = [] ∧ Γ₂ = [φ]))
+
+/-- **L2 core.** The split algebra holds for every context and every split.
+Proof: the additive-miss premise forces `ctxLookup_agrees`' linear disjunct,
+which pins `Γ₁ ++ Γ₂ = [φ]`; appending to a singleton leaves exactly the two
+routings. -/
+theorem linearSplitRoutes_holds (Γₐ Γ₁ Γ₂ : List Prop') :
+    LinearSplitRoutes Γₐ Γ₁ Γ₂ := by
+  intro i φ hmiss hlk
+  rcases (ctxLookup_agrees { additive := Γₐ, linear := Γ₁ ++ Γ₂ } i φ).mp hlk with
+    hA | ⟨hlin, hidx⟩
+  · -- additive hit contradicts the miss premise
+    rw [hmiss] at hA
+    simp at hA
+  · refine ⟨hidx, ?_⟩
+    -- `Γ₁ ++ Γ₂ = [φ]`
+    cases Γ₁ with
+    | nil =>
+        right
+        exact ⟨rfl, by simpa using hlin⟩
+    | cons a tl =>
+        left
+        have h := hlin
+        simp only [List.cons_append, List.cons.injEq] at h
+        obtain ⟨ha, htl⟩ := h
+        have h2 : tl = [] ∧ Γ₂ = [] := List.append_eq_nil_iff.mp htl
+        exact ⟨by rw [ha, h2.1], h2.2⟩
+
+/-- The refutation of the old form, kept so it cannot silently return. With
+an ADDITIVE hit the linear halves are unconstrained, so the un-hypothesised
+statement fails. -/
+theorem linearSplitRoutes_old_form_refuted :
+    ¬ (∀ i φ, ctxLookup { additive := [Prop'.atom 0],
+                          linear := [Prop'.atom 5] ++ [Prop'.atom 6] } i = some φ →
+        (i = ([Prop'.atom 0] : List Prop').length ∧
+          ([Prop'.atom 5] = [φ] ∧ ([Prop'.atom 6] : List Prop') = [])) ∨
+        (([Prop'.atom 5] : List Prop') = [] ∧ [Prop'.atom 6] = [φ])) := by
+  intro h
+  have hl : ctxLookup { additive := [Prop'.atom 0],
+                        linear := [Prop'.atom 5] ++ [Prop'.atom 6] } 0
+          = some (Prop'.atom 0) := by rfl
+  rcases h 0 (Prop'.atom 0) hl with ⟨_, h1, _⟩ | ⟨h2, _⟩
+  · injection h1 with hx _; injection hx with hn; exact absurd hn (by decide)
+  · simp at h2
 
 end DLC

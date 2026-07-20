@@ -61,6 +61,16 @@ pub enum Term {
     Delegate(Box<Term>, Box<Term>),
     /// Attenuation: weakens an affirmation along provable implication.
     Attenuate(Box<Term>, Box<Prop>),
+    /// Obligation attachment: `box_O(M, N)` introducing `□_O φ` from a proof
+    /// `M : φ` and obligation evidence `N : O`.
+    ///
+    /// The obligation is carried by the TERM, not merely by the typing
+    /// derivation — the same annotation discipline as `Lam`, `LiftLabel`,
+    /// `Declassify` and `WithinIntro`. This is what lets `pending_obligations`
+    /// (T4) be a function of syntax alone; recovering `O` from `N`'s type
+    /// instead would force T4 to quantify over derivations rather than terms.
+    /// See `spec/syntax.md` §5 and `spec/t4-obligation-design-2026-07.md`.
+    Boxed(Obligation, Box<Term>, Box<Term>),
     /// Discharge: consumes an obligation to extract the underlying proposition.
     Discharge(Box<Term>, Box<Term>),
     /// IFC label lifting.

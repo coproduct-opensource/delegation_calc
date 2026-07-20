@@ -101,6 +101,14 @@ fn walk_term(term: &Term, out: &mut String) {
             walk_term(f, out);
             walk_term(x, out);
         }
+        // box_O(M, N) -- structural descent only. The obligation itself is
+        // modelled by the hand-written Box_Issue / Discharge_Accept rules in
+        // models/tamarin/dlc.spthy, not synthesised from a term, so this arm
+        // emits no event and only walks the sub-terms.
+        Term::Boxed(_, m, n) => {
+            walk_term(m, out);
+            walk_term(n, out);
+        }
         Term::Discharge(m, n) => {
             walk_term(m, out);
             walk_term(n, out);

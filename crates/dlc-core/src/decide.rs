@@ -146,6 +146,16 @@ pub fn infer(ctx: &Ctx, term: &Term) -> Option<Prop> {
             }
         }
 
+        // box_O(M, N): M : φ, N : O ⊢ box_O(M, N) : □_O φ.
+        // The obligation is read from the TERM rather than inferred from the
+        // evidence's type — see the `Term::Boxed` docstring. The evidence is
+        // required to be present and well-formed but its type is not consulted
+        // here; the obligation-table correspondence is the verifier's job.
+        Term::Boxed(o, m, _evidence) => {
+            let m_ty = infer(ctx, m)?;
+            Some(Prop::Boxed(o.clone(), Box::new(m_ty)))
+        }
+
         // discharge(M, N): M : □_O φ, N : O ⊢ discharge(M, N) : φ.
         // The linear consumption is enforced by the context-splitting
         // protocol; this checker assumes the caller has split correctly.

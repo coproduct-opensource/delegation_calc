@@ -438,7 +438,29 @@ theorem t4_no_new_obligation
         · exact List.mem_append.mpr (Or.inl (ihM m' hm o hM))
         · exact List.mem_append.mpr (Or.inr hN)
   | attenuate _ _ _ => intro M' h; simp [step] at h
-  | discharge _ _ _ _ => intro M' h; simp [step] at h
+  | discharge m p ihm _ =>
+      -- No longer irreducible: R4 gave discharge a redex, so T4's own
+      -- theorem now has real content in this case.
+      intro M' h o hmem
+      unfold step at h
+      split at h
+      · -- discharge-beta: M = discharge (boxed _ inner ev) p, M' = inner.
+        -- pendingObligations (discharge X p) = pendingObligations X, and
+        -- pendingObligations (boxed _ inner ev)
+        --   = pendingObligations inner ++ pendingObligations ev.
+        -- So an obligation of the result is an obligation of the redex:
+        -- reduction DESTROYS the box, it never introduces one. That
+        -- direction is exactly what t4_no_new_obligation claims.
+        simp only [Option.some.injEq] at h
+        subst h
+        exact List.mem_append.mpr (Or.inl hmem)
+      · -- xi-discharge.
+        cases hm : step m with
+        | none => simp [hm] at h
+        | some m' =>
+            simp [hm] at h
+            subst h
+            exact ihm m' hm o hmem
   | liftLabel _ _ _ => intro M' h; simp [step] at h
   | boxed _ _ _ _ _ => intro M' h; simp [step] at h
   | declassify _ _ _ _ _ => intro M' h; simp [step] at h

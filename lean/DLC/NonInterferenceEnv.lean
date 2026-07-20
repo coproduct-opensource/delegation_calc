@@ -729,7 +729,25 @@ private theorem step_preserves_closed_aux :
                closed_of_closed_delegate_right hc⟩
   | attenuate _ _ _ => intro M' h _; simp [step] at h
   | boxed o _ _ _ _ => intro M' h _; simp [step] at h
-  | discharge _ _ _ _ => intro M' h _; simp [step] at h
+  | discharge m p ihm _ =>
+      -- No longer irreducible: R4 gave discharge a redex.
+      intro M' h hc
+      unfold step at h
+      split at h
+      · -- discharge-beta: m = boxed _ inner _, M' = inner. Closedness of
+        -- the box's payload follows from closedness of the whole redex.
+        simp only [Option.some.injEq] at h
+        subst h
+        exact (closedAbove_boxed_iff.mp (closedAbove_discharge_iff.mp hc).1).1
+      · -- xi-discharge.
+        cases hm : step m with
+        | none => simp [hm] at h
+        | some m' =>
+            simp [hm] at h
+            subst h
+            exact closedAbove_discharge_iff.mpr
+              ⟨ihm m' hm (closedAbove_discharge_iff.mp hc).1,
+               (closedAbove_discharge_iff.mp hc).2⟩
   | liftLabel _ _ _ => intro M' h _; simp [step] at h
   | declassify _ _ _ _ _ => intro M' h _; simp [step] at h
   | now _ => intro M' h _; simp [step] at h

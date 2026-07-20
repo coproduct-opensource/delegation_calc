@@ -1585,9 +1585,29 @@ noncomputable def propDeriv_subject_reduction
   | declassify _ _ _ _ _ _ _ _ _ _ =>
     -- `Term.declassify ℓ' M π` is a frozen elimination — vacuous.
     intro M' h; simp [step] at h
-  | discharge _ _ _ _ _ _ _ _ _ =>
-    -- `Term.discharge M N` is a frozen elimination — vacuous.
-    intro M' h; simp [step] at h
+  | discharge Γ O φ m n dM dN ihM _ =>
+    -- No longer vacuous: R4 gave `discharge` a redex (discharge-beta).
+    intro M' h
+    unfold step at h
+    split at h
+    · -- discharge-beta: m = boxed _ inner _, M' = inner.
+      --
+      -- Unreachable in THIS fragment, and provably so rather than by
+      -- assertion: `PropDeriv` has no rule concluding at `Term.boxed`
+      -- (box introduction is a `Deriv`-only rule), so `dM` -- which types
+      -- the scrutinee -- is uninhabited here. `cases dM` closes the goal
+      -- with zero subgoals.
+      --
+      -- The full-`Deriv` version of this case is where discharge-beta
+      -- carries real content, and it is R5's multiset-accounting work.
+      cases dM
+    · -- xi-discharge: reduce the scrutinee in place.
+      cases hm : step m with
+      | none => simp [hm] at h
+      | some m' =>
+        simp [hm] at h
+        subst h
+        exact PropDeriv.discharge _ O φ m' n (ihM m' hm) dN
   | letTensor Γ α β χ S B dS dB ihS _ =>
     intro M' h
     unfold step at h

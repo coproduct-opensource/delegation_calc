@@ -278,12 +278,31 @@ no reduct) and progress fails; see
 **Frozen forms.** `verify`, `attenuate`, `declassify`, `discharge`,
 `liftLabel`, `withinIntro` do not reduce and have no congruence rule:
 they are checked by the verifier (`⊢_K` / IFC / obligation layers)
-rather than computed. In particular `attenuate-β` (reproof) and
-`discharge-β` are NOT implemented — discharge-β awaits the
-obligation-carrying constructor (T4 non-vacuity package), and
-attenuate's reproof is a verifier-side notion. The earlier version of
-this section listed them as reduction rules; that overstated the
+rather than computed. In particular `attenuate-β` (reproof) is NOT
+implemented — attenuate's reproof is a verifier-side notion. The earlier
+version of this section listed it as a reduction rule; that overstated the
 semantics.
+
+**`discharge-β` IS implemented as of R4** (2026-07-20). It awaited the
+obligation-carrying constructor, and `box_O(M, N)` landed in R1–R3:
+
+```
+discharge(box_O(M, N), P)  ▷  M
+```
+
+Eliminating an obligation-carrying proof yields the underlying proof of
+`φ` and destroys the box. The evidence terms (`N` inside the box, and `P`)
+are discarded by the redex — they are checked at typing time, since
+`box-I` requires `N : O` and `discharge` requires its own evidence, so
+reduction need not re-examine them. `ξ-discharge` reduces the scrutinee in
+place. See `lean/DLC/Reduce.lean`.
+
+`discharge` is therefore no longer a frozen elimination. Subject reduction
+covers the new redex for the propositional fragment; in `PropDeriv` the
+β-case is *provably* unreachable rather than assumed so — `PropDeriv` has
+no rule concluding at `Term.boxed`, so the scrutinee's derivation is
+uninhabited there. The full-`Deriv` content of the rule, and the multiset
+accounting it enables, are R5.
 
 **Values (computational core).** `λ`, `⟨M,σ⟩_p`, `⟨M,N⟩`, `inl/inr`,
 `M⊗N`, `now`, plus the frozen forms above. **Progress** holds for

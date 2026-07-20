@@ -120,12 +120,32 @@ def step : Term → Option Term
           | some m' => some (Term.delegate m' n)
           | none => none
 
+  -- discharge-β: `discharge(box_O(M, N), P) ▷ M` -- eliminating an
+  -- obligation-carrying proof yields the underlying proof of φ, consuming
+  -- the box. ξ-discharge on the scrutinee, matching the sfExtract idiom.
+  --
+  -- This rule is what R2a's `one_shot_discharge` lemma is about at the
+  -- symbolic level, and what R5's multiset accounting will be about in
+  -- Lean: the box is destroyed by reduction, so its obligation leaves
+  -- `pendingObligations` exactly once.
+  --
+  -- Note the evidence terms (N inside the box, and P) are DISCARDED by
+  -- the redex. They are checked at typing time -- `Deriv.boxI` requires
+  -- `dN : Deriv Ctx.empty N (Prop'.atom 0)` and `Deriv.discharge`
+  -- requires its own evidence -- so reduction need not re-examine them.
+  | Term.discharge m p =>
+      match m with
+      | Term.boxed _ inner _ => some inner
+      | _ =>
+          match step m with
+          | some m' => some (Term.discharge m' p)
+          | none => none
+
   -- Frozen forms and values: var, lam, sign, pair, inl, inr,
-  -- tensorIntro, now, withinIntro, verify, attenuate, discharge,
+  -- tensorIntro, now, withinIntro, verify, attenuate, boxed,
   -- liftLabel, declassify. The frozen eliminations (verify, attenuate,
-  -- declassify, discharge) are checked by the verifier layers rather
-  -- than computed; discharge-β awaits the obligation-carrying
-  -- constructor (T4 non-vacuity package).
+  -- declassify) are checked by the verifier layers rather than computed.
+  -- `discharge` is no longer among them -- see discharge-β above.
   | _ => none
 
 /-- Iterate `step` up to `fuel` steps, returning the final term and the step

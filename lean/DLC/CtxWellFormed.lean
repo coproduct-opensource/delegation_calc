@@ -445,6 +445,45 @@ theorem impE_levels_addresses (A B : Prop') :
     ctxLookupL { additive := [], linear := [Prop'.imp A B, A] } 1 = some A :=
   ⟨rfl, rfl⟩
 
+/-! ## Regression: every migrated split rule addresses by LEVEL.
+
+`tensorI`, `delegate` and `discharge` follow `impE`: the right premise is
+shifted by `Γ₁.length` at cutoff `Γₐ.length`, so only LINEAR addresses move
+and they land where the right half actually lives in `Γ₁ ++ Γ₂`.
+
+Each theorem below exhibits a NON-DEGENERATE split -- both halves singleton,
+so the shift is a real `+1` rather than the identity. That matters: every
+pre-existing construction in the repo used empty linear contexts, where the
+shift is `shift _ 0 _` and the addressing defect is invisible. These are the
+first derivations in the codebase that exercise a genuine two-sided split. -/
+
+/-- `tensorI` on a genuine split: the right component is addressed at 1. -/
+theorem tensorI_levels_regression (φ ψ : Prop') :
+    Nonempty (Deriv { additive := [], linear := [φ] ++ [ψ] }
+                    (Term.tensorIntro (Term.var 0) (Term.var 1)) (Prop'.tensor φ ψ)) := by
+  have dM : Deriv { additive := [], linear := [φ] } (Term.var 0) φ := Deriv.varL [] φ
+  have dN : Deriv { additive := [], linear := [ψ] } (Term.var 0) ψ := Deriv.varL [] ψ
+  have d := Deriv.tensorI [] [φ] [ψ] φ ψ (Term.var 0) (Term.var 0) dM dN
+  exact ⟨by simpa [shift] using d⟩
+
+/-- `discharge` on a genuine split: the evidence premise is addressed at 1. -/
+theorem discharge_levels_regression (O : Obligation) (φ : Prop') :
+    Nonempty (Deriv { additive := [], linear := [Prop'.boxed O φ] ++ [Prop'.atom 0] }
+                    (Term.discharge (Term.var 0) (Term.var 1)) φ) := by
+  have dM : Deriv { additive := [], linear := [Prop'.boxed O φ] }
+                  (Term.var 0) (Prop'.boxed O φ) := Deriv.varL [] _
+  have dN : Deriv { additive := [], linear := [Prop'.atom 0] }
+                  (Term.var 0) (Prop'.atom 0) := Deriv.varL [] _
+  have d := Deriv.discharge [] [Prop'.boxed O φ] [Prop'.atom 0] O φ
+              (Term.var 0) (Term.var 0) dM dN
+  exact ⟨by simpa [shift] using d⟩
+
+/-- Both halves of a two-element linear context resolve, distinctly. -/
+theorem split_addresses_resolve (φ ψ : Prop') :
+    ctxLookupL { additive := [], linear := [φ, ψ] } 0 = some φ ∧
+    ctxLookupL { additive := [], linear := [φ, ψ] } 1 = some ψ :=
+  ⟨rfl, rfl⟩
+
 /-! ## Regression: `weakenA` must shift.
 
 `Ctx.consA` prepends to the additive context, so a de Bruijn index that is

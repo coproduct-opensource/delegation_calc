@@ -632,7 +632,7 @@ theorem t1_propositional_soundness (M : Term) :
         rw [← hφ]
         have ⟨dA⟩ := ihA Γₐ α hpropA hA
         have ⟨dB⟩ := ihB Γₐ β hpropB hB
-        exact ⟨Deriv.tensorI Γₐ [] [] α β a b dA dB⟩
+        exact ⟨by simpa [shift_zero] using Deriv.tensorI Γₐ [] [] α β a b dA dB⟩
   case case s l r ihS ihL ihR =>
     intro Γₐ φ hprop hdec
     have hprop' := hprop
@@ -735,7 +735,8 @@ theorem t1_propositional_soundness (M : Term) :
                   have ⟨dN⟩ := ihn Γₐ (Prop'.says n_p n_inner) hpropN hN
                   rw [← hpp] at dM
                   rw [hqn] at dM
-                  exact ⟨Deriv.delegate Γₐ [] [] p_outer n_p n_inner m n dM dN⟩
+                  exact ⟨by simpa [shift_zero] using
+                    Deriv.delegate Γₐ [] [] p_outer n_p n_inner m n dM dN⟩
                 · simp [decideLean, hM, hN, hpp, hqn] at hdec
               · simp [decideLean, hM, hN, hpp] at hdec
             all_goals (simp [decideLean, hM, hN] at hdec)
@@ -838,7 +839,7 @@ theorem t1_propositional_soundness (M : Term) :
               rw [← hφ]
               have ⟨dM⟩ := ihm Γₐ (Prop'.boxed O inner) hpropM hM
               have ⟨dN⟩ := ihn Γₐ (Prop'.atom 0) hpropN hN
-              exact ⟨Deriv.discharge _ [] [] O inner m n dM dN⟩
+              exact ⟨by simpa [shift_zero] using Deriv.discharge _ [] [] O inner m n dM dN⟩
             | succ _ => simp [decideLean, hM, hN] at hdec
           all_goals (simp [decideLean, hM, hN] at hdec)
       all_goals (simp [decideLean, hM] at hdec)
@@ -1657,7 +1658,7 @@ noncomputable def propDeriv_to_deriv :
   | orI_L Γₐ φ ψ a _ ih => exact Deriv.orI_L _ φ ψ a ih
   | orI_R Γₐ φ ψ a _ ih => exact Deriv.orI_R _ φ ψ a ih
   | tensorI Γₐ φ ψ a b _ _ ihA ihB =>
-      exact Deriv.tensorI _ [] [] φ ψ a b ihA ihB
+      exact by simpa [shift_zero] using Deriv.tensorI _ [] [] φ ψ a b ihA ihB
   | orE Γₐ φ ψ χ S L R _ _ _ ihS ihL ihR =>
       exact Deriv.orE _ φ ψ χ S L R ihS ihL ihR
   | letSaysE Γₐ p φ ψ S B _ _ ihS ihB =>
@@ -1665,7 +1666,7 @@ noncomputable def propDeriv_to_deriv :
   | sfExtractE Γₐ p q M _ ih =>
       exact Deriv.sfExtractE _ p q M ih
   | delegate Γₐ p q φ M N _ _ ihM ihN =>
-      exact Deriv.delegate _ [] [] p q φ M N ihM ihN
+      exact by simpa [shift_zero] using Deriv.delegate _ [] [] p q φ M N ihM ihN
   | now Γₐ τ =>
       exact Deriv.now Γₐ τ
   | attenuate Γₐ p φ M _ ih =>
@@ -1677,7 +1678,7 @@ noncomputable def propDeriv_to_deriv :
   | declassify Γₐ φ ℓ ℓ' M π _ _ ihM ihπ =>
       exact Deriv.declassify _ φ ℓ ℓ' M π ihM ihπ
   | discharge Γₐ O φ M N _ _ ihM ihN =>
-      exact Deriv.discharge _ [] [] O φ M N ihM ihN
+      exact by simpa [shift_zero] using Deriv.discharge _ [] [] O φ M N ihM ihN
   | letTensor Γₐ φ ψ χ S B _ _ ihS ihB =>
       exact Deriv.letTensorA _ φ ψ χ S B ihS ihB
 

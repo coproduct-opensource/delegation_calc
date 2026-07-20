@@ -139,7 +139,7 @@ inductive Deriv : Ctx → Term → Prop' → Type where
               (Prop'.says p (Prop'.speaksFor q p)))
       (dN : Deriv { additive := Γₐ, linear := Γ₂ } N (Prop'.says q φ)) :
       Deriv { additive := Γₐ, linear := Γ₁ ++ Γ₂ }
-            (Term.delegate M N)
+            (Term.delegate M (shift N Γ₁.length Γₐ.length))
             (Prop'.says (Principal.acting p q) φ)
 
   /-- `attenuate` — narrow a `p says φ` to a `p says ψ`, requiring that `ψ`
@@ -187,7 +187,7 @@ inductive Deriv : Ctx → Term → Prop' → Type where
       (dM : Deriv { additive := Γₐ, linear := Γ₁ } M (Prop'.boxed O φ))
       (dN : Deriv { additive := Γₐ, linear := Γ₂ } N (Prop'.atom 0)) :
       Deriv { additive := Γₐ, linear := Γ₁ ++ Γ₂ }
-            (Term.discharge M N) φ
+            (Term.discharge M (shift N Γ₁.length Γₐ.length)) φ
 
   /-- `now` — proof of `now < τ` from a verifiable time anchor. The anchor
   is opaque at the calculus level; verification lives in `dlc-crypto`'s
@@ -280,7 +280,7 @@ inductive Deriv : Ctx → Term → Prop' → Type where
       (dM : Deriv { additive := Γₐ, linear := Γ₁ } M φ)
       (dN : Deriv { additive := Γₐ, linear := Γ₂ } N ψ) :
       Deriv { additive := Γₐ, linear := Γ₁ ++ Γ₂ }
-            (Term.tensorIntro M N) (Prop'.tensor φ ψ)
+            (Term.tensorIntro M (shift N Γ₁.length Γₐ.length)) (Prop'.tensor φ ψ)
 
   /-- `tensor-E` — `let x⊗y = S in B` binds two linear hypotheses. -/
   | tensorE (Γₐ : List Prop') (Γ₁ Γ₂ : List Prop') (φ ψ χ : Prop') (S B : Term)

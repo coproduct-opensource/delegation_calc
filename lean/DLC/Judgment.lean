@@ -287,7 +287,7 @@ inductive Deriv : Ctx → Term → Prop' → Type where
       (dS : Deriv { additive := Γₐ, linear := Γ₁ } S (Prop'.tensor φ ψ))
       (dB : Deriv { additive := Γₐ, linear := ψ :: φ :: Γ₂ } B χ) :
       Deriv { additive := Γₐ, linear := Γ₁ ++ Γ₂ }
-            (Term.letTensor S B) χ
+            (Term.letTensor S (shift B Γ₁.length (Γₐ.length + 2))) χ
 
   /-- `tensor-E (additive variant)` — same shape as `tensorE` but both
   binders are tracked additively (`linear = []` throughout). This is the
@@ -311,7 +311,7 @@ inductive Deriv : Ctx → Term → Prop' → Type where
       (dS : Deriv { additive := Γₐ, linear := Γ₁ } S (Prop'.says p φ))
       (dB : Deriv { additive := φ :: Γₐ, linear := Γ₂ } B ψ) :
       Deriv { additive := Γₐ, linear := Γ₁ ++ Γ₂ }
-            (Term.letSays p S B) ψ
+            (Term.letSays p S (shift B Γ₁.length (Γₐ.length + 1))) ψ
 
   /-- `sf-extract` — extract a speaks-for from `p says (q ⇒ p)`. -/
   | sfExtractE (Γ : Ctx) (p q : Principal) (M : Term)

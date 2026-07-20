@@ -681,7 +681,7 @@ theorem t1_propositional_soundness (M : Term) :
           have ⟨dS⟩ := ihS Γₐ (Prop'.says p' α) hpropS hS
           have ⟨dB⟩ := ihB (α :: Γₐ) φ hpropB hdec'
           rw [← hp] at dS
-          exact ⟨Deriv.letSaysE Γₐ [] [] p α φ s b dS dB⟩
+          exact ⟨by simpa [shift_zero] using Deriv.letSaysE Γₐ [] [] p α φ s b dS dB⟩
         · simp [decideLean, hS, hp] at hdec
       all_goals (simp [decideLean, hS] at hdec)
   case sfExtract m ihm =>
@@ -1662,7 +1662,7 @@ noncomputable def propDeriv_to_deriv :
   | orE Γₐ φ ψ χ S L R _ _ _ ihS ihL ihR =>
       exact Deriv.orE _ φ ψ χ S L R ihS ihL ihR
   | letSaysE Γₐ p φ ψ S B _ _ ihS ihB =>
-      exact Deriv.letSaysE Γₐ [] [] p φ ψ S B ihS ihB
+      exact by simpa [shift_zero] using Deriv.letSaysE Γₐ [] [] p φ ψ S B ihS ihB
   | sfExtractE Γₐ p q M _ ih =>
       exact Deriv.sfExtractE _ p q M ih
   | delegate Γₐ p q φ M N _ _ ihM ihN =>

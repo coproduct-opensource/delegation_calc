@@ -484,6 +484,44 @@ theorem split_addresses_resolve (φ ψ : Prop') :
     ctxLookupL { additive := [], linear := [φ, ψ] } 1 = some ψ :=
   ⟨rfl, rfl⟩
 
+/-! ## Regression: the BINDING split rules address by level too.
+
+`letSaysE` and `tensorE` differ from the four `Term.app`-shaped rules: their
+body premise sits under binders, so the level shift has to clear them. Both
+land on the same shape —
+
+    shift B Γ₁.length (Γₐ.length + nbinders)
+
+— delta as usual, cutoff raised past the binders so the BOUND variables stay
+put and only `Γ₂`'s addresses move. `letSaysE` binds one (additive, matching
+`Term.letSays`'s cutoff+1); `tensorE` binds two (linear, matching
+`Term.letTensor`'s cutoff+2).
+
+The `tensorE` case below is the hardest instance in the migration: two
+binders AND a non-empty `Γ₂`, so the shift is a real `+1` that must skip the
+bound pair. It was derived and validated by construction before the rule was
+touched. -/
+
+/-- `letSaysE`: under its one binder, `Γ₂`'s hypothesis moves from address
+`Γₐ.length + 1` to `Γₐ.length + 1 + Γ₁.length`. -/
+theorem letSaysE_levels_arith :
+    shift (Term.var 1) 1 (0 + 1) = Term.var 2 := by rfl
+
+/-- `tensorE`: the bound pair (addresses 0 and 1) is UNTOUCHED, while
+`Γ₂`'s hypothesis at 2 moves to 3. This is what the cutoff `Γₐ.length + 2`
+buys — a naive `Γ₁.length` shift at cutoff `Γₐ.length` would have corrupted
+the two bound variables. -/
+theorem tensorE_levels_arith :
+    shift (Term.tensorIntro (Term.var 0)
+             (Term.tensorIntro (Term.var 1) (Term.var 2))) 1 (0 + 2)
+  = Term.tensorIntro (Term.var 0)
+      (Term.tensorIntro (Term.var 1) (Term.var 3)) := by rfl
+
+/-- …and 3 is where that hypothesis actually lives in the spliced context,
+read under the two binders. -/
+theorem tensorE_levels_address (φ ψ ρ : Prop') :
+    ctxLookupL { additive := [], linear := [Prop'.tensor φ ψ, ρ] } 1 = some ρ := by rfl
+
 /-! ## Regression: `weakenA` must shift.
 
 `Ctx.consA` prepends to the additive context, so a de Bruijn index that is

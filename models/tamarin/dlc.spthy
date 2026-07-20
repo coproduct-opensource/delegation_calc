@@ -126,17 +126,42 @@ rule Delegate_Accept:
 // <prop, sign(prop, skQ)>, which cannot unify with this 5-tuple. The same
 // class of confusion is what the SpeaksFor_Issue comment above records
 // Tamarin finding, so it is worth foreclosing by construction here.
+// Both rules below emit a DUAL `Says` event alongside their own. This is not
+// bookkeeping — it is required for soundness, and omitting it falsifies
+// `non_splicing`.
+//
+// Tamarin tuples are transparently decomposable by the adversary, so from a
+// token <'box', $P, ~o, ~prop, sign(<'box', ~o, ~prop>, sk)> the adversary can
+// project out the signature and re-pair it as <<'box', ~o, ~prop>, sign(...)>
+// — which is exactly the shape Delegate_Accept accepts as its Says half. Any
+// principal that signs ANYTHING has therefore made a says-affirmation at the
+// trace level, and the model must say so.
+//
+// This is the same failure the SpeaksFor_Issue comment above records Tamarin
+// finding. It was rediscovered here the same way: the first draft of these
+// rules omitted the dual events and CI falsified non_splicing (verified on
+// main, first failure on this branch).
 rule Box_Issue:
     [ Fr(~o), Fr(~prop), !Ltk($P, sk) ]
-  --[ BoxIssued($P, ~o, ~prop) ]->
+  --[
+      BoxIssued($P, ~o, ~prop)
+    , Says($P, <'box', ~o, ~prop>)
+    ]->
     [ Out(<'box', $P, ~o, ~prop, sign(<'box', ~o, ~prop>, sk)>)
     , Obligation($P, ~o, ~prop)
     ]
 
 // Evidence that an obligation has been met, signed by the discharging party.
+//
+// `o` is bound by an explicit In(o): evidence may be issued for any obligation
+// identifier the adversary can name, but the variable must be BOUND. Leaving
+// it free made this rule fail Tamarin's unbound-variable wellformedness check.
 rule Evidence_Issue:
-    [ !Ltk($Q, sk) ]
-  --[ EvidenceIssued($Q, o) ]->
+    [ In(o), !Ltk($Q, sk) ]
+  --[
+      EvidenceIssued($Q, o)
+    , Says($Q, <'evidence', o>)
+    ]->
     [ Out(<'evidence', $Q, o, sign(<'evidence', o>, sk)>) ]
 
 // discharge(M, N): a verifier extracts prop from box_o(prop), given the box

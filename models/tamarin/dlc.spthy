@@ -108,6 +108,60 @@ rule Delegate_Accept:
     [ ]
 
 // =========================================================================
+// Obligations -- the box-I / discharge wire forms
+// =========================================================================
+//
+// Added for the T4 non-vacuity ladder (spec/t4-obligation-design-2026-07.md,
+// rung R2a). CLAUDE.md requires the Tamarin model to lead any wire-format
+// change, so these rules land BEFORE `box_O` reaches dlc-core or wire.rs.
+//
+// The `box_O(M, N)` wire form: P attaches a fresh obligation ~o to a
+// proposition it affirms. The obligation identity is fresh, so distinct
+// boxes are distinguishable, and the token is signed so a verifier can
+// attribute it.
+//
+// The signature is over <'box', ~o, ~prop> -- NOT over ~prop alone. This
+// tagging is what stops a box token from being replayed as the Says half of
+// a Delegate_Accept: that rule's input pattern is the pair
+// <prop, sign(prop, skQ)>, which cannot unify with this 5-tuple. The same
+// class of confusion is what the SpeaksFor_Issue comment above records
+// Tamarin finding, so it is worth foreclosing by construction here.
+rule Box_Issue:
+    [ Fr(~o), Fr(~prop), !Ltk($P, sk) ]
+  --[ BoxIssued($P, ~o, ~prop) ]->
+    [ Out(<'box', $P, ~o, ~prop, sign(<'box', ~o, ~prop>, sk)>)
+    , Obligation($P, ~o, ~prop)
+    ]
+
+// Evidence that an obligation has been met, signed by the discharging party.
+rule Evidence_Issue:
+    [ !Ltk($Q, sk) ]
+  --[ EvidenceIssued($Q, o) ]->
+    [ Out(<'evidence', $Q, o, sign(<'evidence', o>, sk)>) ]
+
+// discharge(M, N): a verifier extracts prop from box_o(prop), given the box
+// token and evidence for o.
+//
+// The rule consumes the LINEAR `Obligation` fact. That fact -- not the wire
+// token -- is what carries the one-shot semantics: `Out` messages can be
+// replayed by the adversary without limit, so linearity cannot be expressed
+// by the token alone. Consuming the fact means a second discharge of the
+// same ~o has nothing left to consume, which is what `one_shot_discharge`
+// below checks.
+rule Discharge_Accept:
+    [ Obligation($P, ~o, prop)
+    , In(<'box', $P, ~o, prop, sign(<'box', ~o, prop>, skP)>)
+    , In(<'evidence', $Q, ~o, sign(<'evidence', ~o>, skQ)>)
+    , !Pk($P, pk(skP))
+    , !Pk($Q, pk(skQ))
+    ]
+  --[
+      DischargeAccept($P, $Q, ~o, prop)
+    , UsedEvidence($Q, ~o)
+    ]->
+    [ ]
+
+// =========================================================================
 // Lemmas -- the four T2-bridging properties from spec/threat-model.md sec 7
 // =========================================================================
 
@@ -148,6 +202,50 @@ lemma exec_delegation:
   exists-trace
   "Ex P Q prop #i.
        DelegateAccept(P, Q, prop) @ #i
+     & not (Ex #r. LtkReveal(P) @ #r)
+     & not (Ex #r. LtkReveal(Q) @ #r)"
+
+// Lemma 4 -- NoSilentDischarge.
+//
+// If a verifier extracts prop from a boxed proof, then the box really was
+// issued by P AND evidence for its obligation really was issued by Q. An
+// obligation cannot be dropped in transit -- the wire-level counterpart of
+// spec/syntax.md's "obligations cannot be silently dropped".
+lemma no_silent_discharge:
+  all-traces
+  "All P Q o prop #i.
+       DischargeAccept(P, Q, o, prop) @ #i
+    ==>
+       ( (Ex #j. BoxIssued(P, o, prop) @ #j & j < i)
+       & (Ex #k. EvidenceIssued(Q, o) @ #k & k < i) )
+       | (Ex #r. LtkReveal(P) @ #r & r < i)
+       | (Ex #r. LtkReveal(Q) @ #r & r < i)"
+
+// Lemma 5 -- OneShotDischarge (linearity).
+//
+// The same obligation cannot be discharged twice. This is the protocol-level
+// counterpart of the spec's "O is linear" side condition (typing-rules.md
+// sec 8), and the wire-level shadow of the multiset accounting T4 will state
+// in Lean. It holds structurally because Discharge_Accept consumes the
+// linear `Obligation` fact; if that fact were made persistent (!Obligation)
+// this lemma should FAIL, which is the check that it is load-bearing.
+lemma one_shot_discharge:
+  all-traces
+  "All P Q1 Q2 o prop1 prop2 #i #j.
+       DischargeAccept(P, Q1, o, prop1) @ #i
+     & DischargeAccept(P, Q2, o, prop2) @ #j
+    ==>
+       #i = #j"
+
+// Lemma 6 -- Executability sanity check for the obligation fragment.
+//
+// A trace exists where an obligation is issued and discharged with no key
+// reveals. Without this, lemmas 4 and 5 could both hold vacuously by the
+// discharge rule simply never firing.
+lemma exec_discharge:
+  exists-trace
+  "Ex P Q o prop #i.
+       DischargeAccept(P, Q, o, prop) @ #i
      & not (Ex #r. LtkReveal(P) @ #r)
      & not (Ex #r. LtkReveal(Q) @ #r)"
 

@@ -54,6 +54,13 @@ lean_lib «Decidability» where
 lean_lib «CtxWellFormed» where
   roots := #[`DLC.CtxWellFormed]
 
+-- Validation prototype for the CARVe context migration
+-- (spec/carve-context-design-2026-07.md). Self-contained: imports nothing
+-- from DLC, so it can be judged on its own. CI type-checks it because an
+-- unchecked validation artifact rots.
+lean_lib «CarveProto» where
+  roots := #[`CarveProto]
+
 lean_lib «Correspondence» where
   roots := #[`DLC.Correspondence]
 

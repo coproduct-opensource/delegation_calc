@@ -77,7 +77,8 @@ jobs:
         run: |
           LIBS="Decidability CtxWellFormed Correspondence NonInterference \
                 ObligationSoundness ProtocolCorrespondence Progress Witness \
-                CoproductAlgebra GradedBridge GradedDistributiveLaw GradedBridgeGeneric"
+                CoproductAlgebra GradedBridge GradedDistributiveLaw GradedBridgeGeneric \
+                CarveProto"
           # DLC: built by the lean-mathlib-cache action above (build-target: DLC).
           # DLCAeneas: Aeneas-generated translation; gated by scripts/check-drift.sh.
           EXCLUDED="DLC DLCAeneas"

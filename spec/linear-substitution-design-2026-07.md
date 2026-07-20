@@ -224,7 +224,30 @@ premise and ill-defined at the conclusion — so **L4 (linear substitution) is
 not merely hard under this representation; it is ill-posed**, because
 "the variable at index i" has no meaning in a spliced conclusion.
 
-### Options (a decision about representation, for the owner)
+### DECISION (owner, 2026-07-20): option (A), de Bruijn LEVELS.
+
+Validated in `lean/DLC/CtxWellFormed.lean` BEFORE any rule change:
+
+- `ctxLookupL` addresses a linear hypothesis at position `k` by
+  `Term.var (additive.length + k)` — its ABSOLUTE position in the spliced
+  context, not its position relative to whichever premise introduced it.
+- `ctxLookupL_varL` — agrees with `varL`'s address on the singleton contexts
+  L1 already handles, so nothing depending on L1 moves yet.
+- `ctxLookupL_resolves_split` — the counterexample above resolves, and
+  resolves DISTINCTLY (index 0 → φ, index 1 → ψ).
+- `ctxLookup_fails_on_split` — kept beside it, showing the OLD lookup
+  resolves NEITHER index in that same context. Before/after of one context,
+  so the migration is demonstrably necessary rather than cosmetic.
+
+**Still owed, and NOT done there:** the split rules must shift the right
+premise's term by `Γ₁.length` so its addresses land in the right half of
+`Γ₁ ++ Γ₂` — e.g. `impE` concluding at
+`Term.app M (shift N Γ₁.length Γₐ.length)`. That touches `impE`, `tensorI`,
+`delegate`, `discharge`, `letSaysE` and `tensorE`, and is the next rung. The
+arithmetic is validated: with `Γₐ = []` and `Γ₁ = [imp A B]`,
+`shift (var 0) 1 0 = var 1` — exactly the right half's address in the splice.
+
+### Options as they stood (B and C not taken)
 
 - **(A) de Bruijn LEVELS for linear variables.** The literature's answer:
   levels do not need reindexing when the context changes. Addressing linear

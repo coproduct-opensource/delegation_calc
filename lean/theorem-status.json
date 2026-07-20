@@ -94,6 +94,7 @@
     "status": "proven_fragment",
     "fragment": "L1 disambiguation: varL restricted to var(additive.length); CtxWellFormed holds by construction; ctxLookup agrees with the var rules and matches decide.rs on the additive + empty-additive-linear domains",
     "file": "DLC/CtxWellFormed.lean",
+    "witness": "DLC/Witness/L1.lean",
     "theorems": [
       "CtxWellFormed_all",
       "ctxLookup_agrees",

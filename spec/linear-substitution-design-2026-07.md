@@ -265,6 +265,58 @@ L3a is separately blocked on `saysE` (see above). Both blockers are decisions
 about `Deriv`'s presentation rather than proof effort, and neither should be
 taken unilaterally.
 
+## L3a: patterns validated, and a loop-4 claim RETRACTED (2026-07-20, loop 11)
+
+### `weakenA` is NOT a structural obstruction — I was wrong
+
+The loop-4 note recorded `weakenA` as "a genuine obstruction, not a tedious
+case", on the reasoning that its `Ctx.consA` conclusion forces
+`Γl ++ Γr = φ' :: Γ.additive` and the `Γl = []` branch then needs `Γm`
+inserted BEFORE `φ'`, "which the premise's IH does not provide". Three
+options were proposed for working around it.
+
+That reasoning was wrong, and the case is now PROVEN. The induction
+hypothesis quantifies over `Γm`, so the `Γl = []` branch simply absorbs `φ'`
+into the inserted block:
+
+    ih [] (Γm ++ [φ']) Γ.additive Γ.linear  -- Γm := Γm ++ [φ']
+
+which yields exactly `⟨Γm ++ φ' :: Γ.additive, Λ⟩`, closing with
+`shift_shift_merge` for the doubled shift at cutoff 0. The `Γl = χ :: Γl'`
+branch closes with `shift_shift_comm` (loop 10), since
+`shift (shift M Γm.length Γl'.length) 1 0
+   = shift (shift M 1 0) Γm.length (Γl'.length + 1)`
+and `Γl'.length + 1 = Γl.length`.
+
+None of the three proposed workarounds is needed. Recording the retraction
+because a wrong "this is impossible" is more expensive than a wrong "this
+should work" — it stops people trying.
+
+### Cases proven this loop
+
+`weakenA` (both branches), `varA` (the `List.getElem?_append_left/right`
+index arithmetic, mirroring `propDeriv_shift_aux`), and `impI` (the binder
+case, IH at `χ :: Γl` with `Ctx.consA` unfolded). `varL` is provable but has
+`Nat` association friction inside `Term.var` that needs `convert`/`omega`
+tuning rather than `simpa`.
+
+So the L3a patterns are established for all four structural classes:
+VAR-shaped conclusions (`subst hΓ`), record-shaped (`injection hΓ`),
+`consA`-shaped (case split on `Γl`), and binders (IH at `χ :: Γl`).
+
+### `saysE` is now the ONLY structural blocker
+
+Every other case is a known pattern. `saysE` cannot be proven at all: its
+premise binds on the additive context while its conclusion term is
+`Term.app M N`, which `shift` does not treat as a binder, so the goal's
+cutoff and the IH's cutoff differ by one with no way to reconcile them (loop
+4, PR #123).
+
+Because a Lean `induction` demands every constructor, **L3a cannot be
+completed while `saysE` remains in `Deriv`** — not for want of effort, but
+because one case is unprovable as stated. The decision recorded in #123 is
+therefore no longer a nice-to-have: it is the single thing blocking L3a.
+
 ## Non-goals / honest scope
 
 - No `Term` / wire-format change (path 1 rejected). If L4 proves impossible under the

@@ -1,1 +1,0 @@
-'DLC.pendingObligations_eq_nil' depends on axioms: [propext]

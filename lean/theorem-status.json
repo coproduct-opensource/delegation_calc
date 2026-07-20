@@ -39,13 +39,21 @@
     "fragment": "propositional computational core (PropDeriv minus the frozen eliminations verify/attenuate/declassify/discharge; NI modulo declassification)"
   },
   "T4_obligation": {
-    "status": "stated",
+    "status": "proven_fragment",
+    "fragment": "non-introduction only (t4_no_new_obligation): reduction never invents an obligation absent from the redex. The full multiset accounting obligations(M') = obligations(M) - discharged + introduced is NOT proven; this is one inequality of it.",
     "file": "DLC/ObligationSoundness.lean",
-    "note": "t4_no_new_obligation is a real induction over a VACUOUS statement: pendingObligations is provably the constant [] (see pendingObligations_eq_nil — no Term constructor carries an Obligation).",
+    "theorems": [
+      "t4_no_new_obligation",
+      "pendingObligations_ne_nil"
+    ],
+    "witness": "DLC/Witness/T4.lean",
+    "proven_content": "NO LONGER VACUOUS as of the R0-R5 ladder (spec/t4-obligation-design-2026-07.md). Previously pendingObligations was provably the constant [] (pendingObligations_eq_nil), so the ~180-line induction quantified over an empty list. R1-R3 added Term.boxed, the obligation-carrying introduction form -- Deriv.boxI had concluded at Term.app, so obligations never inhabited syntax. R4 added discharge-beta, a redex that DESTROYS a box. R5 gave pendingObligations its base case, so a box contributes its own obligation. pendingObligations_eq_nil is now FALSE and deleted; pendingObligations_ne_nil refutes it. Witness DLC/Witness/T4.lean exhibits a term with obligation list [Ow] (impossible before this ladder), a discharge-beta step that REMOVES it, and T4 applied to that concrete step -- so the theorem is exercised on a rule that can fire and a list that can be non-empty.",
+    "history": "the deleted pendingObligations_eq_nil pre-registered its own refutation: 'When Phase 2 adds an obligation-carrying constructor, this lemma MUST break -- its deletion is the signal that T4 has acquired content.'",
     "open": [
-      "obligation-carrying term constructor + discharge redex in Reduce.lean",
-      "multiset accounting: obligations(M') = obligations(M) − discharged + introduced",
-      "label-ledger fusion: discharging an obligation cannot leak below its label"
+      "multiset accounting: obligations(M') = obligations(M) - discharged + introduced (only the non-introduction inequality is proven)",
+      "label-ledger fusion: discharging an obligation cannot leak below its label",
+      "decideLean is FAIL-CLOSED on Term.boxed: decide.rs ignores obligation evidence while Deriv.boxI requires dN : Deriv Ctx.empty N (atom 0), so a faithful Lean arm must be STRICTER than the Rust. Unresolved -- the discharge arm already carries the same asymmetry",
+      "full-Deriv (non-propositional) content of discharge-beta"
     ]
   },
   "protocol_correspondence": {

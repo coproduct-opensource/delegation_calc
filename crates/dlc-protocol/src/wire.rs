@@ -5,7 +5,7 @@
 //! cross-organizational caching.
 //!
 //! Encoding strategy: each `Term` variant becomes a CBOR array
-//! `[tag, arg1, arg2, ...]` where `tag` is the constructor index (0..21)
+//! `[tag, arg1, arg2, ...]` where `tag` is the constructor index (0..22)
 //! and the arguments are recursively encoded. Sub-types (`Prop`,
 //! `Principal`, `Label`, `Obligation`, `TimeBound`, `Signature`) use the
 //! same tag-arrayed shape.
@@ -210,6 +210,17 @@ fn enc_term(t: &Term) -> Value {
             enc_term(b),
         ]),
         Term::SfExtract(m) => Value::Array(vec![Value::Integer(21.into()), enc_term(m)]),
+        // box_O(M, N) -- tag 22, APPENDED. Tags here are explicit positional
+        // integers, so a new variant leaves every existing term's encoding
+        // byte-identical: `canonical_bytes` is unchanged for anything that
+        // could already be encoded, and signatures over such terms stay valid.
+        // Never renumber an existing tag.
+        Term::Boxed(o, m, n) => Value::Array(vec![
+            Value::Integer(22.into()),
+            enc_obligation(o),
+            enc_term(m),
+            enc_term(n),
+        ]),
     }
 }
 
@@ -456,6 +467,11 @@ fn dec_term(v: &Value) -> Result<Term, ProtocolError> {
             Box::new(dec_term(&a[3])?),
         )),
         21 => Ok(Term::SfExtract(Box::new(dec_term(&a[1])?))),
+        22 => Ok(Term::Boxed(
+            dec_obligation(&a[1])?,
+            Box::new(dec_term(&a[2])?),
+            Box::new(dec_term(&a[3])?),
+        )),
         t => Err(ProtocolError::Cbor(format!("bad term tag {}", t))),
     }
 }
@@ -796,7 +812,7 @@ mod tests {
     }
 
     #[test]
-    fn canonical_roundtrip_all_22_constructors() {
+    fn canonical_roundtrip_all_23_constructors() {
         // Every constructor of `Term` is exercised exactly once. If a
         // new variant is added without a corresponding case here, the
         // exhaustive `match` in `Term`'s encoder would compile-fail
@@ -888,6 +904,18 @@ mod tests {
                 Term::LetSays(p(), Box::new(Term::Var(0)), Box::new(Term::Var(1))),
             ),
             ("SfExtract", Term::SfExtract(Box::new(Term::Var(0)))),
+            // A COMPOUND obligation, deliberately: tag 22 is the first
+            // term-level path that reaches `dec_obligation`, so a flat
+            // `Obligation::Top` here would leave that recursion untested
+            // from the `Term` side.
+            (
+                "Boxed",
+                Term::Boxed(
+                    Obligation::Tensor(Box::new(Obligation::Top), Box::new(Obligation::Bot)),
+                    Box::new(Term::Var(0)),
+                    Box::new(Term::Var(1)),
+                ),
+            ),
         ];
 
         for (name, t) in &cases {
@@ -904,8 +932,8 @@ mod tests {
         // require.
         assert_eq!(
             cases.len(),
-            22,
-            "expected 22 Term constructors; if this count changed, update the canonical test"
+            23,
+            "expected 23 Term constructors; if this count changed, update the canonical test"
         );
     }
 

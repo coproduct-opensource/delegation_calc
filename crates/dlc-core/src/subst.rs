@@ -49,6 +49,11 @@ pub fn shift(term: &Term, delta: i32, cutoff: u32) -> Term {
             Box::new(shift(n, delta, cutoff)),
         ),
         Term::Attenuate(m, psi) => Term::Attenuate(Box::new(shift(m, delta, cutoff)), psi.clone()),
+        Term::Boxed(o, m, n) => Term::Boxed(
+            o.clone(),
+            Box::new(shift(m, delta, cutoff)),
+            Box::new(shift(n, delta, cutoff)),
+        ),
         Term::Discharge(m, n) => Term::Discharge(
             Box::new(shift(m, delta, cutoff)),
             Box::new(shift(n, delta, cutoff)),
@@ -140,6 +145,11 @@ fn subst_at(body: &Term, value: &Term, depth: u32) -> Term {
         Term::Attenuate(m, psi) => {
             Term::Attenuate(Box::new(subst_at(m, value, depth)), psi.clone())
         }
+        Term::Boxed(o, m, n) => Term::Boxed(
+            o.clone(),
+            Box::new(subst_at(m, value, depth)),
+            Box::new(subst_at(n, value, depth)),
+        ),
         Term::Discharge(m, n) => Term::Discharge(
             Box::new(subst_at(m, value, depth)),
             Box::new(subst_at(n, value, depth)),

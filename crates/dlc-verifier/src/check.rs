@@ -98,6 +98,14 @@ fn all_sigs_verify(term: &Term, keyring: &KeyRing) -> Result<(), String> {
             all_sigs_verify(m, keyring)?;
             all_sigs_verify(n, keyring)
         }
+        // box_O(M, N): the obligation index carries no signature, but BOTH
+        // sub-terms must still be walked. Omitting this arm would let a
+        // `Sign` node nested inside a boxed proof escape verification
+        // entirely -- the obligation would act as a signature-check shield.
+        Term::Boxed(_, m, n) => {
+            all_sigs_verify(m, keyring)?;
+            all_sigs_verify(n, keyring)
+        }
         Term::Attenuate(m, _) => all_sigs_verify(m, keyring),
         Term::LiftLabel(_, m) => all_sigs_verify(m, keyring),
         Term::Declassify(_, m, pi) => {

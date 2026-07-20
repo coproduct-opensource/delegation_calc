@@ -70,6 +70,13 @@ fn walk_term(term: &Term, out: &mut String) {
             walk_term(f, out);
             walk_term(x, out);
         }
+        // box_O(M, N) -- structural descent only; see the matching arm in
+        // export_tamarin.rs. The obligation processes live in the
+        // hand-written models/proverif/dlc.pv.
+        Term::Boxed(_, m, n) => {
+            walk_term(m, out);
+            walk_term(n, out);
+        }
         Term::Discharge(m, n) => {
             walk_term(m, out);
             walk_term(n, out);

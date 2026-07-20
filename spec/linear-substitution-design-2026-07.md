@@ -1,5 +1,13 @@
 # The linear lever — design for extending the metatheory to full `Deriv`
 
+> **SUPERSEDED IN PART (2026-07-20).** Rungs **L1 and L2 are retired** and
+> the `{additive, linear}` context representation with them. L3a proved 26 of
+> 28 cases over that representation and then failed on `tensorE` for a
+> structural reason (linear binders consume zero de Bruijn slots while `shift`
+> reserves two). See **[`carve-context-design-2026-07.md`](carve-context-design-2026-07.md)**
+> for the replacement and the machine-checked validation. The L3b/L4/L5
+> staging below still stands; only the representation changed.
+
 **Controller tick #1 (autonomous, 2026-07-03).** The persona controller's Observe
 step ranked `substitution_lemma` (full `Deriv`, linear cases) as the highest-leverage
 open item: it is the shared root that unblocks **subject_reduction-full → T3-full,

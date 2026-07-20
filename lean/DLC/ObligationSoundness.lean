@@ -1,30 +1,35 @@
 /-
 T4 — Obligation soundness across reduction.
 
-## Status: the proven theorem is currently VACUOUS (2026-07 audit).
+## Status: NO LONGER VACUOUS as of R5 (2026-07-20).
 
-`t4_no_new_obligation` below is a genuine ~180-line case analysis over
-`step`'s redexes — but it quantifies over members of a list that is
-provably ALWAYS EMPTY: no `Term` constructor carries an `Obligation`,
-so `pendingObligations M = []` for every `M`. That fact is proven
-explicitly as `pendingObligations_eq_nil` below; the ledger gates T4's
-status on a non-vacuity witness (a term with a non-empty obligation
-list) that today CANNOT exist.
+`t4_no_new_obligation` is a ~180-line case analysis over `step`'s redexes.
+Until R5 it quantified over members of a list that was provably ALWAYS
+EMPTY: no `Term` constructor carried an `Obligation`, so
+`pendingObligations M = []` for every `M`, and the theorem was true and
+empty.
 
-Making T4 contentful is Phase-2 scope and requires extending the
-calculus first:
-1. an obligation-carrying term constructor (the `box-I` payload —
-   today `Deriv.boxI` reuses `Term.app`, so obligations never inhabit
-   syntax);
-2. a discharge redex in `Reduce.lean`;
-3. then the real T4: multiset accounting
-   `obligations(M') = obligations(M) − discharged + introduced`,
-   for which the non-introduction direction proven here becomes one
-   inequality.
+The R0–R5 ladder (`spec/t4-obligation-design-2026-07.md`) closed that:
+
+1. `Term.boxed` — the obligation-carrying constructor (R1–R3). `Deriv.boxI`
+   used to conclude at `Term.app`, so obligations never inhabited syntax.
+2. `discharge-β` in `Reduce.lean` (R4) — a redex that DESTROYS a box.
+3. `pendingObligations`' base case (R5, below) — a box contributes its own
+   obligation, so the list can be non-empty.
+
+`pendingObligations_eq_nil`, which proved the vacuity, is now FALSE and has
+been deleted; `pendingObligations_ne_nil` refutes it in place. Its own
+docstring had pre-registered this: "this lemma MUST break — its deletion is
+the signal that T4 has acquired content."
+
+The non-introduction direction proven here becomes one inequality of the
+full multiset accounting
+`obligations(M') = obligations(M) − discharged + introduced`.
 
 The case-analysis machinery below (substAt subset lemma, per-redex
-membership arithmetic) is retained because the real proof will reuse
-it verbatim once `pendingObligations` has non-trivial base cases.
+membership arithmetic) was retained across the ladder on the prediction
+that the real proof would reuse it verbatim. It did: the cases needed
+CONTENT for the new redex, not rewriting.
 -/
 
 import DLC.Reduce
@@ -49,12 +54,11 @@ def pendingObligations : Term → List Obligation
   | Term.delegate m n           =>
       pendingObligations m ++ pendingObligations n
   | Term.attenuate m _          => pendingObligations m
-  -- R3 PRESERVES the current (vacuous) semantics deliberately: this
-  -- recurses without contributing `O`. R5 changes it to
-  -- `o :: (pendingObligations m ++ pendingObligations n)`, which is what
-  -- finally makes T4 non-vacuous. Changing it here would alter a theorem's
-  -- content in a rung scoped to be mechanical.
-  | Term.boxed _ m n            => pendingObligations m ++ pendingObligations n
+  -- THE BASE CASE. `box_O(M, N)` contributes its own obligation. Until R5
+  -- this recursed without contributing `o`, which is exactly why
+  -- `pendingObligations` was provably the constant `[]` and T4 was a real
+  -- induction over a vacuous statement.
+  | Term.boxed o m n            => o :: (pendingObligations m ++ pendingObligations n)
   | Term.discharge m _          => pendingObligations m
   | Term.liftLabel _ m          => pendingObligations m
   | Term.declassify _ m π       =>
@@ -214,21 +218,30 @@ theorem pendingObligations_substAt_subset (body : Term) :
     unfold substAt at hmem
     unfold pendingObligations at hmem
     exact ih value depth o hmem
-  | boxed _ m π ihM ihπ =>
+  | boxed ob m π ihM ihπ =>
+    -- Now that `boxed` CONTRIBUTES its obligation, the membership splits
+    -- three ways rather than two: `o` may be the box's own `ob`, or come
+    -- from either sub-term. The `ob` case is new and is the whole point --
+    -- substitution cannot change a box's own obligation, so it lands on
+    -- the left immediately.
     intro value depth o hmem
-    have hmem' : o ∈ pendingObligations (substAt m value depth) ++
-                     pendingObligations (substAt π value depth) := hmem
-    rcases List.mem_append.mp hmem' with hM | hπ
-    · rcases ihM value depth o hM with h | h
-      · left
-        show o ∈ pendingObligations m ++ pendingObligations π
-        exact List.mem_append.mpr (Or.inl h)
-      · right; exact h
-    · rcases ihπ value depth o hπ with h | h
-      · left
-        show o ∈ pendingObligations m ++ pendingObligations π
-        exact List.mem_append.mpr (Or.inr h)
-      · right; exact h
+    have hmem' : o ∈ ob :: (pendingObligations (substAt m value depth) ++
+                            pendingObligations (substAt π value depth)) := hmem
+    rcases List.mem_cons.mp hmem' with hOb | hRest
+    · left
+      show o ∈ ob :: (pendingObligations m ++ pendingObligations π)
+      exact List.mem_cons.mpr (Or.inl hOb)
+    · rcases List.mem_append.mp hRest with hM | hπ
+      · rcases ihM value depth o hM with h | h
+        · left
+          show o ∈ ob :: (pendingObligations m ++ pendingObligations π)
+          exact List.mem_cons.mpr (Or.inr (List.mem_append.mpr (Or.inl h)))
+        · right; exact h
+      · rcases ihπ value depth o hπ with h | h
+        · left
+          show o ∈ ob :: (pendingObligations m ++ pendingObligations π)
+          exact List.mem_cons.mpr (Or.inr (List.mem_append.mpr (Or.inr h)))
+        · right; exact h
   | declassify _ m π ihM ihπ =>
     intro value depth o hmem
     have hmem' : o ∈ pendingObligations (substAt m value depth) ++
@@ -444,16 +457,20 @@ theorem t4_no_new_obligation
       intro M' h o hmem
       unfold step at h
       split at h
-      · -- discharge-beta: M = discharge (boxed _ inner ev) p, M' = inner.
-        -- pendingObligations (discharge X p) = pendingObligations X, and
-        -- pendingObligations (boxed _ inner ev)
-        --   = pendingObligations inner ++ pendingObligations ev.
-        -- So an obligation of the result is an obligation of the redex:
-        -- reduction DESTROYS the box, it never introduces one. That
-        -- direction is exactly what t4_no_new_obligation claims.
+      · -- discharge-beta: M = discharge (boxed ob inner ev) p, M' = inner.
+        --
+        -- THIS is the case T4 exists for, and as of R5 it finally has
+        -- content. The redex's obligation list is
+        --   ob :: (pendingObligations inner ++ pendingObligations ev)
+        -- and the contractum's is just `pendingObligations inner`. So the
+        -- step DISCHARGES `ob` -- it disappears -- and introduces nothing.
+        -- Every obligation of the result was already an obligation of the
+        -- redex, one `cons` deeper. That is exactly the direction
+        -- t4_no_new_obligation claims, now asserted about a rule that can
+        -- fire and a list that can be non-empty.
         simp only [Option.some.injEq] at h
         subst h
-        exact List.mem_append.mpr (Or.inl hmem)
+        exact List.mem_cons.mpr (Or.inr (List.mem_append.mpr (Or.inl hmem)))
       · -- xi-discharge.
         cases hm : step m with
         | none => simp [hm] at h
@@ -597,50 +614,42 @@ theorem t4_no_new_obligation
         exact ih m' hm o hmem
 
 /-- T4 — Obligation soundness statement (non-introduction direction).
-Kept as `abbrev` aliasing the proved theorem's statement. VACUOUS
-today — see the module docstring and `pendingObligations_eq_nil`. -/
+Kept as `abbrev` aliasing the proved theorem's statement. NO LONGER
+VACUOUS as of R5: `pendingObligations` can be non-empty (see
+`pendingObligations_ne_nil`), so this quantifies over a list that can
+actually have members. -/
 abbrev T4_ObligationSoundnessStatement : Prop :=
   ∀ (M M' : Term), step M = some M' →
     ∀ (o : Obligation),
       o ∈ pendingObligations M' → o ∈ pendingObligations M
 
-/-! ## The vacuity, machine-checked.
+/-! ## The vacuity, REFUTED.
 
-This is the audit finding made explicit: `pendingObligations` is the
-constant empty-list function, so every statement quantifying over its
-members holds trivially. When Phase 2 adds an obligation-carrying
-constructor, this lemma MUST break — its deletion is the signal that
-T4 has acquired content, and the ledger's T4 witness (a term with
-non-empty obligations) becomes satisfiable. -/
+The lemma that used to live here -- `pendingObligations_eq_nil`, proving
+`pendingObligations M = []` for every `M` -- is now FALSE, and its own
+docstring predicted that:
 
-/-- No term has pending obligations: the syntax has no
-obligation-carrying constructor. Proof: 22-case structural induction,
-every case reducing to `[]` or an append of empty lists. -/
-theorem pendingObligations_eq_nil (M : Term) :
-    pendingObligations M = [] := by
-  induction M with
-  | var _ => rfl
-  | lam _ body ih => simpa [pendingObligations] using ih
-  | app f x ihF ihX => simp [pendingObligations, ihF, ihX]
-  | sign _ m _ ih => simpa [pendingObligations] using ih
-  | verify _ m _ ih => simpa [pendingObligations] using ih
-  | delegate m n ihM ihN => simp [pendingObligations, ihM, ihN]
-  | attenuate m _ ih => simpa [pendingObligations] using ih
-  | discharge m _ ih _ => simpa [pendingObligations] using ih
-  | liftLabel _ m ih => simpa [pendingObligations] using ih
-  | boxed _ m π ihM ihπ => simp [pendingObligations, ihM, ihπ]
-  | declassify _ m π ihM ihπ => simp [pendingObligations, ihM, ihπ]
-  | now _ => rfl
-  | withinIntro _ m ih => simpa [pendingObligations] using ih
-  | pair a b ihA ihB => simp [pendingObligations, ihA, ihB]
-  | fst a ih => simpa [pendingObligations] using ih
-  | snd a ih => simpa [pendingObligations] using ih
-  | inl _ a ih => simpa [pendingObligations] using ih
-  | inr _ a ih => simpa [pendingObligations] using ih
-  | case s l r ihS ihL ihR => simp [pendingObligations, ihS, ihL, ihR]
-  | tensorIntro a b ihA ihB => simp [pendingObligations, ihA, ihB]
-  | letTensor s b ihS ihB => simp [pendingObligations, ihS, ihB]
-  | letSays _ s b ihS ihB => simp [pendingObligations, ihS, ihB]
-  | sfExtract m ih => simpa [pendingObligations] using ih
+  "When Phase 2 adds an obligation-carrying constructor, this lemma MUST
+   break -- its deletion is the signal that T4 has acquired content, and
+   the ledger's T4 witness (a term with non-empty obligations) becomes
+   satisfiable."
+
+R5 added the obligation-carrying constructor's base case, so the lemma
+broke exactly as pre-registered. Deleting it is the point, not collateral
+damage; leaving a weakened version would defeat the purpose.
+
+What replaces it is the refutation: an explicit term whose obligation list
+is NON-EMPTY. Before this ladder no such term could be written, which is
+what made T4's ~180-line induction quantify over the empty list. The
+non-vacuity WITNESS the ledger gates on lives in `DLC/Witness/T4.lean`;
+this is the minimal in-file counterexample. -/
+
+/-- `pendingObligations` is NOT constantly empty. Direct refutation of the
+deleted `pendingObligations_eq_nil`: a box carries its own obligation. -/
+theorem pendingObligations_ne_nil :
+    pendingObligations
+      (Term.boxed Obligation.top (Term.var 0) (Term.var 1)) ≠ [] := by
+  simp [pendingObligations]
+
 
 end DLC

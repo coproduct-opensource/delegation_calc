@@ -106,6 +106,7 @@ M, N ::= x                             variable (de-Bruijn index)
        | verify_p(M, σ)                check signature; eliminates p says
        | delegate(M, N)                build (p ⊓ q) says φ from (q⇒p) + (q says φ)
        | attenuate(M, ψ)               weaken affirmation along provable implication
+       | box_O(M, N)                   attach obligation O to a proof of φ
        | discharge(M, N)               consume obligation O to extract φ
        | lift_ℓ(M)                     IFC label introduction
        | declassify_ℓ(M, π)            controlled label lowering
@@ -129,6 +130,14 @@ M, N ::= x                             variable (de-Bruijn index)
 - `attenuate(M, ψ)` is the macaroon caveat operation, lifted to the calculus.
   Crucially, the type rule requires `ψ ≤_L φ` in the IFC lattice — you cannot
   "attenuate" a low-integrity statement into a high-integrity one.
+- `box_O(M, N)` is the introduction form for `□_O φ`: `M` proves `φ`, `N` is
+  the obligation evidence. **The obligation `O` is carried by the term, not
+  only by the typing derivation.** This follows the annotation discipline
+  already used by `λ x:φ. M`, `lift_ℓ(M)`, `declassify_ℓ(M, π)` and
+  `within(M, τ)` — the index is part of the syntax. It is what makes
+  `pendingObligations : Term → List Obligation` (T4) a function of syntax
+  alone; recovering `O` from `N`'s type instead would force T4 to quantify
+  over derivations rather than terms.
 - `discharge(M, N)` is the only way to consume a `□_O φ`. There is no other
   elimination form — obligations cannot be silently dropped.
 - `now(τ)` is the seam where the time anchor lives. It is a *proof* that

@@ -157,7 +157,7 @@ seam where nucleus's `portcullis-core::DeclassifyProof` plugs in at M1.Q4.a.
 ```
 Γ ⊢ M : φ      Γ ⊢ N : O
 ──────────────────────────  (box-I)
-Γ ⊢ box(M, N) : □_O φ
+Γ ⊢ box_O(M, N) : □_O φ
 
 Γ ⊢ M : □_O φ      Γ ⊢ N : O      O is linear
 ────────────────────────────────────────────────  (discharge)
@@ -167,6 +167,21 @@ seam where nucleus's `portcullis-core::DeclassifyProof` plugs in at M1.Q4.a.
 The `discharge` rule is the **only** elimination form for `□_O φ`. The side
 condition "O is linear" enforces the one-shot semantics — an obligation
 discharged once cannot be discharged again.
+
+`box_O(M, N)` carries the obligation as a term index, matching the discipline
+of `λ x:φ. M` and `lift_ℓ(M)`. Earlier revisions of this section wrote the
+conclusion as `box(M, N)`, leaving `O` recoverable only from `N`'s type; the
+term grammar (`spec/syntax.md`) omitted the production altogether, and
+`lean/DLC/Judgment.lean`'s `Deriv.boxI` consequently concluded at
+`Term.app M N` — reusing application, so no obligation ever reached the
+syntax. That is the root cause of T4's vacuity: `pendingObligations` reads
+terms, and no term could carry an obligation. See
+`spec/t4-obligation-design-2026-07.md` for the R0–R6 remediation ladder.
+
+The Lean and Rust encodings still conclude at `Term.app` as of this
+revision; R2/R3 bring them into line with the rule above. Until then the
+spec is deliberately ahead of the encodings — the staging that
+`check-spec-drift.sh` explicitly tolerates.
 
 ## 9. Time
 

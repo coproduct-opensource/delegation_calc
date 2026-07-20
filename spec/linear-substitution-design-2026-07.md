@@ -117,6 +117,53 @@ syntax or wire-format change** — the cheaper of the two paths:
   substitution recurses uniformly, threading the linear contexts along unchanged. The
   28-constructor analog of the PropDeriv result already proven; reuses that induction
   shape. `N` typed additive-only (`linear := []`) so it may be duplicated.
+> **L3a BLOCKER (2026-07-20, loop 4): `saysE` is metatheoretically ill-formed.**
+>
+> `deriv_shift` is provable for the structural cases — the `impE` pattern
+> (`injection` the `Ctx` equality, then feed each premise's IH the matching
+> linear half) compiles, and `varL`'s arithmetic works. It is NOT provable
+> for `saysE`, and the reason is a defect in the rule rather than in the
+> proof.
+>
+> `saysE` BINDS on the additive context but does not record the binder in
+> its term:
+>
+>     dM : Deriv ⟨Γₐ, Γ₁⟩ M (says p φ)
+>     dN : Deriv ⟨φ :: Γₐ, Γ₂⟩ N ψ          -- binds φ
+>     ------------------------------------------------
+>          Deriv ⟨Γₐ, Γ₁ ++ Γ₂⟩ (Term.app M N) (says p ψ)
+>
+> The conclusion term is `Term.app M N`, and `shift` does not bump the
+> cutoff for `app` (`Subst.lean` line 29) — only for real binders such as
+> `letSays` (line 64). So the shift lemma's goal carries
+> `shift N Γm.length Γl.length` while `dN`'s induction hypothesis can only
+> supply `shift N Γm.length (Γl.length + 1)`, since `dN`'s context is
+> `(φ :: Γl) ++ Γr`. Off by one, structurally — machine-checked by
+> inspecting the goal, not inferred.
+>
+> The rule's own source comment concedes the shape is provisional
+> ("placeholder; the real term is a let-binder"), and `Correspondence.lean`
+> already refers to "the placeholder-subject `saysE`/`boxI`". This is the
+> same defect class as the `weakenA` unsoundness fixed in PR #122: a rule
+> whose TERM does not match its BINDING STRUCTURE. `weakenA` had a one-line
+> fix (shift the term); `saysE` does not, because the correct term would be
+> a binder form and `Term.letSays` is already taken by `letSaysE`.
+>
+> **Recommendation: remove `saysE`.** It has zero uses as a constructor;
+> `letSaysE` already carries the same premise structure with a correct
+> binder term and correct shift handling. The two differ only in the
+> conclusion — `saysE` keeps the modality (`says p ψ`) where `letSaysE`
+> strips it (`ψ`) — so removing `saysE` loses the modality-preserving bind.
+> If that is wanted it should be recovered as `letSaysE` followed by
+> `saysI`, or given its OWN binder term constructor; what it must not do is
+> keep a term shape that contradicts its premise. An ill-formed rule that
+> nothing uses is worse than a missing one, because every future induction
+> over `Deriv` has to confront it.
+>
+> This is a decision about `Deriv`'s rule set, so it is recorded here rather
+> than taken unilaterally. L3a is blocked on it: the remaining cases are
+> mechanical, and `saysE` is the only one that cannot be discharged.
+
 - **L4 — linear substitution preservation (the hard case).** Substituting for a
   *linear* hypothesis: the variable lands in exactly one side of each `Γ₁ ++ Γ₂`
   split; `N`'s own linear resources merge into that side. Needs L1+L2. This is the

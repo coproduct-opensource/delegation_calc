@@ -229,6 +229,119 @@ all indices generalized. `substAt_substAt` is the substitution composition
 law; the other three are the shift/substitution commutation facts its
 variable cases need. See `spec/t3-two-run-design-2026-07.md`. -/
 
+/-- **Shift EXCHANGE.** Two shifts at nested cutoffs commute, with the outer
+cutoff displaced by the inner delta. Distinct from `shift_shift_merge`, which
+fuses same-direction nested shifts; this one SWAPS their order.
+
+Needed by L3a: since the split rules now carry a `shift` in their conclusion
+(the linear de Bruijn LEVEL migration), the shift lemma's `impE`-shaped cases
+must reconcile `shift (shift N Γm Γl) Γ₁ (Γₐ + Γm)` -- what the constructor
+produces -- with `shift (shift N Γ₁ Γₐ) Γm Γl`, what the goal carries. -/
+theorem shift_shift_comm (d₁ d₂ : Nat) :
+    ∀ (M : Term) (c₁ c₂ : Nat), c₁ ≤ c₂ →
+      shift (shift M d₂ c₂) d₁ c₁ = shift (shift M d₁ c₁) d₂ (c₂ + d₁) := by
+  intro M
+  induction M with
+  | var v =>
+      intro c₁ c₂ h
+      simp only [shift]
+      split_ifs <;> simp only [shift] <;> split_ifs <;>
+        first
+          | rfl
+          | exact congrArg Term.var (by omega)
+          | omega
+  | lam p b ih =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ih (c₁ + 1) (c₂ + 1) (by omega),
+          show c₂ + 1 + d₁ = c₂ + d₁ + 1 from by omega]
+  | app f x ihf ihx =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ihf c₁ c₂ h, ihx c₁ c₂ h]
+  | sign p m sig ih =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ih c₁ c₂ h]
+  | verify p m sig ih =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ih c₁ c₂ h]
+  | delegate m n ihm ihn =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ihm c₁ c₂ h, ihn c₁ c₂ h]
+  | attenuate m ψ ih =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ih c₁ c₂ h]
+  | boxed o m n ihm ihn =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ihm c₁ c₂ h, ihn c₁ c₂ h]
+  | discharge m n ihm ihn =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ihm c₁ c₂ h, ihn c₁ c₂ h]
+  | liftLabel l m ih =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ih c₁ c₂ h]
+  | declassify l m π ihm ihπ =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ihm c₁ c₂ h, ihπ c₁ c₂ h]
+  | now t =>
+      intro c₁ c₂ h
+      simp only [shift]
+  | withinIntro t m ih =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ih c₁ c₂ h]
+  | pair a b iha ihb =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [iha c₁ c₂ h, ihb c₁ c₂ h]
+  | fst a ih =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ih c₁ c₂ h]
+  | snd a ih =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ih c₁ c₂ h]
+  | inl p a ih =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ih c₁ c₂ h]
+  | inr p a ih =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ih c₁ c₂ h]
+  | case s l r ihs ihl ihr =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ihs c₁ c₂ h, ihl (c₁ + 1) (c₂ + 1) (by omega), ihr (c₁ + 1) (c₂ + 1) (by omega),
+          show c₂ + 1 + d₁ = c₂ + d₁ + 1 from by omega]
+  | tensorIntro a b iha ihb =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [iha c₁ c₂ h, ihb c₁ c₂ h]
+  | letTensor s b ihs ihb =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ihs c₁ c₂ h, ihb (c₁ + 2) (c₂ + 2) (by omega),
+          show c₂ + 2 + d₁ = c₂ + d₁ + 2 from by omega]
+  | letSays p s b ihs ihb =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ihs c₁ c₂ h, ihb (c₁ + 1) (c₂ + 1) (by omega),
+          show c₂ + 1 + d₁ = c₂ + d₁ + 1 from by omega]
+  | sfExtract m ih =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ih c₁ c₂ h]
+
 /-- Merging two shifts when the outer cutoff lies within the inner shift's range. -/
 theorem shift_shift_merge (d d' : Nat) :
     ∀ (M : Term) (c c' : Nat), c ≤ c' → c' ≤ c + d →

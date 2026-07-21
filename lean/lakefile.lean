@@ -54,6 +54,11 @@ lean_lib «Decidability» where
 lean_lib «CtxWellFormed» where
   roots := #[`DLC.CtxWellFormed]
 
+-- L3a boxI prerequisite: every derivable term is closed above its context
+-- size. Representation-independent; fed to boxI's fixed-context obligation.
+lean_lib «DerivClosed» where
+  roots := #[`DLC.DerivClosed]
+
 -- Validation prototype for the CARVe context migration
 -- (spec/carve-context-design-2026-07.md). Self-contained: imports nothing
 -- from DLC, so it can be judged on its own. CI type-checks it because an

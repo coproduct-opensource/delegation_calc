@@ -59,6 +59,12 @@ lean_lib «CtxWellFormed» where
 lean_lib «DerivClosed» where
   roots := #[`DLC.DerivClosed]
 
+-- CARVe resource-vector context foundation for the L3/L4 migration
+-- (spec/carve-context-design-2026-07.md). Generic; the judgment migration
+-- instantiates the entry type at Prop'. Standalone, imports nothing from DLC.
+lean_lib «CarveCtx» where
+  roots := #[`DLC.CarveCtx]
+
 -- Validation prototype for the CARVe context migration
 -- (spec/carve-context-design-2026-07.md). Self-contained: imports nothing
 -- from DLC, so it can be judged on its own. CI type-checks it because an

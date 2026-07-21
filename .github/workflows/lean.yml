@@ -78,7 +78,7 @@ jobs:
           LIBS="Decidability CtxWellFormed Correspondence NonInterference \
                 ObligationSoundness ProtocolCorrespondence Progress Witness \
                 CoproductAlgebra GradedBridge GradedDistributiveLaw GradedBridgeGeneric \
-                CarveProto DerivClosed"
+                CarveProto DerivClosed CarveCtx"
           # DLC: built by the lean-mathlib-cache action above (build-target: DLC).
           # DLCAeneas: Aeneas-generated translation; gated by scripts/check-drift.sh.
           EXCLUDED="DLC DLCAeneas"

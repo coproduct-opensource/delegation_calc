@@ -87,9 +87,19 @@ jobs:
             echo "::error::secrecy_payload did not prove"
             ok=0
           fi
-          # says_authentication: correspondence; success = is true.
-          if ! grep -qE "^RESULT.*Says.*Says.*LtkReveal.* is true" prove.log; then
-            echo "::error::says_authentication did not prove"
+          # says_authentication: REMOVED 2026-07-20 -- it asserted a tautology
+          # (event(Says) ==> event(Says) || ...), proving `is true` while
+          # checking nothing. A plain says has no standalone verifier-accept
+          # event to key a correspondence on; the guarantee is subsumed by
+          # non_splicing / no_silent_discharge / discharge_traces_to_box. See
+          # the note at its former site in models/proverif/dlc.pv. No gate
+          # assertion replaces it, so that no green result implies an
+          # authentication check that is not performed.
+          # Guard the SOURCE against silent reintroduction of the vacuous form
+          # (premise event repeated verbatim as a conclusion disjunct). Flatten
+          # newlines first so the check is portable and line-break-insensitive.
+          if tr -d '\n' < dlc.pv | grep -qE "event\(Says\(P, prop\)\) *==> *event\(Says\(P, prop\)\)"; then
+            echo "::error::vacuous says_authentication tautology reintroduced in dlc.pv"
             ok=0
           fi
           # delegate_implies_speaks_for: correspondence; success = is true.

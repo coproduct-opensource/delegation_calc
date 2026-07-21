@@ -138,13 +138,36 @@ query P: pkey, Q: pkey, prop: bitstring;
 free dlc_secret_payload: bitstring [private].
 query attacker(dlc_secret_payload).
 
-(* says_authentication (correspondence form, plain Says):
- *   For every Says event the verifier could accept on principal P,
- *   either P actually emitted that Says, or P's key was revealed. This
- *   is the non-delegated analogue of `non_splicing`. *)
-query P: pkey, prop: bitstring;
-  event(Says(P, prop)) ==>
-    event(Says(P, prop)) || event(LtkReveal(P)).
+(* says_authentication -- REMOVED 2026-07-20 because it was VACUOUS.
+ *
+ * The query keyed premise and conclusion on the SAME emission event:
+ *   event(Says(..)) ==> event(Says(..)) || event(LtkReveal(..))
+ * which is the tautology `A ==> A || B`: the premise supplies the first
+ * disjunct verbatim, so ProVerif proved it WITHOUT ever appealing to
+ * signature unforgeability. It reported `is true` while checking nothing --
+ * the same "green gate that verifies nothing" defect the audit is meant to
+ * catch, this time in the audit itself.
+ *
+ * It cannot be repaired in place. `non_splicing` is non-vacuous because it
+ * keys its premise on a distinct VERIFIER-ACCEPT event (DelegateAccept) and
+ * traces it back to the EMISSION events. A plain says has NO standalone
+ * accept event in this model: `Says(P, prop)` is emitted only at signing
+ * (the four signing branches below) and is only ever consumed INSIDE
+ * `Delegate_Accept` / `Discharge_Accept`. Stating an accept-implies-emission
+ * correspondence for a bare says therefore requires an accept event that
+ * does not exist.
+ *
+ * Plain-says authenticity is meanwhile SUBSUMED: every says is consumed
+ * within delegation or discharge, whose accept events carry proper
+ * non-vacuous correspondences (`non_splicing`, `no_silent_discharge`,
+ * `discharge_traces_to_box`), and key unforgeability is `secrecy_ltk`.
+ *
+ * The missing standalone accept event corresponds to the calculus rule
+ * `verify` / says-E (Deriv G M (says p phi) -> Deriv G (verify p M sig) phi),
+ * which is NOT modelled as a standalone protocol operation. Adding a
+ * says-verify rule that emits a `SaysAccept` event -- Tamarin model first,
+ * then this ProVerif cross-check -- would let the correspondence be stated
+ * for real. Tracked as a section-4.4 protocol/calculus correspondence gap. *)
 
 (* delegate_implies_speaks_for (correspondence: every DelegateAccept
  *   traces to a corresponding SpeaksForIssued, unless either principal's

@@ -57,13 +57,41 @@ jobs:
 
       - name: Prove all lemmas
         run: |
+          set -o pipefail
           cd models/tamarin
+          # pipefail makes a tamarin-prover crash fail the step -- without it,
+          # `tee` returns 0 and a prover that never proved anything (segfault,
+          # parse error) would slip past the grep below with an empty log.
           tamarin-prover --prove dlc.spthy 2>&1 | tee prove.log
-          # Fail if any lemma was falsified or any output indicates failure.
+
+          # (1) Fail if any lemma was falsified or left incomplete.
           if grep -E "^.*: (falsified|incomplete)" prove.log; then
             echo "::error::Tamarin reported falsified or incomplete lemmas"
             exit 1
           fi
+
+          # (2) Fail if Tamarin did not run to a summary -- a truncated run
+          # (timeout, OOM) can exit 0 with no falsified lines.
+          if ! grep -q "summary of summaries" prove.log; then
+            echo "::error::Tamarin did not reach 'summary of summaries' -- run truncated"
+            exit 1
+          fi
+
+          # (3) Positively assert EACH expected lemma verified. The old gate
+          # only checked for falsification, so a silently deleted or renamed
+          # lemma (no falsified line) passed while proving nothing -- the same
+          # "green gate that checks nothing" defect fixed for ProVerif in the
+          # says_authentication removal. Keep this list in sync with the
+          # `lemma` declarations in dlc.spthy.
+          ok=1
+          for lem in secrecy_ltk exec_honest_ltk non_splicing exec_delegation \
+                     no_silent_discharge one_shot_discharge exec_discharge; do
+            if ! grep -qE "\b${lem}\b.*: +verified" prove.log; then
+              echo "::error::Tamarin lemma '${lem}' did not verify (missing, renamed, or not proved)"
+              ok=0
+            fi
+          done
+          if [ "$ok" -ne 1 ]; then exit 1; fi
 
       - name: Upload Tamarin output
         if: always()

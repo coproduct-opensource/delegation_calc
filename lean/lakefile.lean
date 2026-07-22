@@ -65,6 +65,13 @@ lean_lib «DerivClosed» where
 lean_lib «CarveCtx» where
   roots := #[`DLC.CarveCtx]
 
+-- CARVe-migrated judgment (DLC-D Phase 0, increment 1): the real Term/Prop'
+-- fragment over resource-vector contexts + weakening-in-the-middle
+-- (cderiv_shift), lifting CarveProto onto the real types. The L3-shaped
+-- keystone of the linear-lever migration; substitution (L4) mirrors Wood-Atkey.
+lean_lib «CarveJudgment» where
+  roots := #[`DLC.CarveJudgment]
+
 -- Validation prototype for the CARVe context migration
 -- (spec/carve-context-design-2026-07.md). Self-contained: imports nothing
 -- from DLC, so it can be judged on its own. CI type-checks it because an

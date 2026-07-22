@@ -1,5 +1,6 @@
 import DLC.Subst
 import DLC.CarveCtx
+import DLC.Reduce
 
 /-! # CARVe-migrated judgment — real `Term`/`Prop'` fragment + weakening-in-the-middle
      (DLC-D Phase 0, increment 2: leftover var rule + the four modal `CJoin` rules)
@@ -179,6 +180,55 @@ OPEN, non-vanishing, duplicable `Δ = [(atom 0, many)]`.
 - Atkey, *Syntax and Semantics of Quantitative Type Theory* (LICS 2018): the
   QTT variable rule over the usage semiring `Q`.
   https://bentnib.org/quantitative-type-theory.pdf
+
+## Scope of increment 4a — subject reduction (preservation) for `CDeriv`
+`cderiv_subject_reduction : CDeriv Γ M ψ → NoOne Γ → step M = some M' →
+CDeriv Γ M' ψ`, over DLC's real deterministic `step` (`DLC.Reduce`), proved for
+ALL NINE constructors (the full induction; see the detailed section header above
+`cderiv_subject_reduction`). **Which redexes preserve typing:**
+- **tensor-E-β** (`letTensor (tensorIntro a b) B`): the LINEAR load-bearing
+  redex — `cderiv_shift` + `cderiv_substL` TWICE + `cjoin_reassoc`. UNCONDITIONAL.
+- **imp-β** (`app (lam φ B) N`): preserves typing IFF `N`'s context is
+  DUPLICABLE. On the `NoOne Γ` fragment this is automatic (`NoOne` propagates
+  through `CJoin` and `step` never crosses a binder), so the top-level theorem is
+  unconditional on that fragment; `cderiv_imp_beta` states the standalone
+  characterisation `CDeriv Γ (subst B N) ψ` under the exact side condition
+  `NoOne Γ₂`.
+- **modal head redexes** (`saysE`/`letSaysE`/`delegate`/`discharge` extraction):
+  never fire — their scrutinee's intro form (`sign`/`boxed`) is ABSENT from
+  `CDeriv`, so the head branch closes on the uninhabited scrutinee derivation.
+- **ξ-congruence** (every elimination): IH on the stepped sub-term. Value/frozen
+  subjects (`var`, `impI`, `tensorI`) give `step = none`.
+
+**The imp-β soundness FINDING (side condition, not hidden).** `impI` binds a
+`many` (unrestricted) hypothesis but `impE` admits an argument with ARBITRARY
+(incl. `one`) resources. So an additive-`⊃` β-redex DUPLICATES its argument, and
+a LINEAR argument is copied — unsound. Concretely `(λ^many x. x ⊗ x) N` with `N`
+using a `one` resource is well-typed but reduces to the ill-typed `N ⊗ N` (a
+`one` cannot split into two non-zero summands — `mjoin_one_not_shared`). Hence
+imp-β preservation genuinely FAILS without `NoOne` on the argument; the fragment
+`NoOne Γ` and the lemma `cderiv_imp_beta`'s `NoOne Γ₂` are the exact, honest
+side conditions. Reading: a linear argument belongs to a linear function type
+(`⊸`, one-binder), not to `imp` (`⊃`, many-binder) — the QTT scale-then-add
+discipline (`cderiv_substM_scaled`).
+
+`#print axioms cderiv_subject_reduction` = `#print axioms cderiv_imp_beta` =
+`[propext, Classical.choice, Quot.sound]` (`noOne_cjoin`: `[propext]`); no
+`sorryAx`, no `native_decide`. `CarveJudgmentChecks.subjectReduction_impBeta_example`
+and `subjectReduction_tensorBeta_example` exercise both firing redexes on real,
+inhabited derivations.
+
+Prior art (web-searched 2026-07-22): subject reduction for linear/graded calculi
+= substitution lemma per redex, with distinct linear (usage adds) and
+unrestricted (usage scales then adds) substitution lemmas.
+- Atkey, LICS 2018 (as above): substitution scales usage by the binder
+  multiplicity; subject reduction follows.
+- Wood & Atkey, *A Linear Algebra Approach to Linear Metatheory* (arXiv:2005.02247):
+  linear systems fail naive substitution; the environment method is the fix.
+  https://arxiv.org/abs/2005.02247
+- "Subject Reduction — an overview" (ScienceDirect): subject reduction of linear
+  typing follows from the Linear Substitution Lemma, per redex.
+  https://www.sciencedirect.com/topics/computer-science/subject-reduction
 -/
 
 namespace DLC
@@ -1675,6 +1725,251 @@ noncomputable def cderiv_substM_scaled {Γl Γr Δ Γr' : Carve.Ctx Prop'} {φ �
     CDeriv (Γl ++ Γr') (substAt M N Γl.length) ψ :=
   cderiv_substM dM dN (noOne_scaleCtx_many Δ) hc
 
+/-! ## Increment 4a — subject reduction (preservation) for `CDeriv`.
+
+`CDeriv Γ M ψ → step M = some M' → CDeriv Γ M' ψ`, over DLC's real deterministic
+`step` (`DLC.Reduce`), for the CARVe judgment. Standard structure: induction on
+the derivation, per-redex + ξ-congruence, with the substitution triad closing
+the β cases. The scope precisely characterised below (see also the module-header
+"Scope of increment 4a").
+
+**Which redexes actually fire in this fragment.** `step`'s eight head redexes
+guard on the SCRUTINEE'S INTRO form. Only two of those intro forms are inhabited
+by `CDeriv` (which has `lam` and `tensorIntro` but NO `sign`/`boxed`/`pair`/…
+introduction):
+- **imp-β** `app (lam φ B) N ▷ subst B N` — `impI` binds `(φ, many)`. FIRES.
+- **tensor-E-β** `letTensor (tensorIntro a b) B ▷ subst (subst B (shift a 1 0)) b`
+  — `tensorE` binds two `(·, one)`. FIRES. The load-bearing LINEAR case.
+
+Every OTHER head redex (`says`/`letSays`/`delegate`/`discharge` extraction) needs
+a `sign`/`boxed` scrutinee; `CDeriv` has no rule concluding those, so the
+scrutinee's derivation is UNINHABITED and the head branch closes by `cases`
+(mirroring `DLC.Decidability`'s `discharge` case) — only ξ-congruence descends.
+ξ-congruence is uniform: step the sub-term, rebuild the same constructor via the
+IH. Value/frozen subjects (`var`, `lam`, `tensorIntro`) give `step = none`.
+
+**The imp-β soundness finding (EXPOSED, not hidden).** `impI` binds `(φ, many)`
+(the argument is UNRESTRICTED/duplicable) but `impE` admits `N` under an
+ARBITRARY context `Γ₂` — including `one` (linear) tags. imp-β preservation runs
+through `cderiv_substM`, which demands `NoOne Γ₂` (`N` duplicable). This side
+condition is NOT gratuitous: WITHOUT it preservation genuinely FAILS. Take
+`(λ^many x. x ⊗ x) N` where `N : φ` consumes a LINEAR resource (`Γ₂` has a `one`).
+The redex is well-typed (`impE` of a `many`-abstraction to a linearly-resourced
+`N`), but it reduces to `N ⊗ N`, which is NOT typable: `tensorI` would split `Γ`
+so that BOTH sides type `N`, requiring the shared `one` tag to route to two
+non-zero summands — impossible (`mjoin_one_not_shared`). So a `many` (additive
+`⊃`) β-redex DUPLICATES a linear argument. The precise result:
+  - `cderiv_imp_beta` proves imp-β preservation UNDER the exact side condition
+    `NoOne Γ₂` (`N`'s context duplicable);
+  - the top-level `cderiv_subject_reduction` holds on the fragment `NoOne Γ`
+    (the ambient context carries no LIVE linear resource). `NoOne` PROPAGATES to
+    every position `step` can reach — `step` never crosses a binder, and `CJoin`
+    preserves `NoOne` (`noOne_cjoin`, via `mjoin_ne_one`) — so on this fragment
+    the imp-β argument is always duplicable and the redex is sound. The linear
+    (`one`) binders of `tensorE` live INSIDE the body's context, never in `Γ`, so
+    `NoOne Γ` does NOT trivialise the load-bearing tensor-β.
+
+The finding in one line: DLC's `imp` (additive `⊃`, `many`-binder) is subject-
+reduction-sound exactly when its arguments are duplicable; a linear argument
+belongs to a linear function type (`⊸`/one-binder), not to `imp`. This is the
+QTT/Wood–Atkey discipline: β-substituting a `many` variable SCALES the
+substituend's usage by `many` (`cderiv_substM_scaled`), and scaling a live `one`
+is the unsound direction.
+
+Prior art (web-searched 2026-07-22): subject reduction for linear/graded calculi
+is proved via the substitution lemma, per redex, with SEPARATE substitution
+lemmas for the LINEAR variable (usage adds — `cderiv_substL`) and the
+UNRESTRICTED variable (usage scales then adds — `cderiv_substM`); the additive-β
+/ linear-resource interaction (a `many`-binder duplicating a linear argument) is
+exactly why linear arguments must sit at `⊸`, not `⊃`.
+- Atkey, *Syntax and Semantics of Quantitative Type Theory* (LICS 2018): the
+  substitution lemma scales the substituend's usage by the binder multiplicity;
+  subject reduction follows. https://bentnib.org/quantitative-type-theory.pdf
+- Wood & Atkey, *A Linear Algebra Approach to Linear Metatheory* (arXiv:2005.02247):
+  linear systems do NOT validate naive substitution; the usage-respecting
+  environment method (linear + unrestricted substitution lemmas) is the fix.
+  https://arxiv.org/abs/2005.02247
+- Wood & Atkey, *A Framework for Substructural Type Systems* (ESOP 2022):
+  https://bentnib.org/quant-framework.pdf
+- "Subject Reduction — an overview" (ScienceDirect): subject reduction of linear
+  typing systems follows from the Linear Substitution Lemma, per redex.
+  https://www.sciencedirect.com/topics/computer-science/subject-reduction -/
+
+/-- `NoOne` on a cons splits into the head tag and the tail. -/
+theorem noOne_cons {a : Prop'} {m : Mult} {Δ : Carve.Ctx Prop'} :
+    NoOne ((a, m) :: Δ) ↔ m ≠ Mult.one ∧ NoOne Δ := by
+  constructor
+  · intro h
+    exact ⟨h (a, m) List.mem_cons_self, fun p hp => h p (List.mem_cons_of_mem _ hp)⟩
+  · rintro ⟨h1, h2⟩ p hp
+    rcases List.mem_cons.1 hp with rfl | hp'
+    · exact h1
+    · exact h2 p hp'
+
+/-- **`NoOne` propagates through a split.** If the joined context has no LINEAR
+(`one`) tag, then neither operand does: `MJoin m₁ m₂ m` with `m ≠ one` forces
+`m₁ ≠ one ∧ m₂ ≠ one` (`mjoin_ne_one`). This is what lets `NoOne Γ` descend to
+every premise `step` reaches — and, at an imp-β, delivers the `NoOne Γ₂` that
+`cderiv_imp_beta` needs. -/
+theorem noOne_cjoin {Γ₁ Γ₂ Γ : Carve.Ctx Prop'} (h : CJoin Γ₁ Γ₂ Γ) :
+    NoOne Γ → NoOne Γ₁ ∧ NoOne Γ₂ := by
+  induction h with
+  | nil => intro _; exact ⟨by intro p hp; simp at hp, by intro p hp; simp at hp⟩
+  | @cons a m₁ m₂ m Δ₁ Δ₂ Δ hm _ ih =>
+      intro hΓ
+      have hm_ne : m ≠ Mult.one := hΓ (a, m) List.mem_cons_self
+      have hΔ : NoOne Δ := fun p hp => hΓ p (List.mem_cons_of_mem _ hp)
+      obtain ⟨hd1, hd2⟩ := ih hΔ
+      obtain ⟨hm1, hm2⟩ := mjoin_ne_one hm hm_ne
+      exact ⟨noOne_cons.mpr ⟨hm1, hd1⟩, noOne_cons.mpr ⟨hm2, hd2⟩⟩
+
+/-- **imp-β preservation, under the exact side condition.** `app (lam φ B) N`
+β-reduces to `subst B N`; typing is preserved PROVIDED `N`'s resource context is
+DUPLICABLE (`NoOne Γ₂`). This is the honest characterisation of the additive-`⊃`
+β-redex: `impI` binds `(φ, many)`, so `N` may be duplicated; the reduct is
+well-typed exactly when duplicating `N` is sound, i.e. `N` uses no linear
+resource. Proof: the QTT open-additive cut `cderiv_substM`. Without `NoOne Γ₂`
+this FAILS (see the section header's counterexample). -/
+noncomputable def cderiv_imp_beta {Γ Γ₁ Γ₂ : Carve.Ctx Prop'} {φ ψ : Prop'} {B N : Term}
+    (dbody : CDeriv ((φ, Mult.many) :: Γ₁) B ψ)
+    (dN : CDeriv Γ₂ N φ)
+    (hj : CJoin Γ₁ Γ₂ Γ)
+    (hdup : NoOne Γ₂) :
+    CDeriv Γ (subst B N) ψ := by
+  have h := cderiv_substM (Γl := []) (Γr := Γ₁) (Δ := Γ₂) (Γr' := Γ)
+    (φ := φ) (ψ := ψ) (M := B) (N := N) (by simpa using dbody) dN hdup hj
+  simpa [subst] using h
+
+/-- **Subject reduction (preservation) for `CDeriv` on the `NoOne Γ` fragment.**
+`CDeriv Γ M ψ → NoOne Γ → step M = some M' → CDeriv Γ M' ψ`, over DLC's real
+deterministic `step`. Proved for ALL NINE constructors:
+- **imp-β** (`impE` head, `f = lam`): `cderiv_imp_beta`, with `NoOne Γ₂` supplied
+  by `noOne_cjoin hj hΓ` — the whole reason the fragment is `NoOne Γ`.
+- **tensor-E-β** (`tensorE` head, `S = tensorIntro`): the LINEAR load-bearing
+  case. `cderiv_shift` lifts `a` past the surviving `ψ`-binder, then
+  `cderiv_substL` TWICE (for the two `one` binders), with the leftover resources
+  rerouted by `cjoin_reassoc`/`cjoin_comm` — usage-vector addition, no side
+  condition.
+- **modal head redexes** (`saysE`/`letSaysE`/`delegate`/`discharge`): the
+  scrutinee is `says`/`boxed`-typed; `CDeriv` has no `sign`/`boxed` intro, so the
+  head branch closes by `cases` on the uninhabited scrutinee derivation.
+- **ξ-congruence** (every elimination): step the sub-term, rebuild via the IH;
+  `NoOne` descends to the stepped premise by `noOne_cjoin`.
+- **values/frozen** (`var`, `impI`, `tensorI`): `step = none`, vacuous.
+See the section header for the imp-β soundness finding this scope encodes. -/
+noncomputable def cderiv_subject_reduction {Γ : Carve.Ctx Prop'} {M : Term} {ψ : Prop'}
+    (d : CDeriv Γ M ψ) :
+    NoOne Γ → ∀ M', step M = some M' → CDeriv Γ M' ψ := by
+  induction d with
+  | var _ _ _ => intro _ M' h; simp [step] at h
+  | impI _ _ => intro _ M' h; simp [step] at h
+  | tensorI _ _ _ _ _ => intro _ M' h; simp [step] at h
+  | @impE Γ Γ₁ Γ₂ φ ψ f x dM dN hj ihM ihN =>
+      intro hΓ M' h
+      unfold step at h
+      split at h
+      · -- imp-β: f = lam φ' body.
+        simp only [Option.some.injEq] at h
+        subst h
+        cases dM with
+        | impI dbody =>
+            obtain ⟨_, h2⟩ := noOne_cjoin hj hΓ
+            exact cderiv_imp_beta dbody dN hj h2
+      · -- ξ-app: reduce the function position.
+        cases hf : step f with
+        | none => simp [hf] at h
+        | some f' =>
+            simp [hf] at h
+            subst h
+            obtain ⟨h1, _⟩ := noOne_cjoin hj hΓ
+            exact CDeriv.impE (ihM h1 f' hf) dN hj
+  | @tensorE Γ Γ₁ Γ₂ φ ψ χ S B dS dB hj ihS _ =>
+      intro hΓ M' h
+      unfold step at h
+      split at h
+      · -- tensor-E-β: S = tensorIntro a b. The LINEAR load-bearing case.
+        simp only [Option.some.injEq] at h
+        subst h
+        cases dS with
+        | @tensorI _ Γa Γb _ _ _ _ dSa dSb hjS =>
+            obtain ⟨AD, hAD, hADB⟩ := cjoin_reassoc hjS hj
+            -- lift `a` past the still-standing `ψ`-binder (cutoff 0, block size 1);
+            -- the shifted term is inferred from `dSa`'s subject.
+            have dShift := cderiv_shift dSa [] [(ψ, Mult.one)] Γa (by simp)
+            -- substitute `shift a 1 0` for the `φ`-binder (index 0).
+            have hc1 : CJoin ((ψ, Mult.one) :: Γ₂) ((ψ, Mult.zero) :: Γa)
+                ((ψ, Mult.one) :: AD) := CJoin.cons (MJoin.zr Mult.one) (cjoin_comm hAD)
+            have step1 := cderiv_substL (Γl := []) (Γr := (ψ, Mult.one) :: Γ₂)
+              (Δ := (ψ, Mult.zero) :: Γa) (Γr' := (ψ, Mult.one) :: AD)
+              (φ := φ) (ψ := χ) (by simpa using dB) dShift hc1
+            -- substitute `b` for the now-index-0 `ψ`-binder; the merge is `Γ`.
+            have step2 := cderiv_substL (Γl := []) (Γr := AD) (Δ := Γb) (Γr' := Γ)
+              (φ := ψ) (ψ := χ) (by simpa using step1) dSb hADB
+            simpa [subst] using step2
+      · -- ξ-lettensor on the scrutinee.
+        cases hs : step S with
+        | none => simp [hs] at h
+        | some S' =>
+            simp [hs] at h
+            subst h
+            obtain ⟨h1, _⟩ := noOne_cjoin hj hΓ
+            exact CDeriv.tensorE (ihS h1 S' hs) dB hj
+  | @saysE Γ Γ₁ Γ₂ p φ ψ S N dS dN hj ihS _ =>
+      intro hΓ M' h
+      unfold step at h
+      split at h
+      · -- scrutinee is `says`-typed; `CDeriv` has no `sign` intro → uninhabited.
+        cases dS
+      · cases hs : step S with
+        | none => simp [hs] at h
+        | some S' =>
+            simp [hs] at h
+            subst h
+            obtain ⟨h1, _⟩ := noOne_cjoin hj hΓ
+            exact CDeriv.saysE (ihS h1 S' hs) dN hj
+  | @delegate Γ Γ₁ Γ₂ p q φ m n dM dN hj ihM _ =>
+      intro hΓ M' h
+      unfold step at h
+      split at h
+      · -- both positions `sign` — scrutinee `says`-typed, uninhabited.
+        cases dM
+      · -- left is `sign` — likewise uninhabited.
+        cases dM
+      · -- ξ-delegate (left): reduce the left position.
+        cases hm : step m with
+        | none => simp [hm] at h
+        | some m' =>
+            simp [hm] at h
+            subst h
+            obtain ⟨h1, _⟩ := noOne_cjoin hj hΓ
+            exact CDeriv.delegate (ihM h1 m' hm) dN hj
+  | @discharge Γ Γ₁ Γ₂ O φ m n dM dN hj ihM _ =>
+      intro hΓ M' h
+      unfold step at h
+      split at h
+      · -- scrutinee `boxed`-typed; `CDeriv` has no `boxed` intro → uninhabited.
+        cases dM
+      · cases hm : step m with
+        | none => simp [hm] at h
+        | some m' =>
+            simp [hm] at h
+            subst h
+            obtain ⟨h1, _⟩ := noOne_cjoin hj hΓ
+            exact CDeriv.discharge (ihM h1 m' hm) dN hj
+  | @letSaysE Γ Γ₁ Γ₂ p φ ψ S B dS dB hj ihS _ =>
+      intro hΓ M' h
+      unfold step at h
+      split at h
+      · -- scrutinee `says`-typed → uninhabited.
+        cases dS
+      · cases hs : step S with
+        | none => simp [hs] at h
+        | some S' =>
+            simp [hs] at h
+            subst h
+            obtain ⟨h1, _⟩ := noOne_cjoin hj hΓ
+            exact CDeriv.letSaysE (ihS h1 S' hs) dB hj
+
 /-! ## Sanity: the CARVe split rules type real judgments with NO shift.
 The multiplicative rules carry `CJoin`, not `++` + `shift` — the migration's
 whole point, exercised on a concrete derivation. -/
@@ -1788,6 +2083,89 @@ noncomputable def substM_antivacuity_example :
       [(Prop'.atom 0, Mult.many)] :=
     CJoin.cons (MJoin.zl _) CJoin.nil
   exact cderiv_substM (Γl := []) (Γr := [(Prop'.atom 0, Mult.zero)]) dM dN hdup hc
+
+/-- **Anti-vacuity for subject reduction (imp-β path).** A REAL, inhabited
+CDeriv-typed redex `(λ^many x:atom0. x) (var 0)` under `Γ = [(atom0, many)]`
+(`NoOne Γ` holds), which `step`s to `var 0`, and `cderiv_subject_reduction`
+delivers the REDUCED derivation `CDeriv Γ (var 0) atom0`. Exercises the imp-β
+case through `cderiv_imp_beta`/`cderiv_substM` on non-vacuous inputs (the
+argument `var 0` genuinely consumes the ambient `many` hypothesis). -/
+noncomputable def subjectReduction_impBeta_example :
+    CDeriv [(Prop'.atom 0, Mult.many)] (Term.var 0) (Prop'.atom 0) := by
+  have dN : CDeriv [(Prop'.atom 0, Mult.many)] (Term.var 0) (Prop'.atom 0) :=
+    CDeriv.var (i := 0) rfl (by decide)
+      (by intro j p hj hget; rcases j with _ | k
+          · exact (hj rfl).elim
+          · simp at hget)
+  have dLam : CDeriv [(Prop'.atom 0, Mult.zero)]
+      (Term.lam (Prop'.atom 0) (Term.var 0))
+      (Prop'.imp (Prop'.atom 0) (Prop'.atom 0)) :=
+    CDeriv.impI (CDeriv.var (i := 0) rfl (by decide)
+      (by intro j p hj hget; rcases j with _ | _ | k
+          · exact (hj rfl).elim
+          · simp at hget; rw [← hget]
+          · simp at hget))
+  have hj : CJoin [(Prop'.atom 0, Mult.zero)] [(Prop'.atom 0, Mult.many)]
+      [(Prop'.atom 0, Mult.many)] := CJoin.cons (MJoin.zl _) CJoin.nil
+  have dApp : CDeriv [(Prop'.atom 0, Mult.many)]
+      (Term.app (Term.lam (Prop'.atom 0) (Term.var 0)) (Term.var 0))
+      (Prop'.atom 0) := CDeriv.impE dLam dN hj
+  have hΓ : NoOne [(Prop'.atom 0, Mult.many)] := by
+    intro p hp; simp only [List.mem_singleton] at hp; subst hp; decide
+  exact cderiv_subject_reduction dApp hΓ (Term.var 0) rfl
+
+/-- **Anti-vacuity for subject reduction (the LINEAR load-bearing tensor-β).**
+A REAL redex `let x⊗y = (var 0 ⊗ var 0) in (x ⊗ y)` under `Γ = [(atom0, many)]`
+(`NoOne Γ`), which `step`s to `subst (subst (var 0 ⊗ var 1) (shift (var 0) 1 0))
+(var 0)`, and `cderiv_subject_reduction` delivers the reduced derivation.
+Exercises the tensor-E-β path (two `cderiv_substL`, `cderiv_shift`,
+`cjoin_reassoc`) on genuinely LINEAR binders. -/
+noncomputable def subjectReduction_tensorBeta_example :
+    CDeriv [(Prop'.atom 0, Mult.many)]
+      (Term.tensorIntro (Term.var 0) (Term.var 0))
+      (Prop'.tensor (Prop'.atom 0) (Prop'.atom 0)) := by
+  -- scrutinee `var 0 ⊗ var 0 : atom0 ⊗ atom0`, both halves consuming the ambient `many`.
+  have dSa : CDeriv [(Prop'.atom 0, Mult.many)] (Term.var 0) (Prop'.atom 0) :=
+    CDeriv.var (i := 0) rfl (by decide)
+      (by intro j p hj hget; rcases j with _ | k
+          · exact (hj rfl).elim
+          · simp at hget)
+  have dS : CDeriv [(Prop'.atom 0, Mult.many)]
+      (Term.tensorIntro (Term.var 0) (Term.var 0))
+      (Prop'.tensor (Prop'.atom 0) (Prop'.atom 0)) :=
+    CDeriv.tensorI dSa dSa (CJoin.cons MJoin.mm CJoin.nil)
+  -- body `x ⊗ y : atom0 ⊗ atom0` over the two `one` binders (+ a spent `zero` slot).
+  have dBx : CDeriv [(Prop'.atom 0, Mult.one), (Prop'.atom 0, Mult.zero),
+      (Prop'.atom 0, Mult.zero)] (Term.var 0) (Prop'.atom 0) :=
+    CDeriv.var (i := 0) rfl (by decide)
+      (by intro j p hj hget; rcases j with _ | _ | _ | k
+          · exact (hj rfl).elim
+          · simp at hget; rw [← hget]
+          · simp at hget; rw [← hget]
+          · simp at hget)
+  have dBy : CDeriv [(Prop'.atom 0, Mult.zero), (Prop'.atom 0, Mult.one),
+      (Prop'.atom 0, Mult.zero)] (Term.var 1) (Prop'.atom 0) :=
+    CDeriv.var (i := 1) rfl (by decide)
+      (by intro j p hj hget; rcases j with _ | _ | _ | k
+          · simp at hget; rw [← hget]
+          · exact (hj rfl).elim
+          · simp at hget; rw [← hget]
+          · simp at hget)
+  have dB : CDeriv [(Prop'.atom 0, Mult.one), (Prop'.atom 0, Mult.one),
+      (Prop'.atom 0, Mult.zero)] (Term.tensorIntro (Term.var 0) (Term.var 1))
+      (Prop'.tensor (Prop'.atom 0) (Prop'.atom 0)) :=
+    CDeriv.tensorI dBx dBy
+      (CJoin.cons (MJoin.zr _) (CJoin.cons (MJoin.zl _) (CJoin.cons (MJoin.zl _) CJoin.nil)))
+  have hj : CJoin [(Prop'.atom 0, Mult.many)] [(Prop'.atom 0, Mult.zero)]
+      [(Prop'.atom 0, Mult.many)] := CJoin.cons (MJoin.zr _) CJoin.nil
+  have dLet : CDeriv [(Prop'.atom 0, Mult.many)]
+      (Term.letTensor (Term.tensorIntro (Term.var 0) (Term.var 0))
+        (Term.tensorIntro (Term.var 0) (Term.var 1)))
+      (Prop'.tensor (Prop'.atom 0) (Prop'.atom 0)) :=
+    CDeriv.tensorE dS dB hj
+  have hΓ : NoOne [(Prop'.atom 0, Mult.many)] := by
+    intro p hp; simp only [List.mem_singleton] at hp; subst hp; decide
+  exact cderiv_subject_reduction dLet hΓ (Term.tensorIntro (Term.var 0) (Term.var 0)) rfl
 
 end CarveJudgmentChecks
 

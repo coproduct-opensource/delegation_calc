@@ -129,6 +129,43 @@ resource, joined into `M`'s leftover).
 `#print axioms cderiv_substA` = `[propext, Classical.choice, Quot.sound]` (no
 `sorryAx`, no `native_decide`); likewise `cderiv_shift`.
 
+## Scope of increment 3c — OPEN ADDITIVE (`many`) substitution, SCALED
+`cderiv_substM` is PROVED over ALL NINE constructors: substituting `N : φ` —
+carrying its OWN OPEN resources `Δ` — for the ADDITIVE (`Mult.many`) hypothesis
+at position `Γl.length`, `CJoin`-MERGING `Δ` into `M`'s leftover
+(`CJoin Γr Δ Γr'`). This retires the "OPEN ADDITIVE substitution … not attempted"
+deferral fenced in increment 3b, for the DUPLICABLE `Δ`.
+
+- **What's proved.** `CDeriv (Γl ++ (φ,many)::Γr) M ψ → CDeriv Δ N φ → NoOne Δ →
+  CJoin Γr Δ Γr' → CDeriv (Γl ++ Γr') (substAt M N Γl.length) ψ`, all nine rules.
+  The QTT-faithful form `cderiv_substM_scaled` takes `N` typed under
+  `scaleCtx Mult.many Δ` and merges that — the Atkey (LICS 2018) "scale the
+  substituend's usage by the binder multiplicity, then add" — deriving `NoOne`
+  automatically (`noOne_scaleCtx_many`).
+- **The scaling/soundness note.** A `many` binder may duplicate `N`, so any
+  LINEAR (`one`) resource `N` consumes would be copied — unsound. `mscale many`
+  BUMPS `one → many` (`ω·1 = ω`); the merge at a shared `many` hole uses
+  `MJoin many many many` (idempotent copy). The `NoOne Δ` premise is not a
+  weakening but the soundness condition: it excludes exactly the `one` tags on
+  which bumping would be unsound, so `scaleCtx Mult.many Δ = Δ` there
+  (`scaleCtx_many_of_noOne`). New kit: `mjoin_dup` (elementwise `(many,many)`
+  duplication) and `cjoin_dup_reassoc` (route `Δ` into BOTH `CJoin` branches);
+  the `(zero,·)`/`(·,zero)` splits reuse 3b's `cjoin_reassoc`/`cderiv_dropZero_aux`.
+- **Honestly deferred.** The FULL scaled statement for an `N` whose `Δ` contains
+  LIVE `one` tags is NOT provable as stated (retyping `N` from `Δ` to
+  `scaleCtx many Δ` bumps `one → many`, the unsound direction) — it is not a
+  gap in this proof but a genuine side condition of QTT; `cderiv_substM_scaled`
+  is the honest form (it demands `N : scaleCtx many Δ`, already one-free). This
+  is the variant increment-4 subject reduction consumes for the `many`-binder
+  β-redexes (`imp`/`says`/`delegate`/`discharge`); `tensorE`'s `one`-binder
+  β-redex is 3b's `cderiv_substL`.
+
+`#print axioms cderiv_substM` = `#print axioms cderiv_substM_scaled` =
+`[propext, Classical.choice, Quot.sound]`; `cjoin_dup_reassoc`/`mjoin_dup`
+depend on NO axioms. No `sorryAx`, no `native_decide`.
+`CarveJudgmentChecks.substM_antivacuity_example` exercises the merge with an
+OPEN, non-vanishing, duplicable `Δ = [(atom 0, many)]`.
+
 ## Prior art for the leftover var rule (web-searched 2026-07-22)
 - Allais, *Typing with Leftovers — a mechanisation of IMALL* (TYPES 2017):
   input/output usage contexts, threading linear resources without context
@@ -1161,6 +1198,483 @@ noncomputable def cderiv_substL {Γl Γr Δ Γr' : Carve.Ctx Prop'} {φ ψ : Pro
     CDeriv (Γl ++ Γr') (substAt M N Γl.length) ψ :=
   cderiv_substL_aux φ N dM Γl Γr Δ Γr' rfl dN hc
 
+/-! ## Increment 3c — OPEN ADDITIVE (`many`) substitution, the SCALED variant.
+
+Substituting `N : φ` — carrying its OWN resources `Δ` — for the ADDITIVE
+(`Mult.many`) hypothesis at position `Γl.length`, where `N`'s context does NOT
+vanish (unlike 3a's closed `zeroed Γr`). Per Quantitative Type Theory (Atkey,
+LICS 2018) the substitution lemma **scales the substituend's usage vector by the
+binder multiplicity and adds it to the context** — here the multiplicity is
+`many`, so the merged context is `Γr ⊕ (many · Δ)` (`scaleCtx Mult.many Δ`).
+
+**The scaling/soundness point.** A `many` binder may DUPLICATE `N` (use it
+`0..n` times), so any LINEAR (`one`) resource `N` consumes would be used many
+times — unsound (a linear resource cannot be copied). Scaling turns each of `N`'s
+tags `t` into `many · t`: `many·zero = zero`, `many·one = many`, `many·many =
+many` — i.e. it BUMPS every `one` up to `many`. The result `scaleCtx Mult.many Δ`
+is therefore always duplicable (`NoOne`, no `one` tags), and `many·many = many`
+(`MJoin.mm`) is exactly what lets `N`'s resources merge into BOTH branches of a
+`CJoin` when the `many` hole is shared (`MJoin many many many`) — the copy is
+idempotent, so merging `Δ` twice equals merging it once.
+
+The genuinely-faithful, PROVABLE statement therefore requires `N` to be typed
+under an already-duplicable context (`NoOne Δ`); this is not a weakening but the
+soundness condition itself, since bumping `one → many` on a live linear resource
+is the unsound direction. The top-level `cderiv_substM_scaled` recovers the QTT
+`scaleCtx many` form directly: `scaleCtx Mult.many Δ` is duplicable for any `Δ`,
+so a proof of `CDeriv (scaleCtx Mult.many Δ) N φ` feeds the `NoOne` lemma.
+
+Proved over ALL NINE constructors. Content beyond 3b (the `one` cut):
+- **the split is 3-way, not 2-way.** A `many` hole splits `MJoin m₁ m₂ many` into
+  `(zero,many)`, `(many,zero)` OR `(many,many)` (`mjoin_many_ne_zero`). The first
+  two mirror 3b exactly (drop the `zero` branch via `cderiv_dropZero_aux`, recurse
+  the other with `Δ` reassociated by `cjoin_reassoc`). The `(many,many)` case is
+  NEW: BOTH branches consume `N`, so `Δ` is DUPLICATED into each and the two
+  results merge — a duplicating reassociation `cjoin_dup_reassoc` whose
+  elementwise core `mjoin_dup` needs `many·many = many` and `d ≠ one`.
+- **the var hit is identical to 3b.** At a leaf the `many` hole is still FORCED
+  (a `many` tag at any OTHER position violates `AllZeroExcept`), `Γr` collapses
+  all-`zero`, the merge `Γr'` equals `Δ`, and `cderiv_shift` places `N` once.
+
+This is the variant subject reduction (increment 4) will consume for the
+`many`-binder β-redexes — `imp`/`says`/`delegate`/`discharge`; the `one`-binder
+`tensorE` β-redex is covered by 3b's `cderiv_substL`.
+
+Prior art (web-searched 2026-07-22):
+- Atkey, *Syntax and Semantics of Quantitative Type Theory* (LICS 2018): the
+  substitution lemma multiplies the substituted term's usage by the number of
+  times the variable is needed and adds it to the resource context — exactly
+  the `many · Δ` scaling. https://bentnib.org/quantitative-type-theory.pdf
+- Brady, *Idris 2: Quantitative Type Theory in Practice* (ECOOP 2021): the
+  `{0,1,ω}` multiplicity algebra with `ω·1 = ω`, `ω·0 = 0` (our `mscale many`).
+  https://drops.dagstuhl.de/storage/00lipics/lipics-vol194-ecoop2021/LIPIcs.ECOOP.2021.9/LIPIcs.ECOOP.2021.9.pdf
+- Wood & Atkey, *A Linear Algebra Approach to Linear Metatheory* (arXiv:2005.02247):
+  simultaneous substitution as a usage-respecting environment; scaling and
+  addition are the semiring `*`/`+`. https://arxiv.org/abs/2005.02247
+- Abel, Danielsson & Eriksson, *A Graded Modal Dependent Type Theory … Formalized*
+  (ICFP 2023): a machine-checked substitution theorem for grade assignment over
+  a partially-ordered-semiring modality — the same scale-and-add discipline.
+  https://www.cse.chalmers.se/~nad/publications/abel-danielsson-eriksson-graded-type-theory.pdf -/
+
+/-- Tag scaling `m · t` in the resource algebra. For `m = many`:
+`many·zero = zero`, `many·one = many`, `many·many = many` — the QTT `ω·`
+(Idris-2 `{0,1,ω}`: `ω·1 = ω`, `ω·0 = 0`). It BUMPS `one` to `many`, which is
+what makes a linear resource of `N` un-duplicable-safe under a `many` binder. -/
+def mscale : Mult → Mult → Mult
+  | Mult.zero, _ => Mult.zero
+  | Mult.one,  d => d
+  | Mult.many, Mult.zero => Mult.zero
+  | Mult.many, _ => Mult.many
+
+/-- QTT context scaling: multiply every tag of `Δ` by `m`. `scaleCtx Mult.many`
+is the usage vector the substitution lemma ADDS to the context at a `many`
+binder. -/
+def scaleCtx (m : Mult) (Δ : Carve.Ctx Prop') : Carve.Ctx Prop' :=
+  Δ.map (fun p => (p.1, mscale m p.2))
+
+/-- **Duplicability predicate.** `Δ` carries no LINEAR (`one`) tag — every entry
+is `zero` or `many`, so `Δ` can be discarded and copied freely (`CJoin Δ Δ Δ`
+holds elementwise). This is exactly the condition that makes substituting `N`
+for a `many` binder sound: a `many` binder may duplicate `N`, so `N`'s resources
+must themselves be duplicable. -/
+def NoOne (Δ : Carve.Ctx Prop') : Prop := ∀ p ∈ Δ, p.2 ≠ Mult.one
+
+/-- `scaleCtx Mult.many Δ` is always duplicable: `mscale many` lands only in
+`{zero, many}`, never `one`. This is what lets the QTT-faithful
+`cderiv_substM_scaled` feed the `NoOne` hypothesis for an arbitrary `Δ`. -/
+theorem noOne_scaleCtx_many (Δ : Carve.Ctx Prop') : NoOne (scaleCtx Mult.many Δ) := by
+  intro p hp
+  simp only [scaleCtx, List.mem_map] at hp
+  obtain ⟨q, _hq, hpq⟩ := hp
+  rw [← hpq]
+  show mscale Mult.many q.2 ≠ Mult.one
+  cases q.2 <;> decide
+
+/-- When `Δ` is ALREADY duplicable, `many`-scaling is the identity — the scaling
+is only observable on the (excluded, unsound) `one` tags. Documents that the
+`NoOne` form and the `scaleCtx Mult.many` form coincide on their common domain. -/
+theorem scaleCtx_many_of_noOne :
+    ∀ (Δ : Carve.Ctx Prop'), NoOne Δ → scaleCtx Mult.many Δ = Δ
+  | [], _ => rfl
+  | (a, d) :: tl, h => by
+      have hd : d ≠ Mult.one := h (a, d) (List.mem_cons_self)
+      have htl := scaleCtx_many_of_noOne tl (fun q hq => h q (List.mem_cons_of_mem _ hq))
+      have hdd : mscale Mult.many d = d := by cases d <;> first | rfl | exact absurd rfl hd
+      simp only [scaleCtx, List.map_cons] at htl ⊢
+      rw [hdd, htl]
+
+/-- `madd a Mult.zero = a` — `zero` is the additive unit on the right. -/
+theorem madd_zero (a : Mult) : madd a Mult.zero = a := by cases a <;> rfl
+
+/-- **The elementwise duplicating reassociation.** From `a₁ ⊕ a₂ = a` and
+`a ⊕ d = a'` with `d` DUPLICABLE (`d ≠ one`), route `d` into BOTH summands:
+`a₁ ⊕ d = madd a₁ d`, `a₂ ⊕ d = madd a₂ d`, and those two rejoin to `a'`. The
+`d = many` shared case rests on `many ⊕ many = many` (`MJoin.mm`, idempotent) —
+the copy is free. This is the `(many,many)` heart of the scaled substitution. -/
+theorem mjoin_dup {a₁ a₂ a d a' : Mult}
+    (h1 : MJoin a₁ a₂ a) (h2 : MJoin a d a') (hd : d ≠ Mult.one) :
+    MJoin a₁ d (madd a₁ d) ∧ MJoin a₂ d (madd a₂ d)
+      ∧ MJoin (madd a₁ d) (madd a₂ d) a' := by
+  cases h2 with
+  | zl _ =>
+      obtain ⟨e1, e2⟩ := mjoin_zero h1
+      subst e1; subst e2
+      refine ⟨MJoin.zl _, MJoin.zl _, ?_⟩
+      simp only [madd]
+      cases d with
+      | zero => exact MJoin.zl _
+      | one => exact absurd rfl hd
+      | many => exact MJoin.mm
+  | zr _ =>
+      simp only [madd_zero]
+      exact ⟨MJoin.zr _, MJoin.zr _, h1⟩
+  | mm =>
+      cases h1 with
+      | zl _ => exact ⟨MJoin.zl _, MJoin.mm, MJoin.mm⟩
+      | zr _ => exact ⟨MJoin.mm, MJoin.zl _, MJoin.mm⟩
+      | mm => exact ⟨MJoin.mm, MJoin.mm, MJoin.mm⟩
+
+/-- A `many` result splits three ways: `(zero,many)`, `(many,zero)` or
+`(many,many)`. Stated as the "neither is `zero`" case (both `many`), the other
+two handled by `mjoin_zero_left`/`_right`; split on tag DATA (decidable
+`= zero`), never by `cases` on the `Prop`-valued `MJoin` into `Type`. -/
+theorem mjoin_many_ne_zero {m₁ m₂ : Mult} (h : MJoin m₁ m₂ Mult.many)
+    (h1 : m₁ ≠ Mult.zero) (h2 : m₂ ≠ Mult.zero) : m₁ = Mult.many ∧ m₂ = Mult.many := by
+  cases h with
+  | zl _ => exact absurd rfl h1
+  | zr _ => exact absurd rfl h2
+  | mm => exact ⟨rfl, rfl⟩
+
+/-- A `zero` LEFT summand of a `many` join forces the right summand `many`. -/
+theorem mjoin_zero_left {m₂ : Mult} (h : MJoin Mult.zero m₂ Mult.many) : m₂ = Mult.many := by
+  cases h with | zl _ => rfl
+
+/-- A `zero` RIGHT summand of a `many` join forces the left summand `many`. -/
+theorem mjoin_zero_right {m₁ : Mult} (h : MJoin m₁ Mult.zero Mult.many) : m₁ = Mult.many := by
+  cases h with | zr _ => rfl
+
+/-- The duplicating-reassociation result at the context level: the two per-branch
+merges plus the rejoin. Sibling of `CReassoc`, but `Δ` reaches BOTH sides. -/
+structure CDup (Γr₁ Γr₂ Δ Γr' : Carve.Ctx Prop') : Type where
+  Γr₁' : Carve.Ctx Prop'
+  Γr₂' : Carve.Ctx Prop'
+  h1 : CJoin Γr₁ Δ Γr₁'
+  h2 : CJoin Γr₂ Δ Γr₂'
+  h3 : CJoin Γr₁' Γr₂' Γr'
+
+/-- **`CJoin` duplicating reassociation** (elementwise `mjoin_dup`). From
+`Γr₁ ⊕ Γr₂ = Γr` and `Γr ⊕ Δ = Γr'` with `Δ` DUPLICABLE (`NoOne`), merge `Δ`
+into EACH of `Γr₁`, `Γr₂` and rejoin to `Γr'`. This is the `(many,many)`
+subject-reduction step: a shared `many` binder copies `N`'s resources into both
+premises, sound precisely because `Δ` has no linear tag. -/
+noncomputable def cjoin_dup_reassoc :
+    ∀ {Γr₁ Γr₂ Γr : Carve.Ctx Prop'}, CJoin Γr₁ Γr₂ Γr →
+      ∀ {Δ Γr' : Carve.Ctx Prop'}, CJoin Γr Δ Γr' → NoOne Δ → CDup Γr₁ Γr₂ Δ Γr' := by
+  intro Γr₁ Γr₂ Γr hjr
+  induction hjr with
+  | nil =>
+      intro Δ Γr' hc _
+      cases hc
+      exact ⟨[], [], CJoin.nil, CJoin.nil, CJoin.nil⟩
+  | @cons x b₁ b₂ b Γ1 Γ2 Γ hmb _ ih =>
+      intro Δ Γr' hc hd
+      cases hc with
+      | @cons _ _ dd bprime _ Δt _ hmd hcrest =>
+          have hdne : dd ≠ Mult.one := hd (x, dd) (List.mem_cons_self)
+          have hdtail : NoOne Δt := fun p hp => hd p (List.mem_cons_of_mem _ hp)
+          obtain ⟨j1, j2, j3⟩ := mjoin_dup hmb hmd hdne
+          let r := ih hcrest hdtail
+          exact ⟨(x, madd b₁ dd) :: r.Γr₁', (x, madd b₂ dd) :: r.Γr₂',
+                 CJoin.cons j1 r.h1, CJoin.cons j2 r.h2, CJoin.cons j3 r.h3⟩
+
+/-- **Open additive (scaled L4) substitution preservation (auxiliary, all nine
+constructors).** `φ`/`N` fixed; the hole tag is `Mult.many`, `Δ` duplicable
+(`NoOne`). At the single `var` leaf the hole is FORCED (a `many` elsewhere
+violates `AllZeroExcept`), `Γr` collapses all-`zero`, so `Γr' = Δ` and `N` is
+placed once via `cderiv_shift`. At each `CJoin` premise the `many` splits 3-way:
+`(zero,·)`/`(·,zero)` drop one branch (`cderiv_dropZero_aux`) and reassociate `Δ`
+past the other (`cjoin_reassoc`); `(many,many)` DUPLICATES `Δ` into both branches
+(`cjoin_dup_reassoc`) and rejoins. Split on the tag DATA (`by_cases … = zero`),
+since `MJoin : Prop` cannot eliminate into the `Type`-valued `CDeriv`. -/
+private noncomputable def cderiv_substM_aux {Γfull : Carve.Ctx Prop'} {M : Term}
+    {ψ : Prop'} (φ : Prop') (N : Term) (dM : CDeriv Γfull M ψ) :
+    ∀ (Γl Γr Δ Γr' : Carve.Ctx Prop'), Γfull = Γl ++ (φ, Mult.many) :: Γr →
+      NoOne Δ → CDeriv Δ N φ → CJoin Γr Δ Γr' →
+      CDeriv (Γl ++ Γr') (substAt M N Γl.length) ψ := by
+  induction dM with
+  | @var Γ i χ mvar h hmvar hz =>
+      intro Γl Γr Δ Γr' hΓ _ dN hc
+      subst hΓ
+      unfold substAt
+      -- The `many` hole forces this leaf to hit it (`AllZeroExcept`).
+      have heq : i = Γl.length := by
+        by_contra hne
+        have hzero := hz Γl.length (φ, Mult.many) (fun he => hne he.symm)
+          (by rw [List.getElem?_append_right (le_refl Γl.length)]; simp)
+        simp at hzero
+      rw [if_pos heq]
+      rw [heq] at h hz
+      obtain ⟨hzl, hzr⟩ := allZeroExcept_split_zeroed hz
+      rw [List.getElem?_append_right (le_refl Γl.length)] at h
+      simp only [Nat.sub_self, List.getElem?_cons_zero, Option.some.injEq,
+        Prod.mk.injEq] at h
+      obtain ⟨hφχ, _⟩ := h
+      subst hφχ
+      have heE : Γr' = Δ := cjoin_left_all_zero hc hzr
+      subst Γr'
+      have hshift := cderiv_shift dN [] Γl Δ (by simp)
+      simp only [List.nil_append, List.length_nil] at hshift
+      rwa [← hzl] at hshift
+  | @impI Γ φb ψb Mb _ ih =>
+      intro Γl Γr Δ Γr' hΓ hd dN hc
+      subst hΓ; unfold substAt
+      exact CDeriv.impI (by simpa using ih ((φb, Mult.many) :: Γl) Γr Δ Γr' rfl hd dN hc)
+  | @impE Γ Γ₁ Γ₂ φe ψe Me Ne dMe dNe hj ihM ihN =>
+      intro Γl Γr Δ Γr' hΓ hd dN hc
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2; unfold substAt
+      by_cases h1z : m₁ = Mult.zero
+      · subst h1z
+        have h2m := mjoin_zero_left hmj; subst h2m
+        obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc (cjoin_comm hjr) hc
+        have hM := cderiv_dropZero_aux φ N dMe Γl₁ Γr₁ rfl
+        have hN := ihN Γl₂ Γr₂ Δ Δr rfl hd dN hADr
+        rw [hn1] at hM; rw [hn2] at hN
+        exact CDeriv.impE hM hN (cjoin_append hjl (cjoin_comm hADBr))
+      · by_cases h2z : m₂ = Mult.zero
+        · subst h2z
+          have h1m := mjoin_zero_right hmj; subst h1m
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc hjr hc
+          have hM := ihM Γl₁ Γr₁ Δ Δr rfl hd dN hADr
+          have hN := cderiv_dropZero_aux φ N dNe Γl₂ Γr₂ rfl
+          rw [hn1] at hM; rw [hn2] at hN
+          exact CDeriv.impE hM hN (cjoin_append hjl hADBr)
+        · obtain ⟨h1m, h2m⟩ := mjoin_many_ne_zero hmj h1z h2z
+          subst h1m; subst h2m
+          obtain ⟨Δ1, Δ2, hj1, hj2, hj3⟩ := cjoin_dup_reassoc hjr hc hd
+          have hM := ihM Γl₁ Γr₁ Δ Δ1 rfl hd dN hj1
+          have hN := ihN Γl₂ Γr₂ Δ Δ2 rfl hd dN hj2
+          rw [hn1] at hM; rw [hn2] at hN
+          exact CDeriv.impE hM hN (cjoin_append hjl hj3)
+  | @tensorI Γ Γ₁ Γ₂ φt ψt Mt Nt dMt dNt hj ihM ihN =>
+      intro Γl Γr Δ Γr' hΓ hd dN hc
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2; unfold substAt
+      by_cases h1z : m₁ = Mult.zero
+      · subst h1z
+        have h2m := mjoin_zero_left hmj; subst h2m
+        obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc (cjoin_comm hjr) hc
+        have hM := cderiv_dropZero_aux φ N dMt Γl₁ Γr₁ rfl
+        have hN := ihN Γl₂ Γr₂ Δ Δr rfl hd dN hADr
+        rw [hn1] at hM; rw [hn2] at hN
+        exact CDeriv.tensorI hM hN (cjoin_append hjl (cjoin_comm hADBr))
+      · by_cases h2z : m₂ = Mult.zero
+        · subst h2z
+          have h1m := mjoin_zero_right hmj; subst h1m
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc hjr hc
+          have hM := ihM Γl₁ Γr₁ Δ Δr rfl hd dN hADr
+          have hN := cderiv_dropZero_aux φ N dNt Γl₂ Γr₂ rfl
+          rw [hn1] at hM; rw [hn2] at hN
+          exact CDeriv.tensorI hM hN (cjoin_append hjl hADBr)
+        · obtain ⟨h1m, h2m⟩ := mjoin_many_ne_zero hmj h1z h2z
+          subst h1m; subst h2m
+          obtain ⟨Δ1, Δ2, hj1, hj2, hj3⟩ := cjoin_dup_reassoc hjr hc hd
+          have hM := ihM Γl₁ Γr₁ Δ Δ1 rfl hd dN hj1
+          have hN := ihN Γl₂ Γr₂ Δ Δ2 rfl hd dN hj2
+          rw [hn1] at hM; rw [hn2] at hN
+          exact CDeriv.tensorI hM hN (cjoin_append hjl hj3)
+  | @tensorE Γ Γ₁ Γ₂ φt ψt χt St Bt dS dB hj ihS ihB =>
+      intro Γl Γr Δ Γr' hΓ hd dN hc
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2; unfold substAt
+      by_cases h1z : m₁ = Mult.zero
+      · subst h1z
+        have h2m := mjoin_zero_left hmj; subst h2m
+        obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc (cjoin_comm hjr) hc
+        have hS := cderiv_dropZero_aux φ N dS Γl₁ Γr₁ rfl
+        rw [hn1] at hS
+        have hB := ihB ((φt, Mult.one) :: (ψt, Mult.one) :: Γl₂) Γr₂ Δ Δr rfl hd dN hADr
+        refine CDeriv.tensorE hS ?_ (cjoin_append hjl (cjoin_comm hADBr))
+        simpa [hn2] using hB
+      · by_cases h2z : m₂ = Mult.zero
+        · subst h2z
+          have h1m := mjoin_zero_right hmj; subst h1m
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc hjr hc
+          have hS := ihS Γl₁ Γr₁ Δ Δr rfl hd dN hADr
+          rw [hn1] at hS
+          have hB := cderiv_dropZero_aux φ N dB
+            ((φt, Mult.one) :: (ψt, Mult.one) :: Γl₂) Γr₂ rfl
+          refine CDeriv.tensorE hS ?_ (cjoin_append hjl hADBr)
+          simpa [hn2] using hB
+        · obtain ⟨h1m, h2m⟩ := mjoin_many_ne_zero hmj h1z h2z
+          subst h1m; subst h2m
+          obtain ⟨Δ1, Δ2, hj1, hj2, hj3⟩ := cjoin_dup_reassoc hjr hc hd
+          have hS := ihS Γl₁ Γr₁ Δ Δ1 rfl hd dN hj1
+          rw [hn1] at hS
+          have hB := ihB ((φt, Mult.one) :: (ψt, Mult.one) :: Γl₂) Γr₂ Δ Δ2 rfl hd dN hj2
+          refine CDeriv.tensorE hS ?_ (cjoin_append hjl hj3)
+          simpa [hn2] using hB
+  | @saysE Γ Γ₁ Γ₂ p φs ψs Ms Nb dMs dNb hj ihM ihN =>
+      intro Γl Γr Δ Γr' hΓ hd dN hc
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2; unfold substAt
+      by_cases h1z : m₁ = Mult.zero
+      · subst h1z
+        have h2m := mjoin_zero_left hmj; subst h2m
+        obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc (cjoin_comm hjr) hc
+        have hM := cderiv_dropZero_aux φ N dMs Γl₁ Γr₁ rfl
+        rw [hn1] at hM
+        have hNb := ihN ((φs, Mult.many) :: Γl₂) Γr₂ Δ Δr rfl hd dN hADr
+        refine CDeriv.saysE hM ?_ (cjoin_append hjl (cjoin_comm hADBr))
+        simpa [hn2] using hNb
+      · by_cases h2z : m₂ = Mult.zero
+        · subst h2z
+          have h1m := mjoin_zero_right hmj; subst h1m
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc hjr hc
+          have hM := ihM Γl₁ Γr₁ Δ Δr rfl hd dN hADr
+          rw [hn1] at hM
+          have hNb := cderiv_dropZero_aux φ N dNb ((φs, Mult.many) :: Γl₂) Γr₂ rfl
+          refine CDeriv.saysE hM ?_ (cjoin_append hjl hADBr)
+          simpa [hn2] using hNb
+        · obtain ⟨h1m, h2m⟩ := mjoin_many_ne_zero hmj h1z h2z
+          subst h1m; subst h2m
+          obtain ⟨Δ1, Δ2, hj1, hj2, hj3⟩ := cjoin_dup_reassoc hjr hc hd
+          have hM := ihM Γl₁ Γr₁ Δ Δ1 rfl hd dN hj1
+          rw [hn1] at hM
+          have hNb := ihN ((φs, Mult.many) :: Γl₂) Γr₂ Δ Δ2 rfl hd dN hj2
+          refine CDeriv.saysE hM ?_ (cjoin_append hjl hj3)
+          simpa [hn2] using hNb
+  | @delegate Γ Γ₁ Γ₂ p q φd Md Nd dMd dNd hj ihM ihN =>
+      intro Γl Γr Δ Γr' hΓ hd dN hc
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2; unfold substAt
+      by_cases h1z : m₁ = Mult.zero
+      · subst h1z
+        have h2m := mjoin_zero_left hmj; subst h2m
+        obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc (cjoin_comm hjr) hc
+        have hM := cderiv_dropZero_aux φ N dMd Γl₁ Γr₁ rfl
+        have hNd := ihN Γl₂ Γr₂ Δ Δr rfl hd dN hADr
+        rw [hn1] at hM; rw [hn2] at hNd
+        exact CDeriv.delegate hM hNd (cjoin_append hjl (cjoin_comm hADBr))
+      · by_cases h2z : m₂ = Mult.zero
+        · subst h2z
+          have h1m := mjoin_zero_right hmj; subst h1m
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc hjr hc
+          have hM := ihM Γl₁ Γr₁ Δ Δr rfl hd dN hADr
+          have hNd := cderiv_dropZero_aux φ N dNd Γl₂ Γr₂ rfl
+          rw [hn1] at hM; rw [hn2] at hNd
+          exact CDeriv.delegate hM hNd (cjoin_append hjl hADBr)
+        · obtain ⟨h1m, h2m⟩ := mjoin_many_ne_zero hmj h1z h2z
+          subst h1m; subst h2m
+          obtain ⟨Δ1, Δ2, hj1, hj2, hj3⟩ := cjoin_dup_reassoc hjr hc hd
+          have hM := ihM Γl₁ Γr₁ Δ Δ1 rfl hd dN hj1
+          have hNd := ihN Γl₂ Γr₂ Δ Δ2 rfl hd dN hj2
+          rw [hn1] at hM; rw [hn2] at hNd
+          exact CDeriv.delegate hM hNd (cjoin_append hjl hj3)
+  | @discharge Γ Γ₁ Γ₂ O φd Md Nd dMd dNd hj ihM ihN =>
+      intro Γl Γr Δ Γr' hΓ hd dN hc
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2; unfold substAt
+      by_cases h1z : m₁ = Mult.zero
+      · subst h1z
+        have h2m := mjoin_zero_left hmj; subst h2m
+        obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc (cjoin_comm hjr) hc
+        have hM := cderiv_dropZero_aux φ N dMd Γl₁ Γr₁ rfl
+        have hNd := ihN Γl₂ Γr₂ Δ Δr rfl hd dN hADr
+        rw [hn1] at hM; rw [hn2] at hNd
+        exact CDeriv.discharge hM hNd (cjoin_append hjl (cjoin_comm hADBr))
+      · by_cases h2z : m₂ = Mult.zero
+        · subst h2z
+          have h1m := mjoin_zero_right hmj; subst h1m
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc hjr hc
+          have hM := ihM Γl₁ Γr₁ Δ Δr rfl hd dN hADr
+          have hNd := cderiv_dropZero_aux φ N dNd Γl₂ Γr₂ rfl
+          rw [hn1] at hM; rw [hn2] at hNd
+          exact CDeriv.discharge hM hNd (cjoin_append hjl hADBr)
+        · obtain ⟨h1m, h2m⟩ := mjoin_many_ne_zero hmj h1z h2z
+          subst h1m; subst h2m
+          obtain ⟨Δ1, Δ2, hj1, hj2, hj3⟩ := cjoin_dup_reassoc hjr hc hd
+          have hM := ihM Γl₁ Γr₁ Δ Δ1 rfl hd dN hj1
+          have hNd := ihN Γl₂ Γr₂ Δ Δ2 rfl hd dN hj2
+          rw [hn1] at hM; rw [hn2] at hNd
+          exact CDeriv.discharge hM hNd (cjoin_append hjl hj3)
+  | @letSaysE Γ Γ₁ Γ₂ p φs ψs St Bt dS dB hj ihS ihB =>
+      intro Γl Γr Δ Γr' hΓ hd dN hc
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2; unfold substAt
+      by_cases h1z : m₁ = Mult.zero
+      · subst h1z
+        have h2m := mjoin_zero_left hmj; subst h2m
+        obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc (cjoin_comm hjr) hc
+        have hS := cderiv_dropZero_aux φ N dS Γl₁ Γr₁ rfl
+        rw [hn1] at hS
+        have hB := ihB ((φs, Mult.many) :: Γl₂) Γr₂ Δ Δr rfl hd dN hADr
+        refine CDeriv.letSaysE hS ?_ (cjoin_append hjl (cjoin_comm hADBr))
+        simpa [hn2] using hB
+      · by_cases h2z : m₂ = Mult.zero
+        · subst h2z
+          have h1m := mjoin_zero_right hmj; subst h1m
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc hjr hc
+          have hS := ihS Γl₁ Γr₁ Δ Δr rfl hd dN hADr
+          rw [hn1] at hS
+          have hB := cderiv_dropZero_aux φ N dB ((φs, Mult.many) :: Γl₂) Γr₂ rfl
+          refine CDeriv.letSaysE hS ?_ (cjoin_append hjl hADBr)
+          simpa [hn2] using hB
+        · obtain ⟨h1m, h2m⟩ := mjoin_many_ne_zero hmj h1z h2z
+          subst h1m; subst h2m
+          obtain ⟨Δ1, Δ2, hj1, hj2, hj3⟩ := cjoin_dup_reassoc hjr hc hd
+          have hS := ihS Γl₁ Γr₁ Δ Δ1 rfl hd dN hj1
+          rw [hn1] at hS
+          have hB := ihB ((φs, Mult.many) :: Γl₂) Γr₂ Δ Δ2 rfl hd dN hj2
+          refine CDeriv.letSaysE hS ?_ (cjoin_append hjl hj3)
+          simpa [hn2] using hB
+
+/-- **Open additive (scaled L4) substitution preservation over `CDeriv`.**
+Substituting `N : φ` — carrying its OWN DUPLICABLE resources `Δ` (`NoOne Δ`) —
+for the ADDITIVE (`Mult.many`) hypothesis at position `Γl.length` preserves the
+CARVe judgment, `CJoin`-MERGING `Δ` into `M`'s leftover after the hole. The
+`NoOne` requirement is the QTT scaling made honest: a `many` binder duplicates
+`N`, so `N`'s linear (`one`) resources would be copied — unsound — hence `Δ` must
+already be one-free. Proved for ALL nine constructors. (Compose with
+`cderiv_substM_scaled` to recover the `scaleCtx Mult.many Δ` form for arbitrary
+`Δ`.) -/
+noncomputable def cderiv_substM {Γl Γr Δ Γr' : Carve.Ctx Prop'} {φ ψ : Prop'}
+    {M N : Term}
+    (dM : CDeriv (Γl ++ (φ, Mult.many) :: Γr) M ψ)
+    (dN : CDeriv Δ N φ)
+    (hdup : NoOne Δ)
+    (hc : CJoin Γr Δ Γr') :
+    CDeriv (Γl ++ Γr') (substAt M N Γl.length) ψ :=
+  cderiv_substM_aux φ N dM Γl Γr Δ Γr' rfl hdup dN hc
+
+/-- **The QTT-faithful scaled form.** For an ARBITRARY `Δ`, substituting `N : φ`
+typed under the scaled context `scaleCtx Mult.many Δ` for a `many` hypothesis
+merges `scaleCtx Mult.many Δ` into the leftover — the Atkey (LICS 2018)
+substitution lemma "scale the substituend's usage by the binder multiplicity and
+add it". Duplicability is automatic (`noOne_scaleCtx_many`): `many`-scaling bumps
+every `one` to `many`, so the scaled context is always one-free. -/
+noncomputable def cderiv_substM_scaled {Γl Γr Δ Γr' : Carve.Ctx Prop'} {φ ψ : Prop'}
+    {M N : Term}
+    (dM : CDeriv (Γl ++ (φ, Mult.many) :: Γr) M ψ)
+    (dN : CDeriv (scaleCtx Mult.many Δ) N φ)
+    (hc : CJoin Γr (scaleCtx Mult.many Δ) Γr') :
+    CDeriv (Γl ++ Γr') (substAt M N Γl.length) ψ :=
+  cderiv_substM dM dN (noOne_scaleCtx_many Δ) hc
+
 /-! ## Sanity: the CARVe split rules type real judgments with NO shift.
 The multiplicative rules carry `CJoin`, not `++` + `shift` — the migration's
 whole point, exercised on a concrete derivation. -/
@@ -1244,6 +1758,36 @@ noncomputable def substL_antivacuity_example :
       [(Prop'.atom 0, Mult.one)] :=
     CJoin.cons (MJoin.zl _) CJoin.nil
   exact cderiv_substL (Γl := []) (Γr := [(Prop'.atom 0, Mult.zero)]) dM dN hc
+
+/-- **Anti-vacuity for OPEN ADDITIVE (scaled) substitution.** Substitute
+`N = var 0`, carrying its OWN OPEN resource `Δ = [(atom 0, many)]` (a genuine,
+non-`zeroed` context that is nonetheless DUPLICABLE — `NoOne` holds since the
+tag is `many`, not `one`), for the ADDITIVE (`Mult.many`) hypothesis at position
+0 of `M = var 0`, whose context also carries an unused `(atom 0, zero)` leftover
+slot `Γr`. `N`'s live `many` resource is `CJoin`-MERGED into that slot
+(`MJoin zero many many`), so the result is a REAL `CDeriv` still carrying the
+merged `(atom 0, many)`: the scaled-substitution lemma is exercised with a
+genuinely OPEN, non-vanishing (and correctly duplicable) `Δ`, not vacuously. -/
+noncomputable def substM_antivacuity_example :
+    CDeriv [(Prop'.atom 0, Mult.many)] (Term.var 0) (Prop'.atom 0) := by
+  have dM : CDeriv ([] ++ (Prop'.atom 0, Mult.many) :: [(Prop'.atom 0, Mult.zero)])
+      (Term.var 0) (Prop'.atom 0) :=
+    CDeriv.var (i := 0) rfl (by decide)
+      (by intro j p hj hget; rcases j with _ | _ | k
+          · exact (hj rfl).elim
+          · simp at hget; rw [← hget]
+          · simp at hget)
+  have dN : CDeriv [(Prop'.atom 0, Mult.many)] (Term.var 0) (Prop'.atom 0) :=
+    CDeriv.var (i := 0) rfl (by decide)
+      (by intro j p hj hget; rcases j with _ | k
+          · exact (hj rfl).elim
+          · simp at hget)
+  have hdup : NoOne [(Prop'.atom 0, Mult.many)] := by
+    intro p hp; simp only [List.mem_singleton] at hp; subst hp; decide
+  have hc : CJoin [(Prop'.atom 0, Mult.zero)] [(Prop'.atom 0, Mult.many)]
+      [(Prop'.atom 0, Mult.many)] :=
+    CJoin.cons (MJoin.zl _) CJoin.nil
+  exact cderiv_substM (Γl := []) (Γr := [(Prop'.atom 0, Mult.zero)]) dM dN hdup hc
 
 end CarveJudgmentChecks
 

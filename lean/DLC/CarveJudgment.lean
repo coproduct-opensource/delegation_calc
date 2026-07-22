@@ -76,12 +76,55 @@ bookkeeping (`+1` for `impI`/`saysE`/`letSaysE`, `+2` for `tensorE`) is matched
 by extending `Γl` under each binder — no shift-commutation lemma needed, since
 CARVe conclusions carry no shift.
 
-**Deferred to increment 3b (true L4):** LINEAR (`Mult.one`) substitution, where
+**Now DONE in increment 3b (see below):** LINEAR (`Mult.one`) substitution, where
 `N`'s context does NOT vanish but `CJoin`-MERGES with the leftover of `M`
 (usage-vector addition, the linear-algebra case of Wood–Atkey arXiv:2005.02247).
-That case genuinely needs `N` to be typeable under an arbitrary (non-`zeroed`)
-context and the result context to be the join `Γ_M ⊕ Γ_N`, not the additive
-"drop the position". It is NOT attempted here.
+That case needs `N` typeable under an arbitrary (non-`zeroed`) context `Δ` and the
+result context to be the join `Γr ⊕ Δ`, not the additive "drop the position".
+
+## Scope of increment 3b — LINEAR (`one`) substitution preservation (true L4)
+`cderiv_substL` is PROVED over ALL NINE constructors: substituting `N : φ`, with
+its OWN resource vector `Δ`, for the LINEAR (`Mult.one`) hypothesis at position
+`Γl.length` preserves `CDeriv`, `CJoin`-MERGING `Δ` into `M`'s leftover at the
+positions after the hole:
+  `CDeriv (Γl ++ (φ, one) :: Γr) M ψ → CDeriv Δ N φ → CJoin Γr Δ Γr' →`
+  `CDeriv (Γl ++ Γr') (substAt M N Γl.length) ψ`.
+This is the CUT rule and the linear-algebra substitution step of Wood–Atkey
+(arXiv:2005.02247) on the real `Term`/`Prop'`. Its content beyond 3a:
+- **routing.** A `one` hole splits (`cjoin_split_cons`) into `MJoin m₁ m₂ one`,
+  which by `mjoin_one_not_shared` has ONLY the `zl`/`zr` shapes: the hole lands
+  entirely on ONE premise (recurse `cderiv_substL_aux`, re-routing `Δ`), while
+  the sibling carries it at `zero` and is dropped by `cderiv_dropZero_aux`
+  (a proved strengthening: a `zero`-tagged hypothesis is never referenced, so
+  `substAt` never PLACES `N` there). The route is chosen on the tag DATA
+  (`by_cases … = one`), since an `MJoin` proof cannot eliminate into the
+  `Type`-valued derivation.
+- **merge.** Re-routing `Δ` past the surviving premise's leftover is the
+  partial-commutative-monoid REASSOCIATION `A ⊕ (B ⊕ D) = (A ⊕ B) ⊕ D`
+  (`cjoin_reassoc`, elementwise `mjoin_reassoc`) — the linear-algebra step.
+- **the hit.** At the single `var` leaf that consumes the hole (a `one` at any
+  OTHER position violates `AllZeroExcept`, so the hit is FORCED), `AllZeroExcept`
+  collapses the leftover `Γr` to all-`zero`, whence `cjoin_left_all_zero` makes
+  the merge `Γr'` equal to `Δ` exactly — `N` brings all resources at the hole —
+  and `cderiv_shift` (0-use weakening by `zeroed Γl`) places `shift N Γl.length 0`.
+
+**Not attempted (honestly deferred):**
+- **OPEN ADDITIVE substitution** (a `many` hole filled by an `N` with a
+  non-`zeroed` `Δ`) does NOT fall out of the linear lemma: a `many` hypothesis
+  may be used 0..n times, so `N`'s resources would have to be SCALED by `many`
+  (duplicated), which is sound only if `Δ` is itself duplicable (all-`zero` or
+  all-`many`). The linear (`one`) multiplicity is exactly the case where usage
+  ADDS without duplication — the merge here is `CJoin` (`+`), not an
+  `n`-fold copy. Subject reduction (increment 4) for a `many`-binder β-redex
+  will need that scaled-duplicable variant separately; the `CJoin`-merge proved
+  here is the technique that generalises 3a's closed-additive case to open for
+  the `one` binders (`tensorE`), which is the load-bearing β-redex.
+
+`#print axioms cderiv_substL` = `#print axioms cderiv_dropZero_aux` =
+`[propext, Classical.choice, Quot.sound]` (dropZero: `[propext, Quot.sound]`);
+no `sorryAx`, no `native_decide`. `CarveJudgmentChecks.substL_antivacuity_example`
+exercises the merge on a real derivation (an `N` consuming a live linear
+resource, joined into `M`'s leftover).
 
 `#print axioms cderiv_substA` = `[propext, Classical.choice, Quot.sound]` (no
 `sorryAx`, no `native_decide`); likewise `cderiv_shift`.
@@ -638,6 +681,486 @@ noncomputable def cderiv_substA {Γl Γr : Carve.Ctx Prop'} {φ ψ : Prop'} {M N
     CDeriv (Γl ++ Γr) (substAt M N Γl.length) ψ :=
   cderiv_substA_aux φ N dM Γl Γr Mult.many rfl (by decide) dN
 
+/-! ## Increment 3b — LINEAR (`one`) substitution preservation over `CDeriv`.
+
+Substituting `N : φ` — carrying its OWN resources `Δ` — for the LINEAR
+(`Mult.one`) hypothesis at position `Γl.length`. Unlike the additive case, `N`'s
+context does NOT vanish: it is `CJoin`-MERGED into the leftover of `M` at the
+positions after the hole (`CJoin Γr Δ Γr'`, usage-vector addition — the
+linear-algebra step of Wood–Atkey, arXiv:2005.02247). This is the CUT rule: a
+`one` hypothesis routes to exactly ONE `CJoin` branch (`mjoin_one_not_shared`),
+so the induction splits on which premise consumed it; the OTHER branch carries
+the hole at tag `zero` and simply drops it (`cderiv_dropZero_aux`). The de Bruijn
+discipline of `substAt`/`shift` (lift `N` by `Γl.length`) makes `N`'s variables
+land exactly on the `Γr` positions — so `Δ` shares its propositions with `Γr`
+(enforced by `CJoin Γr Δ Γr'`) and never reaches `Γl`. The reassembly of the two
+premises' leftovers with `Δ` is a partial-commutative-monoid REASSOCIATION
+(`cjoin_reassoc`), the substructural counterpart of `A ⊕ (B ⊕ D) = (A ⊕ B) ⊕ D`.
+
+Prior art (web-searched 2026-07-22):
+- Wood & Atkey, *A Linear Algebra Approach to Linear Metatheory* (arXiv:2005.02247):
+  substitution as a usage-respecting environment/kit; linear systems do NOT
+  validate naive substitution (context-union-under-binder fails), the
+  environment method (usage = semiring vector, split = semiring `+`) is the fix.
+  https://arxiv.org/abs/2005.02247
+- Wood & Atkey, *A Framework for Substructural Type Systems* (ESOP 2022):
+  https://bentnib.org/quant-framework.pdf
+- Zalakain & Dardha, *π with Leftovers* (FORTE 2021): simultaneous
+  renaming/substitution over a general usage algebra; leftover output contexts
+  are exactly this `Γr'`. https://arxiv.org/pdf/2005.05902 -/
+
+/-- Every entry of a `zeroed` block, read at a `CJoin`, is `zero` — the
+all-`zero` predicate the hit case feeds to `cjoin_left_all_zero`. -/
+theorem mjoin_zero {m₁ m₂ : Mult} (h : MJoin m₁ m₂ Mult.zero) :
+    m₁ = Mult.zero ∧ m₂ = Mult.zero := by
+  cases h with
+  | zl => exact ⟨rfl, rfl⟩
+  | zr => exact ⟨rfl, rfl⟩
+
+/-- A `one` result with a `one` LEFT summand forces the right summand `zero`
+(`MJoin one m₂ one` has only the `zr` shape). -/
+theorem mjoin_one_left {m₂ : Mult} (h : MJoin Mult.one m₂ Mult.one) : m₂ = Mult.zero := by
+  cases h; rfl
+
+/-- **A `one` routes to exactly one branch.** If the left summand is NOT `one`,
+then it is `zero` and the right summand carries the whole `one` — the algebraic
+content of `mjoin_one_not_shared`. Split on the tag DATA (not by `cases` on the
+`MJoin`, which cannot eliminate into the `Type`-valued derivation) so the linear
+hole lands entirely on one premise. -/
+theorem mjoin_one_notleft {m₁ m₂ : Mult} (h : MJoin m₁ m₂ Mult.one)
+    (hne : m₁ ≠ Mult.one) : m₁ = Mult.zero ∧ m₂ = Mult.one := by
+  cases h with
+  | zl => exact ⟨rfl, rfl⟩
+  | zr => exact absurd rfl hne
+
+/-- `MJoin` is commutative. -/
+theorem mjoin_comm {a b c : Mult} (h : MJoin a b c) : MJoin b a c := by
+  cases h
+  · exact MJoin.zr _
+  · exact MJoin.zl _
+  · exact MJoin.mm
+
+/-- `CJoin` is commutative (elementwise `mjoin_comm`). -/
+noncomputable def cjoin_comm {α : Type} {A B C : Carve.Ctx α} (h : CJoin A B C) :
+    CJoin B A C := by
+  induction h with
+  | nil => exact CJoin.nil
+  | cons hm _ ih => exact CJoin.cons (mjoin_comm hm) ih
+
+/-- **Joining an all-`zero` left operand is the identity.** If every tag of `A`
+is `zero`, then `A ⊕ Δ = Δ` on the nose. At the `one`-hit, `AllZeroExcept`
+forces the leftover `Γr` all-`zero`, so the merged context `Γr'` equals `N`'s
+own context `Δ` — `N` brings ALL the resources at the hole. -/
+theorem cjoin_left_all_zero {α : Type} {A Δ E : Carve.Ctx α}
+    (h : CJoin A Δ E) (hz : A = zeroed A) : E = Δ := by
+  induction h with
+  | nil => rfl
+  | @cons a m₁ m₂ m A' Δ' E' hm _ ih =>
+      rw [zeroed_cons] at hz
+      injection hz with hhd htl
+      injection hhd with _ hm1
+      subst hm1
+      have hE : E' = Δ' := ih htl
+      subst hE
+      cases hm with
+      | zl => rfl
+      | zr => rfl
+
+/-- The resource-monoid SUM, used as the reassociation WITNESS tag. Total by
+convention; the genuinely-undefined joins (`one ⊕ one`, `one ⊕ many`) are
+never reached — `cjoin_reassoc`'s premises rule them out (the `MJoin` case
+analysis has no constructor for them). -/
+def madd : Mult → Mult → Mult
+  | Mult.zero, d => d
+  | Mult.one,  _ => Mult.one
+  | Mult.many, _ => Mult.many
+
+/-- **`MJoin` reassociation.** From `a ⊕ b = ab` and `ab ⊕ d = e`, the witness
+`madd a d` satisfies `a ⊕ d = madd a d` and `(madd a d) ⊕ b = e`. This is
+associativity+commutativity of the partial commutative monoid `{zero,one,many}`
+— the elementwise heart of the linear-algebra substitution step. -/
+theorem mjoin_reassoc {a b ab d e : Mult} (h1 : MJoin a b ab) (h2 : MJoin ab d e) :
+    MJoin a d (madd a d) ∧ MJoin (madd a d) b e := by
+  cases a <;> cases d <;> simp only [madd] <;> cases h1 <;> cases h2 <;>
+    refine ⟨?_, ?_⟩ <;>
+    first
+      | exact MJoin.zl _
+      | exact MJoin.zr _
+      | exact MJoin.mm
+
+/-- The reassociation result at the context level: the merged middle `AD` plus
+the two `CJoin`s that rebuild `E` through it. -/
+structure CReassoc {α : Type} (A B D E : Carve.Ctx α) : Type where
+  AD : Carve.Ctx α
+  hAD : CJoin A D AD
+  hADB : CJoin AD B E
+
+/-- **`CJoin` reassociation** (elementwise `mjoin_reassoc`). From `A ⊕ B = AB`
+and `AB ⊕ D = E`, produce `AD = A ⊕ D` with `AD ⊕ B = E`. This reroutes `N`'s
+resources `D` past one premise's leftover `B` — the substructural
+`A ⊕ (B ⊕ D) = (A ⊕ B) ⊕ D` that lets the cut merge `Δ` into the surviving
+premise while the consumed premise is dropped. -/
+noncomputable def cjoin_reassoc {α : Type} {A B AB D E : Carve.Ctx α}
+    (h1 : CJoin A B AB) : CJoin AB D E → CReassoc A B D E := by
+  induction h1 generalizing D E with
+  | nil => intro h2; cases h2; exact ⟨[], CJoin.nil, CJoin.nil⟩
+  | @cons a a1 b1 ab1 A' B' AB' hm _ ih =>
+      intro h2
+      cases h2 with
+      | @cons _ _ d1 _ _ D' _ hm2 hrest2 =>
+          obtain ⟨mrl, mrr⟩ := mjoin_reassoc hm hm2
+          exact ⟨(a, madd a1 d1) :: (ih hrest2).AD,
+                 CJoin.cons mrl (ih hrest2).hAD,
+                 CJoin.cons mrr (ih hrest2).hADB⟩
+
+/-- **Strengthening: drop an unused (`zero`-tagged) hypothesis.** A `zero` hole
+at position `Γl.length` is never referenced by any `var` leaf (a leaf demands a
+non-`zero` tag at its own position, and a `zero` result forces every summand
+`zero`), so `substAt M N Γl.length` never PLACES `N` — it only re-indexes past
+the dropped slot. `N` is carried untouched purely to match the syntactic form
+used by the linear cut's discarded branch. Proved for all nine constructors. -/
+private noncomputable def cderiv_dropZero_aux {Γfull : Carve.Ctx Prop'} {M : Term}
+    {ψ : Prop'} (φ : Prop') (N : Term) (dM : CDeriv Γfull M ψ) :
+    ∀ (Γl Γr : Carve.Ctx Prop'), Γfull = Γl ++ (φ, Mult.zero) :: Γr →
+      CDeriv (Γl ++ Γr) (substAt M N Γl.length) ψ := by
+  induction dM with
+  | @var Γ i χ mvar h hmvar hz =>
+      intro Γl Γr hΓ
+      subst hΓ
+      unfold substAt
+      by_cases heq : i = Γl.length
+      · exfalso; subst heq
+        rw [List.getElem?_append_right (le_refl Γl.length)] at h
+        simp only [Nat.sub_self, List.getElem?_cons_zero, Option.some.injEq,
+          Prod.mk.injEq] at h
+        exact hmvar h.2.symm
+      · rw [if_neg heq]
+        by_cases hgt : i > Γl.length
+        · rw [if_pos hgt]
+          refine CDeriv.var (m := mvar) ?_ hmvar ?_
+          · have hge : Γl.length ≤ i := Nat.le_of_lt hgt
+            rw [List.getElem?_append_right hge] at h
+            rw [show i - Γl.length = (i - Γl.length - 1) + 1 from by omega,
+                List.getElem?_cons_succ] at h
+            rw [List.getElem?_append_right (show Γl.length ≤ i - 1 from by omega),
+                show i - 1 - Γl.length = i - Γl.length - 1 from by omega]
+            exact h
+          · have hz' := allZeroExcept_remove hz heq
+            rwa [if_neg (by omega)] at hz'
+        · rw [if_neg hgt]
+          have hlt : i < Γl.length := by omega
+          refine CDeriv.var (m := mvar) ?_ hmvar ?_
+          · rw [List.getElem?_append_left hlt]
+            rwa [List.getElem?_append_left hlt] at h
+          · have hz' := allZeroExcept_remove hz heq
+            rwa [if_pos hlt] at hz'
+  | @impI Γ φb ψb Mb _ ih =>
+      intro Γl Γr hΓ; subst hΓ; unfold substAt
+      exact CDeriv.impI (by simpa using ih ((φb, Mult.many) :: Γl) Γr rfl)
+  | @impE Γ Γ₁ Γ₂ φe ψe Me Ne _ _ hj ihM ihN =>
+      intro Γl Γr hΓ; subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2
+      obtain ⟨hz1, hz2⟩ := mjoin_zero hmj; subst hz1; subst hz2
+      unfold substAt
+      have hM := ihM Γl₁ Γr₁ rfl; have hN := ihN Γl₂ Γr₂ rfl
+      rw [hn1] at hM; rw [hn2] at hN
+      exact CDeriv.impE hM hN (cjoin_append hjl hjr)
+  | @tensorI Γ Γ₁ Γ₂ φt ψt Mt Nt _ _ hj ihM ihN =>
+      intro Γl Γr hΓ; subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2
+      obtain ⟨hz1, hz2⟩ := mjoin_zero hmj; subst hz1; subst hz2
+      unfold substAt
+      have hM := ihM Γl₁ Γr₁ rfl; have hN := ihN Γl₂ Γr₂ rfl
+      rw [hn1] at hM; rw [hn2] at hN
+      exact CDeriv.tensorI hM hN (cjoin_append hjl hjr)
+  | @tensorE Γ Γ₁ Γ₂ φt ψt χt St Bt _ _ hj ihS ihB =>
+      intro Γl Γr hΓ; subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2
+      obtain ⟨hz1, hz2⟩ := mjoin_zero hmj; subst hz1; subst hz2
+      unfold substAt
+      have hS := ihS Γl₁ Γr₁ rfl; rw [hn1] at hS
+      have hB := ihB ((φt, Mult.one) :: (ψt, Mult.one) :: Γl₂) Γr₂ rfl
+      refine CDeriv.tensorE hS ?_ (cjoin_append hjl hjr)
+      simpa [hn2] using hB
+  | @saysE Γ Γ₁ Γ₂ p φs ψs Ms Nb _ _ hj ihM ihN =>
+      intro Γl Γr hΓ; subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2
+      obtain ⟨hz1, hz2⟩ := mjoin_zero hmj; subst hz1; subst hz2
+      unfold substAt
+      have hM := ihM Γl₁ Γr₁ rfl; rw [hn1] at hM
+      have hN := ihN ((φs, Mult.many) :: Γl₂) Γr₂ rfl
+      refine CDeriv.saysE hM ?_ (cjoin_append hjl hjr)
+      simpa [hn2] using hN
+  | @delegate Γ Γ₁ Γ₂ p q φd Md Nd _ _ hj ihM ihN =>
+      intro Γl Γr hΓ; subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2
+      obtain ⟨hz1, hz2⟩ := mjoin_zero hmj; subst hz1; subst hz2
+      unfold substAt
+      have hM := ihM Γl₁ Γr₁ rfl; have hN := ihN Γl₂ Γr₂ rfl
+      rw [hn1] at hM; rw [hn2] at hN
+      exact CDeriv.delegate hM hN (cjoin_append hjl hjr)
+  | @discharge Γ Γ₁ Γ₂ O φd Md Nd _ _ hj ihM ihN =>
+      intro Γl Γr hΓ; subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2
+      obtain ⟨hz1, hz2⟩ := mjoin_zero hmj; subst hz1; subst hz2
+      unfold substAt
+      have hM := ihM Γl₁ Γr₁ rfl; have hN := ihN Γl₂ Γr₂ rfl
+      rw [hn1] at hM; rw [hn2] at hN
+      exact CDeriv.discharge hM hN (cjoin_append hjl hjr)
+  | @letSaysE Γ Γ₁ Γ₂ p φs ψs St Bt _ _ hj ihS ihB =>
+      intro Γl Γr hΓ; subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2
+      obtain ⟨hz1, hz2⟩ := mjoin_zero hmj; subst hz1; subst hz2
+      unfold substAt
+      have hS := ihS Γl₁ Γr₁ rfl; rw [hn1] at hS
+      have hB := ihB ((φs, Mult.many) :: Γl₂) Γr₂ rfl
+      refine CDeriv.letSaysE hS ?_ (cjoin_append hjl hjr)
+      simpa [hn2] using hB
+
+/-- **Linear (L4) substitution preservation (auxiliary, all nine constructors).**
+`φ`/`N` are fixed; the hole tag is `Mult.one`. At the single `var` leaf that
+consumes it the hole MUST be hit (a `one` at any OTHER position violates
+`AllZeroExcept`), where `N` (typed under its own `Δ`) is placed via
+`cderiv_shift` and — because `AllZeroExcept` forces the leftover `Γr`
+all-`zero` — the merged context `Γr'` collapses to exactly `Δ`
+(`cjoin_left_all_zero`). At every `CJoin` premise the `one` routes to exactly
+one branch (`MJoin _ _ one` has only `zl`/`zr`, never `mm`): that branch
+recurses here with `Δ` re-routed past the sibling's leftover
+(`cjoin_reassoc`); the sibling carries the hole at `zero` and is discharged by
+`cderiv_dropZero_aux`. -/
+private noncomputable def cderiv_substL_aux {Γfull : Carve.Ctx Prop'} {M : Term}
+    {ψ : Prop'} (φ : Prop') (N : Term) (dM : CDeriv Γfull M ψ) :
+    ∀ (Γl Γr Δ Γr' : Carve.Ctx Prop'), Γfull = Γl ++ (φ, Mult.one) :: Γr →
+      CDeriv Δ N φ → CJoin Γr Δ Γr' →
+      CDeriv (Γl ++ Γr') (substAt M N Γl.length) ψ := by
+  induction dM with
+  | @var Γ i χ mvar h hmvar hz =>
+      intro Γl Γr Δ Γr' hΓ dN hc
+      subst hΓ
+      unfold substAt
+      -- The `one` hole forces this leaf to hit it.
+      have heq : i = Γl.length := by
+        by_contra hne
+        have hzero := hz Γl.length (φ, Mult.one) (fun he => hne he.symm)
+          (by rw [List.getElem?_append_right (le_refl Γl.length)]; simp)
+        simp at hzero
+      rw [if_pos heq]
+      rw [heq] at h hz
+      obtain ⟨hzl, hzr⟩ := allZeroExcept_split_zeroed hz
+      -- `χ = φ` from the hit lookup.
+      rw [List.getElem?_append_right (le_refl Γl.length)] at h
+      simp only [Nat.sub_self, List.getElem?_cons_zero, Option.some.injEq,
+        Prod.mk.injEq] at h
+      obtain ⟨hφχ, _⟩ := h
+      subst hφχ
+      -- Leftover `Γr` all-`zero` ⟹ the merge `Γr'` is exactly `Δ`.
+      have heE : Γr' = Δ := cjoin_left_all_zero hc hzr
+      subst Γr'
+      have hshift := cderiv_shift dN [] Γl Δ (by simp)
+      simp only [List.nil_append, List.length_nil] at hshift
+      rwa [← hzl] at hshift
+  | @impI Γ φb ψb Mb _ ih =>
+      intro Γl Γr Δ Γr' hΓ dN hc
+      subst hΓ; unfold substAt
+      exact CDeriv.impI (by simpa using ih ((φb, Mult.many) :: Γl) Γr Δ Γr' rfl dN hc)
+  | @impE Γ Γ₁ Γ₂ φe ψe Me Ne dMe dNe hj ihM ihN =>
+      intro Γl Γr Δ Γr' hΓ dN hc
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2; unfold substAt
+      by_cases hone : m₁ = Mult.one
+      ·
+          subst hone
+          have hm2 := mjoin_one_left hmj; subst hm2
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc hjr hc
+          have hM := ihM Γl₁ Γr₁ Δ Δr rfl dN hADr
+          have hN := cderiv_dropZero_aux φ N dNe Γl₂ Γr₂ rfl
+          rw [hn1] at hM; rw [hn2] at hN
+          exact CDeriv.impE hM hN (cjoin_append hjl hADBr)
+      ·
+          obtain ⟨hm1z, hm2o⟩ := mjoin_one_notleft hmj hone
+          subst hm1z; subst hm2o
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc (cjoin_comm hjr) hc
+          have hM := cderiv_dropZero_aux φ N dMe Γl₁ Γr₁ rfl
+          have hN := ihN Γl₂ Γr₂ Δ Δr rfl dN hADr
+          rw [hn1] at hM; rw [hn2] at hN
+          exact CDeriv.impE hM hN (cjoin_append hjl (cjoin_comm hADBr))
+  | @tensorI Γ Γ₁ Γ₂ φt ψt Mt Nt dMt dNt hj ihM ihN =>
+      intro Γl Γr Δ Γr' hΓ dN hc
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2; unfold substAt
+      by_cases hone : m₁ = Mult.one
+      ·
+          subst hone
+          have hm2 := mjoin_one_left hmj; subst hm2
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc hjr hc
+          have hM := ihM Γl₁ Γr₁ Δ Δr rfl dN hADr
+          have hN := cderiv_dropZero_aux φ N dNt Γl₂ Γr₂ rfl
+          rw [hn1] at hM; rw [hn2] at hN
+          exact CDeriv.tensorI hM hN (cjoin_append hjl hADBr)
+      ·
+          obtain ⟨hm1z, hm2o⟩ := mjoin_one_notleft hmj hone
+          subst hm1z; subst hm2o
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc (cjoin_comm hjr) hc
+          have hM := cderiv_dropZero_aux φ N dMt Γl₁ Γr₁ rfl
+          have hN := ihN Γl₂ Γr₂ Δ Δr rfl dN hADr
+          rw [hn1] at hM; rw [hn2] at hN
+          exact CDeriv.tensorI hM hN (cjoin_append hjl (cjoin_comm hADBr))
+  | @tensorE Γ Γ₁ Γ₂ φt ψt χt St Bt dS dB hj ihS ihB =>
+      intro Γl Γr Δ Γr' hΓ dN hc
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2; unfold substAt
+      by_cases hone : m₁ = Mult.one
+      ·
+          subst hone
+          have hm2 := mjoin_one_left hmj; subst hm2
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc hjr hc
+          have hS := ihS Γl₁ Γr₁ Δ Δr rfl dN hADr
+          rw [hn1] at hS
+          have hB := cderiv_dropZero_aux φ N dB
+            ((φt, Mult.one) :: (ψt, Mult.one) :: Γl₂) Γr₂ rfl
+          refine CDeriv.tensorE hS ?_ (cjoin_append hjl hADBr)
+          simpa [hn2] using hB
+      ·
+          obtain ⟨hm1z, hm2o⟩ := mjoin_one_notleft hmj hone
+          subst hm1z; subst hm2o
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc (cjoin_comm hjr) hc
+          have hS := cderiv_dropZero_aux φ N dS Γl₁ Γr₁ rfl
+          rw [hn1] at hS
+          have hB := ihB ((φt, Mult.one) :: (ψt, Mult.one) :: Γl₂) Γr₂ Δ Δr rfl dN hADr
+          refine CDeriv.tensorE hS ?_ (cjoin_append hjl (cjoin_comm hADBr))
+          simpa [hn2] using hB
+  | @saysE Γ Γ₁ Γ₂ p φs ψs Ms Nb dMs dNb hj ihM ihN =>
+      intro Γl Γr Δ Γr' hΓ dN hc
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2; unfold substAt
+      by_cases hone : m₁ = Mult.one
+      ·
+          subst hone
+          have hm2 := mjoin_one_left hmj; subst hm2
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc hjr hc
+          have hM := ihM Γl₁ Γr₁ Δ Δr rfl dN hADr
+          rw [hn1] at hM
+          have hNb := cderiv_dropZero_aux φ N dNb ((φs, Mult.many) :: Γl₂) Γr₂ rfl
+          refine CDeriv.saysE hM ?_ (cjoin_append hjl hADBr)
+          simpa [hn2] using hNb
+      ·
+          obtain ⟨hm1z, hm2o⟩ := mjoin_one_notleft hmj hone
+          subst hm1z; subst hm2o
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc (cjoin_comm hjr) hc
+          have hM := cderiv_dropZero_aux φ N dMs Γl₁ Γr₁ rfl
+          rw [hn1] at hM
+          have hNb := ihN ((φs, Mult.many) :: Γl₂) Γr₂ Δ Δr rfl dN hADr
+          refine CDeriv.saysE hM ?_ (cjoin_append hjl (cjoin_comm hADBr))
+          simpa [hn2] using hNb
+  | @delegate Γ Γ₁ Γ₂ p q φd Md Nd dMd dNd hj ihM ihN =>
+      intro Γl Γr Δ Γr' hΓ dN hc
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2; unfold substAt
+      by_cases hone : m₁ = Mult.one
+      ·
+          subst hone
+          have hm2 := mjoin_one_left hmj; subst hm2
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc hjr hc
+          have hM := ihM Γl₁ Γr₁ Δ Δr rfl dN hADr
+          have hNd := cderiv_dropZero_aux φ N dNd Γl₂ Γr₂ rfl
+          rw [hn1] at hM; rw [hn2] at hNd
+          exact CDeriv.delegate hM hNd (cjoin_append hjl hADBr)
+      ·
+          obtain ⟨hm1z, hm2o⟩ := mjoin_one_notleft hmj hone
+          subst hm1z; subst hm2o
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc (cjoin_comm hjr) hc
+          have hM := cderiv_dropZero_aux φ N dMd Γl₁ Γr₁ rfl
+          have hNd := ihN Γl₂ Γr₂ Δ Δr rfl dN hADr
+          rw [hn1] at hM; rw [hn2] at hNd
+          exact CDeriv.delegate hM hNd (cjoin_append hjl (cjoin_comm hADBr))
+  | @discharge Γ Γ₁ Γ₂ O φd Md Nd dMd dNd hj ihM ihN =>
+      intro Γl Γr Δ Γr' hΓ dN hc
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2; unfold substAt
+      by_cases hone : m₁ = Mult.one
+      ·
+          subst hone
+          have hm2 := mjoin_one_left hmj; subst hm2
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc hjr hc
+          have hM := ihM Γl₁ Γr₁ Δ Δr rfl dN hADr
+          have hNd := cderiv_dropZero_aux φ N dNd Γl₂ Γr₂ rfl
+          rw [hn1] at hM; rw [hn2] at hNd
+          exact CDeriv.discharge hM hNd (cjoin_append hjl hADBr)
+      ·
+          obtain ⟨hm1z, hm2o⟩ := mjoin_one_notleft hmj hone
+          subst hm1z; subst hm2o
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc (cjoin_comm hjr) hc
+          have hM := cderiv_dropZero_aux φ N dMd Γl₁ Γr₁ rfl
+          have hNd := ihN Γl₂ Γr₂ Δ Δr rfl dN hADr
+          rw [hn1] at hM; rw [hn2] at hNd
+          exact CDeriv.discharge hM hNd (cjoin_append hjl (cjoin_comm hADBr))
+  | @letSaysE Γ Γ₁ Γ₂ p φs ψs St Bt dS dB hj ihS ihB =>
+      intro Γl Γr Δ Γr' hΓ dN hc
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2; unfold substAt
+      by_cases hone : m₁ = Mult.one
+      ·
+          subst hone
+          have hm2 := mjoin_one_left hmj; subst hm2
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc hjr hc
+          have hS := ihS Γl₁ Γr₁ Δ Δr rfl dN hADr
+          rw [hn1] at hS
+          have hB := cderiv_dropZero_aux φ N dB ((φs, Mult.many) :: Γl₂) Γr₂ rfl
+          refine CDeriv.letSaysE hS ?_ (cjoin_append hjl hADBr)
+          simpa [hn2] using hB
+      ·
+          obtain ⟨hm1z, hm2o⟩ := mjoin_one_notleft hmj hone
+          subst hm1z; subst hm2o
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc (cjoin_comm hjr) hc
+          have hS := cderiv_dropZero_aux φ N dS Γl₁ Γr₁ rfl
+          rw [hn1] at hS
+          have hB := ihB ((φs, Mult.many) :: Γl₂) Γr₂ Δ Δr rfl dN hADr
+          refine CDeriv.letSaysE hS ?_ (cjoin_append hjl (cjoin_comm hADBr))
+          simpa [hn2] using hB
+
+/-- **Linear (L4) substitution preservation over `CDeriv`.** The CUT rule:
+substituting `N : φ` — carrying its OWN resources `Δ` — for the LINEAR
+(`Mult.one`) hypothesis at position `Γl.length` preserves the CARVe judgment,
+`CJoin`-MERGING `N`'s resource vector into `M`'s leftover at the positions after
+the hole (`CJoin Γr Δ Γr'`, usage-vector addition). Proved for ALL nine
+constructors. The linear-algebra substitution step of Wood–Atkey
+(arXiv:2005.02247) on the real `Term`/`Prop'`. -/
+noncomputable def cderiv_substL {Γl Γr Δ Γr' : Carve.Ctx Prop'} {φ ψ : Prop'}
+    {M N : Term}
+    (dM : CDeriv (Γl ++ (φ, Mult.one) :: Γr) M ψ)
+    (dN : CDeriv Δ N φ)
+    (hc : CJoin Γr Δ Γr') :
+    CDeriv (Γl ++ Γr') (substAt M N Γl.length) ψ :=
+  cderiv_substL_aux φ N dM Γl Γr Δ Γr' rfl dN hc
+
 /-! ## Sanity: the CARVe split rules type real judgments with NO shift.
 The multiplicative rules carry `CJoin`, not `++` + `shift` — the migration's
 whole point, exercised on a concrete derivation. -/
@@ -695,6 +1218,32 @@ noncomputable def substA_antivacuity_example :
           · exact (hj rfl).elim
           · simp at hget)
   exact cderiv_substA (Γl := []) (Γr := []) dM dN
+
+/-- **Anti-vacuity for LINEAR substitution.** Substitute `N = var 0`, which
+CONSUMES a genuine linear resource (`Δ = [(atom 0, one)]`), for the linear
+(`Mult.one`) hypothesis at position 0 of `M = var 0` — whose context also
+carries an unused `(atom 0, zero)` leftover slot `Γr`. `N`'s LIVE resource is
+`CJoin`-MERGED into that slot (`MJoin zero one one`), so the result is a REAL
+`CDeriv` still carrying the merged `(atom 0, one)`: the linear-substitution
+lemma is exercised with genuinely non-vanishing resources, not vacuously. -/
+noncomputable def substL_antivacuity_example :
+    CDeriv [(Prop'.atom 0, Mult.one)] (Term.var 0) (Prop'.atom 0) := by
+  have dM : CDeriv ([] ++ (Prop'.atom 0, Mult.one) :: [(Prop'.atom 0, Mult.zero)])
+      (Term.var 0) (Prop'.atom 0) :=
+    CDeriv.var (i := 0) rfl (by decide)
+      (by intro j p hj hget; rcases j with _ | _ | k
+          · exact (hj rfl).elim
+          · simp at hget; rw [← hget]
+          · simp at hget)
+  have dN : CDeriv [(Prop'.atom 0, Mult.one)] (Term.var 0) (Prop'.atom 0) :=
+    CDeriv.var (i := 0) rfl (by decide)
+      (by intro j p hj hget; rcases j with _ | k
+          · exact (hj rfl).elim
+          · simp at hget)
+  have hc : CJoin [(Prop'.atom 0, Mult.zero)] [(Prop'.atom 0, Mult.one)]
+      [(Prop'.atom 0, Mult.one)] :=
+    CJoin.cons (MJoin.zl _) CJoin.nil
+  exact cderiv_substL (Γl := []) (Γr := [(Prop'.atom 0, Mult.zero)]) dM dN hc
 
 end CarveJudgmentChecks
 

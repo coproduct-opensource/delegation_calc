@@ -59,6 +59,33 @@ substitution lemma (L4, mirroring Wood–Atkey's linear-algebra metatheory) are
 subsequent increments. Every rule that CAN migrate faithfully at this point
 HAS been migrated and proved; nothing here is deferred with a `sorry`.
 
+## Scope of increment 3a — ADDITIVE (L3) substitution preservation
+`cderiv_substA` is now PROVED over ALL NINE constructors (`var`, `impI`, `impE`,
+`tensorI`, `tensorE`, `saysE`, `delegate`, `discharge`, `letSaysE`): substituting
+`N : φ` for the ADDITIVE (`Mult.many`) hypothesis at position `Γl.length`
+preserves `CDeriv`, dropping that position — the resource-vector mirror of
+`DLC.Decidability`'s `propDeriv_substAt`. Because the discharged hypothesis is
+`many` (unrestricted → duplicable/discardable), the replacement `N` is required
+to be RESOURCE-FREE: typed under the all-`zero` context `zeroed Γr`. This is the
+faithful QTT condition (Atkey, LICS 2018): an unrestricted variable's filler
+must itself use no linear resources. The `var`-hit case discharges `N` into the
+leaf via `cderiv_shift` (0-use-variable weakening — all a Wood–Atkey kit needs);
+each `CJoin` premise is routed by `cjoin_split_cons`/`mjoin_ne_one` where the
+hole tag is `zero` (routed away) or `many` (used). `substAt`'s per-binder depth
+bookkeeping (`+1` for `impI`/`saysE`/`letSaysE`, `+2` for `tensorE`) is matched
+by extending `Γl` under each binder — no shift-commutation lemma needed, since
+CARVe conclusions carry no shift.
+
+**Deferred to increment 3b (true L4):** LINEAR (`Mult.one`) substitution, where
+`N`'s context does NOT vanish but `CJoin`-MERGES with the leftover of `M`
+(usage-vector addition, the linear-algebra case of Wood–Atkey arXiv:2005.02247).
+That case genuinely needs `N` to be typeable under an arbitrary (non-`zeroed`)
+context and the result context to be the join `Γ_M ⊕ Γ_N`, not the additive
+"drop the position". It is NOT attempted here.
+
+`#print axioms cderiv_substA` = `[propext, Classical.choice, Quot.sound]` (no
+`sorryAx`, no `native_decide`); likewise `cderiv_shift`.
+
 ## Prior art for the leftover var rule (web-searched 2026-07-22)
 - Allais, *Typing with Leftovers — a mechanisation of IMALL* (TYPES 2017):
   input/output usage contexts, threading linear resources without context
@@ -316,6 +343,301 @@ noncomputable def cderiv_shift {Γfull : Carve.Ctx Prop'} {M : Term} {A : Prop'}
       have h := ihB (_ :: Γl₂) Γm Γr₂ rfl
       simpa [hn2] using h
 
+/-! ## Increment 3a — ADDITIVE (`many`) substitution preservation over `CDeriv`.
+
+Substituting a term `N` for an ADDITIVE (`Mult.many`) hypothesis at position
+`Γl.length` preserves `CDeriv`. This is the L3 (additive) half of the CARVe
+substitution property — the QTT/leftover analogue of `PropDeriv`'s
+`propDeriv_substAt` (`DLC.Decidability`), mirrored onto the resource-vector
+context. Because the discharged hypothesis is `many` (unrestricted), the
+replacement `N` must itself consume NO linear resources: it is typed under the
+all-`zero` context `zeroed Γr` (Wood–Atkey's usage-context substitution needs
+weakening only by 0-use-variable introduction, which `cderiv_shift` supplies;
+an unrestricted variable may be duplicated 0+ times, so its filler must be
+resource-free). See the module footer for the exact scope and the deferred
+linear (L4) case.
+
+The support lemmas below are the "kit" the induction needs (all machine-checked
+here, no `sorry`). -/
+
+/-- `zeroed` distributes over `cons`. -/
+theorem zeroed_cons {α : Type} (a : α) (mm : Mult) (Γ : Carve.Ctx α) :
+    zeroed ((a, mm) :: Γ) = (a, Mult.zero) :: zeroed Γ := by simp [zeroed]
+
+/-- An all-`zero` context is literally its own `zeroed` image. -/
+theorem ctx_all_zero_eq_zeroed (Γ : Carve.Ctx Prop') :
+    (∀ (j : Nat) (p : Prop' × Mult), Γ[j]? = some p → p.2 = Mult.zero) → Γ = zeroed Γ := by
+  induction Γ with
+  | nil => intro _; rfl
+  | cons a tl ih =>
+      intro h
+      obtain ⟨a1, a2⟩ := a
+      have h0 : a2 = Mult.zero := h 0 (a1, a2) rfl
+      have htl : tl = zeroed tl := ih (fun k p hk => h (k + 1) p (by simpa using hk))
+      subst h0
+      rw [zeroed_cons, ← htl]
+
+/-- **At a `many`-substitution hit, the surrounding context is all-`zero`.**
+`AllZeroExcept` at the hole position forces both `Γl` and `Γr` to equal their
+`zeroed` images — exactly what lets `cderiv_shift` land `N` (typed under
+`zeroed Γr`) into `Γl ++ Γr` at the leaf. -/
+theorem allZeroExcept_split_zeroed {Γl Γr : Carve.Ctx Prop'} {φ : Prop'} {m : Mult}
+    (hz : AllZeroExcept (Γl ++ (φ, m) :: Γr) Γl.length) :
+    Γl = zeroed Γl ∧ Γr = zeroed Γr := by
+  refine ⟨ctx_all_zero_eq_zeroed Γl ?_, ctx_all_zero_eq_zeroed Γr ?_⟩
+  · intro j p hj
+    have hlt : j < Γl.length := by
+      rcases Nat.lt_or_ge j Γl.length with h | h
+      · exact h
+      · rw [List.getElem?_eq_none h] at hj; exact absurd hj (by simp)
+    have hidx : (Γl ++ (φ, m) :: Γr)[j]? = some p := by
+      rw [List.getElem?_append_left hlt]; exact hj
+    exact hz j p (by omega) hidx
+  · intro k p hk
+    have hidx : (Γl ++ (φ, m) :: Γr)[Γl.length + (k + 1)]? = some p := by
+      rw [List.getElem?_append_right (by omega),
+          show Γl.length + (k + 1) - Γl.length = k + 1 from by omega,
+          List.getElem?_cons_succ]
+      exact hk
+    exact hz (Γl.length + (k + 1)) p (by omega) hidx
+
+/-- **Removing the substituted position preserves the leftover condition.**
+Dropping the `(φ, m)` hole at `Γl.length` maps `AllZeroExcept … i` to
+`AllZeroExcept (Γl ++ Γr)` at the down-shifted index — the mirror of
+`allZeroExcept_insert`, used by the `var` case's non-hit branch. -/
+theorem allZeroExcept_remove {Γl Γr : Carve.Ctx Prop'} {φ : Prop'} {m : Mult} {i : Nat}
+    (hz : AllZeroExcept (Γl ++ (φ, m) :: Γr) i) (_hi : i ≠ Γl.length) :
+    AllZeroExcept (Γl ++ Γr) (if i < Γl.length then i else i - 1) := by
+  intro j p hj hget
+  by_cases hjL : j < Γl.length
+  · rw [List.getElem?_append_left hjL] at hget
+    have hold : (Γl ++ (φ, m) :: Γr)[j]? = some p := by
+      rw [List.getElem?_append_left hjL]; exact hget
+    have hne : j ≠ i := by
+      by_cases hiL : i < Γl.length
+      · rw [if_pos hiL] at hj; exact hj
+      · omega
+    exact hz j p hne hold
+  · have hjge : Γl.length ≤ j := by omega
+    rw [List.getElem?_append_right hjge] at hget
+    have hold : (Γl ++ (φ, m) :: Γr)[j + 1]? = some p := by
+      rw [List.getElem?_append_right (by omega),
+          show j + 1 - Γl.length = (j - Γl.length) + 1 from by omega,
+          List.getElem?_cons_succ]
+      exact hget
+    have hne : j + 1 ≠ i := by
+      by_cases hiL : i < Γl.length
+      · omega
+      · rw [if_neg hiL] at hj; omega
+    exact hz (j + 1) p hne hold
+
+/-- A `CJoin` shares its entries' propositions with its left operand, so their
+`zeroed` images coincide. -/
+theorem cjoin_zeroed_left {α : Type} {Γ₁ Γ₂ Γ : Carve.Ctx α} (h : CJoin Γ₁ Γ₂ Γ) :
+    zeroed Γ₁ = zeroed Γ := by
+  induction h with
+  | nil => rfl
+  | @cons a mm1 mm2 mm Δ1 Δ2 Δ _ _ ih => rw [zeroed_cons, zeroed_cons, ih]
+
+/-- …and with its right operand. -/
+theorem cjoin_zeroed_right {α : Type} {Γ₁ Γ₂ Γ : Carve.Ctx α} (h : CJoin Γ₁ Γ₂ Γ) :
+    zeroed Γ₂ = zeroed Γ := by
+  induction h with
+  | nil => rfl
+  | @cons a mm1 mm2 mm Δ1 Δ2 Δ _ _ ih => rw [zeroed_cons, zeroed_cons, ih]
+
+/-- Append two joins (the `Γm := []` degenerate of `cjoin_insert`): reassembles
+the result context after the substituted middle position has been dropped. -/
+noncomputable def cjoin_append {α : Type} {A₁ A₂ A B₁ B₂ B : Carve.Ctx α}
+    (h1 : CJoin A₁ A₂ A) (h2 : CJoin B₁ B₂ B) :
+    CJoin (A₁ ++ B₁) (A₂ ++ B₂) (A ++ B) := by
+  induction h1 with
+  | nil => simpa using h2
+  | cons hm _ ih => exact CJoin.cons hm ih
+
+/-- The split of a join at a `(φ, m)` hole: the elementwise `MJoin m₁ m₂ m` at
+the hole plus the left/right joins around it, with named tails. -/
+structure SplitAtCons (Γ₁ Γ₂ Γl Γr : Carve.Ctx Prop') (φ : Prop') (m : Mult) : Type where
+  Γl₁ : Carve.Ctx Prop'
+  Γr₁ : Carve.Ctx Prop'
+  Γl₂ : Carve.Ctx Prop'
+  Γr₂ : Carve.Ctx Prop'
+  m₁ : Mult
+  m₂ : Mult
+  e₁ : Γ₁ = Γl₁ ++ (φ, m₁) :: Γr₁
+  e₂ : Γ₂ = Γl₂ ++ (φ, m₂) :: Γr₂
+  n₁ : Γl₁.length = Γl.length
+  n₂ : Γl₂.length = Γl.length
+  hmj : MJoin m₁ m₂ m
+  jl : CJoin Γl₁ Γl₂ Γl
+  jr : CJoin Γr₁ Γr₂ Γr
+
+/-- Split `CJoin Γ₁ Γ₂ (Γl ++ (φ, m) :: Γr)` at the hole. -/
+noncomputable def cjoin_split_cons {Γ₁ Γ₂ Γl Γr : Carve.Ctx Prop'} {φ : Prop'} {m : Mult}
+    (h : CJoin Γ₁ Γ₂ (Γl ++ (φ, m) :: Γr)) : SplitAtCons Γ₁ Γ₂ Γl Γr φ m := by
+  obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, e1, e2, n1, n2, jl, jr⟩ := cjoin_split Γl ((φ, m) :: Γr) h
+  cases jr with
+  | cons hmj jrtail =>
+      exact ⟨Γl₁, _, Γl₂, _, _, _, e1, e2, n1, n2, hmj, jl, jrtail⟩
+
+/-- The hole tag cannot be `one`: an `MJoin` into a non-`one` result has only
+non-`one` operands (needed to keep the IH applicable through each premise). -/
+theorem mjoin_ne_one {m₁ m₂ m : Mult} (h : MJoin m₁ m₂ m) (hm : m ≠ Mult.one) :
+    m₁ ≠ Mult.one ∧ m₂ ≠ Mult.one := by
+  cases h with
+  | zl _ => exact ⟨by decide, hm⟩
+  | zr _ => exact ⟨hm, by decide⟩
+  | mm => exact ⟨by decide, by decide⟩
+
+/-- **Additive substitution preservation (auxiliary, all nine constructors).**
+`φ`/`N` are fixed; the hole tag is generalised to any `m ≠ one` (i.e.
+`m ∈ {zero, many}`) so the induction can recurse through each `CJoin` premise,
+whose hole tag may be `zero` (routed away) or `many` (the used side). -/
+private noncomputable def cderiv_substA_aux {Γfull : Carve.Ctx Prop'} {M : Term} {ψ : Prop'}
+    (φ : Prop') (N : Term) (dM : CDeriv Γfull M ψ) :
+    ∀ (Γl Γr : Carve.Ctx Prop') (m : Mult), Γfull = Γl ++ (φ, m) :: Γr → m ≠ Mult.one →
+      CDeriv (zeroed Γr) N φ → CDeriv (Γl ++ Γr) (substAt M N Γl.length) ψ := by
+  induction dM with
+  | @var Γ i χ mvar h hmvar hz =>
+      intro Γl Γr m hΓ _ dN
+      subst hΓ
+      unfold substAt
+      by_cases heq : i = Γl.length
+      · -- HIT: place the shifted `N`; the surroundings are all-`zero`.
+        rw [if_pos heq]
+        subst heq
+        have hval : φ = χ ∧ m = mvar := by
+          have hh := h
+          rw [List.getElem?_append_right (le_refl Γl.length)] at hh
+          simpa using hh
+        obtain ⟨hφχ, _⟩ := hval
+        subst hφχ
+        obtain ⟨hzl, hzr⟩ := allZeroExcept_split_zeroed hz
+        have hshift := cderiv_shift dN [] Γl (zeroed Γr) (by simp)
+        simp only [List.nil_append, List.length_nil] at hshift
+        rw [← hzl, ← hzr] at hshift
+        exact hshift
+      · rw [if_neg heq]
+        by_cases hgt : i > Γl.length
+        · rw [if_pos hgt]
+          refine CDeriv.var (m := mvar) ?_ hmvar ?_
+          · have hge : Γl.length ≤ i := Nat.le_of_lt hgt
+            rw [List.getElem?_append_right hge] at h
+            rw [show i - Γl.length = (i - Γl.length - 1) + 1 from by omega,
+                List.getElem?_cons_succ] at h
+            rw [List.getElem?_append_right (show Γl.length ≤ i - 1 from by omega),
+                show i - 1 - Γl.length = i - Γl.length - 1 from by omega]
+            exact h
+          · have hz' := allZeroExcept_remove hz heq
+            rwa [if_neg (by omega)] at hz'
+        · rw [if_neg hgt]
+          have hlt : i < Γl.length := by omega
+          refine CDeriv.var (m := mvar) ?_ hmvar ?_
+          · rw [List.getElem?_append_left hlt]
+            rwa [List.getElem?_append_left hlt] at h
+          · have hz' := allZeroExcept_remove hz heq
+            rwa [if_pos hlt] at hz'
+  | @impI Γ φb ψb Mb _ ih =>
+      intro Γl Γr m hΓ hm dN
+      subst hΓ
+      unfold substAt
+      have hP := ih ((φb, Mult.many) :: Γl) Γr m rfl hm dN
+      exact CDeriv.impI (by simpa using hP)
+  | @impE Γ Γ₁ Γ₂ φe ψe Me Ne _ _ hj ihM ihN =>
+      intro Γl Γr m hΓ hm dN
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ := cjoin_split_cons hj
+      subst e1; subst e2
+      obtain ⟨hm1, hm2⟩ := mjoin_ne_one hmj hm
+      unfold substAt
+      have hM := ihM Γl₁ Γr₁ m₁ rfl hm1 (by rw [cjoin_zeroed_left hjr]; exact dN)
+      have hN := ihN Γl₂ Γr₂ m₂ rfl hm2 (by rw [cjoin_zeroed_right hjr]; exact dN)
+      rw [hn1] at hM; rw [hn2] at hN
+      exact CDeriv.impE hM hN (cjoin_append hjl hjr)
+  | @tensorI Γ Γ₁ Γ₂ φt ψt Mt Nt _ _ hj ihM ihN =>
+      intro Γl Γr m hΓ hm dN
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ := cjoin_split_cons hj
+      subst e1; subst e2
+      obtain ⟨hm1, hm2⟩ := mjoin_ne_one hmj hm
+      unfold substAt
+      have hM := ihM Γl₁ Γr₁ m₁ rfl hm1 (by rw [cjoin_zeroed_left hjr]; exact dN)
+      have hN := ihN Γl₂ Γr₂ m₂ rfl hm2 (by rw [cjoin_zeroed_right hjr]; exact dN)
+      rw [hn1] at hM; rw [hn2] at hN
+      exact CDeriv.tensorI hM hN (cjoin_append hjl hjr)
+  | @tensorE Γ Γ₁ Γ₂ φt ψt χt St Bt _ _ hj ihS ihB =>
+      intro Γl Γr m hΓ hm dN
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ := cjoin_split_cons hj
+      subst e1; subst e2
+      obtain ⟨hm1, hm2⟩ := mjoin_ne_one hmj hm
+      unfold substAt
+      have hS := ihS Γl₁ Γr₁ m₁ rfl hm1 (by rw [cjoin_zeroed_left hjr]; exact dN)
+      rw [hn1] at hS
+      have hB := ihB ((φt, Mult.one) :: (ψt, Mult.one) :: Γl₂) Γr₂ m₂ rfl hm2
+        (by rw [cjoin_zeroed_right hjr]; exact dN)
+      refine CDeriv.tensorE hS ?_ (cjoin_append hjl hjr)
+      simpa [hn2] using hB
+  | @saysE Γ Γ₁ Γ₂ p φs ψs Ms Nb _ _ hj ihM ihN =>
+      intro Γl Γr m hΓ hm dN
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ := cjoin_split_cons hj
+      subst e1; subst e2
+      obtain ⟨hm1, hm2⟩ := mjoin_ne_one hmj hm
+      unfold substAt
+      have hM := ihM Γl₁ Γr₁ m₁ rfl hm1 (by rw [cjoin_zeroed_left hjr]; exact dN)
+      rw [hn1] at hM
+      have hN := ihN ((φs, Mult.many) :: Γl₂) Γr₂ m₂ rfl hm2
+        (by rw [cjoin_zeroed_right hjr]; exact dN)
+      refine CDeriv.saysE hM ?_ (cjoin_append hjl hjr)
+      simpa [hn2] using hN
+  | @delegate Γ Γ₁ Γ₂ p q φd Md Nd _ _ hj ihM ihN =>
+      intro Γl Γr m hΓ hm dN
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ := cjoin_split_cons hj
+      subst e1; subst e2
+      obtain ⟨hm1, hm2⟩ := mjoin_ne_one hmj hm
+      unfold substAt
+      have hM := ihM Γl₁ Γr₁ m₁ rfl hm1 (by rw [cjoin_zeroed_left hjr]; exact dN)
+      have hN := ihN Γl₂ Γr₂ m₂ rfl hm2 (by rw [cjoin_zeroed_right hjr]; exact dN)
+      rw [hn1] at hM; rw [hn2] at hN
+      exact CDeriv.delegate hM hN (cjoin_append hjl hjr)
+  | @discharge Γ Γ₁ Γ₂ O φd Md Nd _ _ hj ihM ihN =>
+      intro Γl Γr m hΓ hm dN
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ := cjoin_split_cons hj
+      subst e1; subst e2
+      obtain ⟨hm1, hm2⟩ := mjoin_ne_one hmj hm
+      unfold substAt
+      have hM := ihM Γl₁ Γr₁ m₁ rfl hm1 (by rw [cjoin_zeroed_left hjr]; exact dN)
+      have hN := ihN Γl₂ Γr₂ m₂ rfl hm2 (by rw [cjoin_zeroed_right hjr]; exact dN)
+      rw [hn1] at hM; rw [hn2] at hN
+      exact CDeriv.discharge hM hN (cjoin_append hjl hjr)
+  | @letSaysE Γ Γ₁ Γ₂ p φs ψs St Bt _ _ hj ihS ihB =>
+      intro Γl Γr m hΓ hm dN
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ := cjoin_split_cons hj
+      subst e1; subst e2
+      obtain ⟨hm1, hm2⟩ := mjoin_ne_one hmj hm
+      unfold substAt
+      have hS := ihS Γl₁ Γr₁ m₁ rfl hm1 (by rw [cjoin_zeroed_left hjr]; exact dN)
+      rw [hn1] at hS
+      have hB := ihB ((φs, Mult.many) :: Γl₂) Γr₂ m₂ rfl hm2
+        (by rw [cjoin_zeroed_right hjr]; exact dN)
+      refine CDeriv.letSaysE hS ?_ (cjoin_append hjl hjr)
+      simpa [hn2] using hB
+
+/-- **Additive (L3) substitution preservation over `CDeriv`.** Substituting a
+`N : φ` (typed with NO linear resources, under `zeroed Γr`) for the ADDITIVE
+(`Mult.many`) hypothesis at position `Γl.length` preserves the CARVe judgment,
+dropping that position. Proved for ALL nine constructors. The mirror of
+`propDeriv_substAt` (`DLC.Decidability`) over the resource-vector context. -/
+noncomputable def cderiv_substA {Γl Γr : Carve.Ctx Prop'} {φ ψ : Prop'} {M N : Term}
+    (dM : CDeriv (Γl ++ (φ, Mult.many) :: Γr) M ψ)
+    (dN : CDeriv (zeroed Γr) N φ) :
+    CDeriv (Γl ++ Γr) (substAt M N Γl.length) ψ :=
+  cderiv_substA_aux φ N dM Γl Γr Mult.many rfl (by decide) dN
+
 /-! ## Sanity: the CARVe split rules type real judgments with NO shift.
 The multiplicative rules carry `CJoin`, not `++` + `shift` — the migration's
 whole point, exercised on a concrete derivation. -/
@@ -350,6 +672,29 @@ example :
           · exact (hj rfl).elim
           · simp at hget))
     (CJoin.cons (MJoin.zr _) (CJoin.cons (MJoin.zl _) CJoin.nil))
+
+/-- **Anti-vacuity for additive substitution.** Substitute the closed identity
+proof `λx.x : atom 0 → atom 0` (typed under the empty/`zeroed` context) for the
+sole `many` hypothesis of `var 0`. The result is a REAL `CDeriv` of the same
+proposition — the substitution lemma is exercised on inhabited inputs, not
+vacuously on impossible ones. -/
+noncomputable def substA_antivacuity_example :
+    CDeriv [] (Term.lam (Prop'.atom 0) (Term.var 0))
+      (Prop'.imp (Prop'.atom 0) (Prop'.atom 0)) := by
+  have dN : CDeriv (zeroed ([] : Carve.Ctx Prop'))
+      (Term.lam (Prop'.atom 0) (Term.var 0))
+      (Prop'.imp (Prop'.atom 0) (Prop'.atom 0)) :=
+    CDeriv.impI (CDeriv.var (i := 0) rfl (by decide)
+      (by intro j p hj hget; rcases j with _ | k
+          · exact (hj rfl).elim
+          · simp at hget))
+  have dM : CDeriv ([] ++ (Prop'.imp (Prop'.atom 0) (Prop'.atom 0), Mult.many) :: [])
+      (Term.var 0) (Prop'.imp (Prop'.atom 0) (Prop'.atom 0)) :=
+    CDeriv.var (i := 0) rfl (by decide)
+      (by intro j p hj hget; rcases j with _ | k
+          · exact (hj rfl).elim
+          · simp at hget)
+  exact cderiv_substA (Γl := []) (Γr := []) dM dN
 
 end CarveJudgmentChecks
 

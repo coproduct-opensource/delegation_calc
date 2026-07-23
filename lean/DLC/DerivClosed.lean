@@ -164,6 +164,18 @@ theorem closedAbove_shift :
       rw [closedAbove_sfExtract_iff] at h
       simp only [shift]
       rw [closedAbove_sfExtract_iff]; exact ih k d c h
+  | command m cr ℓ ihm ihcr =>
+      intro k d c h
+      rw [closedAbove_command_iff] at h
+      simp only [shift]
+      rw [closedAbove_command_iff]
+      exact ⟨ihm k d c h.1, ihcr k d c h.2⟩
+  | runCmd v s ihv ihs =>
+      intro k d c h
+      rw [closedAbove_runCmd_iff] at h
+      simp only [shift]
+      rw [closedAbove_runCmd_iff]
+      exact ⟨ihv k d c h.1, ihs k d c h.2⟩
 
 /-- Convenience: the additive-and-linear size of a context. -/
 def Ctx.size (Γ : Ctx) : Nat := Γ.additive.length + Γ.linear.length
@@ -285,6 +297,12 @@ noncomputable def deriv_closedAbove {Γ : Ctx} {M : Term} {φ : Prop'}
              Nat.add_left_comm] using h
   | sfExtractE Γ p q N _d ih =>
       rw [closedAbove_sfExtract_iff]; simpa [Ctx.size] using ih
+  | commitI Γₐ issuer capProp φ ℓ M cr dc dM ihdc ihdM =>
+      rw [closedAbove_command_iff]
+      exact ⟨ihdM, ihdc⟩
+  | runCmd Γₐ φ ℓ V s dV ds ihdV ihds =>
+      rw [closedAbove_runCmd_iff]
+      exact ⟨ihdV, ihds⟩
 
 /-- A derivation in the empty context yields a closed term. This is the exact
 shape `boxI`'s obligation premise needs to make its conclusion-shift a no-op

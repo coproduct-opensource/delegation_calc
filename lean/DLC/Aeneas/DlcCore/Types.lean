@@ -231,4 +231,35 @@ structure obligation.Discharged where
   obligation : obligation.Obligation
   _seal : obligation.Seal
 
+/-- [dlc_core::rsm::FailureBudget]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 64:0-73:1
+    Visibility: public -/
+structure rsm.FailureBudget where
+  max_faults : Std.U32
+  fair_delivery : Bool
+  consumed : Std.U32
+
+/-- [dlc_core::rsm::Command]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 128:0-134:1
+    Visibility: public -/
+structure rsm.Command where
+  payload : syntax.Term
+  cap : Option syntax.Prop
+
+/-- [dlc_core::rsm::Replica]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 141:0-148:1
+    Visibility: public -/
+structure rsm.Replica where
+  id : Std.U32
+  store : syntax.Term
+  applied : Std.U32
+
+/-- [dlc_core::rsm::GlobalConfig]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 162:0-169:1
+    Visibility: public -/
+structure rsm.GlobalConfig where
+  replicas : alloc.vec.Vec rsm.Replica
+  log : alloc.vec.Vec rsm.Command
+  budget : rsm.FailureBudget
+
 end dlc_core

@@ -15,98 +15,12 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 2048
 open dlc_d_rsm
 
-/-- [core::option::{impl core::fmt::Debug for core::option::Option<T>}::fmt]:
-    Source: '/rustc/library/core/src/option.rs', lines 591:15-591:20
-    Name pattern: [core::option::{core::fmt::Debug<core::option::Option<@T>>}::fmt]
-    Visibility: public -/
-@[rust_fun "core::option::{core::fmt::Debug<core::option::Option<@T>>}::fmt"]
-axiom core.option.Option.Insts.CoreFmtDebug.fmt
-  {T : Type} (fmtDebugInst : core.fmt.Debug T) :
-  Option T → core.fmt.Formatter → Result ((core.result.Result Unit
-    core.fmt.Error) × core.fmt.Formatter)
-
-/-- [core::option::{impl core::clone::Clone for core::option::Option<T>}::clone]:
-    Source: '/rustc/library/core/src/option.rs', lines 2277:4-2277:27
-    Name pattern: [core::option::{core::clone::Clone<core::option::Option<@T>>}::clone]
+/-- [dlc_core::rsm::{impl core::cmp::PartialEq<dlc_core::rsm::Command> for dlc_core::rsm::Command}::eq]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 127:23-127:32
+    Name pattern: [dlc_core::rsm::{core::cmp::PartialEq<dlc_core::rsm::Command, dlc_core::rsm::Command>}::eq]
     Visibility: public -/
 @[rust_fun
-  "core::option::{core::clone::Clone<core::option::Option<@T>>}::clone"]
-axiom core.option.Option.Insts.CoreCloneClone.clone
-  {T : Type} (cloneCloneInst : core.clone.Clone T) :
-  Option T → Result (Option T)
-
-/-- [core::option::{impl core::cmp::PartialEq<core::option::Option<T>> for core::option::Option<T>}::eq]:
-    Source: '/rustc/library/core/src/option.rs', lines 2440:4-2440:38
-    Name pattern: [core::option::{core::cmp::PartialEq<core::option::Option<@T>, core::option::Option<@T>>}::eq]
-    Visibility: public -/
-@[rust_fun
-  "core::option::{core::cmp::PartialEq<core::option::Option<@T>, core::option::Option<@T>>}::eq"]
-axiom core.option.Option.Insts.CoreCmpPartialEqOption.eq
-  {T : Type} (cmpPartialEqInst : core.cmp.PartialEq T T) :
-  Option T → Option T → Result Bool
-
-/-- [dlc_core::reduce::reduce_with_fuel]:
-    Source: 'crates/dlc-core/src/reduce.rs', lines 156:0-156:62
-    Name pattern: [dlc_core::reduce::reduce_with_fuel]
-    Visibility: public -/
-@[rust_fun "dlc_core::reduce::reduce_with_fuel"]
-axiom dlc_core.reduce.reduce_with_fuel
-  :
-  dlc_core.syntax.Term → Std.U32 → Result (dlc_core.syntax.Term × Std.U32)
-
-/-- [dlc_core::syntax::{impl core::clone::Clone for dlc_core::syntax::Prop}::clone]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 16:9-16:14
-    Name pattern: [dlc_core::syntax::{core::clone::Clone<dlc_core::syntax::Prop>}::clone]
-    Visibility: public -/
-@[rust_fun
-  "dlc_core::syntax::{core::clone::Clone<dlc_core::syntax::Prop>}::clone"]
-axiom dlc_core.syntax.Prop.Insts.CoreCloneClone.clone
-  : dlc_core.syntax.Prop → Result dlc_core.syntax.Prop
-
-/-- [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Prop}::fmt]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 16:16-16:21
-    Name pattern: [dlc_core::syntax::{core::fmt::Debug<dlc_core::syntax::Prop>}::fmt]
-    Visibility: public -/
-@[rust_fun "dlc_core::syntax::{core::fmt::Debug<dlc_core::syntax::Prop>}::fmt"]
-axiom dlc_core.syntax.Prop.Insts.CoreFmtDebug.fmt
-  :
-  dlc_core.syntax.Prop → core.fmt.Formatter → Result ((core.result.Result
-    Unit core.fmt.Error) × core.fmt.Formatter)
-
-/-- [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Prop> for dlc_core::syntax::Prop}::eq]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 16:23-16:32
-    Name pattern: [dlc_core::syntax::{core::cmp::PartialEq<dlc_core::syntax::Prop, dlc_core::syntax::Prop>}::eq]
-    Visibility: public -/
-@[rust_fun
-  "dlc_core::syntax::{core::cmp::PartialEq<dlc_core::syntax::Prop, dlc_core::syntax::Prop>}::eq"]
-axiom dlc_core.syntax.Prop.Insts.CoreCmpPartialEqProp.eq
-  : dlc_core.syntax.Prop → dlc_core.syntax.Prop → Result Bool
-
-/-- [dlc_core::syntax::{impl core::clone::Clone for dlc_core::syntax::Term}::clone]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 56:9-56:14
-    Name pattern: [dlc_core::syntax::{core::clone::Clone<dlc_core::syntax::Term>}::clone]
-    Visibility: public -/
-@[rust_fun
-  "dlc_core::syntax::{core::clone::Clone<dlc_core::syntax::Term>}::clone"]
-axiom dlc_core.syntax.Term.Insts.CoreCloneClone.clone
-  : dlc_core.syntax.Term → Result dlc_core.syntax.Term
-
-/-- [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Term}::fmt]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 56:16-56:21
-    Name pattern: [dlc_core::syntax::{core::fmt::Debug<dlc_core::syntax::Term>}::fmt]
-    Visibility: public -/
-@[rust_fun "dlc_core::syntax::{core::fmt::Debug<dlc_core::syntax::Term>}::fmt"]
-axiom dlc_core.syntax.Term.Insts.CoreFmtDebug.fmt
-  :
-  dlc_core.syntax.Term → core.fmt.Formatter → Result ((core.result.Result
-    Unit core.fmt.Error) × core.fmt.Formatter)
-
-/-- [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Term> for dlc_core::syntax::Term}::eq]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 56:23-56:32
-    Name pattern: [dlc_core::syntax::{core::cmp::PartialEq<dlc_core::syntax::Term, dlc_core::syntax::Term>}::eq]
-    Visibility: public -/
-@[rust_fun
-  "dlc_core::syntax::{core::cmp::PartialEq<dlc_core::syntax::Term, dlc_core::syntax::Term>}::eq"]
-axiom dlc_core.syntax.Term.Insts.CoreCmpPartialEqTerm.eq
-  : dlc_core.syntax.Term → dlc_core.syntax.Term → Result Bool
+  "dlc_core::rsm::{core::cmp::PartialEq<dlc_core::rsm::Command, dlc_core::rsm::Command>}::eq"]
+axiom dlc_core.rsm.Command.Insts.CoreCmpPartialEqCommand.eq
+  : dlc_core.rsm.Command → dlc_core.rsm.Command → Result Bool
 

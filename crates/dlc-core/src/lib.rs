@@ -28,6 +28,7 @@ pub mod judgment;
 pub mod obligation;
 pub mod principal;
 pub mod reduce;
+pub mod rsm;
 pub mod subst;
 pub mod syntax;
 pub mod time;

@@ -235,35 +235,13 @@ inductive dlc_core.syntax.Term where
   dlc_core.syntax.Term →
   dlc_core.syntax.Term
 
-/-- [dlc_d_rsm::budget::FailureBudget]
-    Source: 'crates/dlc-d-rsm/src/budget.rs', lines 16:0-25:1
+/-- [dlc_core::rsm::Command]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 128:0-128:18
+    Name pattern: [dlc_core::rsm::Command]
     Visibility: public -/
-structure budget.FailureBudget where
-  max_faults : Std.U32
-  fair_delivery : Bool
-  consumed : Std.U32
-
-/-- [dlc_d_rsm::state::Command]
-    Source: 'crates/dlc-d-rsm/src/state.rs', lines 24:0-30:1
-    Visibility: public -/
-structure state.Command where
+@[rust_type "dlc_core::rsm::Command"]
+structure dlc_core.rsm.Command where
   payload : dlc_core.syntax.Term
   cap : Option dlc_core.syntax.Prop
-
-/-- [dlc_d_rsm::state::Replica]
-    Source: 'crates/dlc-d-rsm/src/state.rs', lines 37:0-44:1
-    Visibility: public -/
-structure state.Replica where
-  id : Std.U32
-  store : dlc_core.syntax.Term
-  applied : Std.U32
-
-/-- [dlc_d_rsm::state::GlobalConfig]
-    Source: 'crates/dlc-d-rsm/src/state.rs', lines 58:0-65:1
-    Visibility: public -/
-structure state.GlobalConfig where
-  replicas : alloc.vec.Vec state.Replica
-  log : alloc.vec.Vec state.Command
-  budget : budget.FailureBudget
 
 end dlc_d_rsm

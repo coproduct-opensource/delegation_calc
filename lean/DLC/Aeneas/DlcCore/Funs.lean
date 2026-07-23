@@ -28,6 +28,15 @@ def U8.Insts.CoreHashHash : core.hash.Hash Std.U8 := {
     U8.Insts.CoreHashHash.hash HasherInst
 }
 
+/-- Trait implementation: [core::option::{impl core::fmt::Debug for core::option::Option<T>}]
+    Source: '/rustc/library/core/src/option.rs', lines 591:15-591:20
+    Name pattern: [core::fmt::Debug<core::option::Option<@T>>] -/
+@[reducible, rust_trait_impl "core::fmt::Debug<core::option::Option<@T>>"]
+def core.option.Option.Insts.CoreFmtDebug {T : Type} (fmtDebugInst :
+  core.fmt.Debug T) : core.fmt.Debug (Option T) := {
+  fmt := core.option.Option.Insts.CoreFmtDebug.fmt fmtDebugInst
+}
+
 /-- Trait implementation: [alloc::boxed::{impl core::fmt::Debug for alloc::boxed::Box<T>}]
     Source: '/rustc/library/alloc/src/boxed.rs', lines 2234:0-2234:67
     Name pattern: [core::fmt::Debug<Box<@T>>] -/
@@ -5316,33 +5325,169 @@ def reduce.reduce_with_fuel
   let cur ← syntax.Term.Insts.CoreCloneClone.clone term
   reduce.reduce_with_fuel_loop { start := 0#u32, «end» := fuel } fuel cur
 
-/-- Trait implementation: [dlc_core::syntax::{impl core::marker::StructuralPartialEq for dlc_core::syntax::Prop}]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 16:23-16:32 -/
+/-- [dlc_core::rsm::{impl core::clone::Clone for dlc_core::rsm::FailureBudget}::clone]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 63:9-63:14
+    Visibility: public -/
+def rsm.FailureBudget.Insts.CoreCloneClone.clone
+  (self : rsm.FailureBudget) : Result rsm.FailureBudget := do
+  let i ← lift (core.clone.impls.CloneU32.clone self.max_faults)
+  let b ← lift (core.clone.impls.CloneBool.clone self.fair_delivery)
+  let i1 ← lift (core.clone.impls.CloneU32.clone self.consumed)
+  ok { max_faults := i, fair_delivery := b, consumed := i1 }
+
+/-- Trait implementation: [dlc_core::rsm::{impl core::clone::Clone for dlc_core::rsm::FailureBudget}]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 63:9-63:14 -/
 @[reducible]
-def syntax.Prop.Insts.CoreMarkerStructuralPartialEq :
-  core.marker.StructuralPartialEq syntax.Prop := {
+def rsm.FailureBudget.Insts.CoreCloneClone : core.clone.Clone rsm.FailureBudget
+  := {
+  clone := rsm.FailureBudget.Insts.CoreCloneClone.clone
 }
 
-/-- [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Prop}::assert_fields_are_eq]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 16:34-16:36
+/-- [dlc_core::rsm::{impl core::fmt::Debug for dlc_core::rsm::FailureBudget}::fmt]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 63:16-63:21
     Visibility: public -/
-def syntax.Prop.Insts.CoreCmpEq.assert_fields_are_eq
-  (self : syntax.Prop) : Result Unit := do
+def rsm.FailureBudget.Insts.CoreFmtDebug.fmt
+  (self : rsm.FailureBudget) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn := Dyn.mk _ core.fmt.DebugU32 self.max_faults
+  let dyn1 := Dyn.mk _ core.fmt.DebugBool self.fair_delivery
+  let dyn2 := Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugU32) self.consumed
+  core.fmt.Formatter.debug_struct_field3_finish f (toStr "FailureBudget")
+    (toStr "max_faults") dyn (toStr "fair_delivery") dyn1 (toStr "consumed")
+    dyn2
+
+/-- Trait implementation: [dlc_core::rsm::{impl core::fmt::Debug for dlc_core::rsm::FailureBudget}]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 63:16-63:21 -/
+@[reducible]
+def rsm.FailureBudget.Insts.CoreFmtDebug : core.fmt.Debug rsm.FailureBudget
+  := {
+  fmt := rsm.FailureBudget.Insts.CoreFmtDebug.fmt
+}
+
+/-- Trait implementation: [dlc_core::rsm::{impl core::marker::StructuralPartialEq for dlc_core::rsm::FailureBudget}]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 63:23-63:32 -/
+@[reducible]
+def rsm.FailureBudget.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq rsm.FailureBudget := {
+}
+
+/-- [dlc_core::rsm::{impl core::cmp::PartialEq<dlc_core::rsm::FailureBudget> for dlc_core::rsm::FailureBudget}::eq]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 63:23-63:32
+    Visibility: public -/
+def rsm.FailureBudget.Insts.CoreCmpPartialEqFailureBudget.eq
+  (self : rsm.FailureBudget) (other : rsm.FailureBudget) : Result Bool := do
+  if self.max_faults = other.max_faults
+  then
+    if self.fair_delivery = other.fair_delivery
+    then ok (self.consumed = other.consumed)
+    else ok false
+  else ok false
+
+/-- Trait implementation: [dlc_core::rsm::{impl core::cmp::PartialEq<dlc_core::rsm::FailureBudget> for dlc_core::rsm::FailureBudget}]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 63:23-63:32 -/
+@[reducible]
+impl_def rsm.FailureBudget.Insts.CoreCmpPartialEqFailureBudget :
+  core.cmp.PartialEq rsm.FailureBudget rsm.FailureBudget := {
+  eq := rsm.FailureBudget.Insts.CoreCmpPartialEqFailureBudget.eq
+  ne := core.cmp.PartialEq.ne.trait_default
+    rsm.FailureBudget.Insts.CoreCmpPartialEqFailureBudget
+}
+
+/-- [dlc_core::rsm::{impl core::cmp::Eq for dlc_core::rsm::FailureBudget}::assert_fields_are_eq]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 63:34-63:36
+    Visibility: public -/
+def rsm.FailureBudget.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : rsm.FailureBudget) : Result Unit := do
   ok ()
 
-/-- Trait implementation: [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Prop}]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 16:34-16:36 -/
+/-- Trait implementation: [dlc_core::rsm::{impl core::cmp::Eq for dlc_core::rsm::FailureBudget}]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 63:34-63:36 -/
 @[reducible]
-def syntax.Prop.Insts.CoreCmpEq : core.cmp.Eq syntax.Prop := {
-  partialEqInst := syntax.Prop.Insts.CoreCmpPartialEqProp
-  assert_fields_are_eq := syntax.Prop.Insts.CoreCmpEq.assert_fields_are_eq
+def rsm.FailureBudget.Insts.CoreCmpEq : core.cmp.Eq rsm.FailureBudget := {
+  partialEqInst := rsm.FailureBudget.Insts.CoreCmpPartialEqFailureBudget
+  assert_fields_are_eq :=
+    rsm.FailureBudget.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
-/-- Trait implementation: [dlc_core::syntax::{impl core::marker::StructuralPartialEq for dlc_core::syntax::Term}]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 56:23-56:32 -/
+/-- [dlc_core::rsm::{dlc_core::rsm::FailureBudget}::zero]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 78:4-84:5
+    Visibility: public -/
+def rsm.FailureBudget.zero (f : Std.U32) : Result rsm.FailureBudget := do
+  ok { max_faults := f, fair_delivery := true, consumed := 0#u32 }
+
+/-- [dlc_core::rsm::{dlc_core::rsm::FailureBudget}::saturating_add]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 89:4-95:5
+    Visibility: public -/
+def rsm.FailureBudget.saturating_add
+  (self : rsm.FailureBudget) (extra : Std.U32) : Result rsm.FailureBudget := do
+  let i ← self.consumed + extra
+  ok { self with consumed := i }
+
+/-- [dlc_core::rsm::{dlc_core::rsm::FailureBudget}::le]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 99:4-101:5
+    Visibility: public -/
+def rsm.FailureBudget.le (self : rsm.FailureBudget) : Result Bool := do
+  ok (self.consumed <= self.max_faults)
+
+/-- [dlc_core::rsm::{dlc_core::rsm::FailureBudget}::within_contract]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 105:4-107:5
+    Visibility: public -/
+def rsm.FailureBudget.within_contract
+  (self : rsm.FailureBudget) : Result Bool := do
+  if self.fair_delivery
+  then rsm.FailureBudget.le self
+  else ok false
+
+/-- [dlc_core::rsm::APPLY_FUEL]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 118:0-118:33
+    Visibility: public -/
+@[global_simps, irreducible] def rsm.APPLY_FUEL : Std.U32 := 1024#u32
+
+/-- [dlc_core::rsm::{impl core::clone::Clone for dlc_core::rsm::Command}::clone]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 127:9-127:14
+    Visibility: public -/
+def rsm.Command.Insts.CoreCloneClone.clone
+  (self : rsm.Command) : Result rsm.Command := do
+  let t ← syntax.Term.Insts.CoreCloneClone.clone self.payload
+  let o ←
+    core.option.Option.Insts.CoreCloneClone.clone
+      syntax.Prop.Insts.CoreCloneClone self.cap
+  ok { payload := t, cap := o }
+
+/-- Trait implementation: [dlc_core::rsm::{impl core::clone::Clone for dlc_core::rsm::Command}]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 127:9-127:14 -/
 @[reducible]
-def syntax.Term.Insts.CoreMarkerStructuralPartialEq :
-  core.marker.StructuralPartialEq syntax.Term := {
+def rsm.Command.Insts.CoreCloneClone : core.clone.Clone rsm.Command := {
+  clone := rsm.Command.Insts.CoreCloneClone.clone
+}
+
+/-- [dlc_core::rsm::{impl core::fmt::Debug for dlc_core::rsm::Command}::fmt]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 127:16-127:21
+    Visibility: public -/
+def rsm.Command.Insts.CoreFmtDebug.fmt
+  (self : rsm.Command) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn := Dyn.mk _ syntax.Term.Insts.CoreFmtDebug self.payload
+  let dyn1 :=
+    Dyn.mk _ (core.fmt.DebugShared (core.option.Option.Insts.CoreFmtDebug
+      syntax.Prop.Insts.CoreFmtDebug)) self.cap
+  core.fmt.Formatter.debug_struct_field2_finish f (toStr "Command") (toStr
+    "payload") dyn (toStr "cap") dyn1
+
+/-- Trait implementation: [dlc_core::rsm::{impl core::fmt::Debug for dlc_core::rsm::Command}]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 127:16-127:21 -/
+@[reducible]
+def rsm.Command.Insts.CoreFmtDebug : core.fmt.Debug rsm.Command := {
+  fmt := rsm.Command.Insts.CoreFmtDebug.fmt
+}
+
+/-- Trait implementation: [dlc_core::rsm::{impl core::marker::StructuralPartialEq for dlc_core::rsm::Command}]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 127:23-127:32 -/
+@[reducible]
+def rsm.Command.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq rsm.Command := {
 }
 
 /-- [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Signature> for dlc_core::syntax::Signature}::eq]:
@@ -6250,6 +6395,379 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
         else ok false
   else ok false
 partial_fixpoint
+
+/-- [dlc_core::rsm::{impl core::cmp::PartialEq<dlc_core::rsm::Command> for dlc_core::rsm::Command}::eq]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 127:23-127:32
+    Visibility: public -/
+def rsm.Command.Insts.CoreCmpPartialEqCommand.eq
+  (self : rsm.Command) (other : rsm.Command) : Result Bool := do
+  let b ←
+    syntax.Term.Insts.CoreCmpPartialEqTerm.eq self.payload other.payload
+  if b
+  then
+    core.option.Option.Insts.CoreCmpPartialEqOption.eq
+      syntax.Prop.Insts.CoreCmpPartialEqProp self.cap other.cap
+  else ok false
+
+/-- Trait implementation: [dlc_core::rsm::{impl core::cmp::PartialEq<dlc_core::rsm::Command> for dlc_core::rsm::Command}]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 127:23-127:32 -/
+@[reducible]
+impl_def rsm.Command.Insts.CoreCmpPartialEqCommand : core.cmp.PartialEq
+  rsm.Command rsm.Command := {
+  eq := rsm.Command.Insts.CoreCmpPartialEqCommand.eq
+  ne := core.cmp.PartialEq.ne.trait_default
+    rsm.Command.Insts.CoreCmpPartialEqCommand
+}
+
+/-- [dlc_core::rsm::{impl core::cmp::Eq for dlc_core::rsm::Command}::assert_fields_are_eq]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 127:34-127:36
+    Visibility: public -/
+def rsm.Command.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : rsm.Command) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [dlc_core::rsm::{impl core::cmp::Eq for dlc_core::rsm::Command}]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 127:34-127:36 -/
+@[reducible]
+def rsm.Command.Insts.CoreCmpEq : core.cmp.Eq rsm.Command := {
+  partialEqInst := rsm.Command.Insts.CoreCmpPartialEqCommand
+  assert_fields_are_eq := rsm.Command.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- [dlc_core::rsm::{impl core::clone::Clone for dlc_core::rsm::Replica}::clone]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 140:9-140:14
+    Visibility: public -/
+def rsm.Replica.Insts.CoreCloneClone.clone
+  (self : rsm.Replica) : Result rsm.Replica := do
+  let i ← lift (core.clone.impls.CloneU32.clone self.id)
+  let t ← syntax.Term.Insts.CoreCloneClone.clone self.store
+  let i1 ← lift (core.clone.impls.CloneU32.clone self.applied)
+  ok { id := i, store := t, applied := i1 }
+
+/-- Trait implementation: [dlc_core::rsm::{impl core::clone::Clone for dlc_core::rsm::Replica}]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 140:9-140:14 -/
+@[reducible]
+def rsm.Replica.Insts.CoreCloneClone : core.clone.Clone rsm.Replica := {
+  clone := rsm.Replica.Insts.CoreCloneClone.clone
+}
+
+/-- [dlc_core::rsm::{impl core::fmt::Debug for dlc_core::rsm::Replica}::fmt]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 140:16-140:21
+    Visibility: public -/
+def rsm.Replica.Insts.CoreFmtDebug.fmt
+  (self : rsm.Replica) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn := Dyn.mk _ core.fmt.DebugU32 self.id
+  let dyn1 := Dyn.mk _ syntax.Term.Insts.CoreFmtDebug self.store
+  let dyn2 := Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugU32) self.applied
+  core.fmt.Formatter.debug_struct_field3_finish f (toStr "Replica") (toStr
+    "id") dyn (toStr "store") dyn1 (toStr "applied") dyn2
+
+/-- Trait implementation: [dlc_core::rsm::{impl core::fmt::Debug for dlc_core::rsm::Replica}]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 140:16-140:21 -/
+@[reducible]
+def rsm.Replica.Insts.CoreFmtDebug : core.fmt.Debug rsm.Replica := {
+  fmt := rsm.Replica.Insts.CoreFmtDebug.fmt
+}
+
+/-- Trait implementation: [dlc_core::rsm::{impl core::marker::StructuralPartialEq for dlc_core::rsm::Replica}]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 140:23-140:32 -/
+@[reducible]
+def rsm.Replica.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq rsm.Replica := {
+}
+
+/-- [dlc_core::rsm::{impl core::cmp::PartialEq<dlc_core::rsm::Replica> for dlc_core::rsm::Replica}::eq]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 140:23-140:32
+    Visibility: public -/
+def rsm.Replica.Insts.CoreCmpPartialEqReplica.eq
+  (self : rsm.Replica) (other : rsm.Replica) : Result Bool := do
+  if self.id = other.id
+  then
+    if self.applied = other.applied
+    then syntax.Term.Insts.CoreCmpPartialEqTerm.eq self.store other.store
+    else ok false
+  else ok false
+
+/-- Trait implementation: [dlc_core::rsm::{impl core::cmp::PartialEq<dlc_core::rsm::Replica> for dlc_core::rsm::Replica}]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 140:23-140:32 -/
+@[reducible]
+impl_def rsm.Replica.Insts.CoreCmpPartialEqReplica : core.cmp.PartialEq
+  rsm.Replica rsm.Replica := {
+  eq := rsm.Replica.Insts.CoreCmpPartialEqReplica.eq
+  ne := core.cmp.PartialEq.ne.trait_default
+    rsm.Replica.Insts.CoreCmpPartialEqReplica
+}
+
+/-- [dlc_core::rsm::{impl core::cmp::Eq for dlc_core::rsm::Replica}::assert_fields_are_eq]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 140:34-140:36
+    Visibility: public -/
+def rsm.Replica.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : rsm.Replica) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [dlc_core::rsm::{impl core::cmp::Eq for dlc_core::rsm::Replica}]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 140:34-140:36 -/
+@[reducible]
+def rsm.Replica.Insts.CoreCmpEq : core.cmp.Eq rsm.Replica := {
+  partialEqInst := rsm.Replica.Insts.CoreCmpPartialEqReplica
+  assert_fields_are_eq := rsm.Replica.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- [dlc_core::rsm::{impl core::clone::Clone for dlc_core::rsm::GlobalConfig}::clone]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 161:9-161:14
+    Visibility: public -/
+def rsm.GlobalConfig.Insts.CoreCloneClone.clone
+  (self : rsm.GlobalConfig) : Result rsm.GlobalConfig := do
+  let v ←
+    alloc.vec.CloneVec.clone rsm.Replica.Insts.CoreCloneClone self.replicas
+  let v1 ← alloc.vec.CloneVec.clone rsm.Command.Insts.CoreCloneClone self.log
+  let fb ← rsm.FailureBudget.Insts.CoreCloneClone.clone self.budget
+  ok { replicas := v, log := v1, budget := fb }
+
+/-- Trait implementation: [dlc_core::rsm::{impl core::clone::Clone for dlc_core::rsm::GlobalConfig}]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 161:9-161:14 -/
+@[reducible]
+def rsm.GlobalConfig.Insts.CoreCloneClone : core.clone.Clone rsm.GlobalConfig
+  := {
+  clone := rsm.GlobalConfig.Insts.CoreCloneClone.clone
+}
+
+/-- [dlc_core::rsm::{impl core::fmt::Debug for dlc_core::rsm::GlobalConfig}::fmt]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 161:16-161:21
+    Visibility: public -/
+def rsm.GlobalConfig.Insts.CoreFmtDebug.fmt
+  (self : rsm.GlobalConfig) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn :=
+    Dyn.mk _ (core.fmt.DebugVec rsm.Replica.Insts.CoreFmtDebug) self.replicas
+  let dyn1 :=
+    Dyn.mk _ (core.fmt.DebugVec rsm.Command.Insts.CoreFmtDebug) self.log
+  let dyn2 :=
+    Dyn.mk _ (core.fmt.DebugShared rsm.FailureBudget.Insts.CoreFmtDebug)
+      self.budget
+  core.fmt.Formatter.debug_struct_field3_finish f (toStr "GlobalConfig") (toStr
+    "replicas") dyn (toStr "log") dyn1 (toStr "budget") dyn2
+
+/-- Trait implementation: [dlc_core::rsm::{impl core::fmt::Debug for dlc_core::rsm::GlobalConfig}]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 161:16-161:21 -/
+@[reducible]
+def rsm.GlobalConfig.Insts.CoreFmtDebug : core.fmt.Debug rsm.GlobalConfig := {
+  fmt := rsm.GlobalConfig.Insts.CoreFmtDebug.fmt
+}
+
+/-- Trait implementation: [dlc_core::rsm::{impl core::marker::StructuralPartialEq for dlc_core::rsm::GlobalConfig}]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 161:23-161:32 -/
+@[reducible]
+def rsm.GlobalConfig.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq rsm.GlobalConfig := {
+}
+
+/-- [dlc_core::rsm::{impl core::cmp::PartialEq<dlc_core::rsm::GlobalConfig> for dlc_core::rsm::GlobalConfig}::eq]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 161:23-161:32
+    Visibility: public -/
+def rsm.GlobalConfig.Insts.CoreCmpPartialEqGlobalConfig.eq
+  (self : rsm.GlobalConfig) (other : rsm.GlobalConfig) : Result Bool := do
+  let b ←
+    alloc.vec.partial_eq.PartialEqVec.eq
+      rsm.Replica.Insts.CoreCmpPartialEqReplica self.replicas other.replicas
+  if b
+  then
+    let b1 ←
+      alloc.vec.partial_eq.PartialEqVec.eq
+        rsm.Command.Insts.CoreCmpPartialEqCommand self.log other.log
+    if b1
+    then
+      rsm.FailureBudget.Insts.CoreCmpPartialEqFailureBudget.eq self.budget
+        other.budget
+    else ok false
+  else ok false
+
+/-- Trait implementation: [dlc_core::rsm::{impl core::cmp::PartialEq<dlc_core::rsm::GlobalConfig> for dlc_core::rsm::GlobalConfig}]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 161:23-161:32 -/
+@[reducible]
+impl_def rsm.GlobalConfig.Insts.CoreCmpPartialEqGlobalConfig :
+  core.cmp.PartialEq rsm.GlobalConfig rsm.GlobalConfig := {
+  eq := rsm.GlobalConfig.Insts.CoreCmpPartialEqGlobalConfig.eq
+  ne := core.cmp.PartialEq.ne.trait_default
+    rsm.GlobalConfig.Insts.CoreCmpPartialEqGlobalConfig
+}
+
+/-- [dlc_core::rsm::{impl core::cmp::Eq for dlc_core::rsm::GlobalConfig}::assert_fields_are_eq]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 161:34-161:36
+    Visibility: public -/
+def rsm.GlobalConfig.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : rsm.GlobalConfig) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [dlc_core::rsm::{impl core::cmp::Eq for dlc_core::rsm::GlobalConfig}]
+    Source: 'crates/dlc-core/src/rsm.rs', lines 161:34-161:36 -/
+@[reducible]
+def rsm.GlobalConfig.Insts.CoreCmpEq : core.cmp.Eq rsm.GlobalConfig := {
+  partialEqInst := rsm.GlobalConfig.Insts.CoreCmpPartialEqGlobalConfig
+  assert_fields_are_eq := rsm.GlobalConfig.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- [dlc_core::rsm::apply_command]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 186:0-189:1
+    Visibility: public -/
+def rsm.apply_command
+  (c : rsm.Command) (s : syntax.Term) : Result syntax.Term := do
+  let t ← syntax.Term.Insts.CoreCloneClone.clone c.payload
+  let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+  let (t2, _) ← reduce.reduce_with_fuel (syntax.Term.App t t1) rsm.APPLY_FUEL
+  ok t2
+
+/-- [dlc_core::rsm::apply_prefix]: loop body 0:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 198:4-200:5
+    Visibility: public -/
+@[rust_loop_body]
+def rsm.apply_prefix_loop.body
+  (cmds : Slice rsm.Command) (iter : core.ops.range.Range Std.Usize)
+  (acc : syntax.Term) :
+  Result (ControlFlow ((core.ops.range.Range Std.Usize) × syntax.Term)
+    syntax.Term)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (done acc)
+  | some i =>
+    let c ← Slice.index_usize cmds i
+    let acc1 ← rsm.apply_command c acc
+    ok (cont (iter1, acc1))
+
+/-- [dlc_core::rsm::apply_prefix]: loop 0:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 198:4-200:5
+    Visibility: public -/
+@[rust_loop]
+def rsm.apply_prefix_loop
+  (iter : core.ops.range.Range Std.Usize) (cmds : Slice rsm.Command)
+  (acc : syntax.Term) :
+  Result syntax.Term
+  := do
+  loop
+    (fun (iter1, acc1) => rsm.apply_prefix_loop.body cmds iter1 acc1)
+    (iter, acc)
+
+/-- [dlc_core::rsm::apply_prefix]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 196:0-202:1
+    Visibility: public -/
+def rsm.apply_prefix
+  (init : syntax.Term) (cmds : Slice rsm.Command) : Result syntax.Term := do
+  let acc ← syntax.Term.Insts.CoreCloneClone.clone init
+  let i := Slice.len cmds
+  rsm.apply_prefix_loop { start := 0#usize, «end» := i } cmds acc
+
+/-- [dlc_core::rsm::deliver]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 210:0-219:1
+    Visibility: public -/
+def rsm.deliver
+  (log : alloc.vec.Vec rsm.Command) (r : rsm.Replica) :
+  Result rsm.Replica
+  := do
+  let s := alloc.vec.Vec.deref log
+  let i ← lift (UScalar.cast .Usize r.applied)
+  let o ←
+    core.slice.Slice.get (core.slice.index.SliceIndexUsizeSlice rsm.Command) s
+      i
+  match o with
+  | none => rsm.Replica.Insts.CoreCloneClone.clone r
+  | some c =>
+    let t ← rsm.apply_command c r.store
+    let i1 ← r.applied + 1#u32
+    ok { r with store := t, applied := i1 }
+
+/-- [dlc_core::rsm::world_step]: loop body 0:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 233:4-235:5
+    Visibility: public -/
+@[rust_loop_body]
+def rsm.world_step_loop.body
+  (v : alloc.vec.Vec rsm.Replica) (v1 : alloc.vec.Vec rsm.Command)
+  (iter : core.ops.range.Range Std.Usize) (stepped : alloc.vec.Vec rsm.Replica)
+  :
+  Result (ControlFlow ((core.ops.range.Range Std.Usize) × (alloc.vec.Vec
+    rsm.Replica)) (alloc.vec.Vec rsm.Replica))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (done stepped)
+  | some i =>
+    let r ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice rsm.Replica) v
+        i
+    let r1 ← rsm.deliver v1 r
+    let stepped1 ← alloc.vec.Vec.push stepped r1
+    ok (cont (iter1, stepped1))
+
+/-- [dlc_core::rsm::world_step]: loop 0:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 233:4-235:5
+    Visibility: public -/
+@[rust_loop]
+def rsm.world_step_loop
+  (iter : core.ops.range.Range Std.Usize) (v : alloc.vec.Vec rsm.Replica)
+  (v1 : alloc.vec.Vec rsm.Command) (stepped : alloc.vec.Vec rsm.Replica) :
+  Result (alloc.vec.Vec rsm.Replica)
+  := do
+  loop
+    (fun (iter1, stepped1) => rsm.world_step_loop.body v v1 iter1 stepped1)
+    (iter, stepped)
+
+/-- [dlc_core::rsm::world_step]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 231:0-241:1
+    Visibility: public -/
+def rsm.world_step (g : rsm.GlobalConfig) : Result rsm.GlobalConfig := do
+  let i := alloc.vec.Vec.len g.replicas
+  let stepped ←
+    rsm.world_step_loop { start := 0#usize, «end» := i } g.replicas 
+      g.log (alloc.vec.Vec.new rsm.Replica)
+  let v ← alloc.vec.CloneVec.clone rsm.Command.Insts.CoreCloneClone g.log
+  let fb ← rsm.FailureBudget.Insts.CoreCloneClone.clone g.budget
+  ok { replicas := stepped, log := v, budget := fb }
+
+/-- [dlc_core::rsm::commit]:
+    Source: 'crates/dlc-core/src/rsm.rs', lines 250:0-258:1
+    Visibility: public -/
+def rsm.commit
+  (g : rsm.GlobalConfig) (c : rsm.Command) : Result rsm.GlobalConfig := do
+  let log ← alloc.vec.CloneVec.clone rsm.Command.Insts.CoreCloneClone g.log
+  let log1 ← alloc.vec.Vec.push log c
+  let v ←
+    alloc.vec.CloneVec.clone rsm.Replica.Insts.CoreCloneClone g.replicas
+  let fb ← rsm.FailureBudget.Insts.CoreCloneClone.clone g.budget
+  ok { replicas := v, log := log1, budget := fb }
+
+/-- Trait implementation: [dlc_core::syntax::{impl core::marker::StructuralPartialEq for dlc_core::syntax::Prop}]
+    Source: 'crates/dlc-core/src/syntax.rs', lines 16:23-16:32 -/
+@[reducible]
+def syntax.Prop.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq syntax.Prop := {
+}
+
+/-- [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Prop}::assert_fields_are_eq]:
+    Source: 'crates/dlc-core/src/syntax.rs', lines 16:34-16:36
+    Visibility: public -/
+def syntax.Prop.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : syntax.Prop) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Prop}]
+    Source: 'crates/dlc-core/src/syntax.rs', lines 16:34-16:36 -/
+@[reducible]
+def syntax.Prop.Insts.CoreCmpEq : core.cmp.Eq syntax.Prop := {
+  partialEqInst := syntax.Prop.Insts.CoreCmpPartialEqProp
+  assert_fields_are_eq := syntax.Prop.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- Trait implementation: [dlc_core::syntax::{impl core::marker::StructuralPartialEq for dlc_core::syntax::Term}]
+    Source: 'crates/dlc-core/src/syntax.rs', lines 56:23-56:32 -/
+@[reducible]
+def syntax.Term.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq syntax.Term := {
+}
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Term> for dlc_core::syntax::Term}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 56:23-56:32 -/

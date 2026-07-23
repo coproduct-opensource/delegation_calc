@@ -19,6 +19,16 @@ audited independently:
 
 - `dlc-core` is the calculus. It knows about propositions, terms, contexts.
   It knows *nothing* about Ed25519, CBOR, COSE, drand, or the wire format.
+  It *also* carries the pure RSM operational layer (`dlc_core::rsm`: the
+  replicated-state-machine transition over `Term`s — `FailureBudget`, `Command`,
+  `Replica`, `GlobalConfig`, `apply_command`, `apply_prefix`, `deliver`,
+  `world_step`, `commit`). This lives in `dlc-core` (not `dlc-d-rsm`) on purpose:
+  `apply_command` calls `reduce::reduce_with_fuel`, and Charon exposes only
+  optimized MIR for *dependency* crates, so a separate crate would translate the
+  reducer to an opaque axiom (`[Error] There should be no bottoms`) and break the
+  R2 correspondence at the leaf. In-crate, the whole transition core and the
+  reducer are one primary Aeneas tree with real bodies. The fence is intact: `rsm`
+  is pure — still no Ed25519/CBOR/COSE/wire/async/`unsafe`/third-party deps.
 - `dlc-crypto` is the realization of `Γ ⊢_K M : φ`. It knows about signatures,
   time anchors, and transparency logs. It depends on `dlc-core` for its types
   but is not depended on by it.

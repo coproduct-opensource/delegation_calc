@@ -9,7 +9,7 @@
 
 use alloc::vec::Vec;
 
-use crate::state::Command;
+use dlc_core::rsm::Command;
 
 /// A set of votes: `votes[i]` is replica `i`'s vote (`Some(cmd)` = voted for
 /// that command, `None` = no vote). The decidable substrate over which the

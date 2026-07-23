@@ -6,7 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "DLC-D replicated state machine — verified runtime core (Aeneas-clean mirror of lean/DLCD/Rsm.lean)"
+description = "DLC-D consensus surface — decidable quorum/decision predicates (Aeneas-clean mirror of lean/DLCD/Consensus.lean); the RSM transition core lives in dlc_core::rsm"
 
 [lib]
 path = "src/lib.rs"

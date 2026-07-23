@@ -287,6 +287,52 @@ Prior art (web-searched 2026-07-22): the two-function-space / dual-context desig
 - nLab, *linear–non-linear logic*: https://ncatlab.org/nlab/show/linear-non-linear+logic
 - Atkey, *QTT* (LICS 2018) & Wood–Atkey (arXiv:2005.02247): the substitution
   lemmas the two β-cases consume — scale-then-add for `many`, add for `one`.
+
+## Scope of increment DLC-D "progress" — the second half of type soundness
+`cprogress : CDeriv [] M ψ → CValue M ∨ ∃ M', step M = some M'`. A CLOSED,
+well-typed `CDeriv` term is a value or takes a deterministic `step`. Together
+with the UNCONDITIONAL `cderiv_subject_reduction'` (preservation) this is TYPE
+SOUNDNESS for the CARVe fragment: a closed well-typed term never gets stuck.
+Mirrors `DLC.Progress.progress` (`lean/DLC/Progress.lean`).
+- **Fragment / side condition.** `Γ = []` — the EMPTY resource-vector context,
+  the `NoOne`/empty-linear closedness condition. It is the CARVe analogue of
+  DLC's `PropDeriv [] M φ`. Under it, `CJoin Γ₁ Γ₂ []` forces `Γ₁ = Γ₂ = []`
+  (`cjoin_nil`) so every scrutinee sub-context is again empty (IH applies), and
+  the `var` leaf is VACUOUS (`[][i]? = none`). This closedness is LOAD-BEARING:
+  a bare `var` is genuinely STUCK (`step = none`, not a value) — the right-reason
+  bite confirmed the `var` case REDs the instant closedness is dropped.
+- **Values (`CValue`).** `CDeriv`'s ONLY introduction terms are `lam`
+  (`impI`/`lolliI`) and `tensorIntro` (`tensorI`); `says`/`boxed` have NO intro
+  in `CDeriv`. So `CValue = {lam, tensorIntro}`, the restriction of `DLC.Value`
+  to the fragment's intros.
+- **Canonical forms (inline inversion).** A `CValue` of type `imp`/`lolli` is a
+  `lam` (imp-β / lolli-β fire); of `tensor` is a `tensorIntro` (tensor-E-β fires).
+  For the modal eliminations (`saysE`/`letSaysE`/`delegate`/`discharge`) there is
+  NO closed value of type `says`/`boxed`, so their head redex never fires — but
+  the scrutinee, closed and not a value (inversion of a `lam`/`tensorIntro`
+  derivation at a `says`/`boxed` type is vacuous), ALWAYS ξ-steps. Hence NO stuck
+  term on the closed fragment. All 11 constructors covered, no side condition
+  beyond `Γ = []`, no `sorry`.
+- `#print axioms cprogress` = `[propext]` (fewer than the permitted
+  `[propext, Classical.choice, Quot.sound]`); `cprogress_aux` = `[propext]`;
+  `cjoin_nil` depends on NO axioms. No `sorryAx`, no `native_decide`.
+  `CarveJudgmentChecks` exercises `cprogress` on a real closed REDEX (shown to
+  take the step branch, reduct exhibited by `rfl`) and a real closed VALUE (shown
+  to take the value branch, stepping refuted by `step = none`).
+
+Prior art for progress (web-searched 2026-07-22): "a well-typed closed term is a
+value or steps", by induction on the derivation + a canonical-forms lemma
+characterising well-typed closed values by type.
+- PLFA, *Properties: Progress and Preservation*: https://plfa.github.io/Properties/
+  (mirror https://plfa.inf.ed.ac.uk/Properties/) — `Progress` = `step ⊎ done`;
+  `Canonical V ⦂ A` (arrow → lambda); induction on `∅ ⊢ M ⦂ A`.
+- Software Foundations (PLF), *StlcProp — Progress*:
+  https://softwarefoundations.cis.upenn.edu/plf-current/StlcProp.html — the same
+  progress + canonical-forms decomposition.
+- DLC's own `DLC.Progress.progress` (`lean/DLC/Progress.lean`): the
+  `Value M ∨ ∃ M', step M = some M'` shape and the
+  `cases scrutinee <;> first | False.elim | cases derivation` canonical-forms
+  idiom this increment mirrors onto `CDeriv`.
 -/
 
 namespace DLC
@@ -2241,6 +2287,199 @@ noncomputable def cderiv_subject_reduction {Γ : Carve.Ctx Prop'} {M : Term} {ψ
     NoOne Γ → ∀ M', step M = some M' → CDeriv Γ M' ψ :=
   fun _ => cderiv_subject_reduction' d
 
+/-! ## Progress for `CDeriv` — the second half of type soundness.
+
+Mirrors `DLC.Progress` (`lean/DLC/Progress.lean`): a well-typed CLOSED term is a
+value or takes a `step`. DLC's `progress` states this for `PropDeriv [] M φ`; the
+CARVe analogue is the **empty resource-vector context** `Γ = []` — the
+`NoOne`/empty-linear closedness condition of a linear/DILL fragment. Under
+`Γ = []`, `CJoin Γ₁ Γ₂ []` forces `Γ₁ = Γ₂ = []` (`cjoin_nil`), so every
+scrutinee's sub-context is again empty and the induction hypothesis applies; the
+`var` leaf is VACUOUS (`[][i]? = none` refutes its lookup) — the resource-vector
+mirror of "no variable in the empty context".
+
+**Value forms of the fragment (`CValue`).** `CDeriv`'s ONLY introduction terms
+are `Term.lam` (`impI`/`lolliI`) and `Term.tensorIntro` (`tensorI`); `says`/`boxed`
+have NO introduction in `CDeriv` at all. So the faithful value set for this
+fragment is exactly `{lam, tensorIntro}` — the restriction of `DLC.Value` to the
+`CDeriv` intros. Everything else is a variable or an elimination.
+
+**Canonical forms (inline, by syntax-directed inversion).** A `CValue` of type
+`imp`/`lolli` is a `lam` (imp-β / lolli-β fire); of `tensor` is a `tensorIntro`
+(tensor-E-β fires). For the modal eliminations there is NO canonical value: a
+closed value of type `says`/`boxed` cannot exist in `CDeriv` (no intro), so the
+scrutinee — being closed and NOT a value by inversion (`cases` on the `lam`/
+`tensorIntro` derivation at a `says`/`boxed` type is vacuous) — MUST step, and the
+ξ-congruence lemma lifts that step. Hence there is **no stuck term** on the
+closed fragment: the modal head redexes (`saysBind`/`letSays`/`delegate`/
+`discharge` on a `sign`/`boxed` scrutinee) never fire, but they never need to —
+their scrutinee always ξ-steps.
+
+**Statement.** `cprogress : CDeriv [] M ψ → CValue M ∨ ∃ M', step M = some M'`,
+over ALL 11 constructors, no side condition beyond closedness `Γ = []`, no
+`sorry`. Together with `cderiv_subject_reduction'` (unconditional preservation)
+this is TYPE SOUNDNESS for the CARVe fragment.
+
+Prior art (web-searched 2026-07-22): progress = "a well-typed closed term is a
+value or steps", proved by induction on the typing derivation with a
+canonical-forms lemma characterising well-typed closed values by type.
+- PLFA, *Properties: Progress and Preservation*
+  (https://plfa.github.io/Properties/ , https://plfa.inf.ed.ac.uk/Properties/):
+  `Progress M = step (∃ N, M —→ N) ⊎ done (Value M)`; `Canonical V ⦂ A`
+  characterises values by type (arrow → lambda); induction on `∅ ⊢ M ⦂ A`.
+- Software Foundations (PLF), *StlcProp — Progress*
+  (https://softwarefoundations.cis.upenn.edu/plf-current/StlcProp.html): the same
+  progress + canonical-forms decomposition for STLC.
+- DLC's own `DLC.Progress.progress` (`lean/DLC/Progress.lean`): the
+  `Value M ∨ ∃ M', step M = some M'` shape, ξ-witness lemmas, and the
+  `cases scrutinee <;> first | False.elim | cases derivation` canonical-forms
+  idiom this section mirrors onto `CDeriv`. -/
+
+/-- Result `[]` forces both operands empty — the closed-context degenerate of a
+`CJoin`. Lets a scrutinee under `Γ = []` inherit the empty context. -/
+theorem cjoin_nil {Γ₁ Γ₂ : Carve.Ctx Prop'} (h : CJoin Γ₁ Γ₂ []) :
+    Γ₁ = [] ∧ Γ₂ = [] := by
+  cases h; exact ⟨rfl, rfl⟩
+
+/-- **Values of the CARVe fragment.** `CDeriv`'s only introduction terms are
+`lam` (both arrows) and `tensorIntro`; `says`/`boxed` have no intro. This is the
+restriction of `DLC.Value` (`lean/DLC/Progress.lean`) to the forms `CDeriv` can
+introduce — the canonical value set for progress. -/
+def CValue : Term → Prop
+  | Term.lam _ _ => True
+  | Term.tensorIntro _ _ => True
+  | _ => False
+
+/-! ### ξ-congruence witnesses (one per `CDeriv` elimination form).
+A stepping scrutinee/function position yields a step of the whole elimination.
+Mirrors `DLC.Progress`'s private `*_steps` lemmas: `cases` the scrutinee — value
+and head-redex shapes refute `step scrutinee = some _` (their `step` is `none`),
+everything that genuinely steps falls through to `step`'s congruence branch. -/
+
+private theorem capp_steps {f f' : Term} (x : Term)
+    (hf : step f = some f') : ∃ r, step (Term.app f x) = some r := by
+  cases f <;>
+    first
+      | (simp [step] at hf; done)
+      | (refine ⟨Term.app f' x, ?_⟩; simp only [step] at hf ⊢; rw [hf])
+
+private theorem cletTensor_steps {s s' : Term} (b : Term)
+    (hs : step s = some s') : ∃ t, step (Term.letTensor s b) = some t := by
+  cases s <;>
+    first
+      | (simp [step] at hs; done)
+      | (refine ⟨Term.letTensor s' b, ?_⟩; simp only [step] at hs ⊢; rw [hs])
+
+private theorem csaysBind_steps {p : Principal} {s s' : Term} (b : Term)
+    (hs : step s = some s') : ∃ t, step (Term.saysBind p s b) = some t := by
+  cases s <;>
+    first
+      | (simp [step] at hs; done)
+      | (refine ⟨Term.saysBind p s' b, ?_⟩; simp only [step] at hs ⊢; rw [hs])
+
+private theorem cletSays_steps {p : Principal} {s s' : Term} (b : Term)
+    (hs : step s = some s') : ∃ t, step (Term.letSays p s b) = some t := by
+  cases s <;>
+    first
+      | (simp [step] at hs; done)
+      | (refine ⟨Term.letSays p s' b, ?_⟩; simp only [step] at hs ⊢; rw [hs])
+
+private theorem cdelegate_left_steps {m m' : Term} (n : Term)
+    (hm : step m = some m') : ∃ t, step (Term.delegate m n) = some t := by
+  cases m <;>
+    first
+      | (simp [step] at hm; done)
+      | (refine ⟨Term.delegate m' n, ?_⟩; simp only [step] at hm ⊢; rw [hm])
+
+private theorem cdischarge_steps {m m' : Term} (n : Term)
+    (hm : step m = some m') : ∃ t, step (Term.discharge m n) = some t := by
+  cases m <;>
+    first
+      | (simp [step] at hm; done)
+      | (refine ⟨Term.discharge m' n, ?_⟩; simp only [step] at hm ⊢; rw [hm])
+
+/-- **Progress (auxiliary, context generalized).** Induction on the derivation:
+introduction forms (`impI`/`lolliI`/`tensorI`) are `CValue`s; `var` is vacuous
+under `Γ = []`; each elimination's scrutinee IH either yields a step (a ξ-witness
+lifts it) or a value whose canonical form (forced by inversion of the scrutinee's
+derivation) fires the head redex — and for the modal eliminations the value
+branch is IMPOSSIBLE (no `says`/`boxed` value), so the scrutinee always steps. -/
+private theorem cprogress_aux {Γ : Carve.Ctx Prop'} {M : Term} {ψ : Prop'}
+    (d : CDeriv Γ M ψ) :
+    Γ = [] → CValue M ∨ ∃ M', step M = some M' := by
+  induction d with
+  | @var Γ i φ m h hm hz =>
+      -- No usable — in fact no — variable in the empty context.
+      intro hΓ; subst hΓ; simp at h
+  | impI _ _ => intro _; exact Or.inl True.intro
+  | lolliI _ _ => intro _; exact Or.inl True.intro
+  | tensorI _ _ _ _ _ => intro _; exact Or.inl True.intro
+  | @impE Γ Γ₁ Γ₂ φ ψ f x dM dN hj hdup ihM ihN =>
+      intro hΓ; subst hΓ
+      obtain ⟨rfl, rfl⟩ := cjoin_nil hj
+      rcases ihM rfl with hval | ⟨f', hstep⟩
+      · -- Canonical: a value of type `imp φ ψ` is a `lam` — imp-β fires.
+        cases f with
+        | lam _ body => exact Or.inr ⟨_, rfl⟩
+        | _ => first | exact False.elim hval | cases dM
+      · exact Or.inr (capp_steps x hstep)
+  | @lolliE Γ Γ₁ Γ₂ φ ψ f x dM dN hj ihM ihN =>
+      intro hΓ; subst hΓ
+      obtain ⟨rfl, rfl⟩ := cjoin_nil hj
+      rcases ihM rfl with hval | ⟨f', hstep⟩
+      · -- Canonical: a value of type `lolli φ ψ` is a `lam` — lolli-β fires.
+        cases f with
+        | lam _ body => exact Or.inr ⟨_, rfl⟩
+        | _ => first | exact False.elim hval | cases dM
+      · exact Or.inr (capp_steps x hstep)
+  | @tensorE Γ Γ₁ Γ₂ φ ψ χ S B dS dB hj ihS ihB =>
+      intro hΓ; subst hΓ
+      obtain ⟨rfl, rfl⟩ := cjoin_nil hj
+      rcases ihS rfl with hval | ⟨S', hstep⟩
+      · -- Canonical: a value of type `tensor φ ψ` is a `tensorIntro` — β fires.
+        cases S with
+        | tensorIntro a b => exact Or.inr ⟨_, rfl⟩
+        | _ => first | exact False.elim hval | cases dS
+      · exact Or.inr (cletTensor_steps B hstep)
+  | @saysE Γ Γ₁ Γ₂ p φ ψ S N dS dN hj ihS ihN =>
+      intro hΓ; subst hΓ
+      obtain ⟨rfl, rfl⟩ := cjoin_nil hj
+      rcases ihS rfl with hval | ⟨S', hstep⟩
+      · -- No closed value of type `says p φ` exists in `CDeriv` — vacuous.
+        cases S <;> first | exact False.elim hval | cases dS
+      · exact Or.inr (csaysBind_steps N hstep)
+  | @delegate Γ Γ₁ Γ₂ p q φ m n dM dN hj ihM ihN =>
+      intro hΓ; subst hΓ
+      obtain ⟨rfl, rfl⟩ := cjoin_nil hj
+      rcases ihM rfl with hval | ⟨m', hstep⟩
+      · -- No closed value of type `says p (q ⇒ p)` — the head never fires.
+        cases m <;> first | exact False.elim hval | cases dM
+      · exact Or.inr (cdelegate_left_steps n hstep)
+  | @discharge Γ Γ₁ Γ₂ O φ m n dM dN hj ihM ihN =>
+      intro hΓ; subst hΓ
+      obtain ⟨rfl, rfl⟩ := cjoin_nil hj
+      rcases ihM rfl with hval | ⟨m', hstep⟩
+      · -- No closed value of type `boxed O φ` — the head never fires.
+        cases m <;> first | exact False.elim hval | cases dM
+      · exact Or.inr (cdischarge_steps n hstep)
+  | @letSaysE Γ Γ₁ Γ₂ p φ ψ S B dS dB hj ihS ihB =>
+      intro hΓ; subst hΓ
+      obtain ⟨rfl, rfl⟩ := cjoin_nil hj
+      rcases ihS rfl with hval | ⟨S', hstep⟩
+      · -- No closed value of type `says p φ` — the head never fires.
+        cases S <;> first | exact False.elim hval | cases dS
+      · exact Or.inr (cletSays_steps B hstep)
+
+/-- **Progress for the CARVe fragment — type soundness's second half.**
+A CLOSED (`Γ = []`), well-typed `CDeriv` term is a `CValue` (a `lam` or a
+`tensorIntro`) or takes a deterministic `step`. Mirrors `DLC.Progress.progress`;
+covers all 11 constructors with NO side condition beyond closedness and no
+`sorry`. With `cderiv_subject_reduction'` (unconditional preservation) this
+completes TYPE SOUNDNESS: a closed well-typed term never gets stuck. -/
+theorem cprogress {M : Term} {ψ : Prop'}
+    (d : CDeriv [] M ψ) : CValue M ∨ ∃ M', step M = some M' :=
+  cprogress_aux d rfl
+
 /-! ## Sanity: the CARVe split rules type real judgments with NO shift.
 The multiplicative rules carry `CJoin`, not `++` + `shift` — the migration's
 whole point, exercised on a concrete derivation. -/
@@ -2473,6 +2712,66 @@ noncomputable def subjectReduction_tensorBeta_example :
   have hΓ : NoOne [(Prop'.atom 0, Mult.many)] := by
     intro p hp; simp only [List.mem_singleton] at hp; subst hp; decide
   exact cderiv_subject_reduction dLet hΓ (Term.tensorIntro (Term.var 0) (Term.var 0)) rfl
+
+/-! ### Anti-vacuity for progress (`cprogress`).
+Two real, CLOSED (`Γ = []`), inhabited `CDeriv`s: a non-value REDEX that
+`cprogress` shows STEPS, and a VALUE where `cprogress` gives the value branch
+(stepping being impossible). Both exercise `cprogress` on genuine inputs. -/
+
+/-- A closed identity `λx:atom0. x` at the LINEAR arrow `atom0 ⊸ atom0` — a
+`CValue` normal form (`step = none`). -/
+noncomputable def progress_val_deriv :
+    CDeriv [] (Term.lam (Prop'.atom 0) (Term.var 0))
+      (Prop'.lolli (Prop'.atom 0) (Prop'.atom 0)) :=
+  CDeriv.lolliI (CDeriv.var (i := 0) rfl (by decide)
+    (by intro j p hj hget; rcases j with _ | k
+        · exact (hj rfl).elim
+        · simp at hget))
+
+/-- A closed REDEX `(λf:(atom0⊸atom0). f) (λx:atom0. x)` at `atom0 ⊸ atom0`,
+built with `lolliE` over `CJoin [] [] []` — a non-value that `step`s (imp/lolli-β
+fires: `→ subst (var 0) (λx.x) = λx.x`). -/
+noncomputable def progress_redex_deriv :
+    CDeriv []
+      (Term.app
+        (Term.lam (Prop'.lolli (Prop'.atom 0) (Prop'.atom 0)) (Term.var 0))
+        (Term.lam (Prop'.atom 0) (Term.var 0)))
+      (Prop'.lolli (Prop'.atom 0) (Prop'.atom 0)) := by
+  have dFun : CDeriv []
+      (Term.lam (Prop'.lolli (Prop'.atom 0) (Prop'.atom 0)) (Term.var 0))
+      (Prop'.lolli (Prop'.lolli (Prop'.atom 0) (Prop'.atom 0))
+        (Prop'.lolli (Prop'.atom 0) (Prop'.atom 0))) :=
+    CDeriv.lolliI (CDeriv.var (i := 0) rfl (by decide)
+      (by intro j p hj hget; rcases j with _ | k
+          · exact (hj rfl).elim
+          · simp at hget))
+  exact CDeriv.lolliE dFun progress_val_deriv CJoin.nil
+
+/-- **The REDEX genuinely steps, and `cprogress` returns the step branch.** The
+right disjunct is extracted from `cprogress` applied to a real derivation, and the
+reduct is exhibited by `rfl` — non-vacuous. -/
+example : ∃ M', step
+    (Term.app
+      (Term.lam (Prop'.lolli (Prop'.atom 0) (Prop'.atom 0)) (Term.var 0))
+      (Term.lam (Prop'.atom 0) (Term.var 0))) = some M' := by
+  rcases cprogress progress_redex_deriv with hval | hstep
+  · exact absurd hval (by simp [CValue])  -- a redex `app …` is not a `CValue`
+  · exact hstep
+
+/-- The redex reduces to the identity `λx.x` (the concrete reduct). -/
+example : step
+    (Term.app
+      (Term.lam (Prop'.lolli (Prop'.atom 0) (Prop'.atom 0)) (Term.var 0))
+      (Term.lam (Prop'.atom 0) (Term.var 0)))
+    = some (Term.lam (Prop'.atom 0) (Term.var 0)) := rfl
+
+/-- **The VALUE cannot step, so `cprogress` returns the value branch.** Extracting
+the left disjunct from `cprogress` on the real value derivation (the right is
+refuted by `step = none`) — non-vacuous. -/
+example : CValue (Term.lam (Prop'.atom 0) (Term.var 0)) := by
+  rcases cprogress progress_val_deriv with hval | ⟨M', hM'⟩
+  · exact hval
+  · simp [step] at hM'  -- `step (lam …) = none`, so the step branch is impossible
 
 end CarveJudgmentChecks
 

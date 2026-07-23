@@ -1,0 +1,1 @@
+'DLCD.Correspondence.reduce_with_fuel_corr' depends on axioms: [propext, Classical.choice, Quot.sound]

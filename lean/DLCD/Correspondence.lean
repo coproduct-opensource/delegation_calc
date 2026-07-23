@@ -2792,4 +2792,1483 @@ theorem step_corr : ∀ (t : syntax.Term), WellScopedTm t →
                          simp only [reduce.step, result_map_ok, Option.map_none, decTermC, DLC.step]
   | RunCmd v s ihv _ => exact step_runCmd v s ihv
 
+/-! ## 11. ★ R2.3c — partial-correctness (success-conditioned) reducer correspondence.
+
+The landed `step_corr`/`subst_corr`/`shift_id_closed` are fenced on `WellScopedTm`
+(closedness ∧ `heightB < 2^31`); the height fence is what proves *no-fail* over the
+1024-step fuel loop. But `heightB` is NOT loop-invariant (it grows multiplicatively
+under β), so `AppCommandRefines`'s unconditional `= ok` shape is FALSE as stated
+(`spec/r2-inc3c-fuelloop-analysis.md`). The honest form is PARTIAL correctness:
+condition the refinement on the generated reducer *returning `ok`* — no-fail is then
+a hypothesis, and value-correctness rides on **closedness alone** (the height fence
+was only feeding no-fail). This section lands the success-conditioned variants and
+`reduce_with_fuel_corr`. -/
+
+/-- Inversion for a successful `Result` bind: if `m >>= f = ok r` then `m` succeeded
+with some `a` and `f a = ok r`. The success-side dual of the forward `bind_tc_ok`. -/
+private theorem bind_ok_inv {α β} {m : Result α} {f : α → Result β} {r : β}
+    (h : (m >>= f) = ok r) : ∃ a, m = ok a ∧ f a = ok r := by
+  cases m with
+  | ok a => exact ⟨a, rfl, h⟩
+  | fail e => rw [show ((fail e : Result α) >>= f) = fail e from rfl] at h; simp at h
+  | div => rw [show ((Result.div : Result α) >>= f) = Result.div from rfl] at h; simp at h
+
+/-- Success inverts the `U32` `+1` bump: if `x + 1 = ok z` (no overflow, given) then
+`z.val = x.val + 1`. Via `UScalar.add_equiv` (the `ok`-branch value characterization). -/
+private theorem u32_add_one_inv {x z : Std.U32} (h : x + 1#u32 = ok z) : z.val = x.val + 1 := by
+  have he := UScalar.add_equiv x 1#u32
+  rw [h] at he; simp only [] at he
+  obtain ⟨_, hv, _⟩ := he
+  simpa using hv
+
+/-- Success inverts the `U32` `-1` (`Var/gt` decrement): if `x - 1 = ok z` then
+`z.val = x.val - 1`. Via `UScalar.sub_equiv`. -/
+private theorem u32_sub_one_inv {x z : Std.U32} (h : x - 1#u32 = ok z) : z.val = x.val - 1 := by
+  have he := UScalar.sub_equiv x 1#u32
+  rw [h] at he; simp only [] at he
+  obtain ⟨_, hv, _⟩ := he
+  have h1 : (1#u32 : Std.U32).val = 1 := rfl
+  omega
+
+/-- Success inverts the `U32` `+2` bump (`LetTensor`'s double binder): if `x + 2 = ok z`
+then `z.val = x.val + 2`. Via `UScalar.add_equiv`. -/
+private theorem u32_add_two_inv {x z : Std.U32} (h : x + 2#u32 = ok z) : z.val = x.val + 2 := by
+  have he := UScalar.add_equiv x 2#u32
+  rw [h] at he; simp only [] at he
+  obtain ⟨_, hv, _⟩ := he
+  simpa using hv
+
+/-- **Success-conditioned `shift` identity.** On a term closed at the cutoff, IF the
+generated `subst.shift` returns `ok r` then `r = t` — the raw-equality strengthening
+of `shift_id_closed` with the `heightB` fence dropped (success discharges the binder
+bumps). Closedness kills the index-moving branch at every `Var`. -/
+theorem shift_ok_closed (delta : Std.I32) (t : syntax.Term) :
+    ∀ (cutoff : Std.U32) (r : syntax.Term),
+      DLC.ClosedAbove (decTermC t) cutoff.val →
+      subst.shift t delta cutoff = ok r → r = t := by
+  induction t
+  case Var i =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_var_iff] at hcl
+      rw [subst.shift.eq_def] at hok; simp only [] at hok
+      rw [if_pos (show i < cutoff by scalar_tac)] at hok
+      exact (Result.ok.inj hok).symm
+  case Lam p body ih =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_lam_iff] at hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [propClone_id, bind_tc_ok] at hok
+      obtain ⟨i, hi, hok2⟩ := bind_ok_inv hok
+      obtain ⟨t2, ht2, hok3⟩ := bind_ok_inv hok2
+      have hival : i.val = cutoff.val + 1 := u32_add_one_inv hi
+      have hb := ih i t2 (by rw [hival]; exact hcl) ht2
+      subst hb
+      exact (Result.ok.inj hok3).symm
+  case App f x ihf ihx =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_app_iff] at hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨tf, hf, hok2⟩ := bind_ok_inv hok
+      obtain ⟨tx, hx, hok3⟩ := bind_ok_inv hok2
+      have hbf := ihf cutoff tf hcl.1 hf
+      have hbx := ihx cutoff tx hcl.2 hx
+      subst hbf; subst hbx
+      exact (Result.ok.inj hok3).symm
+  case Sign p m sig ih =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_sign_iff] at hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [principalClone_id, signatureClone_id, bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      have hbm := ih cutoff tm hcl hm
+      subst hbm
+      exact (Result.ok.inj hok2).symm
+  case Verify p m sig ih =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_verify_iff] at hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [principalClone_id, signatureClone_id, bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      have hbm := ih cutoff tm hcl hm
+      subst hbm
+      exact (Result.ok.inj hok2).symm
+  case Delegate m n ihm ihn =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_delegate_iff] at hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      obtain ⟨tn, hn, hok3⟩ := bind_ok_inv hok2
+      have hbm := ihm cutoff tm hcl.1 hm
+      have hbn := ihn cutoff tn hcl.2 hn
+      subst hbm; subst hbn
+      exact (Result.ok.inj hok3).symm
+  case Attenuate m psi ih =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_attenuate_iff] at hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [propClone_id, bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      have hbm := ih cutoff tm hcl hm
+      subst hbm
+      exact (Result.ok.inj hok2).symm
+  case SaysBind p scrut body ihs ihb =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_saysBind_iff] at hcl
+      obtain ⟨hcls, hclb⟩ := hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [principalClone_id, bind_tc_ok] at hok
+      obtain ⟨ts, hs, hok2⟩ := bind_ok_inv hok
+      obtain ⟨i, hi, hok3⟩ := bind_ok_inv hok2
+      obtain ⟨tb, hb, hok4⟩ := bind_ok_inv hok3
+      have hival : i.val = cutoff.val + 1 := u32_add_one_inv hi
+      have hbs := ihs cutoff ts hcls hs
+      have hbb := ihb i tb (by rw [hival]; exact hclb) hb
+      subst hbs; subst hbb
+      exact (Result.ok.inj hok4).symm
+  case Boxed o m n ihm ihn =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_boxed_iff] at hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [obligationClone_id, bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      obtain ⟨tn, hn, hok3⟩ := bind_ok_inv hok2
+      have hbm := ihm cutoff tm hcl.1 hm
+      have hbn := ihn cutoff tn hcl.2 hn
+      subst hbm; subst hbn
+      exact (Result.ok.inj hok3).symm
+  case Discharge m n ihm ihn =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_discharge_iff] at hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      obtain ⟨tn, hn, hok3⟩ := bind_ok_inv hok2
+      have hbm := ihm cutoff tm hcl.1 hm
+      have hbn := ihn cutoff tn hcl.2 hn
+      subst hbm; subst hbn
+      exact (Result.ok.inj hok3).symm
+  case LiftLabel l m ih =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_liftLabel_iff] at hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [labelClone_id, bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      have hbm := ih cutoff tm hcl hm
+      subst hbm
+      exact (Result.ok.inj hok2).symm
+  case Declassify l m pi ihm ihpi =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_declassify_iff] at hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [labelClone_id, bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      obtain ⟨tpi, hpi, hok3⟩ := bind_ok_inv hok2
+      have hbm := ihm cutoff tm hcl.1 hm
+      have hbpi := ihpi cutoff tpi hcl.2 hpi
+      subst hbm; subst hbpi
+      exact (Result.ok.inj hok3).symm
+  case Now t =>
+      intro cutoff r hcl hok
+      rw [subst.shift.eq_def] at hok
+      simp only [timeBoundClone_id, bind_tc_ok] at hok
+      exact (Result.ok.inj hok).symm
+  case WithinIntro t m ih =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_withinIntro_iff] at hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [timeBoundClone_id, bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      have hbm := ih cutoff tm hcl hm
+      subst hbm
+      exact (Result.ok.inj hok2).symm
+  case Pair a b iha ihb =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_pair_iff] at hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨ta, ha, hok2⟩ := bind_ok_inv hok
+      obtain ⟨tb, hb, hok3⟩ := bind_ok_inv hok2
+      have hba := iha cutoff ta hcl.1 ha
+      have hbb := ihb cutoff tb hcl.2 hb
+      subst hba; subst hbb
+      exact (Result.ok.inj hok3).symm
+  case Fst a ih =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_fst_iff] at hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨ta, ha, hok2⟩ := bind_ok_inv hok
+      have hba := ih cutoff ta hcl ha
+      subst hba
+      exact (Result.ok.inj hok2).symm
+  case Snd a ih =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_snd_iff] at hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨ta, ha, hok2⟩ := bind_ok_inv hok
+      have hba := ih cutoff ta hcl ha
+      subst hba
+      exact (Result.ok.inj hok2).symm
+  case Inl p a ih =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_inl_iff] at hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [propClone_id, bind_tc_ok] at hok
+      obtain ⟨ta, ha, hok2⟩ := bind_ok_inv hok
+      have hba := ih cutoff ta hcl ha
+      subst hba
+      exact (Result.ok.inj hok2).symm
+  case Inr p a ih =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_inr_iff] at hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [propClone_id, bind_tc_ok] at hok
+      obtain ⟨ta, ha, hok2⟩ := bind_ok_inv hok
+      have hba := ih cutoff ta hcl ha
+      subst hba
+      exact (Result.ok.inj hok2).symm
+  case Case scrut left right ihs ihl ihr =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_case_iff] at hcl
+      obtain ⟨hcls, hcll, hclr⟩ := hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨ts, hs, hok2⟩ := bind_ok_inv hok
+      obtain ⟨i, hi, hok3⟩ := bind_ok_inv hok2
+      obtain ⟨tl, hl, hok4⟩ := bind_ok_inv hok3
+      obtain ⟨tr, hr, hok5⟩ := bind_ok_inv hok4
+      have hival : i.val = cutoff.val + 1 := u32_add_one_inv hi
+      have hbs := ihs cutoff ts hcls hs
+      have hbl := ihl i tl (by rw [hival]; exact hcll) hl
+      have hbr := ihr i tr (by rw [hival]; exact hclr) hr
+      subst hbs; subst hbl; subst hbr
+      exact (Result.ok.inj hok5).symm
+  case TensorIntro a b iha ihb =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_tensorIntro_iff] at hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨ta, ha, hok2⟩ := bind_ok_inv hok
+      obtain ⟨tb, hb, hok3⟩ := bind_ok_inv hok2
+      have hba := iha cutoff ta hcl.1 ha
+      have hbb := ihb cutoff tb hcl.2 hb
+      subst hba; subst hbb
+      exact (Result.ok.inj hok3).symm
+  case LetTensor scrut body ihs ihb =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_letTensor_iff] at hcl
+      obtain ⟨hcls, hclb⟩ := hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨ts, hs, hok2⟩ := bind_ok_inv hok
+      obtain ⟨i, hi, hok3⟩ := bind_ok_inv hok2
+      obtain ⟨tb, hb, hok4⟩ := bind_ok_inv hok3
+      have hival : i.val = cutoff.val + 2 := u32_add_two_inv hi
+      have hbs := ihs cutoff ts hcls hs
+      have hbb := ihb i tb (by rw [hival]; exact hclb) hb
+      subst hbs; subst hbb
+      exact (Result.ok.inj hok4).symm
+  case LetSays p scrut body ihs ihb =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_letSays_iff] at hcl
+      obtain ⟨hcls, hclb⟩ := hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [principalClone_id, bind_tc_ok] at hok
+      obtain ⟨ts, hs, hok2⟩ := bind_ok_inv hok
+      obtain ⟨i, hi, hok3⟩ := bind_ok_inv hok2
+      obtain ⟨tb, hb, hok4⟩ := bind_ok_inv hok3
+      have hival : i.val = cutoff.val + 1 := u32_add_one_inv hi
+      have hbs := ihs cutoff ts hcls hs
+      have hbb := ihb i tb (by rw [hival]; exact hclb) hb
+      subst hbs; subst hbb
+      exact (Result.ok.inj hok4).symm
+  case SfExtract m ih =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_sfExtract_iff] at hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      have hbm := ih cutoff tm hcl hm
+      subst hbm
+      exact (Result.ok.inj hok2).symm
+  case Command m c l ihm ihc =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_command_iff] at hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [labelClone_id, bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      obtain ⟨tc, hc, hok3⟩ := bind_ok_inv hok2
+      have hbm := ihm cutoff tm hcl.1 hm
+      have hbc := ihc cutoff tc hcl.2 hc
+      subst hbm; subst hbc
+      exact (Result.ok.inj hok3).symm
+  case RunCmd v s ihv ihs =>
+      intro cutoff r hcl hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_runCmd_iff] at hcl
+      rw [subst.shift.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨tv, hv, hok2⟩ := bind_ok_inv hok
+      obtain ⟨ts, hs, hok3⟩ := bind_ok_inv hok2
+      have hbv := ihv cutoff tv hcl.1 hv
+      have hbs := ihs cutoff ts hcl.2 hs
+      subst hbv; subst hbs
+      exact (Result.ok.inj hok3).symm
+
+/-- **Success-conditioned `substAt` correspondence.** For a value closed at 0, IF the
+generated `subst.subst_at body value depth` returns `ok r` then its decode is the hand
+`DLC.substAt` image — no height/depth fence (success discharges the depth bumps; the
+`Var/eq` shift-of-closed is identity via `shift_ok_closed`). -/
+theorem substAt_corr_ok (value : syntax.Term)
+    (hvcl : DLC.ClosedAbove (decTermC value) 0) (body : syntax.Term) :
+    ∀ (depth : Std.U32) (r : syntax.Term),
+      subst.subst_at body value depth = ok r →
+      decTermC r = DLC.substAt (decTermC body) (decTermC value) depth.val := by
+  induction body
+  case Var i =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      rcases Nat.lt_trichotomy i.val depth.val with hlt | heq | hgt
+      · simp only [core.cmp.impls.OrdU32.cmp, lift, Nat.compare_eq_lt.mpr hlt, bind_tc_ok] at hok
+        have : r = syntax.Term.Var i := (Result.ok.inj hok).symm
+        subst this
+        simp only [decTermC, DLC.substAt, if_neg (by omega : ¬ i.val = depth.val),
+          if_neg (by omega : ¬ i.val > depth.val)]
+      · simp only [core.cmp.impls.OrdU32.cmp, lift, Nat.compare_eq_eq.mpr heq, bind_tc_ok] at hok
+        have hr := shift_ok_closed (UScalar.hcast IScalarTy.I32 depth) value 0#u32 r
+          (by have h0 : (0#u32 : Std.U32).val = 0 := rfl; rw [h0]; exact hvcl) hok
+        subst hr
+        simp only [decTermC, DLC.substAt, if_pos heq]
+        rw [DLC.shift_closed hvcl]
+      · simp only [core.cmp.impls.OrdU32.cmp, lift, Nat.compare_eq_gt.mpr hgt, bind_tc_ok] at hok
+        obtain ⟨i1, hi1, hok2⟩ := bind_ok_inv hok
+        have hi1val : i1.val = i.val - 1 := u32_sub_one_inv hi1
+        have : r = syntax.Term.Var i1 := (Result.ok.inj hok2).symm
+        subst this
+        simp only [decTermC, DLC.substAt, if_neg (by omega : ¬ i.val = depth.val),
+          if_pos (by omega : i.val > depth.val), hi1val]
+  case Lam p inner ih =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [propClone_id, bind_tc_ok] at hok
+      obtain ⟨c1, hc1, hok2⟩ := bind_ok_inv hok
+      obtain ⟨ti, hti, hok3⟩ := bind_ok_inv hok2
+      have hc1val : c1.val = depth.val + 1 := u32_add_one_inv hc1
+      have hid := ih c1 ti hti
+      have : r = syntax.Term.Lam p ti := (Result.ok.inj hok3).symm
+      subst this
+      simp only [decTermC, hid, hc1val, DLC.substAt]
+  case App f x ihf ihx =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨tf, hf, hok2⟩ := bind_ok_inv hok
+      obtain ⟨tx, hx, hok3⟩ := bind_ok_inv hok2
+      have hfd := ihf depth tf hf
+      have hxd := ihx depth tx hx
+      have : r = syntax.Term.App tf tx := (Result.ok.inj hok3).symm
+      subst this
+      simp only [decTermC, hfd, hxd, DLC.substAt]
+  case Sign p m sig ih =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [principalClone_id, signatureClone_id, bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      have hmd := ih depth tm hm
+      have : r = syntax.Term.Sign p tm sig := (Result.ok.inj hok2).symm
+      subst this
+      simp only [decTermC, hmd, DLC.substAt]
+  case Verify p m sig ih =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [principalClone_id, signatureClone_id, bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      have hmd := ih depth tm hm
+      have : r = syntax.Term.Verify p tm sig := (Result.ok.inj hok2).symm
+      subst this
+      simp only [decTermC, hmd, DLC.substAt]
+  case Delegate m n ihm ihn =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      obtain ⟨tn, hn, hok3⟩ := bind_ok_inv hok2
+      have hmd := ihm depth tm hm
+      have hnd := ihn depth tn hn
+      have : r = syntax.Term.Delegate tm tn := (Result.ok.inj hok3).symm
+      subst this
+      simp only [decTermC, hmd, hnd, DLC.substAt]
+  case Attenuate m psi ih =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [propClone_id, bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      have hmd := ih depth tm hm
+      have : r = syntax.Term.Attenuate tm psi := (Result.ok.inj hok2).symm
+      subst this
+      simp only [decTermC, hmd, DLC.substAt]
+  case SaysBind p scrut body ihs ihb =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [principalClone_id, bind_tc_ok] at hok
+      obtain ⟨ts, hs, hok2⟩ := bind_ok_inv hok
+      obtain ⟨c1, hc1, hok3⟩ := bind_ok_inv hok2
+      obtain ⟨tb, hb, hok4⟩ := bind_ok_inv hok3
+      have hc1val : c1.val = depth.val + 1 := u32_add_one_inv hc1
+      have hsd := ihs depth ts hs
+      have hbd := ihb c1 tb hb
+      have : r = syntax.Term.SaysBind p ts tb := (Result.ok.inj hok4).symm
+      subst this
+      simp only [decTermC, hsd, hbd, hc1val, DLC.substAt]
+  case Boxed o m n ihm ihn =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [obligationClone_id, bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      obtain ⟨tn, hn, hok3⟩ := bind_ok_inv hok2
+      have hmd := ihm depth tm hm
+      have hnd := ihn depth tn hn
+      have : r = syntax.Term.Boxed o tm tn := (Result.ok.inj hok3).symm
+      subst this
+      simp only [decTermC, hmd, hnd, DLC.substAt]
+  case Discharge m n ihm ihn =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      obtain ⟨tn, hn, hok3⟩ := bind_ok_inv hok2
+      have hmd := ihm depth tm hm
+      have hnd := ihn depth tn hn
+      have : r = syntax.Term.Discharge tm tn := (Result.ok.inj hok3).symm
+      subst this
+      simp only [decTermC, hmd, hnd, DLC.substAt]
+  case LiftLabel l m ih =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [labelClone_id, bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      have hmd := ih depth tm hm
+      have : r = syntax.Term.LiftLabel l tm := (Result.ok.inj hok2).symm
+      subst this
+      simp only [decTermC, hmd, DLC.substAt]
+  case Declassify l m pi ihm ihpi =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [labelClone_id, bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      obtain ⟨tpi, hpi, hok3⟩ := bind_ok_inv hok2
+      have hmd := ihm depth tm hm
+      have hpid := ihpi depth tpi hpi
+      have : r = syntax.Term.Declassify l tm tpi := (Result.ok.inj hok3).symm
+      subst this
+      simp only [decTermC, hmd, hpid, DLC.substAt]
+  case Now t =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [timeBoundClone_id, bind_tc_ok] at hok
+      have : r = syntax.Term.Now t := (Result.ok.inj hok).symm
+      subst this
+      simp only [decTermC, DLC.substAt]
+  case WithinIntro t m ih =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [timeBoundClone_id, bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      have hmd := ih depth tm hm
+      have : r = syntax.Term.WithinIntro t tm := (Result.ok.inj hok2).symm
+      subst this
+      simp only [decTermC, hmd, DLC.substAt]
+  case Pair a b iha ihb =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨ta, ha, hok2⟩ := bind_ok_inv hok
+      obtain ⟨tb, hb, hok3⟩ := bind_ok_inv hok2
+      have had := iha depth ta ha
+      have hbd := ihb depth tb hb
+      have : r = syntax.Term.Pair ta tb := (Result.ok.inj hok3).symm
+      subst this
+      simp only [decTermC, had, hbd, DLC.substAt]
+  case Fst a ih =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨ta, ha, hok2⟩ := bind_ok_inv hok
+      have had := ih depth ta ha
+      have : r = syntax.Term.Fst ta := (Result.ok.inj hok2).symm
+      subst this
+      simp only [decTermC, had, DLC.substAt]
+  case Snd a ih =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨ta, ha, hok2⟩ := bind_ok_inv hok
+      have had := ih depth ta ha
+      have : r = syntax.Term.Snd ta := (Result.ok.inj hok2).symm
+      subst this
+      simp only [decTermC, had, DLC.substAt]
+  case Inl p a ih =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [propClone_id, bind_tc_ok] at hok
+      obtain ⟨ta, ha, hok2⟩ := bind_ok_inv hok
+      have had := ih depth ta ha
+      have : r = syntax.Term.Inl p ta := (Result.ok.inj hok2).symm
+      subst this
+      simp only [decTermC, had, DLC.substAt]
+  case Inr p a ih =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [propClone_id, bind_tc_ok] at hok
+      obtain ⟨ta, ha, hok2⟩ := bind_ok_inv hok
+      have had := ih depth ta ha
+      have : r = syntax.Term.Inr p ta := (Result.ok.inj hok2).symm
+      subst this
+      simp only [decTermC, had, DLC.substAt]
+  case Case scrut left right ihs ihl ihr =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨ts, hs, hok2⟩ := bind_ok_inv hok
+      obtain ⟨c1, hc1, hok3⟩ := bind_ok_inv hok2
+      obtain ⟨tl, hl, hok4⟩ := bind_ok_inv hok3
+      obtain ⟨tr, hr, hok5⟩ := bind_ok_inv hok4
+      have hc1val : c1.val = depth.val + 1 := u32_add_one_inv hc1
+      have hsd := ihs depth ts hs
+      have hld := ihl c1 tl hl
+      have hrd := ihr c1 tr hr
+      have : r = syntax.Term.Case ts tl tr := (Result.ok.inj hok5).symm
+      subst this
+      simp only [decTermC, hsd, hld, hrd, hc1val, DLC.substAt]
+  case TensorIntro a b iha ihb =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨ta, ha, hok2⟩ := bind_ok_inv hok
+      obtain ⟨tb, hb, hok3⟩ := bind_ok_inv hok2
+      have had := iha depth ta ha
+      have hbd := ihb depth tb hb
+      have : r = syntax.Term.TensorIntro ta tb := (Result.ok.inj hok3).symm
+      subst this
+      simp only [decTermC, had, hbd, DLC.substAt]
+  case LetTensor scrut body ihs ihb =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨ts, hs, hok2⟩ := bind_ok_inv hok
+      obtain ⟨c2, hc2, hok3⟩ := bind_ok_inv hok2
+      obtain ⟨tb, hb, hok4⟩ := bind_ok_inv hok3
+      have hc2val : c2.val = depth.val + 2 := u32_add_two_inv hc2
+      have hsd := ihs depth ts hs
+      have hbd := ihb c2 tb hb
+      have : r = syntax.Term.LetTensor ts tb := (Result.ok.inj hok4).symm
+      subst this
+      simp only [decTermC, hsd, hbd, hc2val, DLC.substAt]
+  case LetSays p scrut body ihs ihb =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [principalClone_id, bind_tc_ok] at hok
+      obtain ⟨ts, hs, hok2⟩ := bind_ok_inv hok
+      obtain ⟨c1, hc1, hok3⟩ := bind_ok_inv hok2
+      obtain ⟨tb, hb, hok4⟩ := bind_ok_inv hok3
+      have hc1val : c1.val = depth.val + 1 := u32_add_one_inv hc1
+      have hsd := ihs depth ts hs
+      have hbd := ihb c1 tb hb
+      have : r = syntax.Term.LetSays p ts tb := (Result.ok.inj hok4).symm
+      subst this
+      simp only [decTermC, hsd, hbd, hc1val, DLC.substAt]
+  case SfExtract m ih =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      have hmd := ih depth tm hm
+      have : r = syntax.Term.SfExtract tm := (Result.ok.inj hok2).symm
+      subst this
+      simp only [decTermC, hmd, DLC.substAt]
+  case Command m c l ihm ihc =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [labelClone_id, bind_tc_ok] at hok
+      obtain ⟨tm, hm, hok2⟩ := bind_ok_inv hok
+      obtain ⟨tc, hc, hok3⟩ := bind_ok_inv hok2
+      have hmd := ihm depth tm hm
+      have hcd := ihc depth tc hc
+      have : r = syntax.Term.Command tm tc l := (Result.ok.inj hok3).symm
+      subst this
+      simp only [decTermC, hmd, hcd, DLC.substAt]
+  case RunCmd v s ihv ihs =>
+      intro depth r hok
+      rw [subst.subst_at.eq_def] at hok
+      simp only [bind_tc_ok] at hok
+      obtain ⟨tv, hv, hok2⟩ := bind_ok_inv hok
+      obtain ⟨ts, hs, hok3⟩ := bind_ok_inv hok2
+      have hvd := ihv depth tv hv
+      have hsd := ihs depth ts hs
+      have : r = syntax.Term.RunCmd tv ts := (Result.ok.inj hok3).symm
+      subst this
+      simp only [decTermC, hvd, hsd, DLC.substAt]
+
+/-- Success-conditioned `subst` (depth-0 corollary of `substAt_corr_ok`). -/
+theorem subst_corr_ok (body value : syntax.Term)
+    (hvcl : DLC.ClosedAbove (decTermC value) 0) (r : syntax.Term)
+    (hok : subst.subst body value = ok r) :
+    decTermC r = DLC.subst (decTermC body) (decTermC value) := by
+  simp only [subst.subst] at hok
+  have h := substAt_corr_ok value hvcl body 0#u32 r hok
+  have h0 : (0#u32 : Std.U32).val = 0 := rfl
+  rw [h0] at h
+  simpa only [DLC.subst] using h
+
+/-- **★ Success-conditioned single-step correspondence** (the R2.3c crux). On a CLOSED
+term, IF the generated `reduce.step` returns `ok r`, then its decode is the hand
+`DLC.step` image — the `heightB` fence of `step_corr` dropped, replaced by the success
+hypothesis. The 15 value/frozen forms are inert; the 11 elimination forms route β
+through the height-free `subst_corr_ok`/`shift_ok_closed` and ξ-congruence through the
+child IH + the `handStep_*_cong` lemmas. No height fence anywhere. -/
+theorem step_corr_ok : ∀ (t : syntax.Term), DLC.ClosedAbove (decTermC t) 0 →
+    ∀ (r : Option syntax.Term), reduce.step t = ok r →
+    Option.map decTermC r = DLC.step (decTermC t) := by
+  intro t
+  induction t with
+  | Var i => intro hcl r hok
+             simp only [reduce.step, Result.ok.injEq] at hok
+             subst hok; simp only [Option.map_none, decTermC, DLC.step]
+  | Lam p body _ => intro hcl r hok
+                    simp only [reduce.step, Result.ok.injEq] at hok
+                    subst hok; simp only [Option.map_none, decTermC, DLC.step]
+  | App f x ihf _ =>
+      intro hcl r hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_app_iff] at hcl
+      cases f
+      case Lam p body =>
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok] at hok
+          obtain ⟨t1, ht1, hok2⟩ := bind_ok_inv hok
+          rw [← Result.ok.inj hok2]
+          have hsd := subst_corr_ok body x hcl.2 t1 ht1
+          simp only [Option.map_some, hsd, decTermC, DLC.step]
+      all_goals
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok] at hok
+          obtain ⟨o, ho, hok2⟩ := bind_ok_inv hok
+          have IH := ihf hcl.1 o ho
+          simp only [decTermC] at IH
+          cases o with
+          | none =>
+              simp only [] at hok2
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_none, decTermC]
+              rw [handStep_app_cong _ _ (by intro _ _ h; cases h), ← IH]
+              simp only [Option.map_none]
+          | some f2 =>
+              simp only [termClone_id, bind_tc_ok] at hok2
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_some, decTermC]
+              rw [handStep_app_cong _ _ (by intro _ _ h; cases h), ← IH]
+              simp only [Option.map_some, decTermC]
+  | Sign p m sig _ => intro hcl r hok
+                      simp only [reduce.step, Result.ok.injEq] at hok
+                      subst hok; simp only [Option.map_none, decTermC, DLC.step]
+  | Verify p m sig _ => intro hcl r hok
+                        simp only [reduce.step, Result.ok.injEq] at hok
+                        subst hok; simp only [Option.map_none, decTermC, DLC.step]
+  | Delegate m n ihm ihn =>
+      intro hcl r hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_delegate_iff] at hcl
+      obtain ⟨hclm, hcln⟩ := hcl
+      cases m
+      case Sign pm mi si =>
+          cases n
+          case Sign pn inner sig =>
+              rw [reduce.step] at hok
+              simp only [Box.Insts.CoreConvertAsRef.as_ref, principalClone_id, signatureClone_id,
+                termClone_id, bind_tc_ok] at hok
+              rw [← Result.ok.inj hok]
+              simp only [Option.map_some, decTermC, decPrin, DLC.step]
+          all_goals
+              rw [reduce.step] at hok
+              simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok] at hok
+              obtain ⟨o, ho, hok2⟩ := bind_ok_inv hok
+              have IHn := ihn hcln o ho
+              simp only [decTermC] at IHn
+              cases o with
+              | none =>
+                  simp only [] at hok2
+                  rw [← Result.ok.inj hok2]
+                  simp only [Option.map_none, decTermC]
+                  rw [handStep_delegate_congN _ _ _ _ (by intro _ _ _ h; cases h), ← IHn]
+                  simp only [Option.map_none]
+              | some n2 =>
+                  simp only [principalClone_id, signatureClone_id, termClone_id, bind_tc_ok] at hok2
+                  rw [← Result.ok.inj hok2]
+                  simp only [Option.map_some, decTermC]
+                  rw [handStep_delegate_congN _ _ _ _ (by intro _ _ _ h; cases h), ← IHn]
+                  simp only [Option.map_some, decTermC]
+      all_goals
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok] at hok
+          obtain ⟨o, ho, hok2⟩ := bind_ok_inv hok
+          have IHm := ihm hclm o ho
+          simp only [decTermC] at IHm
+          cases o with
+          | none =>
+              simp only [] at hok2
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_none, decTermC]
+              rw [handStep_delegate_congM _ _ (by intro _ _ _ h; cases h), ← IHm]
+              simp only [Option.map_none]
+          | some m2 =>
+              simp only [termClone_id, bind_tc_ok] at hok2
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_some, decTermC]
+              rw [handStep_delegate_congM _ _ (by intro _ _ _ h; cases h), ← IHm]
+              simp only [Option.map_some, decTermC]
+  | Attenuate m psi _ => intro hcl r hok
+                         simp only [reduce.step, Result.ok.injEq] at hok
+                         subst hok; simp only [Option.map_none, decTermC, DLC.step]
+  | SaysBind p s body ihs _ =>
+      intro hcl r hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_saysBind_iff] at hcl
+      obtain ⟨hcls, hclb⟩ := hcl
+      cases s
+      case Sign p2 m sg =>
+          simp only [decTermC] at hcls
+          rw [DLC.closedAbove_sign_iff] at hcls
+          obtain ⟨bb, hbb, hbP⟩ := principalEq_corr p p2
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, hbb, bind_tc_ok] at hok
+          cases hbv : bb with
+          | true =>
+              rw [hbv] at hok
+              simp only [if_true, bind_tc_ok] at hok
+              obtain ⟨t, ht, hok2⟩ := bind_ok_inv hok
+              rw [← Result.ok.inj hok2]
+              have hd := subst_corr_ok body m hcls t ht
+              have hpeq : decPrin p = decPrin p2 := hbP.mp hbv
+              simp only [Option.map_some, hd, decTermC, DLC.step]
+              rw [if_pos hpeq]
+          | false =>
+              rw [hbv] at hok
+              rw [if_neg (show ¬((false : Bool) = true) from by decide)] at hok
+              rw [← Result.ok.inj hok]
+              have hpne : decPrin p ≠ decPrin p2 := fun h => by
+                have := hbP.mpr h; rw [hbv] at this; exact absurd this (by decide)
+              simp only [Option.map_none, decTermC, DLC.step]
+              rw [if_neg hpne]
+      all_goals
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok] at hok
+          obtain ⟨o, ho, hok2⟩ := bind_ok_inv hok
+          have IH := ihs hcls o ho
+          simp only [decTermC] at IH
+          cases o with
+          | none =>
+              simp only [] at hok2
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_none, decTermC]
+              rw [handStep_saysBind_cong _ _ _ (by intro _ _ _ h; cases h), ← IH]
+              simp only [Option.map_none]
+          | some s2 =>
+              simp only [principalClone_id, termClone_id, bind_tc_ok] at hok2
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_some, decTermC]
+              rw [handStep_saysBind_cong _ _ _ (by intro _ _ _ h; cases h), ← IH]
+              simp only [Option.map_some, decTermC]
+  | Boxed o m n _ _ => intro hcl r hok
+                       simp only [reduce.step, Result.ok.injEq] at hok
+                       subst hok; simp only [Option.map_none, decTermC, DLC.step]
+  | Discharge m n ihm _ =>
+      intro hcl r hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_discharge_iff] at hcl
+      cases m
+      case Boxed o inner nn =>
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, termClone_id, bind_tc_ok] at hok
+          rw [← Result.ok.inj hok]
+          simp only [Option.map_some, decTermC, DLC.step]
+      all_goals
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok] at hok
+          obtain ⟨o, ho, hok2⟩ := bind_ok_inv hok
+          have IH := ihm hcl.1 o ho
+          simp only [decTermC] at IH
+          cases o with
+          | none =>
+              simp only [] at hok2
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_none, decTermC]
+              rw [handStep_discharge_cong _ _ (by intro _ _ _ h; cases h), ← IH]
+              simp only [Option.map_none]
+          | some m2 =>
+              simp only [termClone_id, bind_tc_ok] at hok2
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_some, decTermC]
+              rw [handStep_discharge_cong _ _ (by intro _ _ _ h; cases h), ← IH]
+              simp only [Option.map_some, decTermC]
+  | LiftLabel l m _ => intro hcl r hok
+                       simp only [reduce.step, Result.ok.injEq] at hok
+                       subst hok; simp only [Option.map_none, decTermC, DLC.step]
+  | Declassify l m pi _ _ => intro hcl r hok
+                             simp only [reduce.step, Result.ok.injEq] at hok
+                             subst hok; simp only [Option.map_none, decTermC, DLC.step]
+  | Now t => intro hcl r hok
+             simp only [reduce.step, Result.ok.injEq] at hok
+             subst hok; simp only [Option.map_none, decTermC, DLC.step]
+  | WithinIntro t m _ => intro hcl r hok
+                         simp only [reduce.step, Result.ok.injEq] at hok
+                         subst hok; simp only [Option.map_none, decTermC, DLC.step]
+  | Pair a b _ _ => intro hcl r hok
+                    simp only [reduce.step, Result.ok.injEq] at hok
+                    subst hok; simp only [Option.map_none, decTermC, DLC.step]
+  | Fst a iha =>
+      intro hcl r hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_fst_iff] at hcl
+      cases a
+      case Pair a1 a2 =>
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, termClone_id, bind_tc_ok] at hok
+          rw [← Result.ok.inj hok]
+          simp only [Option.map_some, decTermC, DLC.step]
+      all_goals
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok] at hok
+          obtain ⟨o, ho, hok2⟩ := bind_ok_inv hok
+          have IH := iha hcl o ho
+          simp only [decTermC] at IH
+          cases o with
+          | none =>
+              simp only [] at hok2
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_none, decTermC]
+              rw [handStep_fst_cong _ (by intro _ _ h; cases h), ← IH]
+              simp only [Option.map_none]
+          | some a2 =>
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_some, decTermC]
+              rw [handStep_fst_cong _ (by intro _ _ h; cases h), ← IH]
+              simp only [Option.map_some, decTermC]
+  | Snd a iha =>
+      intro hcl r hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_snd_iff] at hcl
+      cases a
+      case Pair a1 a2 =>
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, termClone_id, bind_tc_ok] at hok
+          rw [← Result.ok.inj hok]
+          simp only [Option.map_some, decTermC, DLC.step]
+      all_goals
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok] at hok
+          obtain ⟨o, ho, hok2⟩ := bind_ok_inv hok
+          have IH := iha hcl o ho
+          simp only [decTermC] at IH
+          cases o with
+          | none =>
+              simp only [] at hok2
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_none, decTermC]
+              rw [handStep_snd_cong _ (by intro _ _ h; cases h), ← IH]
+              simp only [Option.map_none]
+          | some a2 =>
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_some, decTermC]
+              rw [handStep_snd_cong _ (by intro _ _ h; cases h), ← IH]
+              simp only [Option.map_some, decTermC]
+  | Inl p a _ => intro hcl r hok
+                 simp only [reduce.step, Result.ok.injEq] at hok
+                 subst hok; simp only [Option.map_none, decTermC, DLC.step]
+  | Inr p a _ => intro hcl r hok
+                 simp only [reduce.step, Result.ok.injEq] at hok
+                 subst hok; simp only [Option.map_none, decTermC, DLC.step]
+  | Case s l r2 ihs _ _ =>
+      intro hcl r hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_case_iff] at hcl
+      obtain ⟨hcls, hcll, hclr⟩ := hcl
+      cases s
+      case Inl p a =>
+          simp only [decTermC] at hcls
+          rw [DLC.closedAbove_inl_iff] at hcls
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok] at hok
+          obtain ⟨t1, ht1, hok2⟩ := bind_ok_inv hok
+          rw [← Result.ok.inj hok2]
+          have hd := subst_corr_ok l a hcls t1 ht1
+          simp only [Option.map_some, hd, decTermC, DLC.step]
+      case Inr p a =>
+          simp only [decTermC] at hcls
+          rw [DLC.closedAbove_inr_iff] at hcls
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok] at hok
+          obtain ⟨t1, ht1, hok2⟩ := bind_ok_inv hok
+          rw [← Result.ok.inj hok2]
+          have hd := subst_corr_ok r2 a hcls t1 ht1
+          simp only [Option.map_some, hd, decTermC, DLC.step]
+      all_goals
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok] at hok
+          obtain ⟨o, ho, hok2⟩ := bind_ok_inv hok
+          have IH := ihs hcls o ho
+          simp only [decTermC] at IH
+          cases o with
+          | none =>
+              simp only [] at hok2
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_none, decTermC]
+              rw [handStep_case_cong _ _ _ (by intro _ _ h; cases h) (by intro _ _ h; cases h), ← IH]
+              simp only [Option.map_none]
+          | some s2 =>
+              simp only [termClone_id, bind_tc_ok] at hok2
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_some, decTermC]
+              rw [handStep_case_cong _ _ _ (by intro _ _ h; cases h) (by intro _ _ h; cases h), ← IH]
+              simp only [Option.map_some, decTermC]
+  | TensorIntro a b _ _ => intro hcl r hok
+                           simp only [reduce.step, Result.ok.injEq] at hok
+                           subst hok; simp only [Option.map_none, decTermC, DLC.step]
+  | LetTensor s body ihs _ =>
+      intro hcl r hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_letTensor_iff] at hcl
+      obtain ⟨hcls, hclb⟩ := hcl
+      cases s
+      case TensorIntro a b =>
+          simp only [decTermC] at hcls
+          rw [DLC.closedAbove_tensorIntro_iff] at hcls
+          obtain ⟨hca, hcb⟩ := hcls
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok] at hok
+          obtain ⟨t1, ht1, hok2⟩ := bind_ok_inv hok
+          obtain ⟨t2, ht2, hok3⟩ := bind_ok_inv hok2
+          obtain ⟨t3, ht3, hok4⟩ := bind_ok_inv hok3
+          have ht1e : t1 = a := shift_ok_closed 1#i32 a 0#u32 t1
+            (by have h0 : (0#u32 : Std.U32).val = 0 := rfl; rw [h0]; exact hca) ht1
+          subst ht1e
+          rw [← Result.ok.inj hok4]
+          have hd2 := subst_corr_ok body t1 hca t2 ht2
+          have hd3 := subst_corr_ok t2 b hcb t3 ht3
+          simp only [Option.map_some, hd3, hd2, decTermC, DLC.step]
+          rw [DLC.shift_closed hca]
+      all_goals
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok] at hok
+          obtain ⟨o, ho, hok2⟩ := bind_ok_inv hok
+          have IH := ihs hcls o ho
+          simp only [decTermC] at IH
+          cases o with
+          | none =>
+              simp only [] at hok2
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_none, decTermC]
+              rw [handStep_letTensor_cong _ _ (by intro _ _ h; cases h), ← IH]
+              simp only [Option.map_none]
+          | some s2 =>
+              simp only [termClone_id, bind_tc_ok] at hok2
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_some, decTermC]
+              rw [handStep_letTensor_cong _ _ (by intro _ _ h; cases h), ← IH]
+              simp only [Option.map_some, decTermC]
+  | LetSays p s body ihs _ =>
+      intro hcl r hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_letSays_iff] at hcl
+      obtain ⟨hcls, hclb⟩ := hcl
+      cases s
+      case Sign p2 m sg =>
+          simp only [decTermC] at hcls
+          rw [DLC.closedAbove_sign_iff] at hcls
+          obtain ⟨bb, hbb, hbP⟩ := principalEq_corr p p2
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, hbb, bind_tc_ok] at hok
+          cases hbv : bb with
+          | true =>
+              rw [hbv] at hok
+              simp only [if_true, bind_tc_ok] at hok
+              obtain ⟨t, ht, hok2⟩ := bind_ok_inv hok
+              rw [← Result.ok.inj hok2]
+              have hd := subst_corr_ok body m hcls t ht
+              have hpeq : decPrin p = decPrin p2 := hbP.mp hbv
+              simp only [Option.map_some, hd, decTermC, DLC.step]
+              rw [if_pos hpeq]
+          | false =>
+              rw [hbv] at hok
+              rw [if_neg (show ¬((false : Bool) = true) from by decide)] at hok
+              rw [← Result.ok.inj hok]
+              have hpne : decPrin p ≠ decPrin p2 := fun h => by
+                have := hbP.mpr h; rw [hbv] at this; exact absurd this (by decide)
+              simp only [Option.map_none, decTermC, DLC.step]
+              rw [if_neg hpne]
+      all_goals
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok] at hok
+          obtain ⟨o, ho, hok2⟩ := bind_ok_inv hok
+          have IH := ihs hcls o ho
+          simp only [decTermC] at IH
+          cases o with
+          | none =>
+              simp only [] at hok2
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_none, decTermC]
+              rw [handStep_letSays_cong _ _ _ (by intro _ _ _ h; cases h), ← IH]
+              simp only [Option.map_none]
+          | some s2 =>
+              simp only [principalClone_id, termClone_id, bind_tc_ok] at hok2
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_some, decTermC]
+              rw [handStep_letSays_cong _ _ _ (by intro _ _ _ h; cases h), ← IH]
+              simp only [Option.map_some, decTermC]
+  | SfExtract m ihm =>
+      intro hcl r hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_sfExtract_iff] at hcl
+      cases m
+      case Sign p inner sg =>
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, termClone_id, bind_tc_ok] at hok
+          rw [← Result.ok.inj hok]
+          simp only [Option.map_some, decTermC, DLC.step]
+      all_goals
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok] at hok
+          obtain ⟨o, ho, hok2⟩ := bind_ok_inv hok
+          have IH := ihm hcl o ho
+          simp only [decTermC] at IH
+          cases o with
+          | none =>
+              simp only [] at hok2
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_none, decTermC]
+              rw [handStep_sfExtract_cong _ (by intro _ _ _ h; cases h), ← IH]
+              simp only [Option.map_none]
+          | some m2 =>
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_some, decTermC]
+              rw [handStep_sfExtract_cong _ (by intro _ _ _ h; cases h), ← IH]
+              simp only [Option.map_some, decTermC]
+  | Command m c l _ _ => intro hcl r hok
+                         simp only [reduce.step, Result.ok.injEq] at hok
+                         subst hok; simp only [Option.map_none, decTermC, DLC.step]
+  | RunCmd v s ihv _ =>
+      intro hcl r hok
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_runCmd_iff] at hcl
+      cases v
+      case Command cm cc cl =>
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, labelClone_id, termClone_id,
+            bind_tc_ok] at hok
+          rw [← Result.ok.inj hok]
+          simp only [Option.map_some, decTermC, DLC.step]
+      all_goals
+          rw [reduce.step] at hok
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok] at hok
+          obtain ⟨o, ho, hok2⟩ := bind_ok_inv hok
+          have IH := ihv hcl.1 o ho
+          simp only [decTermC] at IH
+          cases o with
+          | none =>
+              simp only [] at hok2
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_none, decTermC]
+              rw [handStep_runCmd_cong _ _ (by intro _ _ _ h; cases h), ← IH]
+              simp only [Option.map_none]
+          | some v2 =>
+              simp only [termClone_id, bind_tc_ok] at hok2
+              rw [← Result.ok.inj hok2]
+              simp only [Option.map_some, decTermC]
+              rw [handStep_runCmd_cong _ _ (by intro _ _ _ h; cases h), ← IH]
+              simp only [Option.map_some, decTermC]
+
+/-- **Hand-side closedness preservation under `DLC.step`.** `DLC.step` is call-by-name
+top-level (never descends under a binder), so a closed term steps to a closed term —
+each β-redex substitutes a closed value (`closed_subst`/`substAt_closes`), each
+`LetTensor` β composes two closed substitutions (the shifted first component is
+identity on the closed value, `shift_closed`), and each ξ-congruence rebuilds the
+elimination form around the closed stepped scrutinee (child IH). This is the hand-model
+companion the fuel loop needs to keep the closedness invariant. -/
+theorem step_preserves_closed : ∀ (M : DLC.Term), DLC.ClosedAbove M 0 →
+    ∀ (M' : DLC.Term), DLC.step M = some M' → DLC.ClosedAbove M' 0 := by
+  intro M
+  induction M with
+  | var i => intro _ M' hstep; exact absurd hstep (by simp [DLC.step])
+  | lam φ body _ => intro _ M' hstep; exact absurd hstep (by simp [DLC.step])
+  | app f x ihf _ =>
+      intro hcl M' hstep
+      rw [DLC.closedAbove_app_iff] at hcl
+      cases f
+      case lam φ body =>
+          simp only [DLC.step] at hstep
+          obtain rfl := (Option.some.inj hstep).symm
+          exact DLC.closed_subst hcl.2 (DLC.closedAbove_lam_iff.mp hcl.1)
+      all_goals
+          rw [handStep_app_cong _ _ (by intro _ _ h; cases h)] at hstep
+          split at hstep
+          next f' hsf =>
+              obtain rfl := (Option.some.inj hstep).symm
+              rw [DLC.closedAbove_app_iff]
+              exact ⟨ihf hcl.1 f' hsf, hcl.2⟩
+          next hsf => exact absurd hstep (by simp)
+  | sign p m sig _ => intro _ M' hstep; exact absurd hstep (by simp [DLC.step])
+  | verify p m sig _ => intro _ M' hstep; exact absurd hstep (by simp [DLC.step])
+  | delegate m n ihm ihn =>
+      intro hcl M' hstep
+      rw [DLC.closedAbove_delegate_iff] at hcl
+      obtain ⟨hclm, hcln⟩ := hcl
+      cases m
+      case sign pm mi si =>
+          cases n
+          case sign pn inner sig =>
+              simp only [DLC.step] at hstep
+              obtain rfl := (Option.some.inj hstep).symm
+              rw [DLC.closedAbove_sign_iff]
+              exact DLC.closedAbove_sign_iff.mp hcln
+          all_goals
+              rw [handStep_delegate_congN _ _ _ _ (by intro _ _ _ h; cases h)] at hstep
+              split at hstep
+              next n' hsn =>
+                  obtain rfl := (Option.some.inj hstep).symm
+                  rw [DLC.closedAbove_delegate_iff]
+                  exact ⟨hclm, ihn hcln n' hsn⟩
+              next hsn => exact absurd hstep (by simp)
+      all_goals
+          rw [handStep_delegate_congM _ _ (by intro _ _ _ h; cases h)] at hstep
+          split at hstep
+          next m' hsm =>
+              obtain rfl := (Option.some.inj hstep).symm
+              rw [DLC.closedAbove_delegate_iff]
+              exact ⟨ihm hclm m' hsm, hcln⟩
+          next hsm => exact absurd hstep (by simp)
+  | attenuate m ψ _ => intro _ M' hstep; exact absurd hstep (by simp [DLC.step])
+  | saysBind p s body ihs _ =>
+      intro hcl M' hstep
+      rw [DLC.closedAbove_saysBind_iff] at hcl
+      obtain ⟨hcls, hclb⟩ := hcl
+      cases s
+      case sign p' m sg =>
+          simp only [DLC.step] at hstep
+          by_cases hpp : p = p'
+          · rw [if_pos hpp] at hstep
+            obtain rfl := (Option.some.inj hstep).symm
+            exact DLC.closed_subst (DLC.closedAbove_sign_iff.mp hcls) hclb
+          · rw [if_neg hpp] at hstep; exact absurd hstep (by simp)
+      all_goals
+          rw [handStep_saysBind_cong _ _ _ (by intro _ _ _ h; cases h)] at hstep
+          split at hstep
+          next s' hss =>
+              obtain rfl := (Option.some.inj hstep).symm
+              rw [DLC.closedAbove_saysBind_iff]
+              exact ⟨ihs hcls s' hss, hclb⟩
+          next hss => exact absurd hstep (by simp)
+  | boxed O m n _ _ => intro _ M' hstep; exact absurd hstep (by simp [DLC.step])
+  | discharge m p ihm _ =>
+      intro hcl M' hstep
+      rw [DLC.closedAbove_discharge_iff] at hcl
+      obtain ⟨hclm, hclp⟩ := hcl
+      cases m
+      case boxed O inner nn =>
+          simp only [DLC.step] at hstep
+          obtain rfl := (Option.some.inj hstep).symm
+          exact (DLC.closedAbove_boxed_iff.mp hclm).1
+      all_goals
+          rw [handStep_discharge_cong _ _ (by intro _ _ _ h; cases h)] at hstep
+          split at hstep
+          next m' hsm =>
+              obtain rfl := (Option.some.inj hstep).symm
+              rw [DLC.closedAbove_discharge_iff]
+              exact ⟨ihm hclm m' hsm, hclp⟩
+          next hsm => exact absurd hstep (by simp)
+  | liftLabel ℓ m _ => intro _ M' hstep; exact absurd hstep (by simp [DLC.step])
+  | declassify ℓ m π _ _ => intro _ M' hstep; exact absurd hstep (by simp [DLC.step])
+  | now τ => intro _ M' hstep; exact absurd hstep (by simp [DLC.step])
+  | withinIntro τ m _ => intro _ M' hstep; exact absurd hstep (by simp [DLC.step])
+  | pair a b _ _ => intro _ M' hstep; exact absurd hstep (by simp [DLC.step])
+  | fst a iha =>
+      intro hcl M' hstep
+      rw [DLC.closedAbove_fst_iff] at hcl
+      cases a
+      case pair a1 a2 =>
+          simp only [DLC.step] at hstep
+          obtain rfl := (Option.some.inj hstep).symm
+          exact (DLC.closedAbove_pair_iff.mp hcl).1
+      all_goals
+          rw [handStep_fst_cong _ (by intro _ _ h; cases h)] at hstep
+          split at hstep
+          next a' hsa =>
+              obtain rfl := (Option.some.inj hstep).symm
+              rw [DLC.closedAbove_fst_iff]
+              exact iha hcl a' hsa
+          next hsa => exact absurd hstep (by simp)
+  | snd a iha =>
+      intro hcl M' hstep
+      rw [DLC.closedAbove_snd_iff] at hcl
+      cases a
+      case pair a1 a2 =>
+          simp only [DLC.step] at hstep
+          obtain rfl := (Option.some.inj hstep).symm
+          exact (DLC.closedAbove_pair_iff.mp hcl).2
+      all_goals
+          rw [handStep_snd_cong _ (by intro _ _ h; cases h)] at hstep
+          split at hstep
+          next a' hsa =>
+              obtain rfl := (Option.some.inj hstep).symm
+              rw [DLC.closedAbove_snd_iff]
+              exact iha hcl a' hsa
+          next hsa => exact absurd hstep (by simp)
+  | inl ψ a _ => intro _ M' hstep; exact absurd hstep (by simp [DLC.step])
+  | inr φ a _ => intro _ M' hstep; exact absurd hstep (by simp [DLC.step])
+  | case s l r ihs _ _ =>
+      intro hcl M' hstep
+      rw [DLC.closedAbove_case_iff] at hcl
+      obtain ⟨hcls, hcll, hclr⟩ := hcl
+      cases s
+      case inl ψ a =>
+          simp only [DLC.step] at hstep
+          obtain rfl := (Option.some.inj hstep).symm
+          exact DLC.closed_subst (DLC.closedAbove_inl_iff.mp hcls) hcll
+      case inr φ a =>
+          simp only [DLC.step] at hstep
+          obtain rfl := (Option.some.inj hstep).symm
+          exact DLC.closed_subst (DLC.closedAbove_inr_iff.mp hcls) hclr
+      all_goals
+          rw [handStep_case_cong _ _ _ (by intro _ _ h; cases h) (by intro _ _ h; cases h)] at hstep
+          split at hstep
+          next s' hss =>
+              obtain rfl := (Option.some.inj hstep).symm
+              rw [DLC.closedAbove_case_iff]
+              exact ⟨ihs hcls s' hss, hcll, hclr⟩
+          next hss => exact absurd hstep (by simp)
+  | tensorIntro a b _ _ => intro _ M' hstep; exact absurd hstep (by simp [DLC.step])
+  | letTensor s body ihs _ =>
+      intro hcl M' hstep
+      rw [DLC.closedAbove_letTensor_iff] at hcl
+      obtain ⟨hcls, hclb⟩ := hcl
+      cases s
+      case tensorIntro a b =>
+          simp only [DLC.step] at hstep
+          obtain rfl := (Option.some.inj hstep).symm
+          obtain ⟨hca, hcb⟩ := DLC.closedAbove_tensorIntro_iff.mp hcls
+          rw [DLC.shift_closed hca]
+          have hinner : DLC.ClosedAbove (DLC.subst body a) 1 :=
+            DLC.substAt_closes_gen hca body 1 0 hclb (by omega)
+          exact DLC.substAt_closes b hcb hinner
+      all_goals
+          rw [handStep_letTensor_cong _ _ (by intro _ _ h; cases h)] at hstep
+          split at hstep
+          next s' hss =>
+              obtain rfl := (Option.some.inj hstep).symm
+              rw [DLC.closedAbove_letTensor_iff]
+              exact ⟨ihs hcls s' hss, hclb⟩
+          next hss => exact absurd hstep (by simp)
+  | letSays p s body ihs _ =>
+      intro hcl M' hstep
+      rw [DLC.closedAbove_letSays_iff] at hcl
+      obtain ⟨hcls, hclb⟩ := hcl
+      cases s
+      case sign p' m sg =>
+          simp only [DLC.step] at hstep
+          by_cases hpp : p = p'
+          · rw [if_pos hpp] at hstep
+            obtain rfl := (Option.some.inj hstep).symm
+            exact DLC.closed_subst (DLC.closedAbove_sign_iff.mp hcls) hclb
+          · rw [if_neg hpp] at hstep; exact absurd hstep (by simp)
+      all_goals
+          rw [handStep_letSays_cong _ _ _ (by intro _ _ _ h; cases h)] at hstep
+          split at hstep
+          next s' hss =>
+              obtain rfl := (Option.some.inj hstep).symm
+              rw [DLC.closedAbove_letSays_iff]
+              exact ⟨ihs hcls s' hss, hclb⟩
+          next hss => exact absurd hstep (by simp)
+  | sfExtract m ihm =>
+      intro hcl M' hstep
+      rw [DLC.closedAbove_sfExtract_iff] at hcl
+      cases m
+      case sign p inner sg =>
+          simp only [DLC.step] at hstep
+          obtain rfl := (Option.some.inj hstep).symm
+          exact (DLC.closedAbove_sign_iff.mp hcl)
+      all_goals
+          rw [handStep_sfExtract_cong _ (by intro _ _ _ h; cases h)] at hstep
+          split at hstep
+          next m' hsm =>
+              obtain rfl := (Option.some.inj hstep).symm
+              rw [DLC.closedAbove_sfExtract_iff]
+              exact ihm hcl m' hsm
+          next hsm => exact absurd hstep (by simp)
+  | command m cr ℓ _ _ => intro _ M' hstep; exact absurd hstep (by simp [DLC.step])
+  | runCmd v s ihv _ =>
+      intro hcl M' hstep
+      rw [DLC.closedAbove_runCmd_iff] at hcl
+      obtain ⟨hclv, hcls⟩ := hcl
+      cases v
+      case command cm cc cl =>
+          simp only [DLC.step] at hstep
+          obtain rfl := (Option.some.inj hstep).symm
+          rw [DLC.closedAbove_liftLabel_iff, DLC.closedAbove_app_iff]
+          exact ⟨(DLC.closedAbove_command_iff.mp hclv).1, hcls⟩
+      all_goals
+          rw [handStep_runCmd_cong _ _ (by intro _ _ _ h; cases h)] at hstep
+          split at hstep
+          next v' hsv =>
+              obtain rfl := (Option.some.inj hstep).symm
+              rw [DLC.closedAbove_runCmd_iff]
+              exact ⟨ihv hclv v' hsv, hcls⟩
+          next hsv => exact absurd hstep (by simp)
+
+/-- **Deliverable 1 — generated-side closedness preservation.** If the generated
+`reduce.step` returns `ok (some t')` on a closed term, the reduct decodes to a closed
+term. Routes the value correspondence through `step_corr_ok` (`decTermC t'` is the hand
+`DLC.step` image) and the hand-side `step_preserves_closed`. Closedness IS preserved
+even though `heightB`/`depthB` are not. -/
+theorem step_preserves_closed_gen (t t' : syntax.Term)
+    (hcl : DLC.ClosedAbove (decTermC t) 0)
+    (hstep : reduce.step t = ok (some t')) :
+    DLC.ClosedAbove (decTermC t') 0 := by
+  have hc := step_corr_ok t hcl (some t') hstep
+  simp only [Option.map_some] at hc
+  -- hc : some (decTermC t') = DLC.step (decTermC t)
+  exact step_preserves_closed (decTermC t) hcl (decTermC t') hc.symm
+
+/-- One `U32` `Range`-iterator advance `[a,b)` with `b ≤ a`: yields `none` (the loop
+exhausts). The `U32` twin of the landed `next_done_usize`. -/
+private theorem next_done {a b : Std.U32} (hge : b.val ≤ a.val) :
+    core.iter.range.IteratorRange.next core.iter.range.StepU32 { start := a, «end» := b }
+      = ok (none, { start := a, «end» := b }) := by
+  simp only [core.iter.range.IteratorRange.next, core.iter.range.StepU32,
+    core.iter.range.UScalarStep, core.cmp.impls.PartialOrdU32.lt,
+    core.clone.impls.CloneU32.clone, lift, bind_ok, bind_tc_ok]
+  rw [if_neg (by simp; omega)]
+
+/-- **The fuel-loop reducer correspondence (generalized, partial-correctness).** From
+loop state `[k, fuel)` on a CLOSED `cur` with `k + rem = fuel`, IF the generated
+well-founded loop returns `ok res`, the final term decodes to the `.1` of the hand
+`DLC.reduceWithFuel` run for `rem` steps. Induction on `rem` (the third in-tree
+instance of the `loop`/`ControlFlow` accumulator idiom, after `world_step_loop_spec`
+and `apply_prefix_loop_spec`): each successful iteration routes `reduce.step` through
+`step_corr_ok` and preserves closedness via `step_preserves_closed_gen`. No height
+fence; no-fail is the `ok res` hypothesis, not a conclusion. -/
+private theorem reduce_loop_spec (fuel : Std.U32) :
+    ∀ (rem : Nat) (k : Std.U32) (cur : syntax.Term) (res : syntax.Term × Std.U32),
+      DLC.ClosedAbove (decTermC cur) 0 →
+      k.val + rem = fuel.val →
+      reduce.reduce_with_fuel_loop { start := k, «end» := fuel } fuel cur = ok res →
+      decTermC res.1 = (DLC.reduceWithFuel (decTermC cur) rem).1 := by
+  intro rem
+  induction rem with
+  | zero =>
+      intro k cur res hcl hk hloop
+      have hbody : reduce.reduce_with_fuel_loop.body fuel { start := k, «end» := fuel } cur
+          = ok (ControlFlow.done (cur, fuel)) := by
+        unfold reduce.reduce_with_fuel_loop.body
+        rw [next_done (by omega)]; simp
+      rw [show reduce.reduce_with_fuel_loop { start := k, «end» := fuel } fuel cur
+            = loop (fun p => reduce.reduce_with_fuel_loop.body fuel p.1 p.2)
+                ({ start := k, «end» := fuel }, cur) from rfl,
+          loop_fin _ _ (cur, fuel) hbody] at hloop
+      have hres : res = (cur, fuel) := (Result.ok.inj hloop).symm
+      rw [hres]; simp only [DLC.reduceWithFuel]
+  | succ m ih =>
+      intro k cur res hcl hk hloop
+      have hfb : fuel.val ≤ U32.max := by scalar_tac
+      have hklt : k.val < fuel.val := by omega
+      have hsucc : k.val + 1 ≤ U32.max := by omega
+      set k1 : Std.U32 := UScalar.ofNatCore (k.val + 1) (by scalar_tac) with hk1def
+      have hk1v : k1.val = k.val + 1 := by rw [hk1def]; exact UScalar.ofNatCore_val_eq _
+      have hnext := next_succ (a := k) (b := fuel) hklt hsucc
+      rw [show reduce.reduce_with_fuel_loop { start := k, «end» := fuel } fuel cur
+            = loop (fun p => reduce.reduce_with_fuel_loop.body fuel p.1 p.2)
+                ({ start := k, «end» := fuel }, cur) from rfl] at hloop
+      cases hstep : reduce.step cur with
+      | fail e =>
+          have hbody : reduce.reduce_with_fuel_loop.body fuel { start := k, «end» := fuel } cur
+              = fail e := by
+            unfold reduce.reduce_with_fuel_loop.body
+            rw [hnext]; simp [hstep]
+          rw [loop.eq_1] at hloop; simp [hbody] at hloop
+      | div =>
+          have hbody : reduce.reduce_with_fuel_loop.body fuel { start := k, «end» := fuel } cur
+              = .div := by
+            unfold reduce.reduce_with_fuel_loop.body
+            rw [hnext]; simp [hstep]
+          rw [loop.eq_1] at hloop; simp [hbody] at hloop
+      | ok o1 =>
+          cases o1 with
+          | none =>
+              have hbody : reduce.reduce_with_fuel_loop.body fuel { start := k, «end» := fuel } cur
+                  = ok (ControlFlow.done (cur, k)) := by
+                unfold reduce.reduce_with_fuel_loop.body
+                rw [hnext]; simp [hstep]
+              rw [loop_fin _ _ (cur, k) hbody] at hloop
+              have hres : res = (cur, k) := (Result.ok.inj hloop).symm
+              have hc := step_corr_ok cur hcl none hstep
+              simp only [Option.map_none] at hc
+              rw [hres]; simp only [DLC.reduceWithFuel, ← hc]
+          | some nx =>
+              have hbody : reduce.reduce_with_fuel_loop.body fuel { start := k, «end» := fuel } cur
+                  = ok (ControlFlow.cont ({ start := k1, «end» := fuel }, nx)) := by
+                unfold reduce.reduce_with_fuel_loop.body
+                rw [hnext]; simp [hstep, hk1def]
+              rw [loop_cont _ _ ({ start := k1, «end» := fuel }, nx) hbody,
+                  show loop (fun p => reduce.reduce_with_fuel_loop.body fuel p.1 p.2)
+                        ({ start := k1, «end» := fuel }, nx)
+                      = reduce.reduce_with_fuel_loop { start := k1, «end» := fuel } fuel nx
+                      from rfl] at hloop
+              have hnxcl := step_preserves_closed_gen cur nx hcl hstep
+              have hih := ih k1 nx res hnxcl (by rw [hk1v]; omega) hloop
+              have hc := step_corr_ok cur hcl (some nx) hstep
+              simp only [Option.map_some] at hc
+              rw [hih]; simp only [DLC.reduceWithFuel, ← hc]
+
+/-- **★ R2.3c — `reduce_with_fuel_corr` (partial correctness).** On a CLOSED payload,
+IF the generated bounded reducer `reduce.reduce_with_fuel` returns `ok (t', k)`, then
+`t'` decodes to the final term of the hand `DLC.reduceWithFuel` run (`.1`; the step
+count is discarded on both sides). This is the honest, author-ruled form of the
+reducer correspondence: no-fail is NOT claimed (it is false — β can overflow the
+`U32` binder-depth counter on adversarial ≥2³¹-node payloads); value-correctness
+rides on CLOSEDNESS alone, with the `heightB` fence of the landed `step_corr` dropped.
+`AppCommandRefines`/`ApplyPreservesWS` and the six squares are restructured onto this
+in the SEPARATE R2.3d increment. -/
+theorem reduce_with_fuel_corr (t t' : syntax.Term) (fuel k : Std.U32)
+    (hcl : DLC.ClosedAbove (decTermC t) 0)
+    (hok : reduce.reduce_with_fuel t fuel = ok (t', k)) :
+    decTermC t' = (DLC.reduceWithFuel (decTermC t) fuel.val).1 := by
+  unfold reduce.reduce_with_fuel at hok
+  rw [termClone_id] at hok
+  simp only [bind_tc_ok] at hok
+  exact reduce_loop_spec fuel fuel.val 0#u32 t (t', k) hcl (by simp) hok
+
 end DLCD.Correspondence

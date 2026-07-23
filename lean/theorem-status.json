@@ -130,6 +130,16 @@
       "carry the signed says credential on CDeriv so the capability layer runs on the migrated judgment"
     ]
   },
+  "DLCD_capability_safety_by_inversion": {
+    "status": "proven",
+    "file": "DLCD/CapSafety.lean",
+    "witness": "DLCD/CapSafety.lean",
+    "proven_content": "capability_safety_by_inversion (G1, authority, TYPING-NATIVE twin of capability_safety): from the TYPE of a commit-I-typed Term.command M c l (DLC.Deriv.commitI), recover a genuine says-credential derivation for its credential subterm c. Authorization is EXTRACTED by inverting the command's own typing (a generation/inversion lemma, TAPL 13.5), not audited out-of-band. The generation lemma command_typing_inversion is proved by induction on the derivation over a generalized subject: the ~26 rigid-headed rules are discharged by Term.noConfusion, withinE by a type-shape contradiction from the IH (within != replicated), weakenA genuinely by re-applying weakening to the recovered premises. Bridges to the audited Authorized: authorized_of_command_typing (typing -> Authorized, credential TERM is the witness) and authorized_of_commandRealizes (CommandRealizes -> Authorized) proved clean; the realization builder commandRealizes_of_premises (credential + transformer in a shared linear-free context -> CommandRealizes) proved clean. Anti-vacuity: CapSafetyByInversionAntiVacuity builds a concrete commit-I-typed command from the real signed credential saysWitness + an identity transformer, and recovers its credential by inversion.",
+    "note": "SCOPE FENCES: (1) model, not runtime. (2) FENCED BRIDGE DIRECTION: the FULL converse Authorized rc issuer -> exists a realizing commit-I-typeable command does NOT close cleanly and is NOT claimed — Authorized's credential derivation lives in an ARBITRARY context (its linear part may be non-empty) whereas commit-I demands a shared linear-free context, AND Authorized carries no store transformer M : phi => phi (commit-I's second premise), neither synthesizable from the credential alone (the cap-prop <-> cred-term / representation gap). The converse is closed exactly when those two data are supplied (commandRealizes_of_premises). (3) issuer/capProp are recovered EXISTENTIALLY (commit-I's conclusion Replicated (phi=>phi) l omits them), matching the exists-issuer shape of capability_safety. Governed capability_safety (the audited WellFormedLog metatheorem) is UNCHANGED, byte-identical; this entry is the additive typing-native re-founding underneath it.",
+    "open": [
+      "close the full Authorized -> CommandRealizes converse (needs a canonical store-transformer choice + a linear-free-context normalization of the credential derivation)"
+    ]
+  },
   "DLCD_capability_safety_linear": {
     "status": "proven",
     "file": "DLCD/CapSafetyLinear.lean",

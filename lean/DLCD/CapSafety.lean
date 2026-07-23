@@ -369,4 +369,282 @@ theorem wrong_issuer_rejected :
 
 end CapSafetyAntiVacuity
 
+/-! ## 6. Capability-safety by `commit-I` INVERSION (R1-inc4a).
+
+Sections 1–5 recover authorization from an **out-of-band audit**: `Authorized`
+asserts that a `says`-credential witness *exists* for the command's `cap` slot,
+and `WellFormedLog` threads that audit through the commit provenance. R1-inc4a
+re-founds the guarantee on the **type of the first-classed command term**: the
+`commit-I`-typed `Term.command M c ℓ` (`DLC.Deriv.commitI`) is the *sole* `Deriv`
+constructor whose subject is a `Term.command`, so a derivation of its type
+**inverts** to the two `commit-I` premises — in particular the credential
+derivation `dc : Deriv _ c (issuer says capProp)`. Authorization is then not an
+audited side-condition; it is **extracted by inverting the typing of the command
+itself** (a *generation lemma*, TAPL §13.5).
+
+### Method (web-searched 2026-07-23; URLs recorded)
+Type-safety is proved by *progress* (canonical-forms lemmas: a value at type `T`
+has `T`'s introduction shape) and *preservation* (**inversion / generation**
+lemmas: a derivation for a term of a given head shape can only have come from
+that head's rule). Re-expressing "the committed write was authorized" as an
+inversion on `commit-I` is exactly a generation lemma. The `Rsm.Command` wrapper
+is the **abstract log-entry representation** the quorum/convergence machinery is
+proven over; `Term.command`, related by `CommandRealizes` below, is its **typed
+realization** — a data-refinement / representation-independence relation
+(Reynolds), not a bijection (`rc.cap : Option Prop'` is a *proposition*; `c` is
+its *proof term*; `ℓ` is a free parameter with no wrapper field).
+
+- TAPL §13.5 *Safety* (progress via canonical forms; preservation via inversion):
+  https://flylib.com/books/en/4.279.1.82/1/
+- Harper, *PFPL* ch. 6 *Type Safety* (generation/inversion lemmas):
+  https://www.khoury.northeastern.edu/~cmartens/Courses/7400-f24/pfpl/6-type-safety.pdf
+- Grossman, *CS152 Lecture 10 — Type-Safety Proof* (progress+preservation split):
+  https://homes.cs.washington.edu/~djg/2011sp/lec10_6up.pdf
+- Twelf, *Canonical forms lemma*: http://twelf.org/wiki/Canonical_forms_lemma
+- Reynolds, *Types, Abstraction and Parametric Polymorphism* (representation
+  independence — the guarantee is stated over abstract behaviour, preserved under
+  a representation change): https://people.mpi-sws.org/~dreyer/tor/papers/reynolds.pdf
+
+`#print axioms` for every theorem below stays within `[propext]` (⊂ the permitted
+`[propext, Classical.choice, Quot.sound]`). No `sorry`, no `native_decide`. The
+governed `capability_safety` (§3) is **untouched, byte-identical** — this section
+is purely additive. -/
+
+/-- **The generation (inversion) lemma for `commit-I`, generalized-subject form.**
+`Term.command _ _ _` is the subject of a *single* `Deriv` constructor whose
+subject is literally a `command` (`commitI`). But a naive `cases d` does NOT
+suffice: two rules have non-rigid subjects that can still *unify* with a command
+head — `weakenA` (subject `shift M 1 0`, a function application) and `withinE`
+(subject-preserving: subject `= M`, arbitrary). So the honest generation lemma is
+proved by **induction on the derivation with a generalized subject** `t` plus the
+equation `t = command M c ℓ`:
+
+- the ~26 rigid-headed constructors are discharged by `Term.noConfusion` (their
+  subject head ≠ `command`);
+- `withinE` is discharged by the IH yielding a **type-shape contradiction**: a
+  `command` typed via `withinE` would have `Prop'.within τ φ =
+  Prop'.replicated (φ⊃φ) ℓ`, impossible;
+- `weakenA` is handled genuinely: `shift M' 1 0 = command …` forces `M'` itself
+  to be a `command` (by `shift`'s structural clause `shift (command m c l) = command …`),
+  the IH recovers the credential and transformer for the unshifted subterms, and
+  **re-applying `weakenA`** lifts them through the added additive hypothesis.
+
+The **credential premise is recovered from the value's type** — capability-safety
+re-founded: authorization is not an out-of-band audit, it is *extracted by
+inverting the command's own typing*. `issuer`/`capProp` are **not pinned by the
+conclusion** (`Replicated (φ⊃φ) ℓ` omits them); they live only in the credential
+premise, recovered existentially. -/
+theorem command_typing_inversion_aux
+    {Γ : Ctx} {t : Term} {ψ : Prop'} (d : Deriv Γ t ψ) :
+    ∀ (M c : Term) (ℓ : Label), t = Term.command M c ℓ →
+    ∃ (Γₐ : List Prop') (issuer : Principal) (capProp φ : Prop'),
+      Γ = { additive := Γₐ, linear := [] } ∧
+      ψ = Prop'.replicated (Prop'.imp φ φ) ℓ ∧
+      Nonempty (Deriv { additive := Γₐ, linear := [] } c (Prop'.says issuer capProp)) ∧
+      Nonempty (Deriv { additive := Γₐ, linear := [] } M (Prop'.imp φ φ)) := by
+  induction d
+  case commitI Γₐ issuer capProp φ ℓ' M' c' dc dM dc_ih dM_ih =>
+      intro M c ℓ heq
+      injection heq with hM hc hℓ
+      subst hM; subst hc; subst hℓ
+      exact ⟨Γₐ, issuer, capProp, φ, rfl, rfl, ⟨dc⟩, ⟨dM⟩⟩
+  case weakenA Γ' φ' φw M' d' ih =>
+      intro M c ℓ heq
+      cases M'
+      case command m₀ c₀ ℓ₀ =>
+          simp only [shift] at heq
+          injection heq with hM hc hℓ
+          subst hM; subst hc; subst hℓ
+          obtain ⟨Γ'ₐ, issuer, capProp, φ₀, hΓ', hψ', hcred, htrans⟩ := ih m₀ c₀ ℓ₀ rfl
+          subst hΓ'
+          obtain ⟨dcred⟩ := hcred
+          obtain ⟨dtrans⟩ := htrans
+          exact ⟨φ' :: Γ'ₐ, issuer, capProp, φ₀, rfl, hψ',
+                 ⟨Deriv.weakenA _ φ' _ _ dcred⟩, ⟨Deriv.weakenA _ φ' _ _ dtrans⟩⟩
+      all_goals (simp only [shift] at heq; exact Term.noConfusion heq)
+  case withinE Γ' τ φw M' d' ih =>
+      intro M c ℓ heq
+      obtain ⟨_, _, _, _, _, hψ, _, _⟩ := ih M c ℓ heq
+      exact absurd hψ (by simp)
+  all_goals (intro M c ℓ heq; exact Term.noConfusion heq)
+
+/-- **The generation (inversion) lemma for `commit-I`.** From a derivation of a
+`Term.command M c ℓ`'s type, recover the two `commit-I` premises — in particular
+the credential derivation `dc : Deriv _ c (issuer says capProp)`. Direct
+corollary of `command_typing_inversion_aux` at `t := Term.command M c ℓ`. -/
+theorem command_typing_inversion
+    {Γ : Ctx} {M c : Term} {ℓ : Label} {ψ : Prop'}
+    (d : Deriv Γ (Term.command M c ℓ) ψ) :
+    ∃ (Γₐ : List Prop') (issuer : Principal) (capProp φ : Prop'),
+      Γ = { additive := Γₐ, linear := [] } ∧
+      ψ = Prop'.replicated (Prop'.imp φ φ) ℓ ∧
+      Nonempty (Deriv { additive := Γₐ, linear := [] } c (Prop'.says issuer capProp)) ∧
+      Nonempty (Deriv { additive := Γₐ, linear := [] } M (Prop'.imp φ φ)) :=
+  command_typing_inversion_aux d M c ℓ rfl
+
+/-- **Capability-safety, typing-native form.** From the *type* of a
+`commit-I`-typed command, recover a genuine `says`-credential derivation for its
+credential subterm `c`. This is capability-safety recovered from the TYPE — not
+from an audited `WellFormedLog` side-condition. `issuer` is existential
+(matching the `∃ issuer` shape of the governed `capability_safety`), because
+`commit-I`'s conclusion omits it. -/
+theorem capability_safety_by_inversion
+    {Γ : Ctx} {M c : Term} {ℓ : Label} {φ : Prop'}
+    (d : Deriv Γ (Term.command M c ℓ) (Prop'.replicated (Prop'.imp φ φ) ℓ)) :
+    ∃ (issuer : Principal) (capProp : Prop') (Δ : Ctx),
+      Nonempty (Deriv Δ c (Prop'.says issuer capProp)) := by
+  obtain ⟨Γₐ, issuer, capProp, _φ', _, _, hc, _⟩ := command_typing_inversion d
+  exact ⟨issuer, capProp, _, hc⟩
+
+/-! ### The realization relation — `Rsm.Command` ⟵ `Term.command`.
+
+`CommandRealizes rc M c ℓ Γ issuer capProp φ` is the abstraction/refinement
+relation between the **abstract log-entry** `rc : Command` and its **typed
+realization** `Term.command M c ℓ`. It is NOT a bijection: the wrapper's
+`cap : Option Prop'` is a *proposition*; the term's `c` is a *proof term* of it;
+and `ℓ` is a free parameter the wrapper has no field for (RULING: `ℓ` is a
+parameter of the relation, not a new `Command` field). The third conjunct is the
+load-bearing **coherence** condition — the wrapper's `cap` slot is *exactly the
+proposition the credential subterm `c` proves*; it is NOT derivable from the
+fourth conjunct alone, since `commit-I`'s conclusion hides the credential's
+proposition (`command_typing_inversion` recovers a *free* `issuer'/capProp'`). -/
+def CommandRealizes
+    (rc : Command) (M c : Term) (ℓ : Label)
+    (Γ : Ctx) (issuer : Principal) (capProp φ : Prop') : Prop :=
+  rc.payload = M ∧
+  rc.cap = some (Prop'.says issuer capProp) ∧
+  Nonempty (Deriv Γ c (Prop'.says issuer capProp)) ∧
+  Nonempty (Deriv Γ (Term.command M c ℓ) (Prop'.replicated (Prop'.imp φ φ) ℓ))
+
+/-! ### The coincidence bridge — audited `Authorized` ⟷ `commit-I`-typeability.
+
+Two directions close cleanly; one direction is honestly fenced. -/
+
+/-- **Bridge (→), clean.** A `commit-I`-typeable `Term.command M c ℓ` *is* an
+authorized wrapper: the credential subterm `c` is the very witness the audited
+`Authorized` demands, and the wrapper whose `cap` slot carries the recovered
+credential proposition `issuer says capProp` is `Authorized` by that same
+`issuer`. So the audited side-condition is **backed by the typing**: it is not a
+free-standing audit but a shadow of `commit-I`-typeability. (`issuer`/`capProp`
+are existential because the command's conclusion omits them; the credential TERM
+`c` is the concrete `Authorized`-witness.) -/
+theorem authorized_of_command_typing
+    {Γ : Ctx} {M c : Term} {ℓ : Label} {φ : Prop'}
+    (d : Deriv Γ (Term.command M c ℓ) (Prop'.replicated (Prop'.imp φ φ) ℓ)) :
+    ∃ (issuer : Principal) (capProp : Prop'),
+      Authorized (⟨M, some (Prop'.says issuer capProp)⟩ : Command) issuer := by
+  obtain ⟨Γₐ, issuer, capProp, _φ', _, _, hc, _⟩ := command_typing_inversion d
+  exact ⟨issuer, capProp, { additive := Γₐ, linear := [] }, c, capProp, rfl, hc⟩
+
+/-- **Bridge (→) via the relation, clean.** Whenever `rc` is realized by a
+commit-I-typeable command, `rc` is `Authorized` by the realization's `issuer` —
+the coherence conjunct of `CommandRealizes` supplies exactly the credential the
+audit needs. This shows the abstract-rep audit `Authorized` is *implied by* the
+typed-realization relation. -/
+theorem authorized_of_commandRealizes
+    {rc : Command} {M c : Term} {ℓ : Label} {Γ : Ctx}
+    {issuer : Principal} {capProp φ : Prop'}
+    (h : CommandRealizes rc M c ℓ Γ issuer capProp φ) :
+    Authorized rc issuer := by
+  obtain ⟨_hpay, hcap, hc, _⟩ := h
+  exact ⟨Γ, c, capProp, hcap, hc⟩
+
+/-- **Bridge (←) at the premise level, clean (the realization BUILDER).** Given
+the two `commit-I` premises — a credential `c : issuer says capProp` and a store
+transformer `M : φ ⊃ φ`, both in a shared linear-free context — the wrapper
+`⟨M, some (issuer says capProp)⟩` is realized by the commit-I-typeable
+`Term.command M c ℓ` (for any supplied `ℓ`). This is the constructive converse
+of `command_typing_inversion`, and witnesses that `CommandRealizes` is
+satisfiable (anti-vacuity for the relation).
+
+**FENCE — the FULL converse `Authorized rc issuer → ∃ …, CommandRealizes …` does
+NOT close cleanly**, for two independent reasons the audit cannot supply:
+(1) `Authorized`'s credential derivation lives in an *arbitrary* `Γ : Ctx` (its
+linear context may be non-empty), whereas `commit-I` demands a *linear-free*
+shared context `{ additive := Γₐ, linear := [] }`; and (2) `Authorized` carries
+no store transformer `M : φ ⊃ φ` — `commit-I`'s second premise — and none can be
+synthesized from the credential alone. This is the credential-prop ↔ credential-
+term / representation gap (`cap` is a proposition, `command` additionally needs a
+typed transformer and a label). The builder below closes the converse exactly
+when those two data are supplied. -/
+theorem commandRealizes_of_premises
+    {Γₐ : List Prop'} {M c : Term} {ℓ : Label}
+    {issuer : Principal} {capProp φ : Prop'}
+    (dc : Deriv { additive := Γₐ, linear := [] } c (Prop'.says issuer capProp))
+    (dM : Deriv { additive := Γₐ, linear := [] } M (Prop'.imp φ φ)) :
+    CommandRealizes (⟨M, some (Prop'.says issuer capProp)⟩ : Command)
+      M c ℓ { additive := Γₐ, linear := [] } issuer capProp φ :=
+  ⟨rfl, rfl, ⟨dc⟩, ⟨Deriv.commitI Γₐ issuer capProp φ ℓ M c dc dM⟩⟩
+
+/-! ## 7. Anti-vacuity — a concrete `commit-I`-typed command, credential recovered.
+
+A REAL signed credential (`CapSafetyAntiVacuity.saysWitness` = `Deriv.saysI`),
+paired with an identity store transformer, committed as a `commit-I`-typed
+`Term.command`, and `capability_safety_by_inversion` recovering a genuine
+`says`-credential from its TYPE. Nothing here is vacuous. -/
+
+namespace CapSafetyByInversionAntiVacuity
+
+open CapSafetyAntiVacuity (issuer writeCap sig saysWitness)
+
+/-- The identity store transformer `λ (x : writeCap). x`, a `commit-I`
+second premise `M : writeCap ⊃ writeCap` in the credential's context. -/
+def transformer : Term := Term.lam writeCap (Term.var 0)
+
+/-- `transformer : writeCap ⊃ writeCap`, in the same linear-free context
+`{ additive := [writeCap], linear := [] }` as `saysWitness`. -/
+def transformerDeriv :
+    Deriv { additive := [writeCap], linear := [] }
+      transformer (Prop'.imp writeCap writeCap) :=
+  Deriv.impI { additive := [writeCap], linear := [] } writeCap writeCap
+    (Term.var 0) (Deriv.varA _ 0 writeCap rfl)
+
+/-- The first-classed capability-gated write, as a `Term.command`: the identity
+transformer, guarded by the real signed credential `sign issuer (var 0) sig`,
+at label `Label.bottom`. -/
+def commandTerm : Term :=
+  Term.command transformer (Term.sign issuer (Term.var 0) sig) Label.bottom
+
+/-- **The `commit-I` derivation.** `commandTerm` types at
+`Replicated (writeCap ⊃ writeCap) ⊥` — the credential premise is the genuine
+`saysWitness`, the transformer premise is `transformerDeriv`. This is the
+proof-carrying command whose TYPE alone certifies authorization. -/
+def commandDeriv :
+    Deriv { additive := [writeCap], linear := [] }
+      commandTerm (Prop'.replicated (Prop'.imp writeCap writeCap) Label.bottom) :=
+  Deriv.commitI [writeCap] issuer writeCap writeCap Label.bottom
+    transformer (Term.sign issuer (Term.var 0) sig) saysWitness transformerDeriv
+
+/-- **Non-vacuity of `capability_safety_by_inversion`.** Inverting the TYPE of
+the concrete `commit-I`-typed command recovers a REAL `says`-credential
+derivation for its credential subterm — inhabited, not vacuous. -/
+theorem recovered_credential_by_inversion :
+    ∃ (issuer' : Principal) (capProp : Prop') (Δ : Ctx),
+      Nonempty (Deriv Δ (Term.sign issuer (Term.var 0) sig)
+        (Prop'.says issuer' capProp)) :=
+  capability_safety_by_inversion commandDeriv
+
+/-- **Non-vacuity of the coincidence bridge.** The concrete command's TYPE yields
+an `Authorized` wrapper — the audited side-condition, recovered from the type. -/
+theorem recovered_authorized_by_typing :
+    ∃ (issuer' : Principal) (capProp : Prop'),
+      Authorized (⟨transformer, some (Prop'.says issuer' capProp)⟩ : Command) issuer' :=
+  authorized_of_command_typing commandDeriv
+
+/-- **Non-vacuity of the realization relation.** The two commit-I premises build
+a satisfying instance of `CommandRealizes` — the relation is inhabited. -/
+theorem commandRealizes_witness :
+    CommandRealizes (⟨transformer, some (Prop'.says issuer writeCap)⟩ : Command)
+      transformer (Term.sign issuer (Term.var 0) sig) Label.bottom
+      { additive := [writeCap], linear := [] } issuer writeCap writeCap :=
+  commandRealizes_of_premises saysWitness transformerDeriv
+
+/-- …and that realization implies the audited `Authorized` (bridge →, on the
+concrete witness). -/
+theorem realized_is_authorized :
+    Authorized (⟨transformer, some (Prop'.says issuer writeCap)⟩ : Command) issuer :=
+  authorized_of_commandRealizes commandRealizes_witness
+
+end CapSafetyByInversionAntiVacuity
+
 end DLCD

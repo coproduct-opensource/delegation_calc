@@ -104,6 +104,9 @@ namespace DLCD.Ledger
 
 -- G1: authority + confidentiality
 abbrev capability_safety            := @DLCD.capability_safety
+-- G1 (R1-inc4a): capability-safety recovered from the command's TYPE by
+-- commit-I inversion (typing-native twin of `capability_safety`).
+abbrev capability_safety_by_inversion := @DLCD.capability_safety_by_inversion
 abbrev capability_safety_linear     := @DLCD.capability_safety_linear
 abbrev log_noninterference          := @DLCD.log_noninterference
 abbrev distributed_noninterference  := @DLCD.distributed_noninterference

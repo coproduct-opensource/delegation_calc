@@ -1,0 +1,1 @@
+'DLCD.capability_safety_by_inversion' depends on axioms: [propext]

@@ -285,7 +285,7 @@ credential), a write guarded by it, committed through the enforce-by-constructio
 gate, and capability-safety yielding its authorization. Nothing here is vacuous:
 the `Deriv` witness is inhabited and the recovered authorization carries it. -/
 
-namespace AntiVacuity
+namespace CapSafetyAntiVacuity
 
 /-- The issuing principal. -/
 def issuer : Principal := Principal.atom ⟨[7]⟩
@@ -367,6 +367,6 @@ theorem wrong_issuer_rejected :
     tryCommit g0 cmd (Principal.atom ⟨[99]⟩) = none := by
   rfl
 
-end AntiVacuity
+end CapSafetyAntiVacuity
 
 end DLCD

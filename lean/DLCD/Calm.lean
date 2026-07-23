@@ -65,7 +65,7 @@ same* set-equality hypothesis that makes the join-merge CONVERGE, the
 non-monotone merge DIVERGES: monotonicity is load-bearing, order matters,
 coordination is REQUIRED. That is the CALM boundary.
 
-## Anti-vacuity witness (`Witness` namespace)
+## Anti-vacuity witness (`CalmWitness` namespace)
 A concrete grow-only set `Finset ℕ` under `∪` (= `⊔`). Replica 1 absorbs
 `[{1},{2},{1}]` (with a DUPLICATE `{1}`); replica 2 absorbs `[{2},{1}]`
 (REORDERED, deduplicated). They provably converge — via
@@ -232,7 +232,7 @@ end Bite
 
 /-! ## 3. Anti-vacuity witness — a concrete grow-only set that PROVABLY converges. -/
 
-namespace Witness
+namespace CalmWitness
 
 /-- The state lattice: a grow-only set of naturals under `∪` (= `⊔`). This is the
 canonical G-Set CRDT; `Finset ℕ` is a Mathlib `SemilatticeSup`. -/
@@ -303,7 +303,7 @@ theorem witness_reordered : ds1 ≠ ds2 := by
   simp only [ds1, ds2, List.length_cons, List.length_nil] at hlen
   omega
 
-end Witness
+end CalmWitness
 
 end Calm
 end DLCD

@@ -126,7 +126,7 @@ theorem quorum_intersect {Q1 Q2 : Finset (Fin n)}
 abbrev Votes (n : ℕ) (V : Type*) := Fin n → Option V
 
 /-- A value is **decided** iff some quorum unanimously voted for it. This is the
-genuinely inhabitable decision predicate (see `AntiVacuity.decided7_a`). -/
+genuinely inhabitable decision predicate (see `ConsensusAntiVacuity.decided7_a`). -/
 def Decided (votes : Fin n → Option V) (v : V) : Prop :=
   ∃ Q : Finset (Fin n), IsQuorum Q ∧ ∀ r ∈ Q, votes r = some v
 
@@ -234,7 +234,7 @@ Three replicas; two genuinely *distinct* overlapping majorities `{0,1}` and
 real equality. Nothing here is vacuous — the quorums, the decision, and the
 intersection are all concretely inhabited. -/
 
-namespace AntiVacuity
+namespace ConsensusAntiVacuity
 
 /-- A three-replica population. -/
 abbrev N : ℕ := 3
@@ -303,7 +303,7 @@ quorums have empty intersection. -/
 theorem weak_quorums_disjoint :
     (({0} : Finset (Fin 2)) ∩ ({1} : Finset (Fin 2))) = ∅ := by decide
 
-end AntiVacuity
+end ConsensusAntiVacuity
 
 end DLCD
 

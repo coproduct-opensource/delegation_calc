@@ -80,11 +80,11 @@ own cell, so it can never mutate any `ℓ' ⊏ ℓc` cell (Bell–LaPadula
    for the high steps and a low-agreement congruence for the low steps.
    `view_depends_only_on_low` — the convergence corollary: two logs agreeing on
    their `⊑ ℓ` subsequence yield equal low views.
-3. `Bite.badApplyL_breaks_noninterference` — a `badApplyL` that WRITES DOWN
+3. `LabelFlowBite.badApplyL_breaks_noninterference` — a `badApplyL` that WRITES DOWN
    (a high command dumps into the ⊥ cell) provably FALSIFIES `log_noninterference`
    on a concrete high command + low observer. The no-write-down discipline is
    load-bearing, not decorative.
-4. `Witness.*` — a concrete run with a high AND a low command where the high
+4. `LabelFlowWitness.*` — a concrete run with a high AND a low command where the high
    GENUINELY writes (its own cell changes, `≠ s0`) yet the low view is provably
    the low-only run's view. Noninterference is exercised non-vacuously: the high
    command is present and active, it just does not leak.
@@ -310,7 +310,7 @@ mutates the LOW view, and `log_noninterference` provably FAILS. This shows the
 no-write-down discipline of `applyL` is doing the real work; noninterference is
 not a tautology of the projection shape. -/
 
-namespace Bite
+namespace LabelFlowBite
 
 /-- The write-down apply: ignores `lc.label` and writes cell `⊥`. A high command
 therefore mutates the lowest cell — the archetypal illegal downward flow. -/
@@ -330,7 +330,7 @@ def hi : Label := { Label.bottom with read_files := .Always }
 def s0 : LStore := fun _ => Term.var 0
 
 /-- A state-CHANGING payload: `λ_. ⟨x, x⟩`, so `applyCommand dup (var 0)`
-reduces to `⟨var 0, var 0⟩ ≠ var 0` (reused from `Rsm.AntiVacuity`). -/
+reduces to `⟨var 0, var 0⟩ ≠ var 0` (reused from `Rsm.RsmAntiVacuity`). -/
 def dup : Command := { payload := Term.lam (Prop'.atom 0) (Term.pair (Term.var 0) (Term.var 0)) }
 
 /-- One high command. -/
@@ -372,7 +372,7 @@ theorem badApplyL_breaks_noninterference :
   rw [bite_lhs_bottom, bite_rhs_bottom] at h2
   exact Term.noConfusion (Option.some.inj h2)
 
-end Bite
+end LabelFlowBite
 
 /-! ## 5. Anti-vacuity witness — a high command PRESENT and ACTIVE, yet not leaking.
 
@@ -383,7 +383,7 @@ commands are interleaved and the high one is PRESENT in the log — yet the
 Noninterference is exercised non-vacuously: the high activity is real, it just
 does not leak downward. -/
 
-namespace Witness
+namespace LabelFlowWitness
 
 /-- The observer's clearance: ⊥ (sees only the ⊥ cell). -/
 def lo : Label := Label.bottom
@@ -457,6 +457,6 @@ theorem low_view_is_low_only :
     view lo (applyPrefixL wlog s0) = view lo (applyPrefixL [loCmd] s0) := by
   rw [low_view_unchanged, witness_filter]
 
-end Witness
+end LabelFlowWitness
 
 end DLCD

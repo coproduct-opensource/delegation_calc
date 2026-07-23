@@ -62,7 +62,7 @@ capstone `distributed_noninterference` iterates this over a full run.
   low-indistinguishable by construction. `worldStep_preserves_high` is exactly
   this, and it genuinely fires the gate (`worldStep_preserves_high` reduces the
   store obligation through the `if_neg`, not over an empty replica list — see the
-  differing-high `Witness`).
+  differing-high `DistNIWitness`).
 - **The low-command case is proved via `fundamental`-composition** at the
   per-command load-bearing step (`applyCommand_preserves_LRel`) and lifted to
   `worldStep` (`worldStep_preserves_low`). It requires the delivered command's
@@ -98,13 +98,13 @@ capstone `distributed_noninterference` iterates this over a full run.
 4. `distributed_noninterference` — the capstone: iterating `worldStep` from a
    `LowEquivG` start at a high store type keeps configs `LowEquivG`, so a low
    observer cannot distinguish the two executions.
-5. `Bite.badDeliver_breaks_lowEquiv` — a `badApply` that DECLASSIFIES WITHOUT
+5. `DistNIBite.badDeliver_breaks_lowEquiv` — a `badApply` that DECLASSIFIES WITHOUT
    AUTHORITY (strips a high store's label down to `⊥`) provably FALSIFIES
    `LowEquivG`-preservation: two high-low-equal configs become low-distinguishable.
    The gate / typed-endomorphism discipline is load-bearing.
-6. `Witness.*` — a concrete 2-replica two-run whose HIGH store inputs GENUINELY
+6. `DistNIWitness.*` — a concrete 2-replica two-run whose HIGH store inputs GENUINELY
    DIFFER yet stay `LowEquivG` (and `worldStep`-preserved), plus
-   `Witness.via_fundamental` reusing `DLC.t3_two_run_general` directly.
+   `DistNIWitness.via_fundamental` reusing `DLC.t3_two_run_general` directly.
 -/
 
 namespace DLCD
@@ -436,7 +436,7 @@ that are low-equivalent at a HIGH type (their differing high stores hidden by th
 gate) become low-DISTINGUISHABLE at the resulting low type. The gate / typed-
 endomorphism discipline is load-bearing, not decorative. -/
 
-namespace Bite
+namespace DistNIBite
 
 /-- A genuinely HIGH label to the `⊥`-observer (reused shape from `LabelFlow`). -/
 def hi : Label := { Label.bottom with read_files := .Always }
@@ -524,7 +524,7 @@ theorem badDeliver_breaks_lowEquiv :
   cases h with
   | cons hhead _ => exact leak_breaks_lrel hhead.2.2
 
-end Bite
+end DistNIBite
 
 /-! ## 8. ANTI-VACUITY WITNESS — differing HIGH inputs, maintained low-equivalence.
 
@@ -534,7 +534,7 @@ really varies (`≠`), the low observer provably cannot tell (`LowEquivG` holds 
 is preserved). `via_fundamental` additionally reuses `DLC.t3_two_run_general`
 directly to exhibit the store-level `LRel` a differing high hypothesis induces. -/
 
-namespace Witness
+namespace DistNIWitness
 
 /-- A genuinely HIGH label to the `⊥`-observer. -/
 def hi : Label := { Label.bottom with read_files := .Always }
@@ -552,12 +552,12 @@ def a₂ : Term := Term.lam (Prop'.atom 1) (Term.var 0)
 /-- Run 1: two replicas each holding the high store `liftLabel hi a₁`. -/
 def g₁ : GlobalConfig :=
   { replicas := [⟨0, Term.liftLabel hi a₁, 0⟩, ⟨1, Term.liftLabel hi a₁, 0⟩],
-    log := [AntiVacuity.dup], budget := FailureBudget.zero 1 }
+    log := [RsmAntiVacuity.dup], budget := FailureBudget.zero 1 }
 
 /-- Run 2: the same shape, but the high stores hold the DIFFERENT `liftLabel hi a₂`. -/
 def g₂ : GlobalConfig :=
   { replicas := [⟨0, Term.liftLabel hi a₂, 0⟩, ⟨1, Term.liftLabel hi a₂, 0⟩],
-    log := [AntiVacuity.dup], budget := FailureBudget.zero 1 }
+    log := [RsmAntiVacuity.dup], budget := FailureBudget.zero 1 }
 
 /-- `a₁` and `a₂` are distinct terms (their store-payload annotations differ). -/
 theorem a_differ : a₁ ≠ a₂ := by
@@ -641,6 +641,6 @@ theorem via_fundamental :
   t3_two_run_general Label.bottom dWit (by decide) hi_not_low
     N₁_closed N₂_closed EnvRel.nil
 
-end Witness
+end DistNIWitness
 
 end DLCD

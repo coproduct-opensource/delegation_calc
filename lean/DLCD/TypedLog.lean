@@ -80,7 +80,7 @@ extraction discipline as `WellFormedLog` → `capability_safety`.
    preservation extraction by induction on `WellTypedLog`).
 4. `worldStep_preserves_low_typed` — 2.d's `worldStep_preserves_low` conclusion
    with `WellTypedLog φ g₁.log` replacing the raw `htyped`.
-5. `Bite.*` — an untyped command (`CoreTerm = false`, a frozen `verify`) is
+5. `TypedLogBite.*` — an untyped command (`CoreTerm = false`, a frozen `verify`) is
    REJECTED: `¬ WellTypedCmd φ badCmd`, hence `¬ WellTypedLog φ [badCmd]`.
 6. `Witness.*` — a REAL identity endomorphism admitted via `commitTyped`, and
    `worldStep_preserves_low_typed` closing the fence on a concrete 2-replica
@@ -201,7 +201,7 @@ it cannot be admitted via `commitTyped`. `wellTypedLog_implies_htyped` therefore
 FAILS for any hand-built log containing it: that list is NOT `WellTypedLog`. The
 typing gate is real, not decorative (cf. `CapSafety.unauth_not_authorized`). -/
 
-namespace Bite
+namespace TypedLogBite
 
 /-- A frozen `verify` payload: `CoreTerm (Term.verify …) = false`, so it is
 outside the core the low case needs (it is the says-elimination the endomorphism
@@ -224,7 +224,7 @@ theorem badLog_not_wellTyped (φ : Prop') : ¬ WellTypedLog φ [badCmd] := by
   intro hwt
   exact badCmd_untyped φ (wellTypedLog_implies_htyped hwt 0 badCmd rfl)
 
-end Bite
+end TypedLogBite
 
 /-! ## 6. ANTI-VACUITY WITNESS — a REAL typed command admitted, the fence closed.
 

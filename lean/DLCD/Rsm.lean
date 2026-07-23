@@ -239,7 +239,7 @@ additive pair). Applied to the initial store `var 0`, it reduces to
 `⟨var 0, var 0⟩` — the store genuinely CHANGES (distinct head constructor),
 so the seed is not discharged over a no-op. -/
 
-namespace AntiVacuity
+namespace RsmAntiVacuity
 
 /-- The dup command: `λ_:atom0. ⟨x, x⟩`. -/
 def dup : Command := { payload := Term.lam (Prop'.atom 0) (Term.pair (Term.var 0) (Term.var 0)) }
@@ -281,6 +281,6 @@ theorem converged_store_changed :
   intro h
   exact Term.noConfusion h
 
-end AntiVacuity
+end RsmAntiVacuity
 
 end DLCD

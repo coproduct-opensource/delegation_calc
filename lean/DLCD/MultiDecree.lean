@@ -67,7 +67,7 @@ under a real majority of `Fin 2` a slot's quorum must contain BOTH replicas, and
 a single ballot cannot vote two commands.
 
 ## Anti-vacuity witness
-`Witness`: a concrete **2-slot** log `[cX, cY]` (distinct commands) over `Fin 3`,
+`MultiDecreeWitness`: a concrete **2-slot** log `[cX, cY]` (distinct commands) over `Fin 3`,
 each slot `Decided` by a **real majority** (`Finset.univ`, `2·3 > 3`); two
 replicas both `LogConsistent`; `log_agreement_eq` proves their whole logs EQUAL;
 `log_agreement` applied at slot 0 yields `cX = cX` *through* the quorum-
@@ -189,7 +189,7 @@ end MultiDecree
 
 /-! ## 4. The right-reason bite — a WEAK per-slot quorum breaks log agreement. -/
 
-namespace Bite
+namespace MultiDecreeBite
 
 /-- Two genuinely distinct commands (distinct payloads). -/
 def cA : Command := { payload := Term.var 0 }
@@ -249,11 +249,11 @@ quorums used by the bite share no replica. -/
 theorem weak_quorums_disjoint :
     (({0} : Finset (Fin 2)) ∩ ({1} : Finset (Fin 2))) = ∅ := by decide
 
-end Bite
+end MultiDecreeBite
 
 /-! ## 5. Anti-vacuity — a concrete 2-slot log, real majorities, equal logs. -/
 
-namespace Witness
+namespace MultiDecreeWitness
 
 /-- Three replicas. -/
 abbrev N : ℕ := 3
@@ -316,6 +316,6 @@ theorem log_agreement_nonvacuous : cX = cX :=
 /-- The witness is non-trivial: a 2-slot log with distinct commands. -/
 theorem log_nontrivial : log.length = 2 ∧ cX ≠ cY := ⟨rfl, cX_ne_cY⟩
 
-end Witness
+end MultiDecreeWitness
 
 end DLCD

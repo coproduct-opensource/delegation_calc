@@ -349,7 +349,7 @@ apply — its `hfair` premise is exactly what this run violates. This is the dir
 analogue of the Iris `bite_needs_threadFair` and of FLP: without fairness, a
 correct replica can be starved forever. -/
 
-namespace Bite
+namespace LivenessBite
 
 variable {n : ℕ} {V : Type*}
 
@@ -388,7 +388,7 @@ theorem bite_needs_fairDelivery (correct : Finset (Fin n)) (v : V)
   rw [this]
   exact hne
 
-end Bite
+end LivenessBite
 
 /-! ## 5. ANTI-VACUITY — concrete non-vacuous liveness.
 
@@ -404,19 +404,19 @@ namespace LivenessAntiVacuity
 /-- Starting from `applied = 0` over the one-slot `dup` log, after `1` delivery
 `applied = 1 > 0` — the slot-0 command has been applied. -/
 theorem delivery_advances_past_slot :
-    0 < ((deliver DLCD.AntiVacuity.log)^[1] ⟨0, DLCD.AntiVacuity.init, 0⟩).applied := by
-  have h1 : ((deliver DLCD.AntiVacuity.log)^[1] ⟨0, DLCD.AntiVacuity.init, 0⟩).applied = 1 :=
-    deliver_applied_exact DLCD.AntiVacuity.log ⟨0, DLCD.AntiVacuity.init, 0⟩ 1 (by decide)
+    0 < ((deliver DLCD.RsmAntiVacuity.log)^[1] ⟨0, DLCD.RsmAntiVacuity.init, 0⟩).applied := by
+  have h1 : ((deliver DLCD.RsmAntiVacuity.log)^[1] ⟨0, DLCD.RsmAntiVacuity.init, 0⟩).applied = 1 :=
+    deliver_applied_exact DLCD.RsmAntiVacuity.log ⟨0, DLCD.RsmAntiVacuity.init, 0⟩ 1 (by decide)
   omega
 
 /-- **The observed value is the CHANGED store**, non-vacuously: after delivering
 slot 0 the store is `⟨var 0, var 0⟩` (the `dup` write), genuinely distinct from
 the initial `var 0`. The slot-0 write is reflected. -/
 theorem write_observed_nonvacuous :
-    ((deliver DLCD.AntiVacuity.log)^[1] ⟨0, DLCD.AntiVacuity.init, 0⟩).store
+    ((deliver DLCD.RsmAntiVacuity.log)^[1] ⟨0, DLCD.RsmAntiVacuity.init, 0⟩).store
         = Term.pair (Term.var 0) (Term.var 0) ∧
-    ((deliver DLCD.AntiVacuity.log)^[1] ⟨0, DLCD.AntiVacuity.init, 0⟩).store
-        ≠ DLCD.AntiVacuity.init := by
+    ((deliver DLCD.RsmAntiVacuity.log)^[1] ⟨0, DLCD.RsmAntiVacuity.init, 0⟩).store
+        ≠ DLCD.RsmAntiVacuity.init := by
   refine ⟨rfl, ?_⟩
   intro h
   exact Term.noConfusion h

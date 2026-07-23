@@ -92,8 +92,8 @@ generalize.
 A replica whose store does NOT follow the committed order — one that claims to
 have `applied` a slot but whose store was fabricated / left un-updated
 (out-of-order or forged) — is NOT on the sequential trajectory:
-`Bite.bad_off_trajectory` shows its store `≠ seqTrajectory` at its applied
-index, and `Bite.bad_not_applied_prefix` shows it therefore *cannot* satisfy
+`LinearizableBite.bad_off_trajectory` shows its store `≠ seqTrajectory` at its applied
+index, and `LinearizableBite.bad_not_applied_prefix` shows it therefore *cannot* satisfy
 `AppliedPrefix`. So the `AppliedPrefix`/in-order-application hypothesis is
 load-bearing: drop it and a divergent store is not `seqSpec`-consistent, i.e.
 the object is no longer linearizable. Linearizability is a property of protocol
@@ -294,9 +294,9 @@ hypothesis and a divergent store is no longer `seqSpec`-consistent — the objec
 stops being linearizable. Linearizability is a property of protocol-respecting
 runs. -/
 
-namespace Bite
+namespace LinearizableBite
 
-open DLCD.AntiVacuity (dup)
+open DLCD.RsmAntiVacuity (dup)
 
 /-- The 2-command committed log used for the bite and the anti-vacuity witness. -/
 def init : Term := Term.var 0
@@ -325,7 +325,7 @@ theorem bad_not_applied_prefix : ¬ AppliedPrefix init log2 badReplica := by
   intro h
   exact bad_off_trajectory (store_is_seq_prefix h)
 
-end Bite
+end LinearizableBite
 
 /-! ## 7. Anti-vacuity — a concrete 2-command log, its linearization exhibited.
 
@@ -337,7 +337,7 @@ nothing is discharged over a no-op. -/
 
 namespace AntiVacuityLin
 
-open DLCD.AntiVacuity (dup)
+open DLCD.RsmAntiVacuity (dup)
 
 def init : Term := Term.var 0
 def log2 : CommittedLog := [dup, dup]

@@ -35,7 +35,7 @@ proved guarantees — capability-safety (`CapSafety`), consensus/convergence
   writeVal`), whose payload `writeVal = λ_. ⟨x, x⟩` genuinely transforms the
   store (`applyCommand wcmd (var 0) = ⟨var 0, var 0⟩`). The `issuer`, `writeCap`,
   signature, and the signed credential `saysWitness` are reused *verbatim* from
-  `CapSafety.AntiVacuity` — a genuine `Deriv … (issuer says writeCap)`.
+  `CapSafety.CapSafetyAntiVacuity` — a genuine `Deriv … (issuer says writeCap)`.
 - **A `FailureBudget` with `fairDelivery = true`** (`FailureBudget.zero 1`).
 - **A correct quorum** `Qall = univ : Finset (Fin 2)` — the whole 2-replica set,
   a strict majority (`2·2 > 2`).
@@ -86,8 +86,8 @@ the gate is real: an unguarded write can never enter the well-formed log.
   verification: https://arxiv.org/pdf/2507.14080
 - The non-vacuous-witness / demonstration discipline: a universal theorem is
   empty unless its hypotheses are jointly satisfiable on a real instance — the
-  same anti-vacuity ledger used across this program (`CapSafety.AntiVacuity`,
-  `Consensus.AntiVacuity`, `Rsm.AntiVacuity`, `Liveness.LivenessAntiVacuity`).
+  same anti-vacuity ledger used across this program (`CapSafety.CapSafetyAntiVacuity`,
+  `Consensus.ConsensusAntiVacuity`, `Rsm.RsmAntiVacuity`, `Liveness.LivenessAntiVacuity`).
 -/
 
 namespace DLCD
@@ -99,11 +99,11 @@ namespace SliceWitness
 /-! ## 0. The reused REAL capability credential.
 
 `issuer`, `writeCap`, `sig`, and the signed says-credential `saysWitness` are
-taken verbatim from `CapSafety.AntiVacuity`. `saysWitness` is a genuine
+taken verbatim from `CapSafety.CapSafetyAntiVacuity`. `saysWitness` is a genuine
 `Deriv … (issuer says writeCap)` built by the signature-carrying `Deriv.saysI` —
 the PCA signed capability the commit gate demands. -/
 
-open DLCD.AntiVacuity (issuer writeCap sig saysWitness)
+open DLCD.CapSafetyAntiVacuity (issuer writeCap sig saysWitness)
 
 /-! ## 1. The ONE concrete run: two replicas, one authorized state-changing write. -/
 

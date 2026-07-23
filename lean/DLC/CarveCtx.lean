@@ -111,7 +111,7 @@ noncomputable def cjoin_insert {α : Type} {Γl₁ Γr₁ Γl₂ Γr₂ Γl Γr 
       simpa using
         (by
           induction Γm with
-          | nil => simpa using hr
+          | nil => simpa [zeroed] using hr
           | cons p Γ ih => exact CJoin.cons (MJoin.zl _) ih :
           CJoin (zeroed Γm ++ Γr₁) (zeroed Γm ++ Γr₂) (zeroed Γm ++ Γr))
   | cons hm _ ih => exact CJoin.cons hm ih

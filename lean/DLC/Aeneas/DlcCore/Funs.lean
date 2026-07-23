@@ -19,15 +19,6 @@ noncomputable section
 
 namespace dlc_core
 
-/-- Trait implementation: [core::array::{impl core::fmt::Debug for [T; N]}]
-    Source: '/rustc/library/core/src/array/mod.rs', lines 355:0-355:57
-    Name pattern: [core::fmt::Debug<[@T; @N]>] -/
-@[reducible, rust_trait_impl "core::fmt::Debug<[@T; @N]>"]
-def Array.Insts.CoreFmtDebug {T : Type} (N : Std.Usize) (fmtDebugInst :
-  core.fmt.Debug T) : core.fmt.Debug (Array T N) := {
-  fmt := core.array.DebugArray.fmt fmtDebugInst
-}
-
 /-- Trait implementation: [core::hash::impls::{impl core::hash::Hash for u8}]
     Source: '/rustc/library/core/src/hash/mod.rs', lines 810:12-810:29
     Name pattern: [core::hash::Hash<u8>] -/
@@ -35,18 +26,6 @@ def Array.Insts.CoreFmtDebug {T : Type} (N : Std.Usize) (fmtDebugInst :
 def U8.Insts.CoreHashHash : core.hash.Hash Std.U8 := {
   hash := fun {H : Type} (HasherInst : core.hash.Hasher H) =>
     U8.Insts.CoreHashHash.hash HasherInst
-}
-
-/-- Trait implementation: [core::iter::range::{impl core::iter::range::Step for u32}]
-    Source: '/rustc/library/core/src/iter/range.rs', lines 266:12-266:43
-    Name pattern: [core::iter::range::Step<u32>] -/
-@[reducible, rust_trait_impl "core::iter::range::Step<u32>"]
-def U32.Insts.CoreIterRangeStep : core.iter.range.Step Std.U32 := {
-  cloneInst := core.clone.CloneU32
-  partialOrdInst := core.cmp.PartialOrdU32
-  steps_between := U32.Insts.CoreIterRangeStep.steps_between
-  forward_checked := U32.Insts.CoreIterRangeStep.forward_checked
-  backward_checked := U32.Insts.CoreIterRangeStep.backward_checked
 }
 
 /-- Trait implementation: [alloc::boxed::{impl core::fmt::Debug for alloc::boxed::Box<T>}]
@@ -68,10 +47,11 @@ def time.TimeBound.Insts.CoreCmpPartialEqTimeBound.eq
 /-- Trait implementation: [dlc_core::time::{impl core::cmp::PartialEq<dlc_core::time::TimeBound> for dlc_core::time::TimeBound}]
     Source: 'crates/dlc-core/src/time.rs', lines 12:23-12:32 -/
 @[reducible]
-def time.TimeBound.Insts.CoreCmpPartialEqTimeBound : core.cmp.PartialEq
+impl_def time.TimeBound.Insts.CoreCmpPartialEqTimeBound : core.cmp.PartialEq
   time.TimeBound time.TimeBound := {
   eq := time.TimeBound.Insts.CoreCmpPartialEqTimeBound.eq
-  ne := time.TimeBound.Insts.CoreCmpPartialEqTimeBound.ne
+  ne := core.cmp.PartialEq.ne.trait_default
+    time.TimeBound.Insts.CoreCmpPartialEqTimeBound
 }
 
 /-- [dlc_core::principal::{impl core::cmp::PartialEq<dlc_core::principal::PrincipalId> for dlc_core::principal::PrincipalId}::eq]:
@@ -86,10 +66,11 @@ def principal.PrincipalId.Insts.CoreCmpPartialEqPrincipalId.eq
 /-- Trait implementation: [dlc_core::principal::{impl core::cmp::PartialEq<dlc_core::principal::PrincipalId> for dlc_core::principal::PrincipalId}]
     Source: 'crates/dlc-core/src/principal.rs', lines 25:23-25:32 -/
 @[reducible]
-def principal.PrincipalId.Insts.CoreCmpPartialEqPrincipalId :
+impl_def principal.PrincipalId.Insts.CoreCmpPartialEqPrincipalId :
   core.cmp.PartialEq principal.PrincipalId principal.PrincipalId := {
   eq := principal.PrincipalId.Insts.CoreCmpPartialEqPrincipalId.eq
-  ne := principal.PrincipalId.Insts.CoreCmpPartialEqPrincipalId.ne
+  ne := core.cmp.PartialEq.ne.trait_default
+    principal.PrincipalId.Insts.CoreCmpPartialEqPrincipalId
 }
 
 /-- [dlc_core::principal::{impl core::cmp::PartialEq<dlc_core::principal::Principal> for dlc_core::principal::Principal}::eq]:
@@ -160,10 +141,11 @@ partial_fixpoint
 /-- Trait implementation: [dlc_core::principal::{impl core::cmp::PartialEq<dlc_core::principal::Principal> for dlc_core::principal::Principal}]
     Source: 'crates/dlc-core/src/principal.rs', lines 8:23-8:32 -/
 @[reducible]
-def principal.Principal.Insts.CoreCmpPartialEqPrincipal : core.cmp.PartialEq
-  principal.Principal principal.Principal := {
+impl_def principal.Principal.Insts.CoreCmpPartialEqPrincipal :
+  core.cmp.PartialEq principal.Principal principal.Principal := {
   eq := principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq
-  ne := principal.Principal.Insts.CoreCmpPartialEqPrincipal.ne
+  ne := core.cmp.PartialEq.ne.trait_default
+    principal.Principal.Insts.CoreCmpPartialEqPrincipal
 }
 
 /-- [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::DpBudget> for dlc_core::obligation::DpBudget}::eq]:
@@ -180,10 +162,11 @@ def obligation.DpBudget.Insts.CoreCmpPartialEqDpBudget.eq
 /-- Trait implementation: [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::DpBudget> for dlc_core::obligation::DpBudget}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 51:29-51:38 -/
 @[reducible]
-def obligation.DpBudget.Insts.CoreCmpPartialEqDpBudget : core.cmp.PartialEq
-  obligation.DpBudget obligation.DpBudget := {
+impl_def obligation.DpBudget.Insts.CoreCmpPartialEqDpBudget :
+  core.cmp.PartialEq obligation.DpBudget obligation.DpBudget := {
   eq := obligation.DpBudget.Insts.CoreCmpPartialEqDpBudget.eq
-  ne := obligation.DpBudget.Insts.CoreCmpPartialEqDpBudget.ne
+  ne := core.cmp.PartialEq.ne.trait_default
+    obligation.DpBudget.Insts.CoreCmpPartialEqDpBudget
 }
 
 /-- [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::ActionId> for dlc_core::obligation::ActionId}::eq]:
@@ -198,10 +181,11 @@ def obligation.ActionId.Insts.CoreCmpPartialEqActionId.eq
 /-- Trait implementation: [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::ActionId> for dlc_core::obligation::ActionId}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 41:23-41:32 -/
 @[reducible]
-def obligation.ActionId.Insts.CoreCmpPartialEqActionId : core.cmp.PartialEq
-  obligation.ActionId obligation.ActionId := {
+impl_def obligation.ActionId.Insts.CoreCmpPartialEqActionId :
+  core.cmp.PartialEq obligation.ActionId obligation.ActionId := {
   eq := obligation.ActionId.Insts.CoreCmpPartialEqActionId.eq
-  ne := obligation.ActionId.Insts.CoreCmpPartialEqActionId.ne
+  ne := core.cmp.PartialEq.ne.trait_default
+    obligation.ActionId.Insts.CoreCmpPartialEqActionId
 }
 
 /-- [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::Obligation> for dlc_core::obligation::Obligation}::eq]:
@@ -295,10 +279,11 @@ partial_fixpoint
 /-- Trait implementation: [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::Obligation> for dlc_core::obligation::Obligation}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 20:23-20:32 -/
 @[reducible]
-def obligation.Obligation.Insts.CoreCmpPartialEqObligation : core.cmp.PartialEq
-  obligation.Obligation obligation.Obligation := {
+impl_def obligation.Obligation.Insts.CoreCmpPartialEqObligation :
+  core.cmp.PartialEq obligation.Obligation obligation.Obligation := {
   eq := obligation.Obligation.Insts.CoreCmpPartialEqObligation.eq
-  ne := obligation.Obligation.Insts.CoreCmpPartialEqObligation.ne
+  ne := core.cmp.PartialEq.ne.trait_default
+    obligation.Obligation.Insts.CoreCmpPartialEqObligation
 }
 
 /-- [dlc_core::ifc::{impl core::cmp::PartialEq<dlc_core::ifc::Label> for dlc_core::ifc::Label}::eq]:
@@ -311,10 +296,11 @@ def ifc.Label.Insts.CoreCmpPartialEqLabel.eq
 /-- Trait implementation: [dlc_core::ifc::{impl core::cmp::PartialEq<dlc_core::ifc::Label> for dlc_core::ifc::Label}]
     Source: 'crates/dlc-core/src/ifc.rs', lines 13:23-13:32 -/
 @[reducible]
-def ifc.Label.Insts.CoreCmpPartialEqLabel : core.cmp.PartialEq ifc.Label
+impl_def ifc.Label.Insts.CoreCmpPartialEqLabel : core.cmp.PartialEq ifc.Label
   ifc.Label := {
   eq := ifc.Label.Insts.CoreCmpPartialEqLabel.eq
-  ne := ifc.Label.Insts.CoreCmpPartialEqLabel.ne
+  ne := core.cmp.PartialEq.ne.trait_default
+    ifc.Label.Insts.CoreCmpPartialEqLabel
 }
 
 /-- [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Prop> for dlc_core::syntax::Prop}::eq]:
@@ -589,10 +575,11 @@ def time.TimeBound.Insts.CoreCloneClone.clone
 /-- Trait implementation: [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Prop> for dlc_core::syntax::Prop}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 16:23-16:32 -/
 @[reducible]
-def syntax.Prop.Insts.CoreCmpPartialEqProp : core.cmp.PartialEq syntax.Prop
-  syntax.Prop := {
+impl_def syntax.Prop.Insts.CoreCmpPartialEqProp : core.cmp.PartialEq
+  syntax.Prop syntax.Prop := {
   eq := syntax.Prop.Insts.CoreCmpPartialEqProp.eq
-  ne := syntax.Prop.Insts.CoreCmpPartialEqProp.ne
+  ne := core.cmp.PartialEq.ne.trait_default
+    syntax.Prop.Insts.CoreCmpPartialEqProp
 }
 
 /-- [dlc_core::principal::{impl core::clone::Clone for dlc_core::principal::PrincipalId}::clone]:
@@ -907,7 +894,8 @@ def decide.infer
           | syntax.Prop.Says _ _ => ok none
           | syntax.Prop.SpeaksFor q p1 =>
             let b ←
-              principal.Principal.Insts.CoreCmpPartialEqPrincipal.ne p1 p
+              core.cmp.PartialEq.ne.trait_default
+                principal.Principal.Insts.CoreCmpPartialEqPrincipal p1 p
             if b
             then ok none
             else
@@ -920,7 +908,8 @@ def decide.infer
               | syntax.Prop.Or _ _ => ok none
               | syntax.Prop.Says p2 inner1 =>
                 let b1 ←
-                  principal.Principal.Insts.CoreCmpPartialEqPrincipal.ne q p2
+                  core.cmp.PartialEq.ne.trait_default
+                    principal.Principal.Insts.CoreCmpPartialEqPrincipal q p2
                 if b1
                 then ok none
                 else
@@ -1545,11 +1534,12 @@ def graded.Graded.Insts.CoreCmpPartialEqGraded.eq
 /-- Trait implementation: [dlc_core::graded::{impl core::cmp::PartialEq<dlc_core::graded::Graded<P>> for dlc_core::graded::Graded<P>}]
     Source: 'crates/dlc-core/src/graded.rs', lines 31:23-31:32 -/
 @[reducible]
-def graded.Graded.Insts.CoreCmpPartialEqGraded {P : Type} (corecmpPartialEqInst
-  : core.cmp.PartialEq P P) : core.cmp.PartialEq (graded.Graded P)
-  (graded.Graded P) := {
+impl_def graded.Graded.Insts.CoreCmpPartialEqGraded {P : Type}
+  (corecmpPartialEqInst : core.cmp.PartialEq P P) : core.cmp.PartialEq
+  (graded.Graded P) (graded.Graded P) := {
   eq := graded.Graded.Insts.CoreCmpPartialEqGraded.eq corecmpPartialEqInst
-  ne := graded.Graded.Insts.CoreCmpPartialEqGraded.ne corecmpPartialEqInst
+  ne := core.cmp.PartialEq.ne.trait_default
+    (graded.Graded.Insts.CoreCmpPartialEqGraded corecmpPartialEqInst)
 }
 
 /-- [dlc_core::graded::{impl core::cmp::Eq for dlc_core::graded::Graded<P>}::assert_fields_are_eq]:
@@ -2058,10 +2048,11 @@ def judgment.Ctx.Insts.CoreCmpPartialEqCtx.eq
 /-- Trait implementation: [dlc_core::judgment::{impl core::cmp::PartialEq<dlc_core::judgment::Ctx> for dlc_core::judgment::Ctx}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 15:32-15:41 -/
 @[reducible]
-def judgment.Ctx.Insts.CoreCmpPartialEqCtx : core.cmp.PartialEq judgment.Ctx
-  judgment.Ctx := {
+impl_def judgment.Ctx.Insts.CoreCmpPartialEqCtx : core.cmp.PartialEq
+  judgment.Ctx judgment.Ctx := {
   eq := judgment.Ctx.Insts.CoreCmpPartialEqCtx.eq
-  ne := judgment.Ctx.Insts.CoreCmpPartialEqCtx.ne
+  ne := core.cmp.PartialEq.ne.trait_default
+    judgment.Ctx.Insts.CoreCmpPartialEqCtx
 }
 
 /-- [dlc_core::judgment::{impl core::cmp::Eq for dlc_core::judgment::Ctx}::assert_fields_are_eq]:
@@ -2209,10 +2200,11 @@ def principal.KeyRecord.Insts.CoreCmpPartialEqKeyRecord.eq
 /-- Trait implementation: [dlc_core::principal::{impl core::cmp::PartialEq<dlc_core::principal::KeyRecord> for dlc_core::principal::KeyRecord}]
     Source: 'crates/dlc-core/src/principal.rs', lines 32:23-32:32 -/
 @[reducible]
-def principal.KeyRecord.Insts.CoreCmpPartialEqKeyRecord : core.cmp.PartialEq
-  principal.KeyRecord principal.KeyRecord := {
+impl_def principal.KeyRecord.Insts.CoreCmpPartialEqKeyRecord :
+  core.cmp.PartialEq principal.KeyRecord principal.KeyRecord := {
   eq := principal.KeyRecord.Insts.CoreCmpPartialEqKeyRecord.eq
-  ne := principal.KeyRecord.Insts.CoreCmpPartialEqKeyRecord.ne
+  ne := core.cmp.PartialEq.ne.trait_default
+    principal.KeyRecord.Insts.CoreCmpPartialEqKeyRecord
 }
 
 /-- [dlc_core::judgment::{impl core::cmp::PartialEq<dlc_core::judgment::KeyRing> for dlc_core::judgment::KeyRing}::eq]:
@@ -2227,10 +2219,11 @@ def judgment.KeyRing.Insts.CoreCmpPartialEqKeyRing.eq
 /-- Trait implementation: [dlc_core::judgment::{impl core::cmp::PartialEq<dlc_core::judgment::KeyRing> for dlc_core::judgment::KeyRing}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 43:32-43:41 -/
 @[reducible]
-def judgment.KeyRing.Insts.CoreCmpPartialEqKeyRing : core.cmp.PartialEq
+impl_def judgment.KeyRing.Insts.CoreCmpPartialEqKeyRing : core.cmp.PartialEq
   judgment.KeyRing judgment.KeyRing := {
   eq := judgment.KeyRing.Insts.CoreCmpPartialEqKeyRing.eq
-  ne := judgment.KeyRing.Insts.CoreCmpPartialEqKeyRing.ne
+  ne := core.cmp.PartialEq.ne.trait_default
+    judgment.KeyRing.Insts.CoreCmpPartialEqKeyRing
 }
 
 /-- [dlc_core::judgment::{impl core::cmp::Eq for dlc_core::judgment::KeyRing}::assert_fields_are_eq]:
@@ -2773,10 +2766,11 @@ def judgment.RuleName.Insts.CoreCmpPartialEqRuleName.eq
 /-- Trait implementation: [dlc_core::judgment::{impl core::cmp::PartialEq<dlc_core::judgment::RuleName> for dlc_core::judgment::RuleName}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 64:29-64:38 -/
 @[reducible]
-def judgment.RuleName.Insts.CoreCmpPartialEqRuleName : core.cmp.PartialEq
+impl_def judgment.RuleName.Insts.CoreCmpPartialEqRuleName : core.cmp.PartialEq
   judgment.RuleName judgment.RuleName := {
   eq := judgment.RuleName.Insts.CoreCmpPartialEqRuleName.eq
-  ne := judgment.RuleName.Insts.CoreCmpPartialEqRuleName.ne
+  ne := core.cmp.PartialEq.ne.trait_default
+    judgment.RuleName.Insts.CoreCmpPartialEqRuleName
 }
 
 /-- [dlc_core::judgment::{impl core::cmp::Eq for dlc_core::judgment::RuleName}::assert_fields_are_eq]:
@@ -3051,10 +3045,11 @@ def obligation.Discharged.Insts.CoreCmpPartialEqDischarged.eq
 /-- Trait implementation: [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::Discharged> for dlc_core::obligation::Discharged}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 97:23-97:32 -/
 @[reducible]
-def obligation.Discharged.Insts.CoreCmpPartialEqDischarged : core.cmp.PartialEq
-  obligation.Discharged obligation.Discharged := {
+impl_def obligation.Discharged.Insts.CoreCmpPartialEqDischarged :
+  core.cmp.PartialEq obligation.Discharged obligation.Discharged := {
   eq := obligation.Discharged.Insts.CoreCmpPartialEqDischarged.eq
-  ne := obligation.Discharged.Insts.CoreCmpPartialEqDischarged.ne
+  ne := core.cmp.PartialEq.ne.trait_default
+    obligation.Discharged.Insts.CoreCmpPartialEqDischarged
 }
 
 /-- [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::Discharged}::assert_fields_are_eq]:
@@ -3092,10 +3087,11 @@ def obligation.Seal.Insts.CoreMarkerStructuralPartialEq :
 /-- Trait implementation: [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::Seal> for dlc_core::obligation::Seal}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 106:23-106:32 -/
 @[reducible]
-def obligation.Seal.Insts.CoreCmpPartialEqSeal : core.cmp.PartialEq
+impl_def obligation.Seal.Insts.CoreCmpPartialEqSeal : core.cmp.PartialEq
   obligation.Seal obligation.Seal := {
   eq := obligation.Seal.Insts.CoreCmpPartialEqSeal.eq
-  ne := obligation.Seal.Insts.CoreCmpPartialEqSeal.ne
+  ne := core.cmp.PartialEq.ne.trait_default
+    obligation.Seal.Insts.CoreCmpPartialEqSeal
 }
 
 /-- [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::Seal}::assert_fields_are_eq]:
@@ -5291,7 +5287,7 @@ def reduce.reduce_with_fuel_loop.body
     (syntax.Term × Std.U32))
   := do
   let (o, iter1) ←
-    core.iter.range.IteratorRange.next U32.Insts.CoreIterRangeStep iter
+    core.iter.range.IteratorRange.next core.iter.range.StepU32 iter
   match o with
   | none => ok (done (cur, fuel))
   | some n =>
@@ -5363,10 +5359,11 @@ def syntax.Signature.Insts.CoreCmpPartialEqSignature.eq
 /-- Trait implementation: [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Signature> for dlc_core::syntax::Signature}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 167:23-167:32 -/
 @[reducible]
-def syntax.Signature.Insts.CoreCmpPartialEqSignature : core.cmp.PartialEq
+impl_def syntax.Signature.Insts.CoreCmpPartialEqSignature : core.cmp.PartialEq
   syntax.Signature syntax.Signature := {
   eq := syntax.Signature.Insts.CoreCmpPartialEqSignature.eq
-  ne := syntax.Signature.Insts.CoreCmpPartialEqSignature.ne
+  ne := core.cmp.PartialEq.ne.trait_default
+    syntax.Signature.Insts.CoreCmpPartialEqSignature
 }
 
 /-- [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Term> for dlc_core::syntax::Term}::eq]:
@@ -6257,10 +6254,11 @@ partial_fixpoint
 /-- Trait implementation: [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Term> for dlc_core::syntax::Term}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 56:23-56:32 -/
 @[reducible]
-def syntax.Term.Insts.CoreCmpPartialEqTerm : core.cmp.PartialEq syntax.Term
-  syntax.Term := {
+impl_def syntax.Term.Insts.CoreCmpPartialEqTerm : core.cmp.PartialEq
+  syntax.Term syntax.Term := {
   eq := syntax.Term.Insts.CoreCmpPartialEqTerm.eq
-  ne := syntax.Term.Insts.CoreCmpPartialEqTerm.ne
+  ne := core.cmp.PartialEq.ne.trait_default
+    syntax.Term.Insts.CoreCmpPartialEqTerm
 }
 
 /-- [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Term}::assert_fields_are_eq]:

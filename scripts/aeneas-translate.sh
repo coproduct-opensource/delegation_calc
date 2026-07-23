@@ -21,8 +21,8 @@ CHARON_TOOLCHAIN="${CHARON_TOOLCHAIN:-nightly-2026-06-01}"
 
 # Prefer the PINNED cached Charon/Aeneas binaries (same pins as
 # .github/workflows/aeneas.yml) so local regeneration reproduces CI bit-for-bit.
-CHARON_PIN="${CHARON_PIN:-$HOME/.aeneas-ci-cache/charon-9dd7f23c8458b2366ce0b5ca7529c5ad4c5fb350/bin}"
-AENEAS_PIN="${AENEAS_PIN:-$HOME/.aeneas-ci-cache/aeneas-nightly-2026.06.10/bin}"
+CHARON_PIN="${CHARON_PIN:-$HOME/.aeneas-ci-cache/charon-cb50ff16b9f1066b8a97dc06da704de2da2fa41c/bin}"
+AENEAS_PIN="${AENEAS_PIN:-$HOME/.aeneas-ci-cache/aeneas-nightly-2026.07.23-ad905f5/bin}"
 [ -x "$CHARON_PIN/charon" ] && PATH="$CHARON_PIN:$PATH"
 [ -x "$AENEAS_PIN/aeneas" ] && PATH="$AENEAS_PIN:$PATH"
 export PATH

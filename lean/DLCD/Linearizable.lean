@@ -379,7 +379,10 @@ committed log — `seqSpec init log2` — i.e. it sits at the end of the single
 sequential run. Non-vacuous: `S2` is the twice-changed store, not `init`. -/
 theorem r2_store_is_seqspec : r2.store = seqSpec init log2 := by
   have h := store_is_seq_prefix inv2
-  simpa using h
+  -- `log2.take r2.applied` is definitionally `log2` (r2.applied ≡ 2, |log2| = 2);
+  -- Lean 4.31's simp no longer evaluates the concrete `List.take`, so reduce
+  -- the fold argument by definitional `rfl`.
+  exact h.trans (by rfl)
 
 theorem r2_store_is_S2 : r2.store = S2 := r2_store_is_seqspec
 
@@ -398,7 +401,9 @@ theorem linearization_nonvacuous :
     r1.store = S1 ∧ r2.store = S2 ∧ S1 ≠ S2 := by
   refine ⟨?_, r2_store_is_S2, (states_distinct.2.1)⟩
   have h := store_is_seq_prefix inv1
-  simpa using h
+  -- `seqSpec init (log2.take r1.applied)` reduces definitionally to `S1`
+  -- (r1.applied ≡ 1); reduce by `rfl` since 4.31 simp no longer evaluates it.
+  exact h.trans (by rfl)
 
 /-- Real-time monotonicity on the concrete run: `r2`'s store is `r1`'s store with
 the one intervening committed slot applied — the later observation continues the

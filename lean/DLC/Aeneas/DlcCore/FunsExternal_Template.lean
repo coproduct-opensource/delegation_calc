@@ -25,36 +25,6 @@ axiom Array.Insts.CoreHashHash.hash
   (hashHasherInst : core.hash.Hasher H) :
   Array T N → H → Result H
 
-/-- [core::cmp::impls::{impl core::cmp::Eq for u32}::assert_fields_are_eq]:
-    Source: '/rustc/library/core/src/cmp.rs', lines 1906:12-1906:32
-    Name pattern: [core::cmp::impls::{core::cmp::Eq<u32>}::assert_fields_are_eq]
-    Visibility: public -/
-@[rust_fun "core::cmp::impls::{core::cmp::Eq<u32>}::assert_fields_are_eq"]
-axiom U32.Insts.CoreCmpEq.assert_fields_are_eq : Std.U32 → Result Unit
-
-/-- [core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field2_finish]:
-    Source: '/rustc/library/core/src/fmt/mod.rs', lines 2473:4-2480:15
-    Name pattern: [core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field2_finish]
-    Visibility: public -/
-@[rust_fun "core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field2_finish"]
-axiom core.fmt.Formatter.debug_struct_field2_finish
-  :
-  core.fmt.Formatter → Str → Str → Dyn (fun _dyn => core.fmt.Debug _dyn)
-    → Str → Dyn (fun _dyn => core.fmt.Debug _dyn) → Result
-    ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
-
-/-- [core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field3_finish]:
-    Source: '/rustc/library/core/src/fmt/mod.rs', lines 2492:4-2501:15
-    Name pattern: [core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field3_finish]
-    Visibility: public -/
-@[rust_fun "core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field3_finish"]
-axiom core.fmt.Formatter.debug_struct_field3_finish
-  :
-  core.fmt.Formatter → Str → Str → Dyn (fun _dyn => core.fmt.Debug _dyn)
-    → Str → Dyn (fun _dyn => core.fmt.Debug _dyn) → Str → Dyn (fun _dyn
-    => core.fmt.Debug _dyn) → Result ((core.result.Result Unit
-    core.fmt.Error) × core.fmt.Formatter)
-
 /-- [core::fmt::{core::fmt::Formatter<'a>}::debug_tuple_field2_finish]:
     Source: '/rustc/library/core/src/fmt/mod.rs', lines 2627:4-2632:15
     Name pattern: [core::fmt::{core::fmt::Formatter<'a>}::debug_tuple_field2_finish]
@@ -100,32 +70,6 @@ axiom Isize.Insts.CoreHashHash.hash
 @[rust_fun "core::hash::impls::{core::hash::Hash<u64>}::hash"]
 axiom U64.Insts.CoreHashHash.hash
   {H : Type} (HasherInst : core.hash.Hasher H) : Std.U64 → H → Result H
-
-/-- [core::iter::range::{impl core::iter::range::Step for u32}::backward_checked]:
-    Source: '/rustc/library/core/src/iter/range.rs', lines 290:16-290:74
-    Name pattern: [core::iter::range::{core::iter::range::Step<u32>}::backward_checked]
-    Visibility: public -/
-@[rust_fun
-  "core::iter::range::{core::iter::range::Step<u32>}::backward_checked"]
-axiom U32.Insts.CoreIterRangeStep.backward_checked
-  : Std.U32 → Std.Usize → Result (Option Std.U32)
-
-/-- [core::iter::range::{impl core::iter::range::Step for u32}::forward_checked]:
-    Source: '/rustc/library/core/src/iter/range.rs', lines 282:16-282:73
-    Name pattern: [core::iter::range::{core::iter::range::Step<u32>}::forward_checked]
-    Visibility: public -/
-@[rust_fun
-  "core::iter::range::{core::iter::range::Step<u32>}::forward_checked"]
-axiom U32.Insts.CoreIterRangeStep.forward_checked
-  : Std.U32 → Std.Usize → Result (Option Std.U32)
-
-/-- [core::iter::range::{impl core::iter::range::Step for u32}::steps_between]:
-    Source: '/rustc/library/core/src/iter/range.rs', lines 271:16-271:84
-    Name pattern: [core::iter::range::{core::iter::range::Step<u32>}::steps_between]
-    Visibility: public -/
-@[rust_fun "core::iter::range::{core::iter::range::Step<u32>}::steps_between"]
-axiom U32.Insts.CoreIterRangeStep.steps_between
-  : Std.U32 → Std.U32 → Result (Std.Usize × (Option Std.Usize))
 
 /-- [core::option::{impl core::ops::try_trait::Try for core::option::Option<T>}::branch]:
     Source: '/rustc/library/core/src/option.rs', lines 2779:4-2779:64
@@ -219,107 +163,4 @@ axiom alloc.vec.Vec.Insts.CoreHashHash.hash
   "alloc::vec::{core::default::Default<alloc::vec::Vec<@T>>}::default"]
 axiom alloc.vec.Vec.Insts.CoreDefaultDefault.default
   (T : Type) : Result (alloc.vec.Vec T)
-
-/-- [dlc_core::time::{impl core::cmp::PartialEq<dlc_core::time::TimeBound> for dlc_core::time::TimeBound}::ne]:
-    Source: 'crates/dlc-core/src/time.rs', lines 12:23-12:32
-    Visibility: public -/
-axiom time.TimeBound.Insts.CoreCmpPartialEqTimeBound.ne
-  : time.TimeBound → time.TimeBound → Result Bool
-
-/-- [dlc_core::principal::{impl core::cmp::PartialEq<dlc_core::principal::Principal> for dlc_core::principal::Principal}::ne]:
-    Source: 'crates/dlc-core/src/principal.rs', lines 8:23-8:32
-    Visibility: public -/
-axiom principal.Principal.Insts.CoreCmpPartialEqPrincipal.ne
-  : principal.Principal → principal.Principal → Result Bool
-
-/-- [dlc_core::principal::{impl core::cmp::PartialEq<dlc_core::principal::PrincipalId> for dlc_core::principal::PrincipalId}::ne]:
-    Source: 'crates/dlc-core/src/principal.rs', lines 25:23-25:32
-    Visibility: public -/
-axiom principal.PrincipalId.Insts.CoreCmpPartialEqPrincipalId.ne
-  : principal.PrincipalId → principal.PrincipalId → Result Bool
-
-/-- [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::Obligation> for dlc_core::obligation::Obligation}::ne]:
-    Source: 'crates/dlc-core/src/obligation.rs', lines 20:23-20:32
-    Visibility: public -/
-axiom obligation.Obligation.Insts.CoreCmpPartialEqObligation.ne
-  : obligation.Obligation → obligation.Obligation → Result Bool
-
-/-- [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::DpBudget> for dlc_core::obligation::DpBudget}::ne]:
-    Source: 'crates/dlc-core/src/obligation.rs', lines 51:29-51:38
-    Visibility: public -/
-axiom obligation.DpBudget.Insts.CoreCmpPartialEqDpBudget.ne
-  : obligation.DpBudget → obligation.DpBudget → Result Bool
-
-/-- [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::ActionId> for dlc_core::obligation::ActionId}::ne]:
-    Source: 'crates/dlc-core/src/obligation.rs', lines 41:23-41:32
-    Visibility: public -/
-axiom obligation.ActionId.Insts.CoreCmpPartialEqActionId.ne
-  : obligation.ActionId → obligation.ActionId → Result Bool
-
-/-- [dlc_core::ifc::{impl core::cmp::PartialEq<dlc_core::ifc::Label> for dlc_core::ifc::Label}::ne]:
-    Source: 'crates/dlc-core/src/ifc.rs', lines 13:23-13:32
-    Visibility: public -/
-axiom ifc.Label.Insts.CoreCmpPartialEqLabel.ne
-  : ifc.Label → ifc.Label → Result Bool
-
-/-- [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Prop> for dlc_core::syntax::Prop}::ne]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 16:23-16:32
-    Visibility: public -/
-axiom syntax.Prop.Insts.CoreCmpPartialEqProp.ne
-  : syntax.Prop → syntax.Prop → Result Bool
-
-/-- [dlc_core::graded::{impl core::cmp::PartialEq<dlc_core::graded::Graded<P>> for dlc_core::graded::Graded<P>}::ne]:
-    Source: 'crates/dlc-core/src/graded.rs', lines 31:23-31:32
-    Visibility: public -/
-axiom graded.Graded.Insts.CoreCmpPartialEqGraded.ne
-  {P : Type} (corecmpPartialEqInst : core.cmp.PartialEq P P) :
-  graded.Graded P → graded.Graded P → Result Bool
-
-/-- [dlc_core::judgment::{impl core::cmp::PartialEq<dlc_core::judgment::Ctx> for dlc_core::judgment::Ctx}::ne]:
-    Source: 'crates/dlc-core/src/judgment.rs', lines 15:32-15:41
-    Visibility: public -/
-axiom judgment.Ctx.Insts.CoreCmpPartialEqCtx.ne
-  : judgment.Ctx → judgment.Ctx → Result Bool
-
-/-- [dlc_core::judgment::{impl core::cmp::PartialEq<dlc_core::judgment::KeyRing> for dlc_core::judgment::KeyRing}::ne]:
-    Source: 'crates/dlc-core/src/judgment.rs', lines 43:32-43:41
-    Visibility: public -/
-axiom judgment.KeyRing.Insts.CoreCmpPartialEqKeyRing.ne
-  : judgment.KeyRing → judgment.KeyRing → Result Bool
-
-/-- [dlc_core::principal::{impl core::cmp::PartialEq<dlc_core::principal::KeyRecord> for dlc_core::principal::KeyRecord}::ne]:
-    Source: 'crates/dlc-core/src/principal.rs', lines 32:23-32:32
-    Visibility: public -/
-axiom principal.KeyRecord.Insts.CoreCmpPartialEqKeyRecord.ne
-  : principal.KeyRecord → principal.KeyRecord → Result Bool
-
-/-- [dlc_core::judgment::{impl core::cmp::PartialEq<dlc_core::judgment::RuleName> for dlc_core::judgment::RuleName}::ne]:
-    Source: 'crates/dlc-core/src/judgment.rs', lines 64:29-64:38
-    Visibility: public -/
-axiom judgment.RuleName.Insts.CoreCmpPartialEqRuleName.ne
-  : judgment.RuleName → judgment.RuleName → Result Bool
-
-/-- [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::Discharged> for dlc_core::obligation::Discharged}::ne]:
-    Source: 'crates/dlc-core/src/obligation.rs', lines 97:23-97:32
-    Visibility: public -/
-axiom obligation.Discharged.Insts.CoreCmpPartialEqDischarged.ne
-  : obligation.Discharged → obligation.Discharged → Result Bool
-
-/-- [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::Seal> for dlc_core::obligation::Seal}::ne]:
-    Source: 'crates/dlc-core/src/obligation.rs', lines 106:23-106:32
-    Visibility: public -/
-axiom obligation.Seal.Insts.CoreCmpPartialEqSeal.ne
-  : obligation.Seal → obligation.Seal → Result Bool
-
-/-- [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Term> for dlc_core::syntax::Term}::ne]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 56:23-56:32
-    Visibility: public -/
-axiom syntax.Term.Insts.CoreCmpPartialEqTerm.ne
-  : syntax.Term → syntax.Term → Result Bool
-
-/-- [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Signature> for dlc_core::syntax::Signature}::ne]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 167:23-167:32
-    Visibility: public -/
-axiom syntax.Signature.Insts.CoreCmpPartialEqSignature.ne
-  : syntax.Signature → syntax.Signature → Result Bool
 

@@ -13,12 +13,7 @@ package «dlc» where
 -- Aeneas standard library. Pinned to the same commit nucleus uses so the
 -- Charon-emitted .llbc files in this workspace match `nucleus`'s output.
 require aeneas from git
-  "https://github.com/AeneasVerif/aeneas.git" @ "5138c03bd39e870abe1ad3a572865cf8c15f43d6" / "backends" / "lean"
-
--- Mathlib for HeytingAlgebra, Multiset (linear context), Order theory, and the
--- categorical infrastructure used by T3 / the strong indexed monad.
-require mathlib from git
-  "https://github.com/leanprover-community/mathlib4.git" @ "v4.30.0-rc2"
+  "https://github.com/AeneasVerif/aeneas.git" @ "ad905f518523fd8553dfbd089feb438ffa5c04ae" / "backends" / "lean"
 
 -- Re-export the verified IFC label algebra from nucleus's portcullis-core.
 -- DLC's IFC labels ARE nucleus's CapabilityLattice; no fresh formalization.
@@ -26,6 +21,15 @@ require mathlib from git
 -- The relative path requires nucleus to be checked out as a sibling clone.
 -- CI (.github/workflows/lean.yml) does this via a parallel checkout step.
 require portcullisCore from "../../nucleus/crates/portcullis-core/lean"
+
+-- Mathlib for HeytingAlgebra, Multiset (linear context), Order theory, and the
+-- categorical infrastructure used by T3 / the strong indexed monad.
+-- MUST be declared LAST: `portcullisCore` transitively requires mathlib at an
+-- older rev, and Lake lets the last `require mathlib` win so Mathlib's own
+-- transitive dep versions (aesop/batteries/Qq/…) take precedence and
+-- `lake exe cache get` computes the correct hashes.
+require mathlib from git
+  "https://github.com/leanprover-community/mathlib4.git" @ "v4.31.0"
 
 -- DLC core library — syntax, judgments, reduction, substitution.
 lean_lib «DLC» where

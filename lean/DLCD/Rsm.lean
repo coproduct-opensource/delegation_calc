@@ -211,7 +211,7 @@ theorem deliver_maintains_prefix {init : Term} {log : CommittedLog} {r : Replica
     AppliedPrefix init log (deliver log r) := by
   unfold AppliedPrefix deliver
   cases hget : log[r.applied]? with
-  | none => simpa [hget] using h
+  | none => simpa [AppliedPrefix, hget] using h
   | some c =>
       unfold AppliedPrefix at h
       rw [applyPrefix_succ init log r.applied c hget, ← h]

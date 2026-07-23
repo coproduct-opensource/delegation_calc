@@ -15,29 +15,6 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 2048
 open dlc_d_rsm
 
-/-- [core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field2_finish]:
-    Source: '/rustc/library/core/src/fmt/mod.rs', lines 2473:4-2480:15
-    Name pattern: [core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field2_finish]
-    Visibility: public -/
-@[rust_fun "core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field2_finish"]
-axiom core.fmt.Formatter.debug_struct_field2_finish
-  :
-  core.fmt.Formatter → Str → Str → Dyn (fun _dyn => core.fmt.Debug _dyn)
-    → Str → Dyn (fun _dyn => core.fmt.Debug _dyn) → Result
-    ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
-
-/-- [core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field3_finish]:
-    Source: '/rustc/library/core/src/fmt/mod.rs', lines 2492:4-2501:15
-    Name pattern: [core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field3_finish]
-    Visibility: public -/
-@[rust_fun "core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field3_finish"]
-axiom core.fmt.Formatter.debug_struct_field3_finish
-  :
-  core.fmt.Formatter → Str → Str → Dyn (fun _dyn => core.fmt.Debug _dyn)
-    → Str → Dyn (fun _dyn => core.fmt.Debug _dyn) → Str → Dyn (fun _dyn
-    => core.fmt.Debug _dyn) → Result ((core.result.Result Unit
-    core.fmt.Error) × core.fmt.Formatter)
-
 /-- [core::option::{impl core::fmt::Debug for core::option::Option<T>}::fmt]:
     Source: '/rustc/library/core/src/option.rs', lines 591:15-591:20
     Name pattern: [core::option::{core::fmt::Debug<core::option::Option<@T>>}::fmt]

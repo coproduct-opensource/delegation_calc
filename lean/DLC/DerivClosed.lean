@@ -281,7 +281,7 @@ noncomputable def deriv_closedAbove {Γ : Ctx} {M : Term} {φ : Prop'}
       rw [closedAbove_letTensor_iff]
       refine ⟨closedAbove_mono (by simpa [Ctx.size] using ihS) (by simp only [Ctx.size, List.length_append]; omega), ?_⟩
       have h := closedAbove_shift B (Γₐ.length + 2 + Γ₂.length) Γ₁.length (Γₐ.length + 2)
-                  (by simpa [Ctx.size, Nat.add_right_comm] using ihB)
+                  (by simpa [Ctx.size, Nat.add_right_comm, Nat.add_assoc] using ihB)
       simpa [Ctx.size, List.length_append, Nat.add_right_comm, Nat.add_assoc,
              Nat.add_left_comm] using h
   | letTensorA Γₐ χ ψ ξ S B _dS _dB ihS ihB =>

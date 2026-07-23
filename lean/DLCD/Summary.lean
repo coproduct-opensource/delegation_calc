@@ -111,6 +111,9 @@ abbrev capability_safety_linear     := @DLCD.capability_safety_linear
 abbrev log_noninterference          := @DLCD.log_noninterference
 abbrev distributed_noninterference  := @DLCD.distributed_noninterference
 abbrev wellTypedLog_implies_htyped  := @DLCD.wellTypedLog_implies_htyped
+-- G1 (R1-inc4b): WellTypedCmd re-founded on commit-I — a commit-I-typed
+-- command's TYPE discharges the typed-log payload obligation (typing-native).
+abbrev wellTypedCmd_of_command_typing := @DLCD.wellTypedCmd_of_command_typing
 -- G2: linearizability
 abbrev single_linearization         := @DLCD.single_linearization
 -- G3: liveness

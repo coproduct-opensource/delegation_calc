@@ -1,0 +1,1 @@
+'DLCD.wellTypedCmd_of_command_typing' depends on axioms: [propext]

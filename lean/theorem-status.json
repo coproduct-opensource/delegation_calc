@@ -1,5 +1,5 @@
 {
-  "_comment": "Single source of truth for headline-theorem statuses. scripts/ledger.sh VALIDATES every entry: a status of proven or proven_fragment requires (a) no sorry in the file, (b) the declared witness module to build, (c) the axiom snapshot to match. Docs (README/RELEASES/paper/draft-ietf) may not claim more than this file says — scripts/check-claims.sh enforces. Status vocabulary: proven | proven_fragment | stated | open | vacuous.",
+  "_comment": "Single source of truth for headline-theorem statuses. scripts/ledger.sh VALIDATES every entry: a status of proven or proven_fragment requires (a) no sorry in the file, (b) the declared witness module to build, (c) the axiom snapshot to match. Docs (README/RELEASES/paper/draft-ietf) may not claim more than this file says \u2014 scripts/check-claims.sh enforces. Status vocabulary: proven | proven_fragment | stated | open | vacuous.",
   "T1_decidability": {
     "status": "proven_fragment",
     "fragment": "propositional (PropDeriv: 22 constructors, additive contexts, no linear splitting)",
@@ -12,25 +12,25 @@
     "witness": "DLC/Witness/T1.lean",
     "open": [
       "full-calculus decidability (linear context splitting, modal/temporal/IFC constructors)",
-      "complexity bound O(|M| · log |Γ|) — unproven in any form, for any fragment"
+      "complexity bound O(|M| \u00b7 log |\u0393|) \u2014 unproven in any form, for any fragment"
     ]
   },
   "T2_correspondence": {
     "status": "stated",
     "file": "DLC/Correspondence.lean",
-    "proven_content": "t2_propositional_correspondence — axiom-free symbolic characterization: crypto typing ⇔ logical typing ∧ allSigsVerify. Definitional-refinement strength (Aura 2008 class); NOT a cryptographic soundness theorem.",
+    "proven_content": "t2_propositional_correspondence \u2014 axiom-free symbolic characterization: crypto typing \u21d4 logical typing \u2227 allSigsVerify. Definitional-refinement strength (Aura 2008 class); NOT a cryptographic soundness theorem.",
     "witness": "DLC/Witness/AxiomAudit.lean",
     "history": "the former axiom Sig_EUF_CMA_propositional was refutable in-system (theory proved False); deleted 2026-07, refutation machine-checked in the witness",
     "open": [
-      "attacker-based T2: verifier acceptance ⇒ derivation from uncompromised principals, vs explicit Dolev-Yao adversary with key compromise",
+      "attacker-based T2: verifier acceptance \u21d2 derivation from uncompromised principals, vs explicit Dolev-Yao adversary with key compromise",
       "wire-encoding injectivity for the real CBOR codec inside the theorem",
-      "EUF-CMA reduction (EasyCrypt/SSProve) — collaborator-gated"
+      "EUF-CMA reduction (EasyCrypt/SSProve) \u2014 collaborator-gated"
     ]
   },
   "T3_noninterference": {
     "status": "proven_fragment",
     "file": "DLC/NonInterference.lean",
-    "proven_content": "FUNDAMENTAL LEMMA proven (DLC/NonInterferenceFundamental.lean, fundamental): every core PropDeriv derivation maps LRel-related closed environments to LRel-related instances, over the redesigned relation LRel (DLC/NonInterferenceLR.lean) and congruent reduction. Corollary t3_two_run_general: an observable-typed core computation cannot distinguish two ARBITRARY closed instantiations of a high-labeled hypothesis — genuine two-run non-interference, the first mechanized NI for a says-logic in Lean. lrel_self gives reflexivity-on-well-typed (which the PER refused for free). Witness DLC/Witness/T3.lean: an ELIMINATION (fst) at an observable atom type concludes Joinable (non-vacuous), typing load-bearing. Ladder rungs 1,2,3a,3b-0,3b,3c all in spec/t3-two-run-design-2026-07.md.",
+    "proven_content": "FUNDAMENTAL LEMMA proven (DLC/NonInterferenceFundamental.lean, fundamental): every core PropDeriv derivation maps LRel-related closed environments to LRel-related instances, over the redesigned relation LRel (DLC/NonInterferenceLR.lean) and congruent reduction. Corollary t3_two_run_general: an observable-typed core computation cannot distinguish two ARBITRARY closed instantiations of a high-labeled hypothesis \u2014 genuine two-run non-interference, the first mechanized NI for a says-logic in Lean. lrel_self gives reflexivity-on-well-typed (which the PER refused for free). Witness DLC/Witness/T3.lean: an ELIMINATION (fst) at an observable atom type concludes Joinable (non-vacuous), typing load-bearing. Ladder rungs 1,2,3a,3b-0,3b,3c all in spec/t3-two-run-design-2026-07.md.",
     "witness": "DLC/Witness/T3.lean",
     "open": [
       "extend from PropDeriv (propositional fragment) to the full Deriv judgment with linear context splitting",
@@ -59,7 +59,7 @@
   "protocol_correspondence": {
     "status": "stated",
     "file": "DLC/ProtocolCorrespondence.lean",
-    "proven_content": "l2_5_trace_lifting — restricted to the singleton [Says P φ] trace shape (the only shape liftToDeriv covers).",
+    "proven_content": "l2_5_trace_lifting \u2014 restricted to the singleton [Says P \u03c6] trace shape (the only shape liftToDeriv covers).",
     "open": [
       "total liftToDeriv over all Tamarin-model trace shapes with TraceWellFormed load-bearing",
       "L2.3 wire round-trip + injectivity about the real CBOR encoder (former identity-serializer witness deleted 2026-07)"
@@ -68,14 +68,14 @@
   "substitution_lemma": {
     "status": "open",
     "file": "DLC/Subst.lean",
-    "proven_content": "substAt_substAt — THE composition law substAt (substAt M N j) P k = substAt (substAt M P (k+1)) (substAt N P (k-j)) j for j ≤ k, over the full 22-constructor Term, with supporting shift_shift_merge / shift_substAt_commute / substAt_shift_cancel (T3 rung 3a; unblocks the fundamental lemma's imp-I case). Typed substitution preservation for PropDeriv lives in DLC/Decidability.lean.",
+    "proven_content": "substAt_substAt \u2014 THE composition law substAt (substAt M N j) P k = substAt (substAt M P (k+1)) (substAt N P (k-j)) j for j \u2264 k, over the full 22-constructor Term, with supporting shift_shift_merge / shift_substAt_commute / substAt_shift_cancel (T3 rung 3a; unblocks the fundamental lemma's imp-I case). Typed substitution preservation for PropDeriv lives in DLC/Decidability.lean.",
     "open": [
       "substitution preservation for the full Deriv judgment (linear cases)"
     ]
   },
   "subject_reduction": {
     "status": "proven_fragment",
-    "fragment": "propositional (PropDeriv), INCLUDING the 2026-07 congruence (ξ) rules",
+    "fragment": "propositional (PropDeriv), INCLUDING the 2026-07 congruence (\u03be) rules",
     "file": "DLC/Decidability.lean",
     "theorems": [
       "propositional subject reduction via preservation lemmas"
@@ -111,7 +111,7 @@
       "linearSplitRoutes_holds",
       "linearSplitRoutes_old_form_refuted"
     ],
-    "finding": "ctxLookup_ne_checker_witness (machine-checked): disambiguated Deriv is STRICTLY MORE EXPRESSIVE than decide.rs — the shipped checker refuses a linear var under a nonempty additive context (consults linear only at index 0, shadowed by additive[0]). The checker is INCOMPLETE w.r.t. Deriv here, not unsound. Closing it is a decide.rs change, separate item. | L2 FINDING (2026-07-20): the deferred LinearSplitRoutes Prop was FALSE as stated, not merely unproven. It lacked the additive-miss hypothesis (ctxLookup consults additive first, so an additive hit leaves the linear halves unconstrained) AND mis-scoped the index claim by precedence (i = len ∧ A ∨ B parses as (i = len ∧ A) ∨ B). Its docstring had correctly certified it was not a sorry and not a tautology -- neither of which implies truth. Corrected, proven as linearSplitRoutes_holds, and the old form kept refuted as linearSplitRoutes_old_form_refuted.",
+    "finding": "ctxLookup_ne_checker_witness (machine-checked): disambiguated Deriv is STRICTLY MORE EXPRESSIVE than decide.rs \u2014 the shipped checker refuses a linear var under a nonempty additive context (consults linear only at index 0, shadowed by additive[0]). The checker is INCOMPLETE w.r.t. Deriv here, not unsound. Closing it is a decide.rs change, separate item. | L2 FINDING (2026-07-20): the deferred LinearSplitRoutes Prop was FALSE as stated, not merely unproven. It lacked the additive-miss hypothesis (ctxLookup consults additive first, so an additive hit leaves the linear halves unconstrained) AND mis-scoped the index claim by precedence (i = len \u2227 A \u2228 B parses as (i = len \u2227 A) \u2228 B). Its docstring had correctly certified it was not a sorry and not a tautology -- neither of which implies truth. Corrected, proven as linearSplitRoutes_holds, and the old form kept refuted as linearSplitRoutes_old_form_refuted.",
     "open": [
       "L3 additive substitution preservation over full Deriv (the easier half; reuses the PropDeriv induction shape)",
       "L4 linear substitution preservation (the substructural core; needs L1+L2, multi-week)",
@@ -119,13 +119,13 @@
       "decide.rs completeness fix for nonempty-additive linear vars (separate, checker-side)"
     ]
   },
-  "_dlcd_comment": "DLC-D (distributed) headline guarantees. Each is a top-level, machine-checked DLCD.* theorem re-exported by DLCD/Summary.lean and axiom-snapshotted in lean/expected-axioms/dlcd-*.txt (all within [propext, Classical.choice, Quot.sound]). status=proven means the theorem is fully proved AS STATED about the DLC-D model; the notes record the SCOPE FENCES (what the model does and does not cover). The joint non-vacuity witness is DLCD/Witness.lean's SliceWitness.dlc_d_slice_witness — one inhabited bundle on a single real 2-replica execution simultaneously satisfying G1-G4.",
+  "_dlcd_comment": "DLC-D (distributed) headline guarantees. Each is a top-level, machine-checked DLCD.* theorem re-exported by DLCD/Summary.lean and axiom-snapshotted in lean/expected-axioms/dlcd-*.txt (all within [propext, Classical.choice, Quot.sound]). status=proven means the theorem is fully proved AS STATED about the DLC-D model; the notes record the SCOPE FENCES (what the model does and does not cover). The joint non-vacuity witness is DLCD/Witness.lean's SliceWitness.dlc_d_slice_witness \u2014 one inhabited bundle on a single real 2-replica execution simultaneously satisfying G1-G4.",
   "DLCD_capability_safety": {
     "status": "proven",
     "file": "DLCD/CapSafety.lean",
     "witness": "DLCD/Witness.lean",
-    "proven_content": "capability_safety (G1, authority): every command in a WellFormedLog carries a genuine Deriv (issuer says writeCap) credential — authority enforced by construction, not audited after the fact.",
-    "note": "SCOPE FENCES: (1) model, not runtime — a guarantee about the Lean model, not dlc-verifier's Rust at run time; (2) saysI-on-CDeriv — the CARVe-migrated CDeriv judgment does not yet carry the signed says credential the capability layer uses.",
+    "proven_content": "capability_safety (G1, authority): every command in a WellFormedLog carries a genuine Deriv (issuer says writeCap) credential \u2014 authority enforced by construction, not audited after the fact.",
+    "note": "SCOPE FENCES: (1) model, not runtime \u2014 a guarantee about the Lean model, not dlc-verifier's Rust at run time; (2) saysI-on-CDeriv \u2014 the CARVe-migrated CDeriv judgment does not yet carry the signed says credential the capability layer uses.",
     "open": [
       "carry the signed says credential on CDeriv so the capability layer runs on the migrated judgment"
     ]
@@ -135,7 +135,7 @@
     "file": "DLCD/CapSafety.lean",
     "witness": "DLCD/CapSafety.lean",
     "proven_content": "capability_safety_by_inversion (G1, authority, TYPING-NATIVE twin of capability_safety): from the TYPE of a commit-I-typed Term.command M c l (DLC.Deriv.commitI), recover a genuine says-credential derivation for its credential subterm c. Authorization is EXTRACTED by inverting the command's own typing (a generation/inversion lemma, TAPL 13.5), not audited out-of-band. The generation lemma command_typing_inversion is proved by induction on the derivation over a generalized subject: the ~26 rigid-headed rules are discharged by Term.noConfusion, withinE by a type-shape contradiction from the IH (within != replicated), weakenA genuinely by re-applying weakening to the recovered premises. Bridges to the audited Authorized: authorized_of_command_typing (typing -> Authorized, credential TERM is the witness) and authorized_of_commandRealizes (CommandRealizes -> Authorized) proved clean; the realization builder commandRealizes_of_premises (credential + transformer in a shared linear-free context -> CommandRealizes) proved clean. Anti-vacuity: CapSafetyByInversionAntiVacuity builds a concrete commit-I-typed command from the real signed credential saysWitness + an identity transformer, and recovers its credential by inversion.",
-    "note": "SCOPE FENCES: (1) model, not runtime. (2) FENCED BRIDGE DIRECTION: the FULL converse Authorized rc issuer -> exists a realizing commit-I-typeable command does NOT close cleanly and is NOT claimed — Authorized's credential derivation lives in an ARBITRARY context (its linear part may be non-empty) whereas commit-I demands a shared linear-free context, AND Authorized carries no store transformer M : phi => phi (commit-I's second premise), neither synthesizable from the credential alone (the cap-prop <-> cred-term / representation gap). The converse is closed exactly when those two data are supplied (commandRealizes_of_premises). (3) issuer/capProp are recovered EXISTENTIALLY (commit-I's conclusion Replicated (phi=>phi) l omits them), matching the exists-issuer shape of capability_safety. Governed capability_safety (the audited WellFormedLog metatheorem) is UNCHANGED, byte-identical; this entry is the additive typing-native re-founding underneath it.",
+    "note": "SCOPE FENCES: (1) model, not runtime. (2) FENCED BRIDGE DIRECTION: the FULL converse Authorized rc issuer -> exists a realizing commit-I-typeable command does NOT close cleanly and is NOT claimed \u2014 Authorized's credential derivation lives in an ARBITRARY context (its linear part may be non-empty) whereas commit-I demands a shared linear-free context, AND Authorized carries no store transformer M : phi => phi (commit-I's second premise), neither synthesizable from the credential alone (the cap-prop <-> cred-term / representation gap). The converse is closed exactly when those two data are supplied (commandRealizes_of_premises). (3) issuer/capProp are recovered EXISTENTIALLY (commit-I's conclusion Replicated (phi=>phi) l omits them), matching the exists-issuer shape of capability_safety. Governed capability_safety (the audited WellFormedLog metatheorem) is UNCHANGED, byte-identical; this entry is the additive typing-native re-founding underneath it.",
     "open": [
       "close the full Authorized -> CommandRealizes converse (needs a canonical store-transformer choice + a linear-free-context normalization of the credential derivation)"
     ]
@@ -144,7 +144,7 @@
     "status": "proven",
     "file": "DLCD/CapSafetyLinear.lean",
     "witness": "DLCD/CapSafetyLinear.lean",
-    "proven_content": "capability_safety_linear (G1, authority, LINEAR layer): every command in a WellFormedLogL carries a genuine CDerivS (issuer says capProp) linear signed credential — the CARVe/CDeriv-native twin of capability_safety.",
+    "proven_content": "capability_safety_linear (G1, authority, LINEAR layer): every command in a WellFormedLogL carries a genuine CDerivS (issuer says capProp) linear signed credential \u2014 the CARVe/CDeriv-native twin of capability_safety.",
     "note": "CDerivS is a SEAL over CDeriv (embed + saysI), NOT a CDeriv constructor: adding saysI to CDeriv breaks cderiv_subject_reduction' by a modality mismatch (saysE keeps the says modality while step strips it, consistent only while says is uninhabited). CDeriv is left untouched. SCOPE FENCES: model, not runtime; the additive (Deriv) <-> linear (CDerivS) functorial credential bridge is deferred (needs the open L4 Deriv->CARVe migration).",
     "open": [
       "prove the Deriv -> CDerivS credential embedding (blocked on full Deriv->CARVe L4 substitution migration)"
@@ -154,10 +154,10 @@
     "status": "proven",
     "file": "DLCD/ByzantineConsensus.lean",
     "witness": "DLCD/ByzantineConsensus.lean",
-    "proven_content": "byz_agreement (fault-model extension): single-decree agreement under <= f BYZANTINE faults with n >= 3f+1 — a >2n/3 Byzantine quorum plus the honest-intersection lemma (any two Byzantine quorums share a non-faulty replica) forces at most one certified value. Consensus.lean (crash-fault) untouched.",
-    "note": "ByzDecided constrains only HONEST quorum members (Byzantine members equivocate, unconstrained) — the faithful Byzantine-quorum model, which is what makes the honest-intersection (the r-not-in-B) load-bearing. Right-reason bite: a crash-majority (2*card>n) quorum FAILS under Byzantine faults (two majorities can intersect only in the faulty node). SCOPE FENCES: single-decree SAFETY only.",
+    "proven_content": "byz_agreement (fault-model extension): single-decree agreement under <= f BYZANTINE faults with n >= 3f+1 \u2014 a >2n/3 Byzantine quorum plus the honest-intersection lemma (any two Byzantine quorums share a non-faulty replica) forces at most one certified value. Consensus.lean (crash-fault) untouched.",
+    "note": "ByzDecided constrains only HONEST quorum members (Byzantine members equivocate, unconstrained) \u2014 the faithful Byzantine-quorum model, which is what makes the honest-intersection (the r-not-in-B) load-bearing. Right-reason bite: a crash-majority (2*card>n) quorum FAILS under Byzantine faults (two majorities can intersect only in the faulty node). SCOPE FENCES: single-decree SAFETY only.",
     "open": [
-      "Byzantine LIVENESS (view-change / leader-election / partial-synchrony) and the multi-decree Byzantine lift — SOTA path: Bythos (CCS'24), TetraBFT (PODC'24)"
+      "Byzantine LIVENESS (view-change / leader-election / partial-synchrony) and the multi-decree Byzantine lift \u2014 SOTA path: Bythos (CCS'24), TetraBFT (PODC'24)"
     ]
   },
   "DLCD_log_noninterference": {
@@ -186,12 +186,22 @@
     "note": "SCOPE FENCE: model, not runtime; the admission gate is a modelled well-typedness check, not a running validator.",
     "open": []
   },
+  "DLCD_wellTypedCmd_of_command_typing": {
+    "status": "proven",
+    "file": "DLCD/TypedLog.lean",
+    "witness": "DLCD/TypedLog.lean",
+    "proven_content": "wellTypedCmd_of_command_typing (G1, TYPING-NATIVE re-founding of the 2.h typed-log invariant onto commit-I): from the TYPE of a commit-I-typed Term.command M c l (DLC.Deriv.commitI), recover that the payload M is a phi=>phi store-transformer and that the wrapper <M, some (issuer says capProp)> satisfies WellTypedCmd phi. The payload-type obligation WellTypedCmd demands IS commit-I's second (transformer) premise, extracted by inverting the command's own typing (command_typing_inversion, inc4a) rather than assumed as a separate predicate. The clean converse builder commandTyped_of_wellTypedCmd_premises shows the SAME PropDeriv transformer obligation a well-typed command carries builds commit-I's transformer premise (via propDeriv_to_deriv) and heads a commit-I-typeable command. The log bridge wellTypedLog_of_forall folds a log of WellTypedCmd entries into WellTypedLog, so a log of commit-I-typed commands discharges 2.d's htyped via wellTypedLog_implies_htyped. Anti-vacuity: CommitITypedLogWitness builds a concrete empty-context commit-I derivation (identity transformer guarded by a closed signed now-credential issuer says top), inverts its TYPE to a real WellTypedCmd, and closes the full chain commit-I typing -> WellTypedCmd -> WellTypedLog -> htyped on [wrapper].",
+    "note": "SCOPE FENCES: (1) model, not runtime. (2) FENCED FRAGMENT WITNESS: WellTypedCmd's payload obligation is a PropDeriv [] M (phi=>phi) (the propositional fragment, DLC.Decidability) whereas commit-I's transformer premise is a full Deriv [] M (phi=>phi). The embedding propDeriv_to_deriv : PropDeriv -> Deriv is ONE-DIRECTIONAL (Deriv has weakenA/varL/commitI/... with no PropDeriv image), so wellTypedCmd_of_command_typing takes the fragment witness dMfrag as a SUPPLIED input rather than converting it down from the inverted Deriv premise; the builder direction (commandTyped_of_wellTypedCmd_premises) needs no fence since PropDeriv -> Deriv is total. This mirrors inc4a's fenced converse (Authorized -> CommandRealizes needs data commit-I does not supply). (3) issuer/capProp are recovered EXISTENTIALLY (commit-I's conclusion Replicated (phi=>phi) l omits them). Governed wellTypedLog_implies_htyped / worldStep_preserves_low_typed (the 2.h admission gate) are UNCHANGED, byte-identical; this entry is the additive typing-native re-founding of their WellTypedCmd premise.",
+    "open": [
+      "convert a core empty-linear-context Deriv M : phi=>phi down to the PropDeriv fragment so wellTypedCmd_of_command_typing needs no supplied fragment witness"
+    ]
+  },
   "DLCD_single_linearization": {
     "status": "proven",
     "file": "DLCD/Linearizable.lean",
     "witness": "DLCD/Witness.lean",
-    "proven_content": "single_linearization (G2): all replicas' observed stores are samples of ONE sequential trajectory seqTrajectory init log at their own applied index — a single linearization order respected by all.",
-    "note": "SCOPE FENCES: (1) model, not runtime; (2) store-type change — the committed store is a fixed Term; a richer store type is future work.",
+    "proven_content": "single_linearization (G2): all replicas' observed stores are samples of ONE sequential trajectory seqTrajectory init log at their own applied index \u2014 a single linearization order respected by all.",
+    "note": "SCOPE FENCES: (1) model, not runtime; (2) store-type change \u2014 the committed store is a fixed Term; a richer store type is future work.",
     "open": [
       "generalize the linearization result to a richer store type than the fixed Term"
     ]
@@ -201,7 +211,7 @@
     "file": "DLCD/Termination.lean",
     "witness": "DLCD/Witness.lean",
     "proven_content": "weakfair_terminates (G3, single-decree progress): under weak fairness a single decree is eventually decided.",
-    "note": "SCOPE FENCES: (1) model, not runtime; (2) live-scheduling — the weak-fairness/delivery schedule feeding liveness is modelled, not tied to a running scheduler; (3) leader election — quorums are given, not elected. Uses Classical.choice (fair-schedule extraction).",
+    "note": "SCOPE FENCES: (1) model, not runtime; (2) live-scheduling \u2014 the weak-fairness/delivery schedule feeding liveness is modelled, not tied to a running scheduler; (3) leader election \u2014 quorums are given, not elected. Uses Classical.choice (fair-schedule extraction).",
     "open": [
       "tie the modelled fairness schedule to a running scheduler / FailureBudget closure"
     ]
@@ -211,7 +221,7 @@
     "file": "DLCD/MultiDecreeLiveness.lean",
     "witness": "DLCD/Witness.lean",
     "proven_content": "log_grows_unbounded (G3, multi-decree liveness): under a fair slot schedule the multi-decree committed log grows without bound.",
-    "note": "SCOPE FENCES: (1) model, not runtime; (2) live-scheduling — the fair slot schedule is modelled, not tied to a running scheduler. Uses Classical.choice.",
+    "note": "SCOPE FENCES: (1) model, not runtime; (2) live-scheduling \u2014 the fair slot schedule is modelled, not tied to a running scheduler. Uses Classical.choice.",
     "open": [
       "tie the modelled fair slot schedule to a running scheduler / FailureBudget closure"
     ]
@@ -221,7 +231,7 @@
     "file": "DLCD/Consensus.lean",
     "witness": "DLCD/Witness.lean",
     "proven_content": "replicas_converge_via_consensus (G4, coordination-based convergence): replicas that deliver a quorum-Decided value reach EQUAL stores.",
-    "note": "SCOPE FENCES: (1) model, not runtime; (2) leader election — quorums are given, not elected. Uses Classical.choice.",
+    "note": "SCOPE FENCES: (1) model, not runtime; (2) leader election \u2014 quorums are given, not elected. Uses Classical.choice.",
     "open": [
       "leader election: derive the quorum rather than assuming it"
     ]
@@ -246,7 +256,7 @@
     "status": "proven",
     "file": "DLCD/Witness.lean",
     "witness": "DLCD/Summary.lean",
-    "proven_content": "SliceWitness.dlc_d_slice_witness (the seal, a def): one inhabited SliceWitnessBundle on a single real 2-replica execution that is simultaneously capability-authorized, consensus-committed, converging, linearizable, and live — THE demonstration that G1-G4 are jointly satisfiable, not vacuously true. Its existence is the non-vacuity witness the other DLCD entries point at; DLCD/Summary.lean re-exports it under a name-drift tripwire.",
+    "proven_content": "SliceWitness.dlc_d_slice_witness (the seal, a def): one inhabited SliceWitnessBundle on a single real 2-replica execution that is simultaneously capability-authorized, consensus-committed, converging, linearizable, and live \u2014 THE demonstration that G1-G4 are jointly satisfiable, not vacuously true. Its existence is the non-vacuity witness the other DLCD entries point at; DLCD/Summary.lean re-exports it under a name-drift tripwire.",
     "note": "SCOPE FENCES (inherited, joint): model not runtime; store-type change; live-scheduling; saysI-on-CDeriv; leader election; surface syntax (examples in abstract syntax, not the concrete surface language). def-shaped seal: an inhabited bundle IS a proof of joint satisfiability.",
     "open": []
   }

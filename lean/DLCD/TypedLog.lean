@@ -305,4 +305,232 @@ theorem lowEquiv_preserved :
 
 end WitnessTyped
 
+/-! ## 7. RE-FOUNDING THE TYPED-LOG INVARIANT ONTO `commit-I` (R1-inc4b).
+
+Sections 1–6 make the typed-log premise an **admission-gate invariant**
+(`WellTypedLog`), but `WellTypedCmd` is still stated *ex nihilo* — a raw pair of
+a `PropDeriv` and a `CoreTerm` flag. R1-inc4b re-founds it on the **calculus's
+own typing rule**: `commit-I` (`DLC.Deriv.commitI`) already carries, as its
+second premise, a store-transformer derivation `Γ ⊢ M : φ ⊃ φ` — which is
+*character-for-character* the payload-type obligation `WellTypedCmd φ ⟨M,_⟩`
+demands. So a `commit-I`-typed command's payload is already a `φ ⊃ φ`
+transformer **by its type**: well-typedness is not an extra predicate bolted on,
+it IS the command's typing derivation. This is the *typing-native
+well-formedness* reading (a log entry's well-typedness = its typing derivation),
+and the extraction is a **generation / inversion lemma** (TAPL §13.5): `command`
+has a single typing rule, so a derivation of its type inverts to `commit-I`'s
+transformer premise — exactly as inc4a inverts to `commit-I`'s *credential*
+premise for capability-safety.
+
+### The honest judgment-fragment fence
+`WellTypedCmd`'s first conjunct is a `PropDeriv [] M (φ ⊃ φ)` — the *propositional
+fragment* (`DLC.PropDeriv`, `DLC.Decidability`), whereas `commit-I`'s transformer
+premise is a full `Deriv { additive := [], linear := [] } M (φ ⊃ φ)`. The
+embedding is **one-directional**: `propDeriv_to_deriv` faithfully lifts a
+`PropDeriv` into a `Deriv`, but there is no converse (`Deriv` has `weakenA`,
+`varL`, `commitI`, … with no `PropDeriv` image). So the *same* `φ ⊃ φ` obligation
+lives on both sides, but the fragment restriction cannot be *recovered* from the
+inverted `Deriv` premise — it must be *supplied*. Two directions result:
+
+- **clean (builder), `commandTyped_of_wellTypedCmd_premises`:** the `PropDeriv`
+  transformer obligation `WellTypedCmd` tracks — the very datum a well-typed
+  command carries — *builds* `commit-I`'s transformer premise (via
+  `propDeriv_to_deriv`) and heads a `commit-I`-typeable `command`; the *same*
+  derivation discharges `WellTypedCmd`. No fence: `PropDeriv ⟶ Deriv` is total.
+- **fenced (extractor), `wellTypedCmd_of_command_typing`:** from a
+  `commit-I`-typed `command`'s TYPE, inversion recovers the credential
+  proposition `issuer says capProp` (pinning the wrapper's `cap` slot to a
+  genuine authorization) and confirms the transformer is at `φ ⊃ φ`; the
+  `PropDeriv`-fragment witness of the payload is **supplied** (`dMfrag`), because
+  `commit-I`'s `Deriv` transformer premise cannot be converted down to the
+  fragment. This mirrors inc4a's fenced converse (`Authorized → CommandRealizes`
+  needs data `commit-I` does not supply).
+
+### Prior art (web-searched 2026-07-23; URLs recorded — reused from 2.h/inc4a)
+- **Wright–Felleisen**, *A Syntactic Approach to Type Soundness* (Info. & Comp.
+  1994): preservation = "a program remains well-typed as it executes"; here the
+  entry's well-typedness IS its typing derivation.
+  https://people.irisa.fr/David.Cachera/Enseignement/ASM/peignier.pdf
+- **TAPL §13.5** *Safety* (generation/inversion: a term of a given head shape
+  can only have come from that head's rule): https://flylib.com/books/en/4.279.1.82/1/
+- **Harper, PFPL ch. 6** (generation/inversion lemmas):
+  https://www.khoury.northeastern.edu/~cmartens/Courses/7400-f24/pfpl/6-type-safety.pdf
+- **SIGPLAN blog**, *What Type Soundness Theorem Do You Really Want to Prove?*
+  (the well-typedness-as-invariant framing):
+  https://blog.sigplan.org/2019/10/17/what-type-soundness-theorem-do-you-really-want-to-prove/
+
+`#print axioms` for every theorem below stays within `[propext]` (⊂ the permitted
+`[propext, Classical.choice, Quot.sound]`). No `sorry`, no `native_decide`. The
+governed `wellTypedLog_implies_htyped`/`worldStep_preserves_low_typed` (§3–4) and
+their snapshots are **untouched, byte-identical** — this section is purely
+additive. -/
+
+/-- **The builder (clean direction).** The `PropDeriv` transformer obligation a
+`WellTypedCmd` carries — `dM : M : φ ⊃ φ` in the propositional fragment, core —
+is *exactly* what discharges `commit-I`'s second premise: paired with any
+credential `dc : c : issuer says capProp`, it **builds** a `commit-I` derivation
+of `command M c ℓ : Replicated (φ ⊃ φ) ℓ` (via `propDeriv_to_deriv`), and the
+SAME `dM` witnesses `WellTypedCmd φ ⟨M, some (issuer says capProp)⟩`. So
+`WellTypedCmd`'s payload obligation and `commit-I`'s transformer premise are one
+obligation: a well-typed command's payload heads a `commit-I`-typeable
+`command`. `PropDeriv ⟶ Deriv` is total, so this direction needs no fence. -/
+theorem commandTyped_of_wellTypedCmd_premises
+    {M c : Term} {ℓ : Label} {issuer : Principal} {capProp φ : Prop'}
+    (dc : Deriv { additive := [], linear := [] } c (Prop'.says issuer capProp))
+    (dM : PropDeriv [] M (Prop'.imp φ φ)) (hcore : CoreTerm M = true) :
+    Nonempty (Deriv { additive := [], linear := [] }
+        (Term.command M c ℓ) (Prop'.replicated (Prop'.imp φ φ) ℓ))
+      ∧ WellTypedCmd φ (⟨M, some (Prop'.says issuer capProp)⟩ : Command) :=
+  ⟨⟨Deriv.commitI [] issuer capProp φ ℓ M c dc (propDeriv_to_deriv [] M _ dM)⟩,
+   ⟨dM⟩, hcore⟩
+
+/-- **THE DELIVERABLE — `WellTypedCmd` re-founded on `commit-I` (extractor).**
+From the TYPE of a `commit-I`-typed `Term.command M c ℓ` — a closed
+`Deriv [] (command M c ℓ) (Replicated (φ ⊃ φ) ℓ)` — recover that the payload `M`
+is a `φ ⊃ φ` transformer and that the wrapper `⟨M, some (issuer says capProp)⟩`
+(guarded by the credential proposition inversion recovers) satisfies
+`WellTypedCmd φ`. Authorization/typing is thus **extracted by inverting the
+command's own typing** (`command_typing_inversion`, inc4a) rather than assumed as
+a separate predicate — discharging 2.h's typed-log premise via the calculus's own
+typing rule. `issuer`/`capProp` are existential: `commit-I`'s conclusion
+`Replicated (φ ⊃ φ) ℓ` omits them, so they live only in the recovered credential
+premise (cf. `capability_safety_by_inversion`).
+
+**FENCE — the `PropDeriv`-fragment witness `dMfrag` is SUPPLIED, not recovered.**
+`WellTypedCmd`'s payload obligation is a `PropDeriv [] M (φ ⊃ φ)`, whereas
+`commit-I`'s transformer premise (recovered by inversion) is a full
+`Deriv [] M (φ ⊃ φ)`. The embedding `propDeriv_to_deriv : PropDeriv ⟶ Deriv` is
+one-directional (`Deriv` has `weakenA`/`varL`/`commitI`/… absent from the
+fragment), so the fragment witness cannot be converted *down* from the inverted
+`Deriv` premise — it is a required input. `commit-I` genuinely certifies the
+command carries a credential (the `cap` slot is pinned to a real
+`issuer says capProp`) and that the payload types at `φ ⊃ φ`; the fragment
+restriction is the residual the typing rule does not pin, exactly as inc4a's
+converse `Authorized → CommandRealizes` needs a store transformer + a linear-free
+context `Authorized` cannot supply. -/
+theorem wellTypedCmd_of_command_typing
+    {M c : Term} {ℓ : Label} {φ : Prop'}
+    (dcmd : Deriv { additive := [], linear := [] }
+        (Term.command M c ℓ) (Prop'.replicated (Prop'.imp φ φ) ℓ))
+    (dMfrag : PropDeriv [] M (Prop'.imp φ φ)) (hcore : CoreTerm M = true) :
+    ∃ (issuer : Principal) (capProp : Prop'),
+      WellTypedCmd φ (⟨M, some (Prop'.says issuer capProp)⟩ : Command) := by
+  obtain ⟨_Γₐ, issuer, capProp, _φ', _, _, _hc, _hM⟩ := command_typing_inversion dcmd
+  exact ⟨issuer, capProp, ⟨dMfrag⟩, hcore⟩
+
+/-! ### The `WellTypedLog` bridge — a log of typed commands is `WellTypedLog`.
+
+The admission gate `WellTypedLog` (§2) grows only by `commitTyped`, each step
+carrying a `WellTypedCmd` proof. So a log *every* entry of which is `WellTypedCmd`
+is `WellTypedLog` — assembled by folding `commitTyped` from the empty log
+(reverse induction, since the gate appends at the tail). Composed with
+`wellTypedCmd_of_command_typing`, a log built from `commit-I`-typed commands is
+`WellTypedLog`, and thence — via `wellTypedLog_implies_htyped` (§3) — discharges
+2.d's `htyped`. The re-founding chain is:
+`commit-I typing ⟶ WellTypedCmd ⟶ WellTypedLog ⟶ htyped ⟶ worldStep_preserves_low_typed`. -/
+
+/-- **The log bridge (clean).** A committed log every entry of which is a
+`WellTypedCmd` is `WellTypedLog` — the admission gate is *saturated* by folding
+`commitTyped` from `nil` (reverse recursion: the gate appends at the tail). No
+fence: this is the converse-extraction of `wellTypedLog_forall_mem`. -/
+theorem wellTypedLog_of_forall {φ : Prop'} (cmds : CommittedLog)
+    (h : ∀ c ∈ cmds, WellTypedCmd φ c) : WellTypedLog φ cmds := by
+  induction cmds using List.reverseRecOn with
+  | nil => exact WellTypedLog.nil
+  | append_singleton ys y ih =>
+      refine WellTypedLog.commitTyped (ih ?_) (h y ?_)
+      · intro c hc; exact h c (by simp [hc])
+      · simp
+
+/-! ## 8. ANTI-VACUITY — a concrete `commit-I`-typed command re-founds a real log.
+
+A genuine `commit-I` derivation at the empty context — the identity transformer
+`λx:φ'. x` (`CoreTerm = true`) guarded by a closed signed credential
+`sign issuer (now τ) sig : issuer says ⊤` — whose TYPE, inverted by
+`wellTypedCmd_of_command_typing`, yields a REAL `WellTypedCmd`; then the log
+`[wrapper]` is `WellTypedLog` via the bridge, and `wellTypedLog_implies_htyped`
+discharges 2.d's `htyped` on it. The whole re-founding chain closes on a concrete
+command. Non-vacuous: `commandDeriv` is an explicit `commit-I` derivation, the
+recovered `WellTypedCmd` is inhabited, and the log genuinely satisfies the gate.
+
+(The witness is built fresh at the *empty* additive context because
+`WellTypedCmd`'s `PropDeriv []` obligation demands it — inc4a's `commandDeriv`
+lives at `{ additive := [writeCap], linear := [] }`, one hypothesis too many; the
+construction is otherwise the identical `commitI ∘ saysI` shape.) -/
+
+namespace CommitITypedLogWitness
+
+open WitnessTyped (φ' idDeriv)
+
+/-- The credential issuer. -/
+def issuer : Principal := Principal.atom ⟨[7]⟩
+/-- The Ed25519 signature carrier (opaque at the logical level). -/
+def sig : Signature := ⟨0, []⟩
+/-- A closed time anchor for the `now`-credential leaf. -/
+def τ : TimeBound := ⟨0⟩
+
+/-- A **closed** credential `sign issuer (now τ) sig : issuer says ⊤`, at the
+empty context `WellTypedCmd` requires. Its leaf is `now : ⊤`, so no hypothesis is
+needed — the credential lives at `{ additive := [], linear := [] }`. -/
+def credTerm : Term := Term.sign issuer (Term.now τ) sig
+
+/-- The credential's derivation: `saysI` over the closed `now` leaf. -/
+def credDeriv :
+    Deriv { additive := [], linear := [] } credTerm (Prop'.says issuer Prop'.top) :=
+  Deriv.saysI { additive := [], linear := [] } issuer Prop'.top (Term.now τ) sig
+    (Deriv.now [] τ)
+
+/-- The first-classed `commit-I`-typed command: the identity transformer
+`λx:φ'. x`, guarded by the closed credential, at `Label.bottom`. -/
+def commandTerm : Term := Term.command (Term.lam φ' (Term.var 0)) credTerm Label.bottom
+
+/-- **The `commit-I` derivation.** `commandTerm` types at
+`Replicated (φ' ⊃ φ') ⊥` — the credential premise is `credDeriv`, the transformer
+premise is `idDeriv` lifted through `propDeriv_to_deriv`. This is the
+proof-carrying command whose TYPE alone re-founds `WellTypedCmd`. -/
+noncomputable def commandDeriv :
+    Deriv { additive := [], linear := [] } commandTerm
+      (Prop'.replicated (Prop'.imp φ' φ') Label.bottom) :=
+  Deriv.commitI [] issuer Prop'.top φ' Label.bottom (Term.lam φ' (Term.var 0)) credTerm
+    credDeriv (propDeriv_to_deriv [] (Term.lam φ' (Term.var 0)) _ idDeriv)
+
+/-- `CoreTerm` of the identity transformer payload. -/
+theorem payload_core : CoreTerm (Term.lam φ' (Term.var 0)) = true := rfl
+
+/-- **Non-vacuity of `wellTypedCmd_of_command_typing`.** Inverting the concrete
+`commit-I` command's TYPE yields a REAL `WellTypedCmd` for the authorized
+wrapper — inhabited, not vacuous. -/
+theorem recovered_wellTypedCmd :
+    ∃ (issuer' : Principal) (capProp : Prop'),
+      WellTypedCmd φ'
+        (⟨Term.lam φ' (Term.var 0), some (Prop'.says issuer' capProp)⟩ : Command) :=
+  wellTypedCmd_of_command_typing commandDeriv idDeriv payload_core
+
+/-- The authorized wrapper for the concrete command (`cap` = the recovered
+credential proposition `issuer says ⊤`). -/
+def wrapper : Command :=
+  ⟨Term.lam φ' (Term.var 0), some (Prop'.says issuer Prop'.top)⟩
+
+/-- `wrapper` is `WellTypedCmd` — its payload is the identity transformer whose
+`commit-I` typing (`commandDeriv`) certifies the `φ' ⊃ φ'` obligation. -/
+theorem wrapper_wellTyped : WellTypedCmd φ' wrapper := ⟨⟨idDeriv⟩, payload_core⟩
+
+/-- **The log bridge on a concrete run.** The single-entry log `[wrapper]` is
+`WellTypedLog φ'` via `wellTypedLog_of_forall` — built from the `commit-I`-sourced
+`WellTypedCmd`. -/
+theorem log_wellTyped : WellTypedLog φ' [wrapper] :=
+  wellTypedLog_of_forall [wrapper] (by
+    intro c hc; simp only [List.mem_singleton] at hc; subst hc; exact wrapper_wellTyped)
+
+/-- **The fence closed on a concrete log.** `wellTypedLog_implies_htyped`
+discharges 2.d's `htyped` on `[wrapper]` — every committed entry is a closed core
+`φ' ⊃ φ'` store-endomorphism — with NO raw `htyped` assumption, the well-typedness
+sourced from the command's `commit-I` type. -/
+theorem htyped_discharged :
+    ∀ (n : Nat) (c : Command), [wrapper][n]? = some c →
+      Nonempty (PropDeriv [] c.payload (Prop'.imp φ' φ')) ∧ CoreTerm c.payload = true :=
+  wellTypedLog_implies_htyped log_wellTyped
+
+end CommitITypedLogWitness
+
 end DLCD

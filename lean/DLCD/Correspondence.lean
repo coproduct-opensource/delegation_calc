@@ -1123,4 +1123,289 @@ theorem shift_corr (delta : Std.I32) (t : syntax.Term) :
       show ok (decTermC (syntax.Term.RunCmd tv ts)) = _
       simp only [decTermC, hvd, hsd, DLC.shift]
 
+/-! ### `substAt_corr` — the generated `subst.subst_at` refines `DLC.substAt`.
+
+Structural induction on `body`; the `value` is fenced (`ClosedAbove … 0` +
+height) so the Var/`eq` arm's `subst.shift value (I32 depth) 0` routes through
+`shift_corr` and, since the value is CLOSED, collapses to `value` itself
+(`DLC.shift_closed`) — exactly the hand `shift value depth 0`, WITHOUT needing the
+`I32` cast's value (`UScalar.hcast` is total, so no `depth < 2^31` obligation
+either). The Var trichotomy (`OrdU32.cmp = compare`) maps to the hand
+`if i = depth / i > depth / else`; the `i - 1#u32` gt-arm's no-underflow is the
+`i > depth ≥ 0` guard. Binder arms bump `depth` in `U32`, discharged from the
+height bound; `body` need NOT be closed (it carries the substituted variable). -/
+theorem substAt_corr (value : syntax.Term)
+    (hvcl : DLC.ClosedAbove (decTermC value) 0) (hvh : heightB value < 2147483648)
+    (body : syntax.Term) :
+    ∀ (depth : Std.U32),
+      depth.val + 2 * heightB body < 4294967296 →
+      decTermC <$> subst.subst_at body value depth
+        = ok (DLC.substAt (decTermC body) (decTermC value) depth.val) := by
+  induction body with
+  | Var i =>
+      intro depth hh
+      simp only [decTermC]
+      rw [subst.subst_at.eq_def]
+      rcases Nat.lt_trichotomy i.val depth.val with hlt | heq | hgt
+      · simp only [core.cmp.impls.OrdU32.cmp, lift, Nat.compare_eq_lt.mpr hlt, bind_tc_ok]
+        show ok (decTermC (syntax.Term.Var i)) = _
+        simp only [decTermC, DLC.substAt, if_neg (by omega : ¬ i.val = depth.val),
+          if_neg (by omega : ¬ i.val > depth.val)]
+      · obtain ⟨tsh, hsh, hshd⟩ :=
+          map_ok_inv (shift_corr (UScalar.hcast IScalarTy.I32 depth) value 0#u32 hvcl
+            (by have h0 : (0#u32 : Std.U32).val = 0 := rfl; omega))
+        simp only [core.cmp.impls.OrdU32.cmp, lift, Nat.compare_eq_eq.mpr heq, hsh, bind_tc_ok]
+        show ok (decTermC tsh) = _
+        rw [hshd, DLC.shift_closed hvcl]
+        simp only [decTermC, DLC.substAt, if_pos heq]
+        rw [DLC.shift_closed hvcl]
+      · obtain ⟨i1, hi1, hi1v⟩ :=
+          WP.spec_imp_exists (U32.sub_spec (x := i) (y := 1#u32) (by scalar_tac))
+        have hi1val : i1.val = i.val - 1 := by rw [hi1v.1]; rfl
+        simp only [core.cmp.impls.OrdU32.cmp, lift, Nat.compare_eq_gt.mpr hgt, hi1, bind_tc_ok]
+        show ok (decTermC (syntax.Term.Var i1)) = _
+        simp only [decTermC, DLC.substAt, if_neg (by omega : ¬ i.val = depth.val),
+          if_pos (by omega : i.val > depth.val), hi1val]
+  | Lam p inner ih =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨c1, hc1, hc1v⟩ :=
+        WP.spec_imp_exists (U32.add_spec (x := depth) (y := 1#u32) (by scalar_tac))
+      have hc1val : c1.val = depth.val + 1 := by rw [hc1v]; rfl
+      obtain ⟨ti, hi, hid⟩ := map_ok_inv (ih c1 (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [propClone_id, hc1, hi, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Lam p ti)) = _
+      simp only [decTermC, hid, hc1val, DLC.substAt]
+  | App f x ihf ihx =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨tf, hf, hfd⟩ := map_ok_inv (ihf depth (by omega))
+      obtain ⟨tx, hx, hxd⟩ := map_ok_inv (ihx depth (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [hf, hx, bind_tc_ok]
+      show ok (decTermC (syntax.Term.App tf tx)) = _
+      simp only [decTermC, hfd, hxd, DLC.substAt]
+  | Sign p m sig ih =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ih depth (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [principalClone_id, hm, signatureClone_id, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Sign p tm sig)) = _
+      simp only [decTermC, hmd, DLC.substAt]
+  | Verify p m sig ih =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ih depth (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [principalClone_id, hm, signatureClone_id, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Verify p tm sig)) = _
+      simp only [decTermC, hmd, DLC.substAt]
+  | Delegate m n ihm ihn =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ihm depth (by omega))
+      obtain ⟨tn, hn, hnd⟩ := map_ok_inv (ihn depth (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [hm, hn, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Delegate tm tn)) = _
+      simp only [decTermC, hmd, hnd, DLC.substAt]
+  | Attenuate m psi ih =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ih depth (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [hm, propClone_id, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Attenuate tm psi)) = _
+      simp only [decTermC, hmd, DLC.substAt]
+  | SaysBind p scrut body ihs ihb =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨c1, hc1, hc1v⟩ :=
+        WP.spec_imp_exists (U32.add_spec (x := depth) (y := 1#u32) (by scalar_tac))
+      have hc1val : c1.val = depth.val + 1 := by rw [hc1v]; rfl
+      obtain ⟨ts, hs, hsd⟩ := map_ok_inv (ihs depth (by omega))
+      obtain ⟨tb, hb, hbd⟩ := map_ok_inv (ihb c1 (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [principalClone_id, hc1, hs, hb, bind_tc_ok]
+      show ok (decTermC (syntax.Term.SaysBind p ts tb)) = _
+      simp only [decTermC, hsd, hbd, hc1val, DLC.substAt]
+  | Boxed o m n ihm ihn =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ihm depth (by omega))
+      obtain ⟨tn, hn, hnd⟩ := map_ok_inv (ihn depth (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [obligationClone_id, hm, hn, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Boxed o tm tn)) = _
+      simp only [decTermC, hmd, hnd, DLC.substAt]
+  | Discharge m n ihm ihn =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ihm depth (by omega))
+      obtain ⟨tn, hn, hnd⟩ := map_ok_inv (ihn depth (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [hm, hn, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Discharge tm tn)) = _
+      simp only [decTermC, hmd, hnd, DLC.substAt]
+  | LiftLabel l m ih =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ih depth (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [labelClone_id, hm, bind_tc_ok]
+      show ok (decTermC (syntax.Term.LiftLabel l tm)) = _
+      simp only [decTermC, hmd, DLC.substAt]
+  | Declassify l m pi ihm ihpi =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ihm depth (by omega))
+      obtain ⟨tpi, hpi, hpid⟩ := map_ok_inv (ihpi depth (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [labelClone_id, hm, hpi, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Declassify l tm tpi)) = _
+      simp only [decTermC, hmd, hpid, DLC.substAt]
+  | Now t =>
+      intro depth hh
+      rw [subst.subst_at.eq_def]
+      simp only [timeBoundClone_id, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Now t)) = _
+      simp only [decTermC, DLC.substAt]
+  | WithinIntro t m ih =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ih depth (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [timeBoundClone_id, hm, bind_tc_ok]
+      show ok (decTermC (syntax.Term.WithinIntro t tm)) = _
+      simp only [decTermC, hmd, DLC.substAt]
+  | Pair a b iha ihb =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨ta, ha, had⟩ := map_ok_inv (iha depth (by omega))
+      obtain ⟨tb, hb, hbd⟩ := map_ok_inv (ihb depth (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [ha, hb, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Pair ta tb)) = _
+      simp only [decTermC, had, hbd, DLC.substAt]
+  | Fst a ih =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨ta, ha, had⟩ := map_ok_inv (ih depth (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [ha, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Fst ta)) = _
+      simp only [decTermC, had, DLC.substAt]
+  | Snd a ih =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨ta, ha, had⟩ := map_ok_inv (ih depth (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [ha, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Snd ta)) = _
+      simp only [decTermC, had, DLC.substAt]
+  | Inl p a ih =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨ta, ha, had⟩ := map_ok_inv (ih depth (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [propClone_id, ha, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Inl p ta)) = _
+      simp only [decTermC, had, DLC.substAt]
+  | Inr p a ih =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨ta, ha, had⟩ := map_ok_inv (ih depth (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [propClone_id, ha, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Inr p ta)) = _
+      simp only [decTermC, had, DLC.substAt]
+  | Case scrut left right ihs ihl ihr =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨c1, hc1, hc1v⟩ :=
+        WP.spec_imp_exists (U32.add_spec (x := depth) (y := 1#u32) (by scalar_tac))
+      have hc1val : c1.val = depth.val + 1 := by rw [hc1v]; rfl
+      obtain ⟨ts, hs, hsd⟩ := map_ok_inv (ihs depth (by omega))
+      obtain ⟨tl, hl, hld⟩ := map_ok_inv (ihl c1 (by omega))
+      obtain ⟨tr, hr, hrd⟩ := map_ok_inv (ihr c1 (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [hc1, hs, hl, hr, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Case ts tl tr)) = _
+      simp only [decTermC, hsd, hld, hrd, hc1val, DLC.substAt]
+  | TensorIntro a b iha ihb =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨ta, ha, had⟩ := map_ok_inv (iha depth (by omega))
+      obtain ⟨tb, hb, hbd⟩ := map_ok_inv (ihb depth (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [ha, hb, bind_tc_ok]
+      show ok (decTermC (syntax.Term.TensorIntro ta tb)) = _
+      simp only [decTermC, had, hbd, DLC.substAt]
+  | LetTensor scrut body ihs ihb =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨c2, hc2, hc2v⟩ :=
+        WP.spec_imp_exists (U32.add_spec (x := depth) (y := 2#u32) (by scalar_tac))
+      have hc2val : c2.val = depth.val + 2 := by rw [hc2v]; rfl
+      obtain ⟨ts, hs, hsd⟩ := map_ok_inv (ihs depth (by omega))
+      obtain ⟨tb, hb, hbd⟩ := map_ok_inv (ihb c2 (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [hc2, hs, hb, bind_tc_ok]
+      show ok (decTermC (syntax.Term.LetTensor ts tb)) = _
+      simp only [decTermC, hsd, hbd, hc2val, DLC.substAt]
+  | LetSays p scrut body ihs ihb =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨c1, hc1, hc1v⟩ :=
+        WP.spec_imp_exists (U32.add_spec (x := depth) (y := 1#u32) (by scalar_tac))
+      have hc1val : c1.val = depth.val + 1 := by rw [hc1v]; rfl
+      obtain ⟨ts, hs, hsd⟩ := map_ok_inv (ihs depth (by omega))
+      obtain ⟨tb, hb, hbd⟩ := map_ok_inv (ihb c1 (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [principalClone_id, hc1, hs, hb, bind_tc_ok]
+      show ok (decTermC (syntax.Term.LetSays p ts tb)) = _
+      simp only [decTermC, hsd, hbd, hc1val, DLC.substAt]
+  | SfExtract m ih =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ih depth (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [hm, bind_tc_ok]
+      show ok (decTermC (syntax.Term.SfExtract tm)) = _
+      simp only [decTermC, hmd, DLC.substAt]
+  | Command m c l ihm ihc =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ihm depth (by omega))
+      obtain ⟨tc, hc, hcd⟩ := map_ok_inv (ihc depth (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [hm, hc, labelClone_id, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Command tm tc l)) = _
+      simp only [decTermC, hmd, hcd, DLC.substAt]
+  | RunCmd v s ihv ihs =>
+      intro depth hh
+      simp only [decTermC, heightB] at *
+      obtain ⟨tv, hv, hvd⟩ := map_ok_inv (ihv depth (by omega))
+      obtain ⟨ts, hs, hsd⟩ := map_ok_inv (ihs depth (by omega))
+      rw [subst.subst_at.eq_def]
+      simp only [hv, hs, bind_tc_ok]
+      show ok (decTermC (syntax.Term.RunCmd tv ts)) = _
+      simp only [decTermC, hvd, hsd, DLC.substAt]
+
+/-- **`subst_corr`** — the depth-0 corollary: the generated `subst.subst` refines
+the hand `DLC.subst` (β-substitution of a fenced value). -/
+theorem subst_corr (body value : syntax.Term)
+    (hvcl : DLC.ClosedAbove (decTermC value) 0) (hvh : heightB value < 2147483648)
+    (hbh : heightB body < 2147483648) :
+    decTermC <$> subst.subst body value
+      = ok (DLC.subst (decTermC body) (decTermC value)) := by
+  simp only [subst.subst, DLC.subst]
+  have h := substAt_corr value hvcl hvh body 0#u32
+    (by have h0 : (0#u32 : Std.U32).val = 0 := rfl; omega)
+  have h0 : (0#u32 : Std.U32).val = 0 := rfl
+  rw [h0] at h
+  exact h
+
 end DLCD.Correspondence

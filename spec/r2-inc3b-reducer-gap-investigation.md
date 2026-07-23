@@ -128,8 +128,9 @@ reverts T4 to vacuous.**
   `example : step Redex = some Payload := by simp [step]`
   where `Redex = Term.discharge (Term.boxed Ow Payload Ev) Ev`. If discharge-β
   is removed from `step`, `step Redex = none` and this `example` fails to
-  elaborate. The ledger gates T4's `proven*` status on this witness module
-  building (`scripts/ledger.sh`; the witness file's own header says so).
+  elaborate. The ledger gates T4's recorded status (currently
+  `proven_fragment`, not full) on this witness module building
+  (`scripts/ledger.sh`; the witness file's own header says so).
 - **Three proofs regain vacuous discharge cases.** Commit `9518b2d` (which
   *added* discharge-β) states it "invalidated three proofs that had discharged
   their case with 'frozen — vacuous'. All three now carry real content":

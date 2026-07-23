@@ -61,9 +61,11 @@ def Term.isPropositional : Term → Bool
   | Term.boxed _ m n      => m.isPropositional && n.isPropositional
   | Term.discharge m n    => m.isPropositional && n.isPropositional
   | Term.letTensor s b    => s.isPropositional && b.isPropositional
-  -- command is UNTYPABLE this increment (no `commit-I` rule); it is not part of
-  -- the propositional fragment `decideLean` types, so it is not propositional.
+  -- command / runCmd are the DLC-D distributed forms, outside the propositional
+  -- fragment (`decideLean` types them via the full-calculus arms, but they carry
+  -- an IFC label so they are not "propositional").
   | Term.command _ _ _    => false
+  | Term.runCmd _ _       => false
 
 /-- A full-calculus term: every constructor accepted, including modal /
 temporal / IFC / linear forms. The Q4 `decide_pure` (Rust mirror at
@@ -93,9 +95,12 @@ def Term.isInCalculus : Term → Bool
   | Term.saysBind _ s b      => s.isInCalculus && b.isInCalculus
   | Term.letSays _ s b      => s.isInCalculus && b.isInCalculus
   | Term.sfExtract m        => m.isInCalculus
-  -- command is UNTYPABLE this increment (no `commit-I` rule), so `decideLean`
-  -- rejects it; keep `isInCalculus` in lockstep by excluding it.
+  -- command / runCmd (DLC-D). `isInCalculus` is the fragment `t1_propositional_*`
+  -- ranges over; the distributed forms are excluded (their soundness lands via
+  -- the `_prop` variant + `PropDeriv` directly), keeping this in lockstep with
+  -- `isPropositional`.
   | Term.command _ _ _      => false
+  | Term.runCmd _ _         => false
 
 /-! ## Decidable equality on `Prop'`.
 
@@ -119,7 +124,7 @@ def Prop'.beq : Prop' → Prop' → Bool
   | .within τ a, .within τ' a' => decide (τ = τ') && Prop'.beq a a'
   | .tensor a b, .tensor a' b' => Prop'.beq a a' && Prop'.beq b b'
   | .lolli a b, .lolli a' b' => Prop'.beq a a' && Prop'.beq b b'
-  | .replicated a, .replicated a' => Prop'.beq a a'
+  | .replicated a ℓ, .replicated a' ℓ' => Prop'.beq a a' && decide (ℓ = ℓ')
   | _, _ => false
 
 /-- Soundness of `Prop'.beq`: a `true` answer implies actual equality. The
@@ -196,11 +201,12 @@ theorem Prop'.beq_eq_true_iff_eq : ∀ (φ ψ : Prop'),
     cases ψ <;> (try (simp [Prop'.beq] at h))
     obtain ⟨ha, hb⟩ := h
     exact congr (congrArg Prop'.lolli (iha _ ha)) (ihb _ hb)
-  case replicated a iha =>
+  case replicated a ℓ iha =>
     intro ψ h
     cases ψ <;> (try (simp [Prop'.beq] at h))
-    -- single Prop' argument, no extra field: `h : Prop'.beq a a' = true`.
-    exact congrArg Prop'.replicated (iha _ h)
+    obtain ⟨ha, hℓ⟩ := h
+    subst hℓ
+    exact congr (congrArg Prop'.replicated (iha _ ha)) rfl
 
 /-- Reflexivity of `Prop'.beq`: every proposition compares equal to itself.
 Load-bearing for T1 completeness — the App case of `decideLean` calls
@@ -223,7 +229,7 @@ theorem Prop'.beq_refl : ∀ (φ : Prop'), Prop'.beq φ φ = true := by
   case within τ a iha => simp [Prop'.beq, iha]
   case tensor a b iha ihb => simp [Prop'.beq, iha, ihb]
   case lolli a b iha ihb => simp [Prop'.beq, iha, ihb]
-  case replicated a iha => simp [Prop'.beq, iha]
+  case replicated a ℓ iha => simp [Prop'.beq, iha]
 
 /-! ## `decideLean` — Lean mirror of Rust `infer`.
 
@@ -449,18 +455,30 @@ def decideLean (Γ : Ctx) : Term → Option Prop'
       -- matching PropDeriv.letTensor's `(φ :: ψ :: Γₐ)` convention.
       decideLean (Ctx.consA φ (Ctx.consA ψ Γ)) b
     | _ => none
-  | .command m c _ =>
-    -- commit-I (R1-inc2): the credential `c` must prove `issuer says capProp`;
-    -- the payload `m` must be a store transformer `φ ⊃ φ` (equal
-    -- domain/codomain). Conclude `Replicated (φ ⊃ φ)`. The IFC label is carried
-    -- in the term, not the type. Nested single-scrutinee matches mirror the
-    -- `app` arm so `split` drives the soundness/completeness proofs.
+  | .command m c ℓ =>
+    -- commit-I: the credential `c` must prove `issuer says capProp`; the payload
+    -- `m` must be a store transformer `φ ⊃ φ` (equal domain/codomain). Conclude
+    -- `Replicated (φ ⊃ φ) ℓ` — the IFC label is now a TYPE INDEX (R1-inc3), the
+    -- same `ℓ` the term carries. Nested single-scrutinee matches mirror the `app`
+    -- arm so `split` drives the soundness/completeness proofs.
     match decideLean Γ c with
     | some (Prop'.says _ _) =>
         match decideLean Γ m with
         | some (Prop'.imp φ φ') =>
-            if Prop'.beq φ φ' then some (Prop'.replicated (Prop'.imp φ φ)) else none
+            if Prop'.beq φ φ' then some (Prop'.replicated (Prop'.imp φ φ) ℓ) else none
         | _ => none
+    | _ => none
+  | .runCmd v s =>
+    -- runCmd (R1-inc3): the scrutinee `v` must be `Replicated (φ ⊃ φ) ℓ` and the
+    -- store `s : φ`; the result is `φ @ ℓ` (label read off the type, taint on
+    -- run). Nested matches mirror `command` so `split` drives the proofs.
+    match decideLean Γ v with
+    | some (Prop'.replicated (Prop'.imp φ φ') ℓ) =>
+        if Prop'.beq φ φ' then
+          match decideLean Γ s with
+          | some ψ => if Prop'.beq φ ψ then some (Prop'.at φ ℓ) else none
+          | _ => none
+        else none
     | _ => none
 
 /-! ## T1 — Propositional soundness (the headline closure for this PR).
@@ -1082,14 +1100,26 @@ inductive PropDeriv : List Prop' → Term → Prop' → Type where
   /-- `commit-I` — capability-gated replicated write (DLC-D; `spec/typing-rules.md`
   §13). Propositional-fragment twin of `Deriv.commitI` (additive, `linear := []`).
   From a credential `c : issuer says capProp` and a store transformer
-  `M : φ ⊃ φ`, types `command M c ℓ : Replicated (φ ⊃ φ)`. Mirrors `decideLean`'s
-  `.command` arm; embedded into `Deriv` by `propDeriv_to_deriv`. `command` is a
-  value, so `propDeriv_subject_reduction`'s `commitI` case is vacuous. -/
+  `M : φ ⊃ φ`, types `command M c ℓ : Replicated (φ ⊃ φ) ℓ` (label a type index
+  as of R1-inc3). Mirrors `decideLean`'s `.command` arm; embedded into `Deriv`
+  by `propDeriv_to_deriv`. `command` is a value, so
+  `propDeriv_subject_reduction`'s `commitI` case is vacuous. -/
   | commitI (Γₐ : List Prop') (issuer : Principal) (capProp φ : Prop')
             (ℓ : Label) (M c : Term)
       (dc : PropDeriv Γₐ c (Prop'.says issuer capProp))
       (dM : PropDeriv Γₐ M (Prop'.imp φ φ)) :
-      PropDeriv Γₐ (Term.command M c ℓ) (Prop'.replicated (Prop'.imp φ φ))
+      PropDeriv Γₐ (Term.command M c ℓ) (Prop'.replicated (Prop'.imp φ φ) ℓ)
+
+  /-- `runCmd` — capability-gated replicated write ELIMINATION (DLC-D;
+  `spec/typing-rules.md` §13). Propositional-fragment twin of `Deriv.runCmd`.
+  From `V : Replicated (φ ⊃ φ) ℓ` and `s : φ`, types `runCmd V s : φ @ ℓ` — the
+  eliminated label taints the result. Mirrors `decideLean`'s `.runCmd` arm.
+  Unlike `command`, `runCmd` STEPS, so `propDeriv_subject_reduction`'s `runCmd`
+  case carries real content (β + ξ). -/
+  | runCmd (Γₐ : List Prop') (φ : Prop') (ℓ : Label) (V s : Term)
+      (dV : PropDeriv Γₐ V (Prop'.replicated (Prop'.imp φ φ) ℓ))
+      (ds : PropDeriv Γₐ s φ) :
+      PropDeriv Γₐ (Term.runCmd V s) (Prop'.at φ ℓ)
 
 /-! ## Shift preservation — load-bearing lemma for subject reduction.
 
@@ -1248,6 +1278,13 @@ private noncomputable def propDeriv_shift_aux
     unfold shift
     exact PropDeriv.commitI _ issuer capProp φ ℓ _ _
       (ihc Γl Γr Γm rfl) (ihM Γl Γr Γm rfl)
+  | runCmd _ φ ℓ V s _ _ ihV ihs =>
+    -- runCmd is a non-binder: shift recurses into both subterms at the same
+    -- cutoff, so both IHs apply directly.
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    exact PropDeriv.runCmd _ φ ℓ _ _ (ihV Γl Γr Γm rfl) (ihs Γl Γr Γm rfl)
 
 /-- Public-facing shift preservation, instantiated from
 `propDeriv_shift_aux` with the trivial equality. -/
@@ -1467,6 +1504,14 @@ private noncomputable def propDeriv_substAt_aux
     unfold substAt
     exact PropDeriv.commitI _ issuer capProp φ ℓ _ _
       (ihc Γl Γr ζ rfl N dN) (ihM Γl Γr ζ rfl N dN)
+  | runCmd _ φ ℓ V s _ _ ihV ihs =>
+    -- runCmd is a non-binder: substAt recurses into both subterms at the same
+    -- depth, so both IHs apply directly.
+    intro Γl Γr ζ hΓ N dN
+    subst hΓ
+    unfold substAt
+    exact PropDeriv.runCmd _ φ ℓ _ _
+      (ihV Γl Γr ζ rfl N dN) (ihs Γl Γr ζ rfl N dN)
 
 /-- Public-facing substitution preservation. -/
 noncomputable def propDeriv_substAt
@@ -1708,11 +1753,34 @@ noncomputable def propDeriv_subject_reduction
         subst h
         exact PropDeriv.letTensor _ α β χ S' B (ihS S' hs) dB
   | commitI _ _ _ _ _ _ _ _ _ _ _ =>
-    -- `command M c ℓ` is a VALUE (commit-I intro form); its `command-β`
-    -- reduction is deferred to R1-inc3, so `step (command ..) = none` and the
-    -- redex case is vacuous. Subject reduction re-founds with `command`
-    -- irreducible.
+    -- `command M c ℓ` is a VALUE (commit-I intro form): `step (command ..) =
+    -- none`, so the redex case is vacuous. Subject reduction re-founds with
+    -- `command` irreducible.
     intro M' h; simp [step] at h
+  | runCmd Γₐ φ ℓ v s dv ds ihv _ =>
+    -- runCmd is the `Replicated` ELIMINATOR — it STEPS, so this case carries
+    -- real content (R1-inc3, the increment's core SR obligation).
+    intro M' h
+    unfold step at h
+    split at h
+    · -- runCmd-β: v = command m c l, M' = liftLabel l (app m s). Inverting the
+      -- scrutinee's derivation `dv` (commitI is the sole `Replicated` intro)
+      -- pins the command's label field to the TYPE INDEX ℓ and exposes the
+      -- payload `m : φ ⊃ φ`. Type the reduct: `app m s : φ` (imp-E, additive,
+      -- `m : φ⊃φ`, `s : φ`), then `liftLabel ℓ (app m s) : φ @ ℓ` — the redex's
+      -- type. Reduct type = redex type; SR closes with no hole.
+      simp only [Option.some.injEq] at h
+      subst h
+      cases dv with
+      | commitI _ _ _ _ _ _ _ _ dm =>
+        exact PropDeriv.liftLabel _ φ _ _ (PropDeriv.impE _ φ φ _ s dm ds)
+    · -- ξ-runCmd: normalize the scrutinee; SR on the premise re-derives the type.
+      cases hv : step v with
+      | none => simp [hv] at h
+      | some v' =>
+        simp [hv] at h
+        subst h
+        exact PropDeriv.runCmd _ φ ℓ v' s (ihv v' hv) ds
 
 /-- Structural embedding from `PropDeriv` into `Deriv`. Constructively
 shows the propositional fragment is a faithful sub-typing-judgment. -/
@@ -1763,6 +1831,8 @@ noncomputable def propDeriv_to_deriv :
       exact Deriv.letTensorA _ φ ψ χ S B ihS ihB
   | commitI Γₐ issuer capProp φ ℓ M c _ _ ihc ihM =>
       exact Deriv.commitI Γₐ issuer capProp φ ℓ M c ihc ihM
+  | runCmd Γₐ φ ℓ V s _ _ ihV ihs =>
+      exact Deriv.runCmd Γₐ φ ℓ V s ihV ihs
 
 /-! ## T1 — Propositional completeness (the other direction). -/
 
@@ -1869,9 +1939,15 @@ theorem t1_propositional_completeness :
     simp [ihS, Ctx.consA, ihB]
   | commitI Γₐ issuer capProp φ ℓ M c _ _ ihc ihM =>
     -- decideLean (command M c ℓ): credential gives `says`, payload gives
-    -- `imp φ φ`; the `beq φ φ` guard closes by reflexivity.
+    -- `imp φ φ`; the `beq φ φ` guard closes by reflexivity. Conclusion carries ℓ.
     unfold decideLean
     rw [ihc, ihM]
+    simp [Prop'.beq_refl]
+  | runCmd Γₐ φ ℓ V s _ _ ihV ihs =>
+    -- decideLean (runCmd V s): scrutinee gives `replicated (imp φ φ) ℓ`, store
+    -- gives `φ`; both `beq φ φ` guards close by reflexivity, yielding `at φ ℓ`.
+    unfold decideLean
+    rw [ihV, ihs]
     simp [Prop'.beq_refl]
 
 /-! ## Inversion lemmas — the term shape determines the constructor.
@@ -2275,7 +2351,7 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
           cases tyM
           case imp φ φ' =>
             by_cases hb : Prop'.beq φ φ' = true
-            · have hψ : Prop'.replicated (Prop'.imp φ φ) = ψ := by
+            · have hψ : Prop'.replicated (Prop'.imp φ φ) ℓ = ψ := by
                 simpa [decideLean, hc, hm, hb] using hdec
               have hφ : φ = φ' := Prop'.beq_eq_true_iff_eq φ φ' hb
               rw [← hψ]
@@ -2285,7 +2361,35 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
             · simp [decideLean, hc, hm, hb] at hdec
           all_goals (simp [decideLean, hc, hm] at hdec)
       all_goals (simp [decideLean, hc] at hdec)
-  all_goals (intro Γₐ φ hdec; simp [decideLean] at hdec)
+  case runCmd v s ihv ihs =>
+    -- runCmd soundness: scrutinee is `replicated (imp φ φ) ℓ`, store is `φ`.
+    intro Γₐ ψ hdec
+    cases hv : decideLean { additive := Γₐ, linear := [] } v with
+    | none => simp [decideLean, hv] at hdec
+    | some tyV =>
+      cases tyV
+      case replicated inner ℓ =>
+        cases inner
+        case imp φ φ' =>
+          by_cases hb : Prop'.beq φ φ' = true
+          · cases hs : decideLean { additive := Γₐ, linear := [] } s with
+            | none => simp [decideLean, hv, hb, hs] at hdec
+            | some tyS =>
+              by_cases hb2 : Prop'.beq φ tyS = true
+              · have hψ : Prop'.at φ ℓ = ψ := by
+                  simpa [decideLean, hv, hb, hs, hb2] using hdec
+                have hφ : φ = φ' := Prop'.beq_eq_true_iff_eq φ φ' hb
+                have hsφ : φ = tyS := Prop'.beq_eq_true_iff_eq φ tyS hb2
+                rw [← hψ]
+                have dV := ihv _ _ hv
+                rw [← hφ] at dV
+                have dS := ihs _ _ hs
+                rw [← hsφ] at dS
+                exact PropDeriv.runCmd Γₐ φ ℓ v s dV dS
+              · simp [decideLean, hv, hb, hs, hb2] at hdec
+          · simp [decideLean, hv, hb] at hdec
+        all_goals (simp [decideLean, hv] at hdec)
+      all_goals (simp [decideLean, hv] at hdec)
 
 /-! ## T1 — The Decidable instance.
 

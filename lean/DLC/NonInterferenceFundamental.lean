@@ -324,14 +324,52 @@ theorem fundamental (ℓLow : Label) {Γₐ : List Prop'} {M : Term} {φ : Prop'
         (EnvRel.cons hpa hca₁ hca₂ (EnvRel.cons hpb hcb₁ hcb₂ henv))
   | commitI Γₐ issuer capProp φ ℓ M c dc dM ih_c ih_M =>
       -- commit-I (design §5.2). `command M c ℓ` is a VALUE, so both
-      -- substitution instances step to themselves (`.refl`); the intro-form
-      -- `Replicated` clause then reduces the goal to relating the
+      -- substitution instances step to themselves (`.refl`); the pinned-label
+      -- intro-form `Replicated (φ⊃φ) ℓ` clause reduces the goal to relating the
       -- store-transformer payloads at `φ⊃φ` — exactly the payload IH `ih_M`.
-      -- The credential and label are transparent to the low observer.
+      -- The command's label field is literally the type index `ℓ` (commit-I),
+      -- so the `.refl` reducts land at the pinned label. Credential transparent.
       intro hcore γ₁ γ₂ henv
       simp only [CoreTerm, Bool.and_eq_true] at hcore
       simp only [msubst, msubstAt_command]
-      exact ⟨_, _, _, _, _, _, .refl _, .refl _, ih_M hcore.1 henv⟩
+      exact ⟨_, _, _, _, .refl _, .refl _, ih_M hcore.1 henv⟩
+  | runCmd Γₐ φ ℓ V s dV ds ihV ihs =>
+      -- runCmd (design §5.2, §2.5): the increment's NI content. Both runs reduce
+      -- (ξ-runCmd on the scrutinee's `command` reduct, then runCmd-β) to
+      -- `liftLabel ℓ (app Mᵢ sᵢ)`. Anti-reduction reduces the goal to relating
+      -- those reducts at `at φ ℓ`; the label is PINNED to `ℓ` by the revised
+      -- `Replicated` clause, which is exactly what discharges the `at`-gate:
+      --  • low (ℓ ⊑ ℓLow): the `liftLabel ℓ` witnesses are the canonical form
+      --    the low branch demands — supplied here by runCmd-β, NOT by the
+      --    non-reducing `command` — and `LRel (φ⊃φ) M₁ M₂` applied to the
+      --    related closed stores gives `LRel φ (app M₁ s₁) (app M₂ s₂)`;
+      --  • high (ℓ ⋢ ℓLow): the `at` clause is `True` — the run's result is
+      --    invisible to the low observer (DCC "protected at ℓ", taint-on-run).
+      intro hcore γ₁ γ₂ henv
+      simp only [CoreTerm, Bool.and_eq_true] at hcore
+      simp only [msubst, msubstAt_runCmd]
+      have hs₁ : Closed (msubst s γ₁) :=
+        msubst_closes henv.closed_left
+          (by rw [henv.length_left]; exact propDeriv_fvar_bound ds)
+      have hs₂ : Closed (msubst s γ₂) :=
+        msubst_closes henv.closed_right
+          (by rw [henv.length_right]; exact propDeriv_fvar_bound ds)
+      obtain ⟨M₁, c₁, M₂, c₂, hV₁, hV₂, hMrel⟩ := ihV hcore.1 henv
+      have hsrel : LRel ℓLow φ (msubst s γ₁) (msubst s γ₂) := ihs hcore.2 henv
+      have hpath₁ : Steps (Term.runCmd (msubst V γ₁) (msubst s γ₁))
+          (Term.liftLabel ℓ (Term.app M₁ (msubst s γ₁))) :=
+        (steps_congr (F := fun t => Term.runCmd t (msubst s γ₁))
+          (fun h => step_runCmd_congr h) hV₁).trans (Steps.single rfl)
+      have hpath₂ : Steps (Term.runCmd (msubst V γ₂) (msubst s γ₂))
+          (Term.liftLabel ℓ (Term.app M₂ (msubst s γ₂))) :=
+        (steps_congr (F := fun t => Term.runCmd t (msubst s γ₂))
+          (fun h => step_runCmd_congr h) hV₂).trans (Steps.single rfl)
+      refine lrel_expand ℓLow (Prop'.at φ ℓ) hpath₁ hpath₂ ?_
+      simp only [LRel]
+      split
+      · exact ⟨Term.app M₁ (msubst s γ₁), Term.app M₂ (msubst s γ₂),
+               .refl _, .refl _, hMrel _ _ hs₁ hs₂ hsrel⟩
+      · trivial
 
 /-! ## Corollaries -/
 

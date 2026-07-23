@@ -124,11 +124,27 @@ pub fn step(term: &Term) -> Option<Term> {
             },
         },
 
+        // runCmd-β: `runCmd (command M c ℓ) s ▷ liftLabel ℓ (app M s)` — run the
+        // boxed transformer against the store, ERASE the credential (checked at
+        // typing via commit-I), and carry ℓ into the `liftLabel` wrapper (taint
+        // on run). ξ-runCmd normalizes the scrutinee. Call-by-name: `s` is not
+        // reduced here.
+        Term::RunCmd(v, s) => match v.as_ref() {
+            Term::Command(m, _c, l) => Some(Term::LiftLabel(
+                l.clone(),
+                Box::new(Term::App(m.clone(), s.clone())),
+            )),
+            _ => match step(v) {
+                Some(v2) => Some(Term::RunCmd(Box::new(v2), s.clone())),
+                None => None,
+            },
+        },
+
         // Frozen forms and values: Var, Lam, Sign, Pair, Inl, Inr,
         // TensorIntro, Now, WithinIntro, Verify, Attenuate, Discharge,
-        // LiftLabel, Declassify. Also `Command` (DLC-D): as of R1-inc2 it is a
-        // VALUE — the introduction form for `Replicated` (commit-I) — so it
-        // does not step; its `command-β` reduction is deferred to R1-inc3.
+        // LiftLabel, Declassify, Command. `Command` (DLC-D) is a VALUE — the
+        // introduction form for `Replicated` (commit-I); it is ELIMINATED by
+        // `runCmd` above, not by a `command-β`.
         _ => None,
     }
 }

@@ -294,15 +294,32 @@ pub fn infer(ctx: &Ctx, term: &Term) -> Option<Prop> {
             },
             _ => None,
         },
-        // commit-I (R1-inc2): `command M c ℓ : Replicated (φ ⊃ φ)`. The
-        // credential `c` must prove `issuer says capProp`; the payload `M`
-        // must be a store transformer `φ ⊃ φ` (equal domain/codomain). The
-        // IFC label `ℓ` is carried in the term, not the type (deferred).
-        // Mirrors Lean `decideLean`'s `.command` arm.
-        Term::Command(m, c, _l) => match infer(ctx, c)? {
+        // commit-I: `command M c ℓ : Replicated (φ ⊃ φ) ℓ`. The credential `c`
+        // must prove `issuer says capProp`; the payload `M` must be a store
+        // transformer `φ ⊃ φ` (equal domain/codomain). The IFC label `ℓ` is now
+        // a TYPE INDEX (R1-inc3). Mirrors Lean `decideLean`'s `.command` arm.
+        Term::Command(m, c, l) => match infer(ctx, c)? {
             Prop::Says(_, _) => match infer(ctx, m)? {
+                Prop::Imp(phi, phi2) if phi == phi2 => Some(Prop::Replicated(
+                    Box::new(Prop::Imp(phi.clone(), phi)),
+                    l.clone(),
+                )),
+                _ => None,
+            },
+            _ => None,
+        },
+        // runCmd (R1-inc3): `runCmd V s : φ @ ℓ`. The scrutinee `V` must be
+        // `Replicated (φ ⊃ φ) ℓ` and the store `s : φ`; the result is `φ @ ℓ`
+        // (label read off the type, taint on run). Mirrors `decideLean`'s
+        // `.runCmd` arm.
+        Term::RunCmd(v, s) => match infer(ctx, v)? {
+            Prop::Replicated(inner, l) => match *inner {
                 Prop::Imp(phi, phi2) if phi == phi2 => {
-                    Some(Prop::Replicated(Box::new(Prop::Imp(phi.clone(), phi))))
+                    if infer(ctx, s)? == *phi {
+                        Some(Prop::At(phi, l))
+                    } else {
+                        None
+                    }
                 }
                 _ => None,
             },

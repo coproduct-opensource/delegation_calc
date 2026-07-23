@@ -137,12 +137,16 @@ fn all_sigs_verify(term: &Term, keyring: &KeyRing) -> Result<(), String> {
         }
         // command(M, c, ℓ): both the payload and the credential SUBTERM must be
         // walked, for the same reason as Boxed/SaysBind -- otherwise a `Sign`
-        // nested inside either would escape signature verification. (DLC-D R1
-        // increment 1; the term is inert/untypable but still structurally
-        // traversed.)
+        // nested inside either would escape signature verification. (DLC-D.)
         Term::Command(m, c, _l) => {
             all_sigs_verify(m, keyring)?;
             all_sigs_verify(c, keyring)
+        }
+        // runCmd(V, s): walk both subterms (the `App`/`Command` shape). (DLC-D
+        // R1-inc3.)
+        Term::RunCmd(v, s) => {
+            all_sigs_verify(v, keyring)?;
+            all_sigs_verify(s, keyring)
         }
     }
 }

@@ -254,6 +254,8 @@ redexes:
 (sf-extract-β)  sfExtract(⟨M, σ⟩_p)  ▷  M
 (delegate-β)    delegate(⟨M, σ⟩_p, ⟨N, σ'⟩_q)
                                      ▷  ⟨N, σ'⟩_{p⊓q}     -- σ checked by ⊢_K, not here
+(runCmd-β)      runCmd (command M c ℓ) s
+                                     ▷  liftLabel ℓ (app M s)   -- credential c ERASED; label ℓ into the wrapper (taint on run)
 ```
 
 **Congruence (evaluation contexts), 2026-07.** When the head rule for
@@ -269,6 +271,7 @@ position per form:
 (ξ-letsays)    M ▷ M'  ⇒  let ⟨x⟩_p = M in N ▷ let ⟨x⟩_p = M' in N
 (ξ-sfextract)  M ▷ M'  ⇒  sfExtract M ▷ sfExtract M'
 (ξ-delegate)   left position first, then right once left is a ⟨…⟩_p value
+(ξ-runCmd)     M ▷ M'  ⇒  runCmd M s ▷ runCmd M' s     -- M not a command value
 ```
 
 Without these, nested eliminations are stuck (`π₁ (π₁ ⟨⟨a,b⟩,c⟩)` had
@@ -305,7 +308,10 @@ uninhabited there. The full-`Deriv` content of the rule, and the multiset
 accounting it enables, are R5.
 
 **Values (computational core).** `λ`, `⟨M,σ⟩_p`, `⟨M,N⟩`, `inl/inr`,
-`M⊗N`, `now`, plus the frozen forms above. **Progress** holds for
+`M⊗N`, `now`, `command M c ℓ` (the `Replicated` intro), plus the frozen forms
+above. `runCmd` is the `Replicated` ELIMINATOR — it is NOT a value; it steps
+(`runCmd-β` when the scrutinee is a `command`, else `ξ-runCmd`). **Progress**
+holds for
 closed well-typed terms of the computational core (no frozen
 eliminations): such a term is a value or steps. Mechanized as the
 rung-3b-0 witness (`lean/DLC/Progress.lean`).
@@ -338,8 +344,9 @@ For cross-reference from Lean (`DLC.RuleName`) and Rust (`dlc-core::RuleName`):
 | `box-I` / `discharge` | obligations | §8 |
 | `now` / `within-I` / `within-E` | time | §9 |
 | `verify` | cryptographic bridge | §10 |
-| `β` / `let-tensor` / `says-extract` / `delegate-β` / `attenuate-β` / `discharge-β` / `within-β` | reduction | §11 |
-| `commit-I` | capability-gated replicated write | §13 |
+| `β` / `let-tensor` / `says-extract` / `delegate-β` / `attenuate-β` / `discharge-β` / `within-β` / `runCmd-β` | reduction | §11 |
+| `commit-I` | capability-gated replicated write introduction | §13 |
+| `runCmd` | capability-gated replicated write elimination | §13 |
 
 Approximately 40 rules total. The Lean encoding (`lean/DLC/Judgment.lean`)
 implements one constructor per row; the Rust mirror exposes them as variants
@@ -357,25 +364,46 @@ side-condition with an in-calculus typing obligation.
 ```
 Γₐ ⊢ c : issuer says capProp        Γₐ ⊢ M : φ ⊃ φ
 ──────────────────────────────────────────────────────  (commit-I)
-Γₐ ⊢ command M c ℓ : Replicated (φ ⊃ φ)
+Γₐ ⊢ command M c ℓ : Replicated (φ ⊃ φ) ℓ
 ```
 
 - `c` is the capability CREDENTIAL SUBTERM proving the issuer's write
   capability — a proof-carrying subterm (the `sign`/`box` "obligation carried
   by the term" discipline), not a `Deriv` side-condition, so capability-safety
   becomes an *inversion* on the `command` constructor.
-- `M : φ ⊃ φ` is the store transformer (the operational payload; `applyCommand`
-  applies it to the replica store, R1-inc3's `command-β`).
-- The conclusion `Replicated (φ ⊃ φ)` is the type-level shadow of the committed
-  log entry (`Prop'.replicated`). The committed value *is* the transformer, so
-  the `Replicated` modality wraps its type `φ ⊃ φ` (the store-type/label
-  plumbing — an `at φ ℓ` inner — is deferred to a later increment; the IFC
-  label `ℓ` is carried in the term). `command M c ℓ` is a **value** (an
-  introduction form for `Replicated`); its reduction (`command-β`) is R1-inc3.
+- `M : φ ⊃ φ` is the store transformer (the operational payload; `runCmd`
+  applies it to the replica store — see `runCmd-β`, §11).
+- The conclusion `Replicated (φ ⊃ φ) ℓ` is the type-level shadow of the
+  committed log entry (`Prop'.replicated`, now LABEL-INDEXED as of R1-inc3).
+  The committed value *is* the transformer, so the `Replicated` modality wraps
+  its type `φ ⊃ φ`; the IFC label `ℓ` is a TYPE INDEX (the SAME `ℓ` the term
+  carries), so the `runCmd` eliminator can read it off the value's type.
+  `command M c ℓ` is a **value** (an introduction form for `Replicated`); its
+  elimination is `runCmd`.
 
-**Scope (R1-inc2).** This increment adds only the additive `commit-I` typing
-rule and its metatheory (`Deriv.commitI`, `PropDeriv.commitI`, inference,
-Progress, subject-reduction re-founding, and the two-run NI case via the
-collapsing/intro-form logical relation for `Replicated`). The linear seal
-(`commit-I-L` in `CDerivS`, design §3.3), the `command-β` reduction, and the
-`Query`/`Converges` read side are deferred to later increments.
+**`runCmd`** — capability-gated replicated write ELIMINATION (additive):
+
+```
+Γₐ ⊢ V : Replicated (φ ⊃ φ) ℓ        Γₐ ⊢ s : φ
+──────────────────────────────────────────────────────  (runCmd)
+Γₐ ⊢ runCmd V s : φ @ ℓ
+```
+
+- Runs the boxed store-transformer `V` against a store `s : φ`, classifying the
+  updated store at `φ @ ℓ` — the eliminated label TAINTS the result (DCC's
+  "body protected at ℓ"; Bell–LaPadula taint-on-run). The label is read off the
+  value's TYPE (compositional: `runCmd x s` types even when `x` is a variable).
+- Reduction `runCmd (command M c ℓ) s ▷ liftLabel ℓ (app M s)` (§11): the
+  credential `c` is ERASED (checked at typing via `commit-I`), and the label is
+  carried into the `liftLabel ℓ` wrapper. Subject reduction closes because the
+  reduct types at `φ @ ℓ` — `app M s : φ` (imp-E, `M : φ⊃φ`, `s : φ`), then
+  `liftLabel ℓ (app M s) : φ @ ℓ` — exactly the redex's type.
+
+**Scope (R1-inc3).** This increment adds the additive `runCmd` elimination rule
+and re-founds the label-indexed `Replicated` metatheory: `commit-I` now
+concludes `Replicated (φ ⊃ φ) ℓ`; `runCmd`'s `Deriv`/`PropDeriv`/`DerivCrypto`
+constructors, inference arm, Progress, subject reduction (β + ξ), and the
+genuine two-run NI `at φ ℓ` gate (label pinned to the type index; the low
+branch's `liftLabel ℓ` witness supplied by `runCmd-β`). The linear seal
+(`commit-I-L` in `CDerivS`, design §3.3), the RSM re-founding onto `runCmd`, and
+the `Query`/`Converges` read side are deferred to later increments.

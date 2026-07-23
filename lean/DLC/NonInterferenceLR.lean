@@ -103,20 +103,20 @@ def LRel (ℓLow : Label) : Prop' → Term → Term → Prop
   | .lolli φ ψ, M, N =>
       ∀ X Y, Closed X → Closed Y → LRel ℓLow φ X Y →
         LRel ℓLow ψ (Term.app M X) (Term.app N Y)
-  | .replicated φ, M, N =>
-      -- COLLAPSING / intro-form definition (design §5.2): a `Replicated (φ⊃φ)`
-      -- value is two-run related iff both sides reduce to a `command` whose
-      -- store-transformer PAYLOADS are `LRel`-related at the wrapped type `φ`
-      -- (= `φ⊃φ` for a commit-I conclusion). This mirrors the `says`/`within`
-      -- intro-form clauses (a canonical constructor + related payloads); the
-      -- credential and IFC label are transparent to the low observer this
-      -- increment (the label-precision gate is deferred). Because `command` is
-      -- a VALUE, transitivity closes by `steps_to_value_unique` exactly as the
-      -- other intro forms do. This is what makes `fundamental`'s `commitI`
-      -- case dischargeable from the payload IH (`command` has no reduction, so
-      -- a collapse-to-`φ` clause would be unprovable at a low label).
-      ∃ M₁ c₁ ℓ₁ M₂ c₂ ℓ₂,
-        Steps M (Term.command M₁ c₁ ℓ₁) ∧ Steps N (Term.command M₂ c₂ ℓ₂) ∧
+  | .replicated φ ℓ, M, N =>
+      -- Intro-form definition (design §5.2), with the label field PINNED to the
+      -- type index `ℓ` (R1-inc3): a `Replicated (φ⊃φ) ℓ` value is two-run
+      -- related iff both sides reduce to a `command` AT THAT LABEL whose
+      -- store-transformer PAYLOADS are `LRel`-related at `φ` (= `φ⊃φ` for a
+      -- commit-I conclusion). Pinning the label (dropping inc2's free `ℓ₁/ℓ₂`)
+      -- is what lets `fundamental`'s `runCmd` case conclude the reduct is
+      -- `liftLabel ℓ …` (not `liftLabel k` for an unknown `k`) — making the
+      -- `at φ ℓ` low-branch gate GENUINE. Because `command` is a VALUE,
+      -- transitivity closes by `steps_to_value_unique` (now SIMPLER: the label
+      -- is fixed, not existential), and `fundamental`'s `commitI` case still
+      -- discharges from the payload IH (field-label = index `ℓ`).
+      ∃ M₁ c₁ M₂ c₂,
+        Steps M (Term.command M₁ c₁ ℓ) ∧ Steps N (Term.command M₂ c₂ ℓ) ∧
         LRel ℓLow φ M₁ M₂
 
 /-! ## Values are inert -/
@@ -186,6 +186,13 @@ theorem step_delegate_right_congr {p : Principal} {mi : Term}
       = some (Term.delegate (Term.sign p mi si) n') := by
   cases n <;> simp_all [step]
 
+/-- ξ-runCmd: a stepping scrutinee lifts through the `runCmd` eliminator. The
+scrutinee cannot be a `command` (a value: `step` is `none`), so the congruence
+branch of `step` fires. -/
+theorem step_runCmd_congr {v v' s : Term} (h : step v = some v') :
+    step (Term.runCmd v s) = some (Term.runCmd v' s) := by
+  cases v <;> simp_all [step]
+
 /-- Lift a `Steps` path through a congruence position. Parameterized by
 the single-step lifting to avoid nine copies of the same induction. -/
 theorem steps_congr {F : Term → Term}
@@ -252,10 +259,10 @@ theorem lrel_expand_left (ℓLow : Label) :
   | lolli φ ψ ihφ ihψ =>
       intro M M' N h hr X Y hX hY hXY
       exact ihψ (step_app_congr h) (hr X Y hX hY hXY)
-  | replicated φ ih =>
+  | replicated φ ℓ ih =>
       intro M M' N h hr
-      obtain ⟨M₁, c₁, ℓ₁, M₂, c₂, ℓ₂, hM, hN, hp⟩ := hr
-      exact ⟨M₁, c₁, ℓ₁, M₂, c₂, ℓ₂, .head h hM, hN, hp⟩
+      obtain ⟨M₁, c₁, M₂, c₂, hM, hN, hp⟩ := hr
+      exact ⟨M₁, c₁, M₂, c₂, .head h hM, hN, hp⟩
 
 /-- Right-side expansion, by the same argument. -/
 theorem lrel_expand_right (ℓLow : Label) :
@@ -308,10 +315,10 @@ theorem lrel_expand_right (ℓLow : Label) :
   | lolli φ ψ ihφ ihψ =>
       intro M N N' h hr X Y hX hY hXY
       exact ihψ (step_app_congr h) (hr X Y hX hY hXY)
-  | replicated φ ih =>
+  | replicated φ ℓ ih =>
       intro M N N' h hr
-      obtain ⟨M₁, c₁, ℓ₁, M₂, c₂, ℓ₂, hM, hN, hp⟩ := hr
-      exact ⟨M₁, c₁, ℓ₁, M₂, c₂, ℓ₂, hM, .head h hN, hp⟩
+      obtain ⟨M₁, c₁, M₂, c₂, hM, hN, hp⟩ := hr
+      exact ⟨M₁, c₁, M₂, c₂, hM, .head h hN, hp⟩
 
 /-- Multi-step expansion on the left. -/
 theorem lrel_expand_steps_left (ℓLow : Label) (φ : Prop') {M M' N : Term}
@@ -379,10 +386,10 @@ theorem lrel_symm (ℓLow : Label) :
   | lolli φ ψ ihφ ihψ =>
       intro M N hr X Y hX hY hXY
       exact ihψ (hr Y X hY hX (ihφ hXY))
-  | replicated φ ih =>
+  | replicated φ ℓ ih =>
       intro M N hr
-      obtain ⟨M₁, c₁, ℓ₁, M₂, c₂, ℓ₂, hM, hN, hp⟩ := hr
-      exact ⟨M₂, c₂, ℓ₂, M₁, c₁, ℓ₁, hN, hM, ih hp⟩
+      obtain ⟨M₁, c₁, M₂, c₂, hM, hN, hp⟩ := hr
+      exact ⟨M₂, c₂, M₁, c₁, hN, hM, ih hp⟩
 
 /-- Transitivity. The value-style cases use determinism
 (`steps_to_value_unique`) to identify the two reducts of the middle
@@ -464,14 +471,14 @@ theorem lrel_trans (ℓLow : Label) :
       intro M N P h₁ h₂ X Y hX hY hXY
       have hYY : LRel ℓLow φ Y Y := ihφ (lrel_symm ℓLow φ hXY) hXY
       exact ihψ (h₁ X Y hX hY hXY) (h₂ Y Y hY hY hYY)
-  | replicated φ ih =>
+  | replicated φ ℓ ih =>
       intro M N P h₁ h₂
-      obtain ⟨M₁, c₁, ℓ₁, M₂, c₂, ℓ₂, hM, hN₁, hp₁⟩ := h₁
-      obtain ⟨N₁, d₁, k₁, N₂, d₂, k₂, hN₂, hP, hp₂⟩ := h₂
-      have heq : Term.command M₂ c₂ ℓ₂ = Term.command N₁ d₁ k₁ :=
+      obtain ⟨M₁, c₁, M₂, c₂, hM, hN₁, hp₁⟩ := h₁
+      obtain ⟨N₁, d₁, N₂, d₂, hN₂, hP, hp₂⟩ := h₂
+      have heq : Term.command M₂ c₂ ℓ = Term.command N₁ d₁ ℓ :=
         steps_to_value_unique hN₁ hN₂ (by simp [Value]) (by simp [Value])
       cases heq
-      exact ⟨M₁, c₁, ℓ₁, N₂, d₂, k₂, hM, hP, ih hp₁ hp₂⟩
+      exact ⟨M₁, c₁, N₂, d₂, hM, hP, ih hp₁ hp₂⟩
 
 
 /-! ## Design witnesses.

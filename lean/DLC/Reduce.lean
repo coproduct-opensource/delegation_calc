@@ -148,11 +148,24 @@ def step : Term → Option Term
           | some m' => some (Term.discharge m' p)
           | none => none
 
+  -- runCmd-β: `runCmd (command M c ℓ) s ▷ liftLabel ℓ (app M s)` — run the
+  -- boxed transformer against the store, ERASE the credential (checked at
+  -- typing via commit-I), and carry the label ℓ into the `liftLabel` wrapper
+  -- (taint-on-run; the result is classified at `φ @ ℓ`). ξ-runCmd normalizes
+  -- the scrutinee. Call-by-name: the store `s` is never reduced here.
+  | Term.runCmd v s =>
+      match v with
+      | Term.command m _c l => some (Term.liftLabel l (Term.app m s))
+      | _ =>
+          match step v with
+          | some v' => some (Term.runCmd v' s)
+          | none => none
+
   -- Frozen forms and values: var, lam, sign, pair, inl, inr,
   -- tensorIntro, now, withinIntro, verify, attenuate, boxed,
-  -- liftLabel, declassify. The frozen eliminations (verify, attenuate,
-  -- declassify) are checked by the verifier layers rather than computed.
-  -- `discharge` is no longer among them -- see discharge-β above.
+  -- liftLabel, declassify, command. The frozen eliminations (verify,
+  -- attenuate, declassify) are checked by the verifier layers rather than
+  -- computed. `discharge` is no longer among them -- see discharge-β above.
   | _ => none
 
 /-- Iterate `step` up to `fuel` steps, returning the final term and the step
@@ -177,6 +190,17 @@ example :
 
 /-- Var is a normal form. -/
 example : step (Term.var 0) = none := rfl
+
+/-- `runCmd-β` fires: running a `command` erases the credential and emits a
+`liftLabel ℓ`-headed reduct (a distinct head constructor from the input) — the
+witness that the `at φ ℓ` low-branch of NI is inhabited, not vacuous. -/
+example (M c s : Term) (ℓ : Label) :
+    step (Term.runCmd (Term.command M c ℓ) s)
+      = some (Term.liftLabel ℓ (Term.app M s)) := rfl
+
+/-- `command` is a value: `runCmd`'s scrutinee position drives its own reduction,
+`command` never steps on its own. -/
+example (M c : Term) (ℓ : Label) : step (Term.command M c ℓ) = none := rfl
 
 end ReduceChecks
 

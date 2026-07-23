@@ -134,9 +134,11 @@ fn enc_prop(p: &Prop) -> Value {
         Prop::Lolli(a, b) => {
             Value::Array(vec![Value::Integer(12.into()), enc_prop(a), enc_prop(b)])
         }
-        // Replicated φ -- tag 13, APPENDED (DLC-D R1 increment 1). Explicit
-        // positional tag, so no existing prop's encoding moves.
-        Prop::Replicated(a) => Value::Array(vec![Value::Integer(13.into()), enc_prop(a)]),
+        // Replicated φ ℓ -- tag 13, APPENDED (DLC-D R1). Now LABEL-INDEXED
+        // (R1-inc3): the label is encoded positionally alongside `φ`.
+        Prop::Replicated(a, l) => {
+            Value::Array(vec![Value::Integer(13.into()), enc_prop(a), enc_label(l)])
+        }
     }
 }
 
@@ -241,6 +243,11 @@ fn enc_term(t: &Term) -> Value {
             enc_term(c),
             enc_label(l),
         ]),
+        // runCmd(V, s) -- tag 25, APPENDED (DLC-D R1-inc3). Scrutinee then store.
+        // Explicit positional tag, so every existing term's encoding is unchanged.
+        Term::RunCmd(v, s) => {
+            Value::Array(vec![Value::Integer(25.into()), enc_term(v), enc_term(s)])
+        }
     }
 }
 
@@ -394,7 +401,10 @@ fn dec_prop(v: &Value) -> Result<Prop, ProtocolError> {
             Box::new(dec_prop(&a[1])?),
             Box::new(dec_prop(&a[2])?),
         )),
-        13 => Ok(Prop::Replicated(Box::new(dec_prop(&a[1])?))),
+        13 => Ok(Prop::Replicated(
+            Box::new(dec_prop(&a[1])?),
+            dec_label(&a[2])?,
+        )),
         t => Err(ProtocolError::Cbor(format!("bad prop tag {}", t))),
     }
 }
@@ -502,6 +512,10 @@ fn dec_term(v: &Value) -> Result<Term, ProtocolError> {
             Box::new(dec_term(&a[1])?),
             Box::new(dec_term(&a[2])?),
             dec_label(&a[3])?,
+        )),
+        25 => Ok(Term::RunCmd(
+            Box::new(dec_term(&a[1])?),
+            Box::new(dec_term(&a[2])?),
         )),
         t => Err(ProtocolError::Cbor(format!("bad term tag {}", t))),
     }

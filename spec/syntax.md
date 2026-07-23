@@ -80,7 +80,7 @@ O, O' ::= ⊤ | ⊥                  trivially / un-dischargeable
        | ◇_τ φ                   time-bounded
        | φ ⊗ ψ                   multiplicative (linear) conjunction
        | φ ⊸ ψ                   linear implication
-       | Replicated φ            committed-replicated store type (DLC-D)
+       | Replicated φ ℓ          committed-replicated store type at label ℓ (DLC-D)
 ```
 
 **Design notes**
@@ -96,16 +96,15 @@ O, O' ::= ⊤ | ⊥                  trivially / un-dischargeable
 - The linear connectives `⊗` and `⊸` enable resource-style accounting for
   proofs that must be used exactly once — load-bearing for the DP-budget
   obligation form (`□_{ε-DP(δ)} φ` of §4.3 in the design spec).
-- `Replicated φ` is the type-level shadow of a value that has entered the
-  committed replicated log at store-type `φ` (DLC-D; see
-  `spec/distributed-calculus-design-2026-07.md` §2). **Added 2026-07-23 as part
-  of the R1 first-classing, increment 1 (pure syntax fan-out).** It is a
-  single-argument modality that recurses into `φ` exactly as `p says φ` does.
-  In this increment it has **no introduction or elimination rule** — the
-  `commit-I`/`query-I` typing rules of the design are deferred to a later
-  increment — so it is an *inert, uninhabited* proposition form: no `Deriv`/
-  `PropDeriv` rule mentions it, and every typing-derivation induction re-founds
-  for free (it never occurs in a derivation).
+- `Replicated φ ℓ` is the type-level shadow of a value that has entered the
+  committed replicated log at store-type `φ` and IFC label `ℓ` (DLC-D; see
+  `spec/distributed-calculus-design-2026-07.md` §2). **Added 2026-07-23 (R1
+  first-classing, increment 1).** It recurses into `φ` as `p says φ` does.
+  **Revised R1-inc3: now LABEL-INDEXED (`Replicated φ ℓ`).** Its introduction is
+  `commit-I` (`command M c ℓ : Replicated (φ⊃φ) ℓ`) and its elimination is
+  `runCmd` (`runCmd V s : φ @ ℓ`); the label index is what lets `runCmd` read
+  `ℓ` off the value's type compositionally and taint the run's result at `φ @ ℓ`
+  (`spec/typing-rules.md` §13). The `query-I`/`Converges` read side is deferred.
 
 ## 5. Proof terms
 
@@ -125,6 +124,7 @@ M, N ::= x                             variable (de-Bruijn index)
        | now(τ)                        time anchor proof of now < τ
        | within(M, τ)                  ◇_τ introduction
        | command(M, c, ℓ)              first-class replicated write (DLC-D)
+       | runCmd(V, s)                  run a Replicated command against a store (DLC-D)
 ```
 
 **Design notes**
@@ -181,16 +181,20 @@ M, N ::= x                             variable (de-Bruijn index)
   transformer, `c` is the capability **credential — a SUBTERM**, not a typing
   side-condition (mirroring the `box_O`/`Sign` "obligation carried by the term"
   discipline), and `ℓ` is the IFC label at which the write is classified.
-  **Added 2026-07-23 as part of the R1 first-classing, increment 1 (pure syntax
-  fan-out).** Neither subterm is a binder, so — like `M N` / `⟨M, N⟩` and unlike
-  `saysBind`/`letTensor` — `shift`/`substAt` recurse into `M` and `c` **without
-  bumping the cutoff**; the label is untouched. In this increment `command` has
-  **no typing rule and no reduction rule**: it is a *stuck non-value* (`step`
-  leaves it fixed, `Value (command …) = false`) and is *untypable* (no
-  `Deriv`/`PropDeriv`/inference rule produces a type for it). The `commit-I`
-  typing rule and `command-β` reduction of the design are deferred to later
-  increments. Because it is untypable, Progress, NonInterference, subject
-  reduction and every other typing-derivation induction re-found for free.
+  **Added 2026-07-23 (R1 first-classing, increment 1).** Neither subterm is a
+  binder, so — like `M N` / `⟨M, N⟩` and unlike `saysBind`/`letTensor` —
+  `shift`/`substAt` recurse into `M` and `c` **without bumping the cutoff**; the
+  label is untouched. `command M c ℓ` is a **value** — the introduction form for
+  `Replicated (φ⊃φ) ℓ` (`commit-I`, R1-inc2). It is ELIMINATED by `runCmd`
+  (R1-inc3), not by a `command-β`.
+- `runCmd(V, s)` is the `Replicated` ELIMINATOR (DLC-D; R1-inc3). It runs the
+  boxed store-transformer `V : Replicated (φ⊃φ) ℓ` against a store `s : φ`,
+  classifying the result at `φ @ ℓ` (`runCmd V s : φ @ ℓ`; `spec/typing-rules.md`
+  §13). Neither subterm binds, so — like `M N` / `command` — `shift`/`substAt`
+  recurse into both **without bumping the cutoff**. Unlike `command`, `runCmd` is
+  **not a value**: `runCmd (command M c ℓ) s ▷ liftLabel ℓ (app M s)` (credential
+  erased, label carried into the wrapper; taint-on-run), and `ξ-runCmd`
+  normalizes the scrutinee (§11).
 
 ## 6. Canonical encoding
 

@@ -333,18 +333,38 @@ inductive Deriv : Ctx → Term → Prop' → Type where
   (the committed value IS the transformer, so `Replicated` wraps `φ ⊃ φ`).
 
   `command M c ℓ` is a **value** (introduction form for `Replicated`); its
-  `command-β` reduction is R1-inc3. ADDITIVE this increment (both premises
-  and the conclusion carry `linear := []`, mirroring `andI`); the linear seal
-  `commit-I-L` (`CDerivS`, design §3.3) is deferred. The IFC label `ℓ` is
-  carried by the term; folding it into the conclusion (`Replicated (φ @ ℓ)`)
-  awaits the store-type/label plumbing of a later increment. Mirrors Rust
-  `RuleName::CommitI` and `decide.rs`'s `Term::Command` inference arm. -/
+  `runCmd`-eliminator reduction is R1-inc3. ADDITIVE this increment (both
+  premises and the conclusion carry `linear := []`, mirroring `andI`); the
+  linear seal `commit-I-L` (`CDerivS`, design §3.3) is deferred.
+
+  Revised R1-inc3: the conclusion now carries the label index `ℓ`
+  (`Replicated (φ ⊃ φ) ℓ` — the SAME `ℓ` as the term's field). This is
+  load-bearing for `runCmd`: the eliminator reads `ℓ` off the value's type,
+  and subject reduction closes because the reduct `liftLabel ℓ (app M s)` is
+  typed at the same `ℓ`. Mirrors Rust `RuleName::CommitI` and `decide.rs`'s
+  `Term::Command` inference arm. -/
   | commitI (Γₐ : List Prop') (issuer : Principal) (capProp φ : Prop')
             (ℓ : Label) (M c : Term)
       (dc : Deriv { additive := Γₐ, linear := [] } c (Prop'.says issuer capProp))
       (dM : Deriv { additive := Γₐ, linear := [] } M (Prop'.imp φ φ)) :
       Deriv { additive := Γₐ, linear := [] }
-            (Term.command M c ℓ) (Prop'.replicated (Prop'.imp φ φ))
+            (Term.command M c ℓ) (Prop'.replicated (Prop'.imp φ φ) ℓ)
+
+  /-- `runCmd` — capability-gated replicated write ELIMINATION (DLC-D;
+  `spec/typing-rules.md` §13). From a boxed store-transformer
+  `V : Replicated (φ ⊃ φ) ℓ` and a store `s : φ`, run the transformer and
+  classify the updated store at `φ @ ℓ` (the eliminated label taints the
+  result — DCC's "body protected at ℓ", Bell–LaPadula taint-on-run). The
+  label `ℓ` is read off the value's type (compositional; `runCmd x s` types
+  when `x` is a variable). ADDITIVE this increment. Its reduction is
+  `runCmd (command M c ℓ) s ▷ liftLabel ℓ (app M s)`. Mirrors Rust
+  `RuleName::RunCmd` and `decide.rs`'s `Term::RunCmd` inference arm. -/
+  | runCmd (Γₐ : List Prop') (φ : Prop') (ℓ : Label) (V s : Term)
+      (dV : Deriv { additive := Γₐ, linear := [] } V
+              (Prop'.replicated (Prop'.imp φ φ) ℓ))
+      (ds : Deriv { additive := Γₐ, linear := [] } s φ) :
+      Deriv { additive := Γₐ, linear := [] }
+            (Term.runCmd V s) (Prop'.at φ ℓ)
 
 /-! ## A first round-trip sanity check.
 

@@ -185,11 +185,12 @@ theorem lrel_step_left (ℓLow : Label) :
   | lolli φ ψ ihφ ihψ =>
       intro M M' N h hr X Y hX hY hXY
       exact ihψ (step_app_congr h) (hr X Y hX hY hXY)
-  | replicated φ ih =>
-      -- intro-form def (§5.2): forward-step the left `command`-reduction path.
+  | replicated φ ℓ ih =>
+      -- intro-form def (§5.2), pinned label (R1-inc3): forward-step the left
+      -- `command`-reduction path.
       intro M M' N h hr
-      obtain ⟨M₁, c₁, ℓ₁, M₂, c₂, ℓ₂, hM, hN, hp⟩ := hr
-      exact ⟨M₁, c₁, ℓ₁, M₂, c₂, ℓ₂, steps_forward_value h (by simp [Value]) hM, hN, hp⟩
+      obtain ⟨M₁, c₁, M₂, c₂, hM, hN, hp⟩ := hr
+      exact ⟨M₁, c₁, M₂, c₂, steps_forward_value h (by simp [Value]) hM, hN, hp⟩
 
 /-- Forward closure on the RIGHT, by symmetry. -/
 theorem lrel_step_right (ℓLow : Label) (φ : Prop') {M N N' : Term}

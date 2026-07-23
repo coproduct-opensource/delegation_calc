@@ -41,15 +41,15 @@ pub enum Prop {
     Tensor(Box<Prop>, Box<Prop>),
     /// φ ⊸ ψ — linear implication.
     Lolli(Box<Prop>, Box<Prop>),
-    /// `Replicated φ` — the type of a value committed to the replicated log at
-    /// store-type `φ` (DLC-D). A single-argument modality; its DecidableEq /
-    /// inference recurses into `φ` exactly as `Says`/`Within` do.
+    /// `Replicated φ ℓ` — the type of a value committed to the replicated log at
+    /// store-type `φ` and IFC label `ℓ` (DLC-D). Recurses into `φ` as
+    /// `Says`/`Within` do; the label is a carried index.
     ///
-    /// Added 2026-07-23 (R1 first-classing, increment 1: pure syntax fan-out).
-    /// INERT this increment: no introduction/elimination rule (`commit-I`/
-    /// `query-I` are deferred), so no `Deriv`/`PropDeriv` rule mentions it and
-    /// every typing induction re-founds for free.
-    Replicated(Box<Prop>),
+    /// Added 2026-07-23 (R1 first-classing, increment 1). **Revised R1-inc3: now
+    /// LABEL-INDEXED.** Its intro is `commit-I` (`command M c ℓ : Replicated
+    /// (φ⊃φ) ℓ`) and its elimination is `runCmd` (`runCmd V s : φ @ ℓ`); the
+    /// label index is what lets `runCmd` read `ℓ` off the value's type.
+    Replicated(Box<Prop>, Label),
 }
 
 /// Proof term forms — runtime objects whose well-typedness is the calculus.
@@ -147,6 +147,17 @@ pub enum Term {
     /// returns `None`). Because it is untypable, Progress / NI / subject
     /// reduction re-found for free.
     Command(Box<Term>, Box<Term>, Label),
+    /// `runCmd(V, s)` — the `Replicated` ELIMINATOR (DLC-D; R1-inc3). Runs the
+    /// boxed store-transformer `V : Replicated (φ⊃φ) ℓ` against a store `s : φ`,
+    /// classifying the result at `φ @ ℓ` (taint on run). Mirrors `Term.runCmd`
+    /// in `lean/DLC/Syntax.lean`.
+    ///
+    /// Added 2026-07-23 (R1-inc3). Neither subterm binds, so `shift`/`subst_at`
+    /// recurse into both WITHOUT bumping the cutoff (the `App`/`Command` shape).
+    /// Unlike `Command`, `runCmd` is NOT a value — it STEPS:
+    /// `runCmd (command M c ℓ) s ▷ liftLabel ℓ (app M s)` (credential erased,
+    /// label into the wrapper); `ξ-runCmd` normalizes the scrutinee.
+    RunCmd(Box<Term>, Box<Term>),
 }
 
 /// A cryptographic signature carried by `Sign` and `Verify` terms.

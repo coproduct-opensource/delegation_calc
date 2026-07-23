@@ -218,6 +218,10 @@ theorem closedAbove_command_iff {m c : Term} {ℓ : Label} {k : Nat} :
     ClosedAbove (Term.command m c ℓ) k ↔ ClosedAbove m k ∧ ClosedAbove c k := by
   simp only [ClosedAbove, usesVar, Bool.or_eq_false_iff, imp_and, forall_and]
 
+theorem closedAbove_runCmd_iff {v s : Term} {k : Nat} :
+    ClosedAbove (Term.runCmd v s) k ↔ ClosedAbove v k ∧ ClosedAbove s k := by
+  simp only [ClosedAbove, usesVar, Bool.or_eq_false_iff, imp_and, forall_and]
+
 /-! ### Closed terms are fixed points of `shift` and `substAt` -/
 
 private theorem shift_closedAbove_aux (d : Nat) :
@@ -337,6 +341,11 @@ private theorem shift_closedAbove_aux (d : Nat) :
       obtain ⟨hm, hcr⟩ := closedAbove_command_iff.mp h
       simp only [shift]
       rw [ihm k c hm hc, ihc k c hcr hc]
+  | runCmd v s ihv ihs =>
+      intro k c h hc
+      obtain ⟨hv, hs⟩ := closedAbove_runCmd_iff.mp h
+      simp only [shift]
+      rw [ihv k c hv hc, ihs k c hs hc]
 
 /-- Shifting above the free-variable bound is a no-op. -/
 theorem shift_closedAbove {t : Term} {k : Nat} (h : ClosedAbove t k) (d c : Nat)
@@ -463,6 +472,11 @@ private theorem substAt_closedAbove_aux (v : Term) :
       obtain ⟨hm, hcr⟩ := closedAbove_command_iff.mp h
       simp only [substAt]
       rw [ihm k i hm hi, ihc k i hcr hi]
+  | runCmd v s ihv ihs =>
+      intro k i h hi
+      obtain ⟨hv, hs⟩ := closedAbove_runCmd_iff.mp h
+      simp only [substAt]
+      rw [ihv k i hv hi, ihs k i hs hi]
 
 /-- Substituting at or above the free-variable bound is a no-op. -/
 theorem substAt_closedAbove {t : Term} {k : Nat} (h : ClosedAbove t k) (v : Term)
@@ -612,6 +626,11 @@ theorem substAt_closes_gen {v : Term} (hv : Closed v) :
       obtain ⟨hm, hcr⟩ := closedAbove_command_iff.mp hb
       simp only [substAt]
       exact closedAbove_command_iff.mpr ⟨ihm n k hm hk, ihc n k hcr hk⟩
+  | runCmd v s ihv ihs =>
+      intro n k hb hk
+      obtain ⟨hv, hs⟩ := closedAbove_runCmd_iff.mp hb
+      simp only [substAt]
+      exact closedAbove_runCmd_iff.mpr ⟨ihv n k hv hk, ihs n k hs hk⟩
 
 /-- Substituting a CLOSED value at index `k` eliminates that index and
 lowers the ones above: the result is closed-above `k` if the original
@@ -962,6 +981,25 @@ private theorem step_preserves_closed_aux :
   -- command is STUCK: `step (command ..) = none`, so `step M = some M'` is
   -- impossible — vacuous, like the frozen `sign`/`verify` cases.
   | command _ _ _ _ _ => intro M' h _; simp [step] at h
+  | runCmd v s ihv _ =>
+      intro M' h hc
+      unfold step at h
+      split at h
+      · -- runCmd-β: v = command m c l, M' = liftLabel l (app m s). Closedness of
+        -- the redex gives closedness of m and s; the reduct rebinds only those.
+        simp only [Option.some.injEq] at h
+        subst h
+        obtain ⟨hv, hs⟩ := closedAbove_runCmd_iff.mp hc
+        obtain ⟨hm, _hcred⟩ := closedAbove_command_iff.mp hv
+        exact closedAbove_liftLabel_iff.mpr (closedAbove_app_iff.mpr ⟨hm, hs⟩)
+      · -- ξ-runCmd.
+        cases hv : step v with
+        | none => simp [hv] at h
+        | some v' =>
+            simp [hv] at h
+            subst h
+            obtain ⟨hcv, hcs⟩ := closedAbove_runCmd_iff.mp hc
+            exact closedAbove_runCmd_iff.mpr ⟨ihv v' hv hcv, hcs⟩
 
 /-- One reduction step preserves closedness. -/
 theorem step_preserves_closed {M M' : Term} (h : step M = some M') (hc : Closed M) :
@@ -1045,6 +1083,15 @@ theorem msubstAt_command (m c : Term) (ℓ : Label) (γ : List Term) (d : Nat) :
   | cons t γ' ih =>
       simp only [msubstAt, substAt]
       exact ih (substAt m t d) (substAt c t d)
+
+theorem msubstAt_runCmd (v s : Term) (γ : List Term) (d : Nat) :
+    msubstAt (Term.runCmd v s) γ d
+      = Term.runCmd (msubstAt v γ d) (msubstAt s γ d) := by
+  induction γ generalizing v s with
+  | nil => rfl
+  | cons t γ' ih =>
+      simp only [msubstAt, substAt]
+      exact ih (substAt v t d) (substAt s t d)
 
 theorem msubstAt_attenuate (m : Term) (ψ : Prop') (γ : List Term) (d : Nat) :
     msubstAt (Term.attenuate m ψ) γ d = Term.attenuate (msubstAt m γ d) ψ := by
@@ -1359,6 +1406,8 @@ theorem propDeriv_fvar_bound {Γₐ : List Prop'} {M : Term} {φ : Prop'}
         ⟨ihS, fun i hi => ihB i (by simp only [List.length_cons]; omega)⟩
   | commitI Γ issuer capProp φ ℓ M c _ _ ihc ihM =>
       exact closedAbove_command_iff.mpr ⟨ihM, ihc⟩
+  | runCmd Γ φ ℓ V s _ _ ihV ihs =>
+      exact closedAbove_runCmd_iff.mpr ⟨ihV, ihs⟩
 
 /-- Pointwise `LRel`-related, closed environments for a context. -/
 inductive EnvRel (ℓLow : Label) : List Prop' → List Term → List Term → Prop where

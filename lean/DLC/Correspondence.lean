@@ -113,6 +113,8 @@ def Term.allSigsVerify (K : KeyRing) : Term → Bool
   -- the credential is still signature-checked (mirrors the Rust verifier's
   -- `all_sigs_verify` command arm; only `sign` itself carries a signature).
   | Term.command m c _    => m.allSigsVerify K && c.allSigsVerify K
+  -- runCmd(V, s): walk both subterms (mirrors the `app`/`command` shape).
+  | Term.runCmd v s       => v.allSigsVerify K && s.allSigsVerify K
 
 /-! ## `DerivCrypto K` — the cryptographic typing judgment.
 
@@ -269,7 +271,15 @@ inductive DerivCrypto (K : KeyRing) : List Prop' → Term → Prop' → Type whe
             (ℓ : Label) (M c : Term)
       (dc : DerivCrypto K Γₐ c (Prop'.says issuer capProp))
       (dM : DerivCrypto K Γₐ M (Prop'.imp φ φ)) :
-      DerivCrypto K Γₐ (Term.command M c ℓ) (Prop'.replicated (Prop'.imp φ φ))
+      DerivCrypto K Γₐ (Term.command M c ℓ) (Prop'.replicated (Prop'.imp φ φ) ℓ)
+
+  /-- `runCmd` — cryptographic-typing twin of `PropDeriv.runCmd` (DLC-D). The
+  eliminator carries no signature of its own; `allSigsVerify` walks both
+  subterms. Result `φ @ ℓ`. -/
+  | runCmd (Γₐ : List Prop') (φ : Prop') (ℓ : Label) (V s : Term)
+      (dV : DerivCrypto K Γₐ V (Prop'.replicated (Prop'.imp φ φ) ℓ))
+      (ds : DerivCrypto K Γₐ s φ) :
+      DerivCrypto K Γₐ (Term.runCmd V s) (Prop'.at φ ℓ)
 
 /-! ## Direction 1 — crypto typing erases to logical typing. -/
 
@@ -310,6 +320,8 @@ noncomputable def t2_crypto_to_logical (K : KeyRing)
       exact .letTensor Γₐ φ ψ χ S B ihS ihB
   | commitI Γₐ issuer capProp φ ℓ M c _ _ ihc ihM =>
       exact .commitI Γₐ issuer capProp φ ℓ M c ihc ihM
+  | runCmd Γₐ φ ℓ V s _ _ ihV ihs =>
+      exact .runCmd Γₐ φ ℓ V s ihV ihs
 
 /-- Crypto typing implies every embedded signature verifies. Together
 with `t2_crypto_to_logical` this is the forward half of the
@@ -353,6 +365,8 @@ theorem t2_crypto_sigs_verify (K : KeyRing)
       simp [Term.allSigsVerify, ihS, ihB]
   | commitI Γₐ issuer capProp φ ℓ M c _ _ ihc ihM =>
       simp [Term.allSigsVerify, ihM, ihc]
+  | runCmd Γₐ φ ℓ V s _ _ ihV ihs =>
+      simp [Term.allSigsVerify, ihV, ihs]
 
 /-! ## Direction 2 — logical typing plus signature validity lifts. -/
 
@@ -452,6 +466,10 @@ noncomputable def t2_logical_to_crypto (K : KeyRing)
       intro hsig
       simp only [Term.allSigsVerify, Bool.and_eq_true] at hsig
       exact .commitI Γₐ issuer capProp φ ℓ M c (ihc hsig.2) (ihM hsig.1)
+  | runCmd Γₐ φ ℓ V s _ _ ihV ihs =>
+      intro hsig
+      simp only [Term.allSigsVerify, Bool.and_eq_true] at hsig
+      exact .runCmd Γₐ φ ℓ V s (ihV hsig.1) (ihs hsig.2)
 
 /-! ## T2 — the symbolic characterization theorem. -/
 

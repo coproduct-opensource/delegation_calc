@@ -128,8 +128,14 @@ pub enum RuleName {
 
     // --- R1 (DLC-D first-classing): distributed constructs ---
     /// `commit-I` — capability-gated replicated write introduction. Types
-    /// `command M c ℓ : Replicated (φ ⊃ φ)` from a credential `c : issuer says
-    /// capProp` and a store transformer `M : φ ⊃ φ`. Additive this increment
-    /// (R1-inc2); the linear seal (`commit-I-L` in `CDerivS`) is deferred.
+    /// `command M c ℓ : Replicated (φ ⊃ φ) ℓ` from a credential `c : issuer says
+    /// capProp` and a store transformer `M : φ ⊃ φ`. Additive; the label is a
+    /// TYPE INDEX (R1-inc3). The linear seal (`commit-I-L` in `CDerivS`) is
+    /// deferred.
     CommitI,
+    /// `runCmd` — capability-gated replicated write ELIMINATION (R1-inc3). Types
+    /// `runCmd V s : φ @ ℓ` from `V : Replicated (φ ⊃ φ) ℓ` and `s : φ` — the
+    /// eliminated label taints the result. Its reduction is
+    /// `runCmd (command M c ℓ) s ▷ liftLabel ℓ (app M s)`.
+    RunCmd,
 }

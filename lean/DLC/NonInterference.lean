@@ -127,13 +127,14 @@ def Indistinguishable (ℓLow : Label) : Prop' → Term → Term → Prop
       -- Linear implication: same conservative LR shape as imp.
       ∀ (M' : Term), Indistinguishable ℓLow α M' M' →
         Indistinguishable ℓLow β (Term.app M M') (Term.app N M')
-  | .replicated φ, M, N =>
+  | .replicated φ _, M, N =>
       -- COLLAPSING definition (design §5.2): a replicated value is
       -- low-related iff its underlying `φ`-value is — convergence collapses
-      -- replicas to one observable. This delegates to `φ` exactly as the
-      -- `boxed`/`within`/`says` modalities do, so reflexivity / symmetry /
-      -- transitivity re-found by the single IH. (Inert this increment:
-      -- `replicated` is untypable, so it never actually arises.)
+      -- replicas to one observable. This delegates to `φ` (ignoring the label
+      -- index) exactly as the `boxed`/`within`/`says` modalities do, so
+      -- reflexivity / symmetry / transitivity re-found by the single IH.
+      -- (This is the RETIRED reflexivity-based relation; the live two-run
+      -- relation is `DLC.NonInterferenceLR.LRel`.)
       Indistinguishable ℓLow φ M N
 
 /-! ## Reflexivity — every term is self-indistinguishable.
@@ -191,7 +192,7 @@ theorem Indistinguishable_refl (ℓLow : Label) (φ : Prop') :
   case lolli α β _ ihβ =>
     intro M M' _
     exact ihβ (Term.app M M')
-  case replicated φ ihφ =>
+  case replicated φ ℓ ihφ =>
     intro M
     show Indistinguishable ℓLow φ M M
     exact ihφ M
@@ -257,7 +258,7 @@ theorem Indistinguishable_symm (ℓLow : Label) (φ : Prop') (M N : Term)
   case lolli α β _ ihβ =>
     intro M' hM'
     exact ihβ _ _ (h M' hM')
-  case replicated φ ihφ =>
+  case replicated φ ℓ ihφ =>
     show Indistinguishable ℓLow φ N M
     exact ihφ M N h
 
@@ -322,7 +323,7 @@ theorem Indistinguishable_trans (ℓLow : Label) (φ : Prop')
   case lolli α β _ ihβ =>
     intro M' hM'
     exact ihβ _ _ _ (h12 M' hM') (h23 M' hM')
-  case replicated φ ihφ =>
+  case replicated φ ℓ ihφ =>
     show Indistinguishable ℓLow φ M P
     exact ihφ M N P h12 h23
 

@@ -46,7 +46,7 @@ def Observable (ℓLow : Label) : Prop' → Prop
   | .tensor φ ψ => Observable ℓLow φ ∧ Observable ℓLow ψ
   | .imp φ ψ => Observable ℓLow φ ∧ Observable ℓLow ψ
   | .lolli φ ψ => Observable ℓLow φ ∧ Observable ℓLow ψ
-  | .replicated φ => Observable ℓLow φ
+  | .replicated φ _ => Observable ℓLow φ
 
 /-! ## Free-variable occurrence -/
 
@@ -80,6 +80,8 @@ def usesVar : Term → Nat → Bool
   | .sfExtract m, i => usesVar m i
   -- command(M, c, ℓ): non-binder subterms, occurrence at the same index.
   | .command m c _, i => usesVar m i || usesVar c i
+  -- runCmd(V, s): non-binder subterms, occurrence at the same index.
+  | .runCmd v s, i => usesVar v i || usesVar s i
 
 /-- No free variable at or above `k` (indices below `k` may occur). -/
 def ClosedAbove (t : Term) (k : Nat) : Prop :=
@@ -194,6 +196,10 @@ theorem substAt_indep {M : Term} :
       intro i h N₁ N₂
       simp only [usesVar, Bool.or_eq_false_iff] at h
       simp only [substAt, ihm h.1 N₁ N₂, ihc h.2 N₁ N₂]
+  | runCmd v s ihv ihs =>
+      intro i h N₁ N₂
+      simp only [usesVar, Bool.or_eq_false_iff] at h
+      simp only [substAt, ihv h.1 N₁ N₂, ihs h.2 N₁ N₂]
 
 /-! ## The introduction fragment -/
 

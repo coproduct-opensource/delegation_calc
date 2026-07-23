@@ -117,6 +117,11 @@ fn walk_term(term: &Term, out: &mut String) {
             walk_term(m, out);
             walk_term(c, out);
         }
+        // runCmd(V, s) -- structural descent (DLC-D R1-inc3).
+        Term::RunCmd(v, s) => {
+            walk_term(v, out);
+            walk_term(s, out);
+        }
         Term::Var(_) | Term::Now(_) => {}
     }
 }

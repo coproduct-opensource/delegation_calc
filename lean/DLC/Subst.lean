@@ -70,6 +70,10 @@ def shift : Term → Nat → Nat → Term
       -- Non-binder subterms: recurse into payload and credential at the SAME
       -- cutoff (no bump); the label is untouched. The cheap `app`/`pair` shape.
       Term.command (shift m delta cutoff) (shift c delta cutoff) l
+  | Term.runCmd v s, delta, cutoff =>
+      -- Eliminator, non-binder: recurse into both subterms at the SAME cutoff
+      -- (the `app`/`command` shape).
+      Term.runCmd (shift v delta cutoff) (shift s delta cutoff)
 
 /-- Substitute `value` for the variable at de-Bruijn index `depth` in `body`,
 decrementing free variables above `depth` to close the binder. -/
@@ -127,6 +131,10 @@ def substAt : Term → Term → Nat → Term
   | Term.command m c l, value, depth =>
       -- Non-binder subterms: recurse at the same depth; label untouched.
       Term.command (substAt m value depth) (substAt c value depth) l
+  | Term.runCmd v s, value, depth =>
+      -- Eliminator, non-binder: recurse at the same depth (the `app`/`command`
+      -- shape).
+      Term.runCmd (substAt v value depth) (substAt s value depth)
 
 /-- Substitute `value` for the variable at de-Bruijn index 0 in `body`. -/
 def subst (body value : Term) : Term :=
@@ -204,6 +212,7 @@ theorem shift_zero (t : Term) (cutoff : Nat) :
   | letSays p s b ihS ihB => simp [shift, ihS, ihB]
   | sfExtract m ih => simp [shift, ih]
   | command m cr l ihm ihc => simp [shift, ihm, ihc]
+  | runCmd v s ihv ihs => simp [shift, ihv, ihs]
 
 /-! ## Substitution metatheory — status.
 
@@ -363,6 +372,10 @@ theorem shift_shift_comm (d₁ d₂ : Nat) :
       intro c₁ c₂ h
       simp only [shift]
       rw [ihm c₁ c₂ h, ihc c₁ c₂ h]
+  | runCmd v s ihv ihs =>
+      intro c₁ c₂ h
+      simp only [shift]
+      rw [ihv c₁ c₂ h, ihs c₁ c₂ h]
 
 /-- Merging two shifts when the outer cutoff lies within the inner shift's range. -/
 theorem shift_shift_merge (d d' : Nat) :
@@ -477,6 +490,10 @@ theorem shift_shift_merge (d d' : Nat) :
       intro c c' h1 h2
       simp only [shift]
       rw [ihm c c' h1 h2, ihc c c' h1 h2]
+  | runCmd v s ihv ihs =>
+      intro c c' h1 h2
+      simp only [shift]
+      rw [ihv c c' h1 h2, ihs c c' h1 h2]
 
 /-- Shifting commutes with substitution when the cutoff is below the depth. -/
 theorem shift_substAt_commute (d : Nat) (P : Term) :
@@ -605,6 +622,10 @@ theorem shift_substAt_commute (d : Nat) (P : Term) :
       intro i c hci
       simp only [shift, substAt]
       rw [ihm i c hci, ihc i c hci]
+  | runCmd v s ihv ihs =>
+      intro i c hci
+      simp only [shift, substAt]
+      rw [ihv i c hci, ihs i c hci]
 
 /-- Substituting at an index covered by a (d+1)-shift cancels one
 shift. The substituted value `V` is arbitrary — it is never placed. -/
@@ -718,6 +739,10 @@ theorem substAt_shift_cancel (d : Nat) (V : Term) :
       intro i c h1 h2
       simp only [shift, substAt]
       rw [ihm i c h1 h2, ihc i c h1 h2]
+  | runCmd v s ihv ihs =>
+      intro i c h1 h2
+      simp only [shift, substAt]
+      rw [ihv i c h1 h2, ihs i c h1 h2]
 
 /-- THE substitution composition law (j ≤ k). -/
 theorem substAt_substAt (N P : Term) :
@@ -856,5 +881,9 @@ theorem substAt_substAt (N P : Term) :
       intro j k hjk
       simp only [substAt]
       rw [ihm j k hjk, ihc j k hjk]
+  | runCmd v s ihv ihs =>
+      intro j k hjk
+      simp only [substAt]
+      rw [ihv j k hjk, ihs j k hjk]
 
 end DLC

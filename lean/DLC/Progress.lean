@@ -57,6 +57,9 @@ def CoreTerm : Term → Bool
   -- recurse into the payload and credential so a frozen elimination nested in
   -- either disqualifies the whole `command`.
   | Term.command m c _ => CoreTerm m && CoreTerm c
+  -- runCmd(V, s) is the `Replicated` ELIMINATOR (R1-inc3): computational core,
+  -- like `app`. Recurse into both subterms.
+  | Term.runCmd v s => CoreTerm v && CoreTerm s
 
 /-- Values of the core: introduction forms (call-by-name — subterms
 unevaluated). -/
@@ -71,7 +74,8 @@ def Value : Term → Prop
   | Term.withinIntro _ _ => True
   | Term.liftLabel _ _ => True
   -- command(M, c, ℓ) is the introduction form for `Replicated` (commit-I),
-  -- hence a value: its `command-β` reduction is deferred to R1-inc3.
+  -- hence a value. `runCmd` is the ELIMINATOR — NOT a value (it steps); it
+  -- falls through to `_ => False`.
   | Term.command _ _ _ => True
   | _ => False
 
@@ -165,6 +169,15 @@ private theorem delegate_right_steps {n n' : Term} (p : Principal)
       | (refine ⟨Term.delegate (Term.sign p mi si) n', ?_⟩
          simp only [step] at hn ⊢
          rw [hn])
+
+private theorem runCmd_steps {v v' : Term} (s : Term)
+    (hv : step v = some v') : ∃ r, step (Term.runCmd v s) = some r := by
+  cases v <;>
+    first
+      | (simp [step] at hv; done)
+      | (refine ⟨Term.runCmd v' s, ?_⟩
+         simp only [step] at hv ⊢
+         rw [hv])
 
 /-! ## Progress. -/
 
@@ -312,6 +325,19 @@ private theorem progress_aux {Γ : List Prop'} {M : Term} {φ : Prop'}
   | commitI _ _ _ _ _ _ _ _ _ _ _ =>
     -- command is the intro form for `Replicated` (commit-I), hence a value.
     intro _ _; exact Or.inl True.intro
+  | runCmd Γₐ φ ℓ v s dv ds ihv _ =>
+    intro hΓ hcore
+    subst hΓ
+    simp only [CoreTerm, Bool.and_eq_true] at hcore
+    rcases ihv rfl hcore.1 with hval | ⟨v', hstep⟩
+    · -- A value of type `Replicated (φ⊃φ) ℓ` must be a `command` (commit-I is
+      -- the sole intro) — runCmd-β fires.
+      cases v with
+      | command m c l => exact Or.inr ⟨_, rfl⟩
+      | _ => first
+          | exact False.elim hval
+          | cases dv
+    · exact Or.inr (runCmd_steps s hstep)
 
 /-- Progress for the closed computational core: a closed, well-typed
 core term is a value or takes a `step`. Rung 3b-0's witness that the

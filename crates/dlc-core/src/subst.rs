@@ -116,6 +116,11 @@ pub fn shift(term: &Term, delta: i32, cutoff: u32) -> Term {
             Box::new(shift(c, delta, cutoff)),
             l.clone(),
         ),
+        // runCmd(V, s): non-binder subterms, recurse at the SAME cutoff.
+        Term::RunCmd(v, s) => Term::RunCmd(
+            Box::new(shift(v, delta, cutoff)),
+            Box::new(shift(s, delta, cutoff)),
+        ),
     }
 }
 
@@ -218,6 +223,11 @@ fn subst_at(body: &Term, value: &Term, depth: u32) -> Term {
             Box::new(subst_at(m, value, depth)),
             Box::new(subst_at(c, value, depth)),
             l.clone(),
+        ),
+        // runCmd(V, s): non-binder subterms, recurse at the same depth.
+        Term::RunCmd(v, s) => Term::RunCmd(
+            Box::new(subst_at(v, value, depth)),
+            Box::new(subst_at(s, value, depth)),
         ),
     }
 }

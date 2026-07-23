@@ -34,11 +34,14 @@ inductive Prop' : Type where
   Mirrors `Prop::Replicated` in `crates/dlc-core/src/syntax.rs`.
 
   Added 2026-07-23 (R1 first-classing, increment 1: pure syntax fan-out). A
-  single-argument modality that recurses into `φ` as `says`/`within` do. INERT
-  this increment: it has NO `PropDeriv` rule (the `commit-I`/`query-I` rules are
-  deferred), so no typing derivation ever mentions it and every
-  typing-derivation induction re-founds for free. -/
-  | replicated : Prop' → Prop'
+  modality that recurses into `φ` as `says`/`within` do.
+
+  Revised 2026-07-23 (R1-inc3): now LABEL-INDEXED (`Prop' → Label → Prop'`). The
+  label was previously carried only by the `command` term; making it a type
+  index is what lets the `runCmd` eliminator read `ℓ` off the value's type
+  compositionally (DCC/Modal-Effect-Types discipline) and classify the run's
+  result at `φ @ ℓ`. `commit-I` ties the term's label field to this index. -/
+  | replicated : Prop' → Label → Prop'
   -- No `deriving Repr, DecidableEq` here: the constituent `Label` (alias for
   -- nucleus's Aeneas-generated `nucleus_ifc_kernel.CapabilityLattice`) does not
   -- carry derived instances. Equalities that need to be computed land via
@@ -113,6 +116,18 @@ inductive Term : Type where
   is untypable, Progress / NonInterference / subject reduction and every other
   typing-derivation induction re-found for free. -/
   | command : Term → Term → Label → Term
+  /-- `runCmd(V, s)` — the `Replicated` ELIMINATOR (DLC-D; R1-inc3). Runs the
+  replicated store-transformer boxed in `V : Replicated (φ ⊃ φ) ℓ` against a
+  store `s : φ`, classifying the result at `φ @ ℓ`. Mirrors `Term::RunCmd` in
+  `crates/dlc-core/src/syntax.rs`.
+
+  Added 2026-07-23 (R1-inc3). Neither subterm binds, so — like `app`/`command`,
+  unlike `saysBind`/`letTensor` — `shift`/`substAt` recurse into both fields
+  WITHOUT bumping the cutoff. Unlike `command`, `runCmd` is NOT a value: it is
+  an eliminator that STEPS. `runCmd (command M c ℓ) s ▷ liftLabel ℓ (app M s)`
+  (credential erased, label carried into the `liftLabel` wrapper); `ξ-runCmd`
+  normalizes the scrutinee. -/
+  | runCmd : Term → Term → Term
   -- No `deriving Repr, DecidableEq` here: the constituent `Label` (alias for
   -- nucleus's Aeneas-generated `nucleus_ifc_kernel.CapabilityLattice`) does not
   -- carry derived instances. Equalities that need to be computed land via

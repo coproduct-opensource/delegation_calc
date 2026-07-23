@@ -66,7 +66,7 @@ fn prop_id(p: &Prop) -> String {
         Prop::Within(_, _) => "within(...)".to_string(),
         Prop::Tensor(_, _) => "tensor(...)".to_string(),
         Prop::Lolli(_, _) => "lolli(...)".to_string(),
-        Prop::Replicated(_) => "replicated(...)".to_string(),
+        Prop::Replicated(_, _) => "replicated(...)".to_string(),
     }
 }
 
@@ -152,6 +152,11 @@ fn walk_term(term: &Term, out: &mut String) {
         Term::Command(m, c, _l) => {
             walk_term(m, out);
             walk_term(c, out);
+        }
+        // runCmd(V, s) -- structural descent only (DLC-D R1-inc3).
+        Term::RunCmd(v, s) => {
+            walk_term(v, out);
+            walk_term(s, out);
         }
         Term::Var(_) | Term::Now(_) => {}
     }

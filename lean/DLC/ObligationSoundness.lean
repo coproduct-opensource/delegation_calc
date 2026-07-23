@@ -81,6 +81,9 @@ def pendingObligations : Term → List Obligation
   -- only `boxed` contributes one), but still walks both subterms so an
   -- obligation nested in the payload or credential is not silently dropped.
   | Term.command m c _          => pendingObligations m ++ pendingObligations c
+  -- runCmd(V, s) carries no obligation of its own; walk both subterms (the
+  -- `app`/`command` shape) so a nested obligation is not silently dropped.
+  | Term.runCmd v s             => pendingObligations v ++ pendingObligations s
 
 /-! ## Helper lemmas for T4 — partial closure (M1.Q3.d in progress).
 
@@ -130,6 +133,7 @@ theorem pendingObligations_shift (t : Term) (delta cutoff : Nat) :
   | letSays _ _ _ ihS ihB => simp [shift, pendingObligations, ihS, ihB]
   | sfExtract _ ih => simp [shift, pendingObligations, ih]
   | command _ _ _ ihM ihC => simp [shift, pendingObligations, ihM, ihC]
+  | runCmd _ _ ihV ihS => simp [shift, pendingObligations, ihV, ihS]
 
 /-- `substAt` doesn't introduce obligations: any obligation pending in
 the result was either pending in the body or pending in the
@@ -413,6 +417,21 @@ theorem pendingObligations_substAt_subset (body : Term) :
         show o ∈ pendingObligations m ++ pendingObligations c
         exact List.mem_append.mpr (Or.inr h)
       · right; exact h
+  | runCmd v s ihV ihS =>
+    intro value depth o hmem
+    have hmem' : o ∈ pendingObligations (substAt v value depth) ++
+                     pendingObligations (substAt s value depth) := hmem
+    rcases List.mem_append.mp hmem' with hV | hS
+    · rcases ihV value depth o hV with h | h
+      · left
+        show o ∈ pendingObligations v ++ pendingObligations s
+        exact List.mem_append.mpr (Or.inl h)
+      · right; exact h
+    · rcases ihS value depth o hS with h | h
+      · left
+        show o ∈ pendingObligations v ++ pendingObligations s
+        exact List.mem_append.mpr (Or.inr h)
+      · right; exact h
 
 /-! ## T4 — Proven (non-introduction direction).
 
@@ -677,6 +696,29 @@ theorem t4_no_new_obligation
   -- command is STUCK: `step (command ..) = none`, so `step M = some M'` is
   -- impossible — the case is vacuous, exactly like the frozen `sign`/`verify`.
   | command _ _ _ _ _ => intro M' h; simp [step] at h
+  | runCmd v s ihV _ =>
+    intro M' h o hmem
+    unfold step at h
+    split at h
+    · -- runCmd-β: v = command m c l, M' = liftLabel l (app m s). The credential
+      -- c is ERASED by the redex, so the reduct's obligations are a SUBSET of
+      -- the redex's — the direction T4 claims.
+      simp only [Option.some.injEq] at h
+      subst h
+      simp only [pendingObligations] at hmem
+      show o ∈ pendingObligations _ ++ pendingObligations _
+      rcases List.mem_append.mp hmem with hm | hs
+      · exact List.mem_append.mpr (Or.inl (List.mem_append.mpr (Or.inl hm)))
+      · exact List.mem_append.mpr (Or.inr hs)
+    · -- ξ-runCmd: the store passes through; the scrutinee maps through the IH.
+      cases hv : step v with
+      | none => simp [hv] at h
+      | some v' =>
+        simp [hv] at h
+        subst h
+        rcases List.mem_append.mp hmem with hV | hS
+        · exact List.mem_append.mpr (Or.inl (ihV v' hv o hV))
+        · exact List.mem_append.mpr (Or.inr hS)
 
 /-- T4 — Obligation soundness statement (non-introduction direction).
 Kept as `abbrev` aliasing the proved theorem's statement. NO LONGER

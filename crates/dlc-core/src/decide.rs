@@ -294,11 +294,20 @@ pub fn infer(ctx: &Ctx, term: &Term) -> Option<Prop> {
             },
             _ => None,
         },
-        // command(M, c, ℓ) is UNTYPABLE this increment: the `commit-I` rule is
-        // deferred, so there is no rule to give it a type. Inference returns
-        // `None` (ill-typed / no type), which is what re-founds every typing
-        // induction for free — a `command` never appears in a derivation.
-        Term::Command(..) => None,
+        // commit-I (R1-inc2): `command M c ℓ : Replicated (φ ⊃ φ)`. The
+        // credential `c` must prove `issuer says capProp`; the payload `M`
+        // must be a store transformer `φ ⊃ φ` (equal domain/codomain). The
+        // IFC label `ℓ` is carried in the term, not the type (deferred).
+        // Mirrors Lean `decideLean`'s `.command` arm.
+        Term::Command(m, c, _l) => match infer(ctx, c)? {
+            Prop::Says(_, _) => match infer(ctx, m)? {
+                Prop::Imp(phi, phi2) if phi == phi2 => {
+                    Some(Prop::Replicated(Box::new(Prop::Imp(phi.clone(), phi))))
+                }
+                _ => None,
+            },
+            _ => None,
+        },
     }
 }
 

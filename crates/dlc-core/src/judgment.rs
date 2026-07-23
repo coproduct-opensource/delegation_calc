@@ -125,4 +125,11 @@ pub enum RuleName {
     SaysExtract,
     /// `sf-extract` — extract a speaks-for from `p says (q ⇒ p)`.
     SfExtract,
+
+    // --- R1 (DLC-D first-classing): distributed constructs ---
+    /// `commit-I` — capability-gated replicated write introduction. Types
+    /// `command M c ℓ : Replicated (φ ⊃ φ)` from a credential `c : issuer says
+    /// capProp` and a store transformer `M : φ ⊃ φ`. Additive this increment
+    /// (R1-inc2); the linear seal (`commit-I-L` in `CDerivS`) is deferred.
+    CommitI,
 }

@@ -1037,6 +1037,15 @@ theorem msubstAt_delegate (m n : Term) (γ : List Term) (d : Nat) :
       simp only [msubstAt, substAt]
       exact ih (substAt m t d) (substAt n t d)
 
+theorem msubstAt_command (m c : Term) (ℓ : Label) (γ : List Term) (d : Nat) :
+    msubstAt (Term.command m c ℓ) γ d
+      = Term.command (msubstAt m γ d) (msubstAt c γ d) ℓ := by
+  induction γ generalizing m c with
+  | nil => rfl
+  | cons t γ' ih =>
+      simp only [msubstAt, substAt]
+      exact ih (substAt m t d) (substAt c t d)
+
 theorem msubstAt_attenuate (m : Term) (ψ : Prop') (γ : List Term) (d : Nat) :
     msubstAt (Term.attenuate m ψ) γ d = Term.attenuate (msubstAt m γ d) ψ := by
   induction γ generalizing m with
@@ -1348,6 +1357,8 @@ theorem propDeriv_fvar_bound {Γₐ : List Prop'} {M : Term} {φ : Prop'}
   | letTensor Γ χ ψ ρ S B _ _ ihS ihB =>
       exact closedAbove_letTensor_iff.mpr
         ⟨ihS, fun i hi => ihB i (by simp only [List.length_cons]; omega)⟩
+  | commitI Γ issuer capProp φ ℓ M c _ _ ihc ihM =>
+      exact closedAbove_command_iff.mpr ⟨ihM, ihc⟩
 
 /-- Pointwise `LRel`-related, closed environments for a context. -/
 inductive EnvRel (ℓLow : Label) : List Prop' → List Term → List Term → Prop where

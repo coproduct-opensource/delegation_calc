@@ -339,7 +339,43 @@ For cross-reference from Lean (`DLC.RuleName`) and Rust (`dlc-core::RuleName`):
 | `now` / `within-I` / `within-E` | time | §9 |
 | `verify` | cryptographic bridge | §10 |
 | `β` / `let-tensor` / `says-extract` / `delegate-β` / `attenuate-β` / `discharge-β` / `within-β` | reduction | §11 |
+| `commit-I` | capability-gated replicated write | §13 |
 
 Approximately 40 rules total. The Lean encoding (`lean/DLC/Judgment.lean`)
 implements one constructor per row; the Rust mirror exposes them as variants
 of the verifier's case analysis in `dlc-verifier/src/check.rs`.
+
+## 13. Distributed constructs (DLC-D first-classing)
+
+`spec/distributed-calculus-design-2026-07.md` §3. First-classes the DLC-D
+replicated write (`DLCD.Rsm.Command`) as a **term** whose well-typing carries
+the authorization, replacing the out-of-band `Authorized`/`WellFormedLog`
+side-condition with an in-calculus typing obligation.
+
+**`commit-I`** — capability-gated replicated write introduction (additive):
+
+```
+Γₐ ⊢ c : issuer says capProp        Γₐ ⊢ M : φ ⊃ φ
+──────────────────────────────────────────────────────  (commit-I)
+Γₐ ⊢ command M c ℓ : Replicated (φ ⊃ φ)
+```
+
+- `c` is the capability CREDENTIAL SUBTERM proving the issuer's write
+  capability — a proof-carrying subterm (the `sign`/`box` "obligation carried
+  by the term" discipline), not a `Deriv` side-condition, so capability-safety
+  becomes an *inversion* on the `command` constructor.
+- `M : φ ⊃ φ` is the store transformer (the operational payload; `applyCommand`
+  applies it to the replica store, R1-inc3's `command-β`).
+- The conclusion `Replicated (φ ⊃ φ)` is the type-level shadow of the committed
+  log entry (`Prop'.replicated`). The committed value *is* the transformer, so
+  the `Replicated` modality wraps its type `φ ⊃ φ` (the store-type/label
+  plumbing — an `at φ ℓ` inner — is deferred to a later increment; the IFC
+  label `ℓ` is carried in the term). `command M c ℓ` is a **value** (an
+  introduction form for `Replicated`); its reduction (`command-β`) is R1-inc3.
+
+**Scope (R1-inc2).** This increment adds only the additive `commit-I` typing
+rule and its metatheory (`Deriv.commitI`, `PropDeriv.commitI`, inference,
+Progress, subject-reduction re-founding, and the two-run NI case via the
+collapsing/intro-form logical relation for `Replicated`). The linear seal
+(`commit-I-L` in `CDerivS`, design §3.3), the `command-β` reduction, and the
+`Query`/`Converges` read side are deferred to later increments.

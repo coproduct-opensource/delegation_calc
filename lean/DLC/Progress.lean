@@ -51,12 +51,12 @@ def CoreTerm : Term → Bool
   | Term.saysBind _ s b => CoreTerm s && CoreTerm b
   | Term.letSays _ s b => CoreTerm s && CoreTerm b
   | Term.sfExtract m => CoreTerm m
-  -- command(M, c, ℓ) is a STUCK non-value (its `command-β` reduction is
-  -- deferred to a later increment), so — like the frozen `verify`/`boxed`/
-  -- `discharge` forms — it is NOT a computational-core term. Making it `false`
-  -- keeps Progress ("a core term is a value or steps") true: a `command`
-  -- neither is a `Value` nor steps, so it must be excluded from the core.
-  | Term.command _ _ _ => false
+  -- command(M, c, ℓ) is a VALUE as of R1-inc2 (the intro form for
+  -- `Replicated`, commit-I), so it belongs to the computational core: like
+  -- `lam`/`sign`/`pair` it satisfies Progress trivially (it IS a value). We
+  -- recurse into the payload and credential so a frozen elimination nested in
+  -- either disqualifies the whole `command`.
+  | Term.command m c _ => CoreTerm m && CoreTerm c
 
 /-- Values of the core: introduction forms (call-by-name — subterms
 unevaluated). -/
@@ -70,6 +70,9 @@ def Value : Term → Prop
   | Term.now _ => True
   | Term.withinIntro _ _ => True
   | Term.liftLabel _ _ => True
+  -- command(M, c, ℓ) is the introduction form for `Replicated` (commit-I),
+  -- hence a value: its `command-β` reduction is deferred to R1-inc3.
+  | Term.command _ _ _ => True
   | _ => False
 
 /-! ## ξ-witnesses.
@@ -306,6 +309,9 @@ private theorem progress_aux {Γ : List Prop'} {M : Term} {φ : Prop'}
           | exact False.elim hval
           | cases dS
     · exact Or.inr (letTensor_steps B hstep)
+  | commitI _ _ _ _ _ _ _ _ _ _ _ =>
+    -- command is the intro form for `Replicated` (commit-I), hence a value.
+    intro _ _; exact Or.inl True.intro
 
 /-- Progress for the closed computational core: a closed, well-typed
 core term is a value or takes a `step`. Rung 3b-0's witness that the

@@ -323,6 +323,29 @@ inductive Deriv : Ctx → Term → Prop' → Type where
       (d : Deriv Γ M (Prop'.says p (Prop'.speaksFor q p))) :
       Deriv Γ (Term.sfExtract M) (Prop'.speaksFor q p)
 
+  /-- `commit-I` — capability-gated replicated write introduction (DLC-D;
+  `spec/typing-rules.md` §13, `spec/distributed-calculus-design-2026-07.md`
+  §3). From a capability CREDENTIAL SUBTERM `c : issuer says capProp` (the
+  proof-carrying `sign`/`box` discipline — the authorization becomes an
+  *inversion* on `command`, not an out-of-band `Authorized` side-condition)
+  and a store transformer `M : φ ⊃ φ`, type `command M c ℓ` at
+  `Replicated (φ ⊃ φ)` — the type-level shadow of the committed log entry
+  (the committed value IS the transformer, so `Replicated` wraps `φ ⊃ φ`).
+
+  `command M c ℓ` is a **value** (introduction form for `Replicated`); its
+  `command-β` reduction is R1-inc3. ADDITIVE this increment (both premises
+  and the conclusion carry `linear := []`, mirroring `andI`); the linear seal
+  `commit-I-L` (`CDerivS`, design §3.3) is deferred. The IFC label `ℓ` is
+  carried by the term; folding it into the conclusion (`Replicated (φ @ ℓ)`)
+  awaits the store-type/label plumbing of a later increment. Mirrors Rust
+  `RuleName::CommitI` and `decide.rs`'s `Term::Command` inference arm. -/
+  | commitI (Γₐ : List Prop') (issuer : Principal) (capProp φ : Prop')
+            (ℓ : Label) (M c : Term)
+      (dc : Deriv { additive := Γₐ, linear := [] } c (Prop'.says issuer capProp))
+      (dM : Deriv { additive := Γₐ, linear := [] } M (Prop'.imp φ φ)) :
+      Deriv { additive := Γₐ, linear := [] }
+            (Term.command M c ℓ) (Prop'.replicated (Prop'.imp φ φ))
+
 /-! ## A first round-trip sanity check.
 
 The smallest non-trivial proof: `var-A` of an atom that lives in the additive

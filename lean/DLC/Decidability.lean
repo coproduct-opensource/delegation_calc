@@ -449,12 +449,19 @@ def decideLean (Γ : Ctx) : Term → Option Prop'
       -- matching PropDeriv.letTensor's `(φ :: ψ :: Γₐ)` convention.
       decideLean (Ctx.consA φ (Ctx.consA ψ Γ)) b
     | _ => none
-  | .command _ _ _ =>
-    -- UNTYPABLE this increment: the `commit-I` rule is deferred, so there is no
-    -- rule to give `command` a type. Fail-closed (`none`), exactly like the
-    -- `boxed`/`saysBind` arms — nothing is accepted the calculus cannot derive,
-    -- and every soundness statement re-founds vacuously over this arm.
-    none
+  | .command m c _ =>
+    -- commit-I (R1-inc2): the credential `c` must prove `issuer says capProp`;
+    -- the payload `m` must be a store transformer `φ ⊃ φ` (equal
+    -- domain/codomain). Conclude `Replicated (φ ⊃ φ)`. The IFC label is carried
+    -- in the term, not the type. Nested single-scrutinee matches mirror the
+    -- `app` arm so `split` drives the soundness/completeness proofs.
+    match decideLean Γ c with
+    | some (Prop'.says _ _) =>
+        match decideLean Γ m with
+        | some (Prop'.imp φ φ') =>
+            if Prop'.beq φ φ' then some (Prop'.replicated (Prop'.imp φ φ)) else none
+        | _ => none
+    | _ => none
 
 /-! ## T1 — Propositional soundness (the headline closure for this PR).
 
@@ -1072,6 +1079,18 @@ inductive PropDeriv : List Prop' → Term → Prop' → Type where
       (dB : PropDeriv (φ :: ψ :: Γₐ) B χ) :
       PropDeriv Γₐ (Term.letTensor S B) χ
 
+  /-- `commit-I` — capability-gated replicated write (DLC-D; `spec/typing-rules.md`
+  §13). Propositional-fragment twin of `Deriv.commitI` (additive, `linear := []`).
+  From a credential `c : issuer says capProp` and a store transformer
+  `M : φ ⊃ φ`, types `command M c ℓ : Replicated (φ ⊃ φ)`. Mirrors `decideLean`'s
+  `.command` arm; embedded into `Deriv` by `propDeriv_to_deriv`. `command` is a
+  value, so `propDeriv_subject_reduction`'s `commitI` case is vacuous. -/
+  | commitI (Γₐ : List Prop') (issuer : Principal) (capProp φ : Prop')
+            (ℓ : Label) (M c : Term)
+      (dc : PropDeriv Γₐ c (Prop'.says issuer capProp))
+      (dM : PropDeriv Γₐ M (Prop'.imp φ φ)) :
+      PropDeriv Γₐ (Term.command M c ℓ) (Prop'.replicated (Prop'.imp φ φ))
+
 /-! ## Shift preservation — load-bearing lemma for subject reduction.
 
 If `M` is well-typed under `Γl ++ Γr`, then shifting `M`'s free variables
@@ -1221,6 +1240,14 @@ private noncomputable def propDeriv_shift_aux
     -- Body context φ :: ψ :: Γl ++ Γr → φ :: ψ :: Γl ++ Γm ++ Γr.
     have hB := ihB (φ :: ψ :: Γl) Γr Γm (by simp [List.cons_append])
     exact PropDeriv.letTensor _ φ ψ χ _ _ (ihS Γl Γr Γm rfl) hB
+  | commitI _ issuer capProp φ ℓ M c _ _ ihc ihM =>
+    -- command is a non-binder: shift recurses into both subterms at the same
+    -- cutoff (no context extension), so both IHs apply directly.
+    intro Γl Γr Γm hΓ
+    subst hΓ
+    unfold shift
+    exact PropDeriv.commitI _ issuer capProp φ ℓ _ _
+      (ihc Γl Γr Γm rfl) (ihM Γl Γr Γm rfl)
 
 /-- Public-facing shift preservation, instantiated from
 `propDeriv_shift_aux` with the trivial equality. -/
@@ -1432,6 +1459,14 @@ private noncomputable def propDeriv_substAt_aux
     unfold substAt
     have hB := ihB (α :: β :: Γl) Γr φ (by simp [List.cons_append]) N dN
     exact PropDeriv.letTensor _ α β χ _ _ (ihS Γl Γr φ rfl N dN) hB
+  | commitI _ issuer capProp φ ℓ M c _ _ ihc ihM =>
+    -- command is a non-binder: substAt recurses into both subterms at the same
+    -- depth (no context extension), so both IHs apply directly.
+    intro Γl Γr ζ hΓ N dN
+    subst hΓ
+    unfold substAt
+    exact PropDeriv.commitI _ issuer capProp φ ℓ _ _
+      (ihc Γl Γr ζ rfl N dN) (ihM Γl Γr ζ rfl N dN)
 
 /-- Public-facing substitution preservation. -/
 noncomputable def propDeriv_substAt
@@ -1672,6 +1707,12 @@ noncomputable def propDeriv_subject_reduction
         simp [hs] at h
         subst h
         exact PropDeriv.letTensor _ α β χ S' B (ihS S' hs) dB
+  | commitI _ _ _ _ _ _ _ _ _ _ _ =>
+    -- `command M c ℓ` is a VALUE (commit-I intro form); its `command-β`
+    -- reduction is deferred to R1-inc3, so `step (command ..) = none` and the
+    -- redex case is vacuous. Subject reduction re-founds with `command`
+    -- irreducible.
+    intro M' h; simp [step] at h
 
 /-- Structural embedding from `PropDeriv` into `Deriv`. Constructively
 shows the propositional fragment is a faithful sub-typing-judgment. -/
@@ -1720,6 +1761,8 @@ noncomputable def propDeriv_to_deriv :
       exact by simpa [shift_zero] using Deriv.discharge _ [] [] O φ M N ihM ihN
   | letTensor Γₐ φ ψ χ S B _ _ ihS ihB =>
       exact Deriv.letTensorA _ φ ψ χ S B ihS ihB
+  | commitI Γₐ issuer capProp φ ℓ M c _ _ ihc ihM =>
+      exact Deriv.commitI Γₐ issuer capProp φ ℓ M c ihc ihM
 
 /-! ## T1 — Propositional completeness (the other direction). -/
 
@@ -1824,6 +1867,12 @@ theorem t1_propositional_completeness :
     -- in extended context.
     unfold decideLean
     simp [ihS, Ctx.consA, ihB]
+  | commitI Γₐ issuer capProp φ ℓ M c _ _ ihc ihM =>
+    -- decideLean (command M c ℓ): credential gives `says`, payload gives
+    -- `imp φ φ`; the `beq φ φ` guard closes by reflexivity.
+    unfold decideLean
+    rw [ihc, ihM]
+    simp [Prop'.beq_refl]
 
 /-! ## Inversion lemmas — the term shape determines the constructor.
 
@@ -2212,6 +2261,30 @@ noncomputable def t1_propositional_soundness_prop (M : Term) :
           simpa [decideLean, hS, Ctx.consA] using hdec
         exact PropDeriv.letTensor _ α β φ s b (ihs _ _ hS) (ihb _ _ hb)
       all_goals (simp [decideLean, hS] at hdec)
+  case command m c ℓ ihm ihc =>
+    -- commit-I soundness: credential is `says`, payload is `imp φ φ`.
+    intro Γₐ ψ hdec
+    cases hc : decideLean { additive := Γₐ, linear := [] } c with
+    | none => simp [decideLean, hc] at hdec
+    | some tyC =>
+      cases tyC
+      case «says» issuer capProp =>
+        cases hm : decideLean { additive := Γₐ, linear := [] } m with
+        | none => simp [decideLean, hc, hm] at hdec
+        | some tyM =>
+          cases tyM
+          case imp φ φ' =>
+            by_cases hb : Prop'.beq φ φ' = true
+            · have hψ : Prop'.replicated (Prop'.imp φ φ) = ψ := by
+                simpa [decideLean, hc, hm, hb] using hdec
+              have hφ : φ = φ' := Prop'.beq_eq_true_iff_eq φ φ' hb
+              rw [← hψ]
+              have dm := ihm _ _ hm
+              rw [← hφ] at dm
+              exact PropDeriv.commitI Γₐ issuer capProp φ ℓ m c (ihc _ _ hc) dm
+            · simp [decideLean, hc, hm, hb] at hdec
+          all_goals (simp [decideLean, hc, hm] at hdec)
+      all_goals (simp [decideLean, hc] at hdec)
   all_goals (intro Γₐ φ hdec; simp [decideLean] at hdec)
 
 /-! ## T1 — The Decidable instance.

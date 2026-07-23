@@ -322,6 +322,16 @@ theorem fundamental (ℓLow : Label) {Γₐ : List Prop'} {M : Term} {φ : Prop'
       rw [h₁, h₁', h₂, h₂']
       exact ihB hcore.2
         (EnvRel.cons hpa hca₁ hca₂ (EnvRel.cons hpb hcb₁ hcb₂ henv))
+  | commitI Γₐ issuer capProp φ ℓ M c dc dM ih_c ih_M =>
+      -- commit-I (design §5.2). `command M c ℓ` is a VALUE, so both
+      -- substitution instances step to themselves (`.refl`); the intro-form
+      -- `Replicated` clause then reduces the goal to relating the
+      -- store-transformer payloads at `φ⊃φ` — exactly the payload IH `ih_M`.
+      -- The credential and label are transparent to the low observer.
+      intro hcore γ₁ γ₂ henv
+      simp only [CoreTerm, Bool.and_eq_true] at hcore
+      simp only [msubst, msubstAt_command]
+      exact ⟨_, _, _, _, _, _, .refl _, .refl _, ih_M hcore.1 henv⟩
 
 /-! ## Corollaries -/
 

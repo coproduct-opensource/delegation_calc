@@ -104,12 +104,20 @@ def LRel (ℓLow : Label) : Prop' → Term → Term → Prop
       ∀ X Y, Closed X → Closed Y → LRel ℓLow φ X Y →
         LRel ℓLow ψ (Term.app M X) (Term.app N Y)
   | .replicated φ, M, N =>
-      -- COLLAPSING definition (design §5.2): a replicated value is two-run
-      -- related iff its underlying `φ` is — convergence collapses replicas to
-      -- one observable, so the modality is transparent to the low observer.
-      -- Every PER/anti-reduction/congruence lemma re-founds through the single
-      -- IH. (Inert this increment: `replicated` is untypable, never arises.)
-      LRel ℓLow φ M N
+      -- COLLAPSING / intro-form definition (design §5.2): a `Replicated (φ⊃φ)`
+      -- value is two-run related iff both sides reduce to a `command` whose
+      -- store-transformer PAYLOADS are `LRel`-related at the wrapped type `φ`
+      -- (= `φ⊃φ` for a commit-I conclusion). This mirrors the `says`/`within`
+      -- intro-form clauses (a canonical constructor + related payloads); the
+      -- credential and IFC label are transparent to the low observer this
+      -- increment (the label-precision gate is deferred). Because `command` is
+      -- a VALUE, transitivity closes by `steps_to_value_unique` exactly as the
+      -- other intro forms do. This is what makes `fundamental`'s `commitI`
+      -- case dischargeable from the payload IH (`command` has no reduction, so
+      -- a collapse-to-`φ` clause would be unprovable at a low label).
+      ∃ M₁ c₁ ℓ₁ M₂ c₂ ℓ₂,
+        Steps M (Term.command M₁ c₁ ℓ₁) ∧ Steps N (Term.command M₂ c₂ ℓ₂) ∧
+        LRel ℓLow φ M₁ M₂
 
 /-! ## Values are inert -/
 
@@ -245,9 +253,9 @@ theorem lrel_expand_left (ℓLow : Label) :
       intro M M' N h hr X Y hX hY hXY
       exact ihψ (step_app_congr h) (hr X Y hX hY hXY)
   | replicated φ ih =>
-      -- collapsing def: LRel at `replicated φ` is defeq LRel at `φ`.
       intro M M' N h hr
-      exact ih h hr
+      obtain ⟨M₁, c₁, ℓ₁, M₂, c₂, ℓ₂, hM, hN, hp⟩ := hr
+      exact ⟨M₁, c₁, ℓ₁, M₂, c₂, ℓ₂, .head h hM, hN, hp⟩
 
 /-- Right-side expansion, by the same argument. -/
 theorem lrel_expand_right (ℓLow : Label) :
@@ -302,7 +310,8 @@ theorem lrel_expand_right (ℓLow : Label) :
       exact ihψ (step_app_congr h) (hr X Y hX hY hXY)
   | replicated φ ih =>
       intro M N N' h hr
-      exact ih h hr
+      obtain ⟨M₁, c₁, ℓ₁, M₂, c₂, ℓ₂, hM, hN, hp⟩ := hr
+      exact ⟨M₁, c₁, ℓ₁, M₂, c₂, ℓ₂, hM, .head h hN, hp⟩
 
 /-- Multi-step expansion on the left. -/
 theorem lrel_expand_steps_left (ℓLow : Label) (φ : Prop') {M M' N : Term}
@@ -372,7 +381,8 @@ theorem lrel_symm (ℓLow : Label) :
       exact ihψ (hr Y X hY hX (ihφ hXY))
   | replicated φ ih =>
       intro M N hr
-      exact ih hr
+      obtain ⟨M₁, c₁, ℓ₁, M₂, c₂, ℓ₂, hM, hN, hp⟩ := hr
+      exact ⟨M₂, c₂, ℓ₂, M₁, c₁, ℓ₁, hN, hM, ih hp⟩
 
 /-- Transitivity. The value-style cases use determinism
 (`steps_to_value_unique`) to identify the two reducts of the middle
@@ -456,7 +466,12 @@ theorem lrel_trans (ℓLow : Label) :
       exact ihψ (h₁ X Y hX hY hXY) (h₂ Y Y hY hY hYY)
   | replicated φ ih =>
       intro M N P h₁ h₂
-      exact ih h₁ h₂
+      obtain ⟨M₁, c₁, ℓ₁, M₂, c₂, ℓ₂, hM, hN₁, hp₁⟩ := h₁
+      obtain ⟨N₁, d₁, k₁, N₂, d₂, k₂, hN₂, hP, hp₂⟩ := h₂
+      have heq : Term.command M₂ c₂ ℓ₂ = Term.command N₁ d₁ k₁ :=
+        steps_to_value_unique hN₁ hN₂ (by simp [Value]) (by simp [Value])
+      cases heq
+      exact ⟨M₁, c₁, ℓ₁, N₂, d₂, k₂, hM, hP, ih hp₁ hp₂⟩
 
 
 /-! ## Design witnesses.

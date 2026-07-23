@@ -186,9 +186,10 @@ theorem lrel_step_left (ℓLow : Label) :
       intro M M' N h hr X Y hX hY hXY
       exact ihψ (step_app_congr h) (hr X Y hX hY hXY)
   | replicated φ ih =>
-      -- collapsing def (§5.2): LRel at `replicated φ` is defeq LRel at `φ`.
+      -- intro-form def (§5.2): forward-step the left `command`-reduction path.
       intro M M' N h hr
-      exact ih h hr
+      obtain ⟨M₁, c₁, ℓ₁, M₂, c₂, ℓ₂, hM, hN, hp⟩ := hr
+      exact ⟨M₁, c₁, ℓ₁, M₂, c₂, ℓ₂, steps_forward_value h (by simp [Value]) hM, hN, hp⟩
 
 /-- Forward closure on the RIGHT, by symmetry. -/
 theorem lrel_step_right (ℓLow : Label) (φ : Prop') {M N N' : Term}

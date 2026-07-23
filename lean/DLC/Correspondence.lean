@@ -261,6 +261,16 @@ inductive DerivCrypto (K : KeyRing) : List Prop' → Term → Prop' → Type whe
       (dB : DerivCrypto K (φ :: ψ :: Γₐ) B χ) :
       DerivCrypto K Γₐ (Term.letTensor S B) χ
 
+  /-- `commit-I` — cryptographic-typing twin of `PropDeriv.commitI` (DLC-D;
+  `spec/typing-rules.md` §13). Command carries no signature of its own; the
+  `⊢_K` version simply threads the credential and payload derivations, so
+  `allSigsVerify` walks both subterms. -/
+  | commitI (Γₐ : List Prop') (issuer : Principal) (capProp φ : Prop')
+            (ℓ : Label) (M c : Term)
+      (dc : DerivCrypto K Γₐ c (Prop'.says issuer capProp))
+      (dM : DerivCrypto K Γₐ M (Prop'.imp φ φ)) :
+      DerivCrypto K Γₐ (Term.command M c ℓ) (Prop'.replicated (Prop'.imp φ φ))
+
 /-! ## Direction 1 — crypto typing erases to logical typing. -/
 
 /-- Erase the verification premises; the result is a `PropDeriv`.
@@ -298,6 +308,8 @@ noncomputable def t2_crypto_to_logical (K : KeyRing)
       exact .discharge Γₐ O φ M N ihM ihN
   | letTensor Γₐ φ ψ χ S B _ _ ihS ihB =>
       exact .letTensor Γₐ φ ψ χ S B ihS ihB
+  | commitI Γₐ issuer capProp φ ℓ M c _ _ ihc ihM =>
+      exact .commitI Γₐ issuer capProp φ ℓ M c ihc ihM
 
 /-- Crypto typing implies every embedded signature verifies. Together
 with `t2_crypto_to_logical` this is the forward half of the
@@ -339,6 +351,8 @@ theorem t2_crypto_sigs_verify (K : KeyRing)
       simp [Term.allSigsVerify, ihM, ihN]
   | letTensor Γₐ φ ψ χ S B _ _ ihS ihB =>
       simp [Term.allSigsVerify, ihS, ihB]
+  | commitI Γₐ issuer capProp φ ℓ M c _ _ ihc ihM =>
+      simp [Term.allSigsVerify, ihM, ihc]
 
 /-! ## Direction 2 — logical typing plus signature validity lifts. -/
 
@@ -434,6 +448,10 @@ noncomputable def t2_logical_to_crypto (K : KeyRing)
       intro hsig
       simp only [Term.allSigsVerify, Bool.and_eq_true] at hsig
       exact .letTensor Γₐ φ ψ χ S B (ihS hsig.1) (ihB hsig.2)
+  | commitI Γₐ issuer capProp φ ℓ M c _ _ ihc ihM =>
+      intro hsig
+      simp only [Term.allSigsVerify, Bool.and_eq_true] at hsig
+      exact .commitI Γₐ issuer capProp φ ℓ M c (ihc hsig.2) (ihM hsig.1)
 
 /-! ## T2 — the symbolic characterization theorem. -/
 

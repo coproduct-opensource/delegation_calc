@@ -1,0 +1,1 @@
+'DLCD.weakfair_terminates' depends on axioms: [propext, Classical.choice, Quot.sound]

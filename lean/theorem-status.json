@@ -118,5 +118,106 @@
       "L5 subject reduction over full Deriv, then T3-full / T1-full / progress-full",
       "decide.rs completeness fix for nonempty-additive linear vars (separate, checker-side)"
     ]
+  },
+  "_dlcd_comment": "DLC-D (distributed) headline guarantees. Each is a top-level, machine-checked DLCD.* theorem re-exported by DLCD/Summary.lean and axiom-snapshotted in lean/expected-axioms/dlcd-*.txt (all within [propext, Classical.choice, Quot.sound]). status=proven means the theorem is fully proved AS STATED about the DLC-D model; the notes record the SCOPE FENCES (what the model does and does not cover). The joint non-vacuity witness is DLCD/Witness.lean's SliceWitness.dlc_d_slice_witness — one inhabited bundle on a single real 2-replica execution simultaneously satisfying G1-G4.",
+  "DLCD_capability_safety": {
+    "status": "proven",
+    "file": "DLCD/CapSafety.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "capability_safety (G1, authority): every command in a WellFormedLog carries a genuine Deriv (issuer says writeCap) credential — authority enforced by construction, not audited after the fact.",
+    "note": "SCOPE FENCES: (1) model, not runtime — a guarantee about the Lean model, not dlc-verifier's Rust at run time; (2) saysI-on-CDeriv — the CARVe-migrated CDeriv judgment does not yet carry the signed says credential the capability layer uses.",
+    "open": [
+      "carry the signed says credential on CDeriv so the capability layer runs on the migrated judgment"
+    ]
+  },
+  "DLCD_log_noninterference": {
+    "status": "proven",
+    "file": "DLCD/LabelFlow.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "log_noninterference (G1, semantic confidentiality): a labelled log's low-observable projection is independent of its high inputs.",
+    "note": "SCOPE FENCE: model, not runtime.",
+    "open": []
+  },
+  "DLCD_distributed_noninterference": {
+    "status": "proven",
+    "file": "DLCD/DistributedNI.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "distributed_noninterference (G1, typed confidentiality across replicas): reuses DLC's fundamental-lemma non-interference (DLC.t3_two_run_general).",
+    "note": "SCOPE FENCES: (1) model, not runtime; (2) confidentiality strength INHERITS T3_noninterference's propositional-core fragment scope (it consumes DLC.t3_two_run_general, which is proven_fragment over the propositional computational core, NI modulo declassification).",
+    "open": [
+      "inherits T3's open items: extend from PropDeriv to the full Deriv judgment with linear context splitting"
+    ]
+  },
+  "DLCD_wellTypedLog_implies_htyped": {
+    "status": "proven",
+    "file": "DLCD/TypedLog.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "wellTypedLog_implies_htyped (G1): a well-typed committed log discharges the host-typing premise that distributed_noninterference consumes, so the typed guarantee actually fires on real logs. worldStep_preserves_low_typed removes the raw htyped assumption via a WellTypedLog admission gate.",
+    "note": "SCOPE FENCE: model, not runtime; the admission gate is a modelled well-typedness check, not a running validator.",
+    "open": []
+  },
+  "DLCD_single_linearization": {
+    "status": "proven",
+    "file": "DLCD/Linearizable.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "single_linearization (G2): all replicas' observed stores are samples of ONE sequential trajectory seqTrajectory init log at their own applied index — a single linearization order respected by all.",
+    "note": "SCOPE FENCES: (1) model, not runtime; (2) store-type change — the committed store is a fixed Term; a richer store type is future work.",
+    "open": [
+      "generalize the linearization result to a richer store type than the fixed Term"
+    ]
+  },
+  "DLCD_weakfair_terminates": {
+    "status": "proven",
+    "file": "DLCD/Termination.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "weakfair_terminates (G3, single-decree progress): under weak fairness a single decree is eventually decided.",
+    "note": "SCOPE FENCES: (1) model, not runtime; (2) live-scheduling — the weak-fairness/delivery schedule feeding liveness is modelled, not tied to a running scheduler; (3) leader election — quorums are given, not elected. Uses Classical.choice (fair-schedule extraction).",
+    "open": [
+      "tie the modelled fairness schedule to a running scheduler / FailureBudget closure"
+    ]
+  },
+  "DLCD_log_grows_unbounded": {
+    "status": "proven",
+    "file": "DLCD/MultiDecreeLiveness.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "log_grows_unbounded (G3, multi-decree liveness): under a fair slot schedule the multi-decree committed log grows without bound.",
+    "note": "SCOPE FENCES: (1) model, not runtime; (2) live-scheduling — the fair slot schedule is modelled, not tied to a running scheduler. Uses Classical.choice.",
+    "open": [
+      "tie the modelled fair slot schedule to a running scheduler / FailureBudget closure"
+    ]
+  },
+  "DLCD_replicas_converge_via_consensus": {
+    "status": "proven",
+    "file": "DLCD/Consensus.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "replicas_converge_via_consensus (G4, coordination-based convergence): replicas that deliver a quorum-Decided value reach EQUAL stores.",
+    "note": "SCOPE FENCES: (1) model, not runtime; (2) leader election — quorums are given, not elected. Uses Classical.choice.",
+    "open": [
+      "leader election: derive the quorum rather than assuming it"
+    ]
+  },
+  "DLCD_coordination_free_convergence": {
+    "status": "proven",
+    "file": "DLCD/Calm.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "Calm.coordination_free_convergence (G4, CALM route): monotone/commutative updates converge with NO coordination (robust to reordering AND duplication).",
+    "note": "SCOPE FENCE: model, not runtime.",
+    "open": []
+  },
+  "DLCD_log_agreement_eq": {
+    "status": "proven",
+    "file": "DLCD/MultiDecree.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "log_agreement_eq (G4, multi-decree safety/agreement): two logs agreeing on the per-slot ballots are equal.",
+    "note": "SCOPE FENCE: model, not runtime. Uses Classical.choice.",
+    "open": []
+  },
+  "DLCD_slice_witness": {
+    "status": "proven",
+    "file": "DLCD/Witness.lean",
+    "witness": "DLCD/Summary.lean",
+    "proven_content": "SliceWitness.dlc_d_slice_witness (the seal, a def): one inhabited SliceWitnessBundle on a single real 2-replica execution that is simultaneously capability-authorized, consensus-committed, converging, linearizable, and live — THE demonstration that G1-G4 are jointly satisfiable, not vacuously true. Its existence is the non-vacuity witness the other DLCD entries point at; DLCD/Summary.lean re-exports it under a name-drift tripwire.",
+    "note": "SCOPE FENCES (inherited, joint): model not runtime; store-type change; live-scheduling; saysI-on-CDeriv; leader election; surface syntax (examples in abstract syntax, not the concrete surface language). def-shaped seal: an inhabited bundle IS a proof of joint satisfiability.",
+    "open": []
   }
 }

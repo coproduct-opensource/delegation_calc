@@ -1,0 +1,1 @@
+'DLCD.SliceWitness.dlc_d_slice_witness' depends on axioms: [propext, Classical.choice, Quot.sound]

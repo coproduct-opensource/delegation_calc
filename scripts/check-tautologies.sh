@@ -62,7 +62,11 @@ TRUE_BODY = re.compile(
     re.MULTILINE)
 
 violations = []
-for path in sorted(glob.glob("lean/DLC/**/*.lean", recursive=True)):
+scan_paths = sorted(
+    glob.glob("lean/DLC/**/*.lean", recursive=True)
+    + glob.glob("lean/DLCD/**/*.lean", recursive=True)
+)
+for path in scan_paths:
     if "/Witness/" in path or "/Aeneas/" in path:
         continue
     src = strip_comments(open(path, encoding="utf-8").read())

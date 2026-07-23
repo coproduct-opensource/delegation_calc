@@ -1,0 +1,1 @@
+'DLCD.log_agreement_eq' depends on axioms: [propext, Classical.choice, Quot.sound]

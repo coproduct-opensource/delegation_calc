@@ -1,5 +1,6 @@
 import DLCD.Rsm            -- the SPEC side (hand model): DLCD.applyCommand, deliver, worldStep, …
 import DlcCore             -- the CODE side (real Aeneas defs): dlc_core.rsm.*, reduce.*, syntax.*
+import DLC.DerivClosed     -- ClosedAbove + the preservation metatheory (closedAbove_shift, …) for the R2.3 fence
 -- NOTE: the `dlc_d_rsm` consensus layer lives in a SEPARATE module,
 -- `DLCD.CorrespondenceConsensus`. The two generated trees cannot be imported
 -- into the same Lean module: `@[discriminant isize]` on both
@@ -246,46 +247,150 @@ private theorem fbClone_id (b : rsm.FailureBudget) :
   simp only [rsm.FailureBudget.Insts.CoreCloneClone.clone, core.clone.impls.CloneU32.clone,
     core.clone.impls.CloneBool.clone, lift, bind_tc_ok]
 
-/-! ## 3. The `WellScopedTm` fence (the sound content of the `U32`-vs-`Nat` gap).
+/-! ## 2d. The concrete FULL payload decode `⟦·⟧` (all constructors).
 
-`WellScopedTm` is the honest, decidable structural predicate that bounds every
-variable index in a term below `2^31`, so the `I32`/`I64` shift arithmetic inside
-`subst.shift` / `subst.subst_at` never overflows during reduction and
-`reduce_with_fuel` never returns `.fail`. It is folded into `AppCommandRefines`
-via the `.map … = .ok …` form (which *also* asserts no-fail). This is NOT `True`:
-it genuinely constrains the term's variable indices. -/
+R2.3 pins the abstract `DecTm`/`DecPr` seam to these concrete total structural
+homomorphisms `syntax.Term → DLC.Term` / `syntax.Prop → DLC.Prop'`. They are
+mirror-for-mirror on the term/prop structure (`U32.val → Nat` at the `Var`/atom
+leaves, binder structure preserved) — the shape the reducer correspondence
+(`shift_corr`/`subst_corr`, R2.3a) needs.
 
-/-- Every `Var` index in the term is `< 2^31` (safe for the shift arithmetic). -/
-def wsTermB : syntax.Term → Bool
-  | .Var i => i.val < 2147483648
-  | .Lam _ t => wsTermB t
-  | .App a b => wsTermB a && wsTermB b
-  | .Sign _ t _ => wsTermB t
-  | .Verify _ t _ => wsTermB t
-  | .Delegate a b => wsTermB a && wsTermB b
-  | .Attenuate t _ => wsTermB t
-  | .SaysBind _ a b => wsTermB a && wsTermB b
-  | .Boxed _ a b => wsTermB a && wsTermB b
-  | .Discharge a b => wsTermB a && wsTermB b
-  | .LiftLabel _ t => wsTermB t
-  | .Declassify _ a b => wsTermB a && wsTermB b
-  | .Now _ => true
-  | .WithinIntro _ t => wsTermB t
-  | .Pair a b => wsTermB a && wsTermB b
-  | .Fst t => wsTermB t
-  | .Snd t => wsTermB t
-  | .Inl _ t => wsTermB t
-  | .Inr _ t => wsTermB t
-  | .Case a b c => wsTermB a && wsTermB b && wsTermB c
-  | .TensorIntro a b => wsTermB a && wsTermB b
-  | .LetTensor a b => wsTermB a && wsTermB b
-  | .LetSays _ a b => wsTermB a && wsTermB b
-  | .SfExtract t => wsTermB t
-  | .Command a b _ => wsTermB a && wsTermB b
-  | .RunCmd a b => wsTermB a && wsTermB b
+**Inert leaves.** Two decode targets are representation gaps with no cheap
+inverse: `ifc.Label = Vec U32` vs the hand `Label = CapabilityLattice`, and the
+generated `Obligation.DpBudget` arm (the hand `Obligation` carries no `DpBudget`
+constructor). These are decoded to fixed representatives (`Label.bottom` /
+`Obligation.top`). This is **sound for the reducer correspondence**:
+`shift`/`subst`/`step` are label- and obligation-blind — they carry those fields
+through *unchanged* — so the decode's behaviour on them never enters any
+correspondence equation. It is honestly *lossy*: the scope of the transport is
+the de Bruijn TERM STRUCTURE and its reduction, not the inert annotations. -/
 
-/-- The well-scopedness / no-`U32`-overflow fence (parent §3.1(i)). -/
-def WellScopedTm (t : syntax.Term) : Prop := wsTermB t = true
+def decTB (t : time.TimeBound) : DLC.TimeBound := { epochMs := t.epoch_ms.val }
+
+def decPrinId (p : principal.PrincipalId) : DLC.PrincipalId :=
+  { bytes := p.val.map (fun b => UInt8.ofNat b.val) }
+
+def decPrin : principal.Principal → DLC.Principal
+  | .Atom pid => .atom (decPrinId pid)
+  | .And a b => .and (decPrin a) (decPrin b)
+  | .Or a b => .or (decPrin a) (decPrin b)
+  | .Acting a b => .acting (decPrin a) (decPrin b)
+
+def decActId (a : obligation.ActionId) : DLC.ActionId :=
+  { bytes := a.val.map (fun b => UInt8.ofNat b.val) }
+
+def decOb : obligation.Obligation → DLC.Obligation
+  | .Top => .top
+  | .Bot => .bot
+  | .ActOf p a => .actOf (decPrin p) (decActId a)
+  | .Within t => .within (decTB t)
+  | .Tensor a b => .tensor (decOb a) (decOb b)
+  | .Lolli a b => .lolli (decOb a) (decOb b)
+  | .DpBudget _ => .top          -- inert; no hand image (documented above)
+
+def decSig (s : syntax.Signature) : DLC.Signature :=
+  { alg := UInt8.ofNat s.alg.val, bytes := s.bytes.val.map (fun b => UInt8.ofNat b.val) }
+
+def decLab (_ : ifc.Label) : DLC.Label := DLC.Label.bottom   -- inert; representation gap
+
+def decPropC : syntax.Prop → DLC.Prop'
+  | .Top => .top
+  | .Bot => .bot
+  | .Atom i => .atom i.val
+  | .Imp a b => .imp (decPropC a) (decPropC b)
+  | .And a b => .and (decPropC a) (decPropC b)
+  | .Or a b => .or (decPropC a) (decPropC b)
+  | .Says p a => .says (decPrin p) (decPropC a)
+  | .SpeaksFor p q => .speaksFor (decPrin p) (decPrin q)
+  | .At a l => .at (decPropC a) (decLab l)
+  | .Boxed o a => .boxed (decOb o) (decPropC a)
+  | .Within t a => .within (decTB t) (decPropC a)
+  | .Tensor a b => .tensor (decPropC a) (decPropC b)
+  | .Lolli a b => .lolli (decPropC a) (decPropC b)
+  | .Replicated a l => .replicated (decPropC a) (decLab l)
+
+def decTermC : syntax.Term → DLC.Term
+  | .Var i => .var i.val
+  | .Lam p t => .lam (decPropC p) (decTermC t)
+  | .App a b => .app (decTermC a) (decTermC b)
+  | .Sign p t s => .sign (decPrin p) (decTermC t) (decSig s)
+  | .Verify p t s => .verify (decPrin p) (decTermC t) (decSig s)
+  | .Delegate a b => .delegate (decTermC a) (decTermC b)
+  | .Attenuate t p => .attenuate (decTermC t) (decPropC p)
+  | .SaysBind p a b => .saysBind (decPrin p) (decTermC a) (decTermC b)
+  | .Boxed o a b => .boxed (decOb o) (decTermC a) (decTermC b)
+  | .Discharge a b => .discharge (decTermC a) (decTermC b)
+  | .LiftLabel l t => .liftLabel (decLab l) (decTermC t)
+  | .Declassify l a b => .declassify (decLab l) (decTermC a) (decTermC b)
+  | .Now t => .now (decTB t)
+  | .WithinIntro t m => .withinIntro (decTB t) (decTermC m)
+  | .Pair a b => .pair (decTermC a) (decTermC b)
+  | .Fst a => .fst (decTermC a)
+  | .Snd a => .snd (decTermC a)
+  | .Inl p a => .inl (decPropC p) (decTermC a)
+  | .Inr p a => .inr (decPropC p) (decTermC a)
+  | .Case a b c => .case (decTermC a) (decTermC b) (decTermC c)
+  | .TensorIntro a b => .tensorIntro (decTermC a) (decTermC b)
+  | .LetTensor a b => .letTensor (decTermC a) (decTermC b)
+  | .LetSays p a b => .letSays (decPrin p) (decTermC a) (decTermC b)
+  | .SfExtract t => .sfExtract (decTermC t)
+  | .Command a b l => .command (decTermC a) (decTermC b) (decLab l)
+  | .RunCmd a b => .runCmd (decTermC a) (decTermC b)
+
+/-! ## 3. The `WellScopedTm` fence — closedness + a decidable height bound.
+
+**Load-bearing correction (R2.3).** The R2.2b fence was a flat per-`Var`
+index-bound. That predicate is (a) *not preserved by `shift`* — `shift`'s eq-arm
+raises free indices by `depth`, and `i < 2^31` with `depth < 2^31` allows
+`i + depth` to reach `~2^32 > 2^31`, so the reduct can escape the bound
+(`ApplyPreservesWS` was therefore likely *false*); and (b) insufficient for the
+no-fail argument — the `I32` depth-cast in `subst_at` fails unless the binder
+DEPTH (unbounded by any index bound: `λλ…λ(var 0)`) is `< 2^31`.
+
+The predicate that IS preserved by shift/subst/step is genuine **closedness**
+(`DLC.ClosedAbove … 0`), the standard de Bruijn invariant, reusing the in-tree
+metatheory (`DLC.closedAbove_shift`, `DLC.closedAbove_mono`). The **decidable
+AST-height bound** `heightB t < 2^31` supplies the depth bound (`depth ≤ 2·height`)
+that rules out every `hcast`/`+` overflow. On the RSM's actual inputs — closed
+ground stores, small closed λ payloads — both conjuncts hold with astronomical
+headroom (see `applyPreservesWS_witness`). -/
+
+/-- Decidable AST height: `+1` at every node, `max` over children. Bounds the
+binder depth accumulated by `shift`/`subst_at` (`depth ≤ 2·heightB`), which is
+what discharges the `I32`/`U32` overflow obligations in R2.3a. -/
+def heightB : syntax.Term → Nat
+  | .Var _ => 0
+  | .Now _ => 0
+  | .Lam _ t => heightB t + 1
+  | .App a b => Nat.max (heightB a) (heightB b) + 1
+  | .Sign _ t _ => heightB t + 1
+  | .Verify _ t _ => heightB t + 1
+  | .Delegate a b => Nat.max (heightB a) (heightB b) + 1
+  | .Attenuate t _ => heightB t + 1
+  | .SaysBind _ a b => Nat.max (heightB a) (heightB b) + 1
+  | .Boxed _ a b => Nat.max (heightB a) (heightB b) + 1
+  | .Discharge a b => Nat.max (heightB a) (heightB b) + 1
+  | .LiftLabel _ t => heightB t + 1
+  | .Declassify _ a b => Nat.max (heightB a) (heightB b) + 1
+  | .WithinIntro _ t => heightB t + 1
+  | .Pair a b => Nat.max (heightB a) (heightB b) + 1
+  | .Fst t => heightB t + 1
+  | .Snd t => heightB t + 1
+  | .Inl _ t => heightB t + 1
+  | .Inr _ t => heightB t + 1
+  | .Case a b c => Nat.max (heightB a) (Nat.max (heightB b) (heightB c)) + 1
+  | .TensorIntro a b => Nat.max (heightB a) (heightB b) + 1
+  | .LetTensor a b => Nat.max (heightB a) (heightB b) + 1
+  | .LetSays _ a b => Nat.max (heightB a) (heightB b) + 1
+  | .SfExtract t => heightB t + 1
+  | .Command a b _ => Nat.max (heightB a) (heightB b) + 1
+  | .RunCmd a b => Nat.max (heightB a) (heightB b) + 1
+
+/-- The well-scopedness fence (parent ruling #1): the term decodes to a CLOSED
+hand term (the shift/subst/reduce-preserved invariant) and is height-bounded
+below `2^31` (the decidable no-overflow content). -/
+def WellScopedTm (t : syntax.Term) : Prop :=
+  DLC.ClosedAbove (decTermC t) 0 ∧ heightB t < 2147483648
 
 /-! ## 4. `AppCommandRefines` — THE ONE REMAINING OBLIGATION.
 
@@ -304,28 +409,14 @@ def AppCommandRefines (decTm : DecTm) (decPr : DecPr) : Prop :=
     (decTm <$> rsm.apply_command c s)
       = Result.ok (DLCD.applyCommand (decCmd decTm decPr c) (decTm s))
 
-/-! ## 5. A concrete fragment decode `decTm₀`/`decPr₀` (the anti-vacuity seam).
+/-! ## 6. The generated-side `dup`/`init`, mirroring `DLCD.RsmAntiVacuity`.
 
-The full structural `Term`/`Prop` decode over all ~26/~14 constructors — and the
-proof it commutes with the reducer — is R2.3. Here we exhibit a concrete decode
-on the small closed fragment the `dup` witness uses (`Var`, `Lam`, `Pair`,
-`Prop.Atom`), enough to *evaluate* the witness. -/
-
-/-- Concrete `Prop` decode on the witness fragment (`Atom`), default `top`. -/
-def decPr₀ : syntax.Prop → DLC.Prop'
-  | .Atom i => .atom i.val
-  | _ => .top
-
-/-- Concrete `Term` decode on the witness fragment (`Var`/`Lam`/`App`/`Pair`),
-default `var 0` for the off-fragment constructors (unused by the witness). -/
-def decTm₀ : syntax.Term → DLC.Term
-  | .Var i => .var i.val
-  | .Lam p t => .lam (decPr₀ p) (decTm₀ t)
-  | .App a b => .app (decTm₀ a) (decTm₀ b)
-  | .Pair a b => .pair (decTm₀ a) (decTm₀ b)
-  | _ => .var 0
-
-/-! ## 6. The generated-side `dup`/`init`, mirroring `DLCD.RsmAntiVacuity`. -/
+**Closed witness (R2.3 fence).** The R2.2b witness used the store `var 0`, which
+is OPEN (`ClosedAbove (var 0) 0` is false), so it cannot satisfy the closedness
+fence. We replace it with a closed ground value `now 0`; the `dup` payload
+`λ_. ⟨var0, var0⟩` (the duplication combinator, whose `var 0` is its own bound
+argument) is already closed, and the reduct `⟨now 0, now 0⟩` stays closed — a
+genuine closed, state-CHANGING transition. -/
 
 /-- The generated `dup` command: `λ_:atom0. ⟨var0, var0⟩` (duplicates the store). -/
 def dupGenW : rsm.Command :=
@@ -333,14 +424,13 @@ def dupGenW : rsm.Command :=
       (syntax.Term.Pair (syntax.Term.Var 0#u32) (syntax.Term.Var 0#u32)),
     cap := none }
 
-/-- The generated initial store `var 0`. -/
-def initGenW : syntax.Term := syntax.Term.Var 0#u32
+/-- The generated initial store: the closed ground value `now 0`. -/
+def initGenW : syntax.Term := syntax.Term.Now { epoch_ms := 0#u64 }
 
-/-- The generated normal form the `dup` beta-reduces to: `⟨var0, var0⟩`. -/
-abbrev pair00W : syntax.Term :=
-  syntax.Term.Pair (syntax.Term.Var 0#u32) (syntax.Term.Var 0#u32)
+/-- The generated normal form the `dup` beta-reduces to: `⟨now 0, now 0⟩`. -/
+abbrev pair00W : syntax.Term := syntax.Term.Pair initGenW initGenW
 
-/-- The generated redex `(λ_. ⟨var0,var0⟩) var0`. -/
+/-- The generated redex `(λ_. ⟨var0,var0⟩) (now 0)`. -/
 abbrev appW : syntax.Term := syntax.Term.App dupGenW.payload initGenW
 
 /-! ### Reducer-evaluation plumbing (computes the loop on the closed input).
@@ -361,16 +451,17 @@ private theorem next_succ {a b : Std.U32} (hlt : a.val < b.val) (hsucc : a.val +
   rw [if_pos (by simp [hlt]), core.iter.range.UScalarStep.forward_checked, dif_pos (by scalar_tac)]
   rfl
 
-/-- The β-step: `(λ_. ⟨var0,var0⟩) var0` steps to `⟨var0,var0⟩`. -/
+/-- The β-step: `(λ_. ⟨var0,var0⟩) (now 0)` steps to `⟨now 0, now 0⟩`. -/
 private theorem step_beta : reduce.step appW = ok (some pair00W) := by
   simp only [appW, dupGenW, initGenW, reduce.step, Box.Insts.CoreConvertAsRef.as_ref,
-    subst.subst, subst.subst_at, subst.shift, core.cmp.impls.OrdU32.cmp, lift, pair00W,
-    bind_ok, bind_tc_ok, pure]
+    subst.subst, subst.subst_at, subst.shift, core.cmp.impls.OrdU32.cmp,
+    timeBoundClone_id, lift, pair00W, bind_ok, bind_tc_ok, pure]
   rfl
 
-/-- `⟨var0,var0⟩` is a normal form. -/
+/-- `⟨now 0, now 0⟩` is a normal form. -/
 private theorem step_nf : reduce.step pair00W = ok none := by
-  simp only [pair00W, reduce.step, Box.Insts.CoreConvertAsRef.as_ref, lift, bind_ok, bind_tc_ok]
+  simp only [pair00W, initGenW, reduce.step, Box.Insts.CoreConvertAsRef.as_ref, lift,
+    bind_ok, bind_tc_ok]
 
 /-- `loop` unfolds one `cont` step. -/
 private theorem loop_cont {α β} (F : α → Result (ControlFlow α β)) (x x' : α)
@@ -383,17 +474,12 @@ private theorem loop_fin {α β} (F : α → Result (ControlFlow α β)) (x : α
 /-- The generated `apply_command` on `(dup, var0)` computes to `⟨var0,var0⟩`. -/
 private theorem apply_command_dup :
     rsm.apply_command dupGenW initGenW = ok pair00W := by
-  have hcp : syntax.Term.Insts.CoreCloneClone.clone dupGenW.payload = ok dupGenW.payload := by
-    simp only [dupGenW, syntax.Term.Insts.CoreCloneClone.clone,
-      syntax.Prop.Insts.CoreCloneClone.clone, core.clone.impls.CloneU32.clone, lift,
-      bind_ok, bind_tc_ok]
-  have hci : syntax.Term.Insts.CoreCloneClone.clone initGenW = ok initGenW := by
-    simp only [initGenW, syntax.Term.Insts.CoreCloneClone.clone,
-      core.clone.impls.CloneU32.clone, lift, bind_ok, bind_tc_ok]
-  have hcApp : syntax.Term.Insts.CoreCloneClone.clone appW = ok appW := by
-    simp only [appW, dupGenW, initGenW, syntax.Term.Insts.CoreCloneClone.clone,
-      syntax.Prop.Insts.CoreCloneClone.clone, core.clone.impls.CloneU32.clone, lift,
-      bind_ok, bind_tc_ok]
+  have hcp : syntax.Term.Insts.CoreCloneClone.clone dupGenW.payload = ok dupGenW.payload :=
+    termClone_id _
+  have hci : syntax.Term.Insts.CoreCloneClone.clone initGenW = ok initGenW :=
+    termClone_id _
+  have hcApp : syntax.Term.Insts.CoreCloneClone.clone appW = ok appW :=
+    termClone_id _
   have hbody0 : reduce.reduce_with_fuel_loop.body 1024#u32 { start := 0#u32, «end» := 1024#u32 } appW
       = ok (ControlFlow.cont ({ start := 1#u32, «end» := 1024#u32 }, pair00W)) := by
     simp only [reduce.reduce_with_fuel_loop.body,
@@ -425,16 +511,16 @@ satisfiability witness that the conditional squares are not vacuous: the equatio
 they depend on is achievable on a real input (not free-because-`False`). Its
 axiom footprint is exactly `[propext, Classical.choice, Quot.sound]`. -/
 theorem appCommandRefines_witness :
-    (decTm₀ <$> rsm.apply_command dupGenW initGenW)
-        = Result.ok (DLCD.applyCommand (decCmd decTm₀ decPr₀ dupGenW) (decTm₀ initGenW))
-      ∧ decTm₀ pair00W ≠ decTm₀ initGenW := by
+    (decTermC <$> rsm.apply_command dupGenW initGenW)
+        = Result.ok (DLCD.applyCommand (decCmd decTermC decPropC dupGenW) (decTermC initGenW))
+      ∧ decTermC pair00W ≠ decTermC initGenW := by
   refine ⟨?_, ?_⟩
   · rw [apply_command_dup]
-    -- LHS: decTm₀ <$> ok ⟨var0,var0⟩ = ok ⟨var0,var0⟩; RHS: hand applyCommand reduces likewise.
-    show Result.ok (decTm₀ pair00W) = _
+    -- LHS: decTermC <$> ok ⟨now 0,now 0⟩ = ok ⟨now 0,now 0⟩; RHS: hand applyCommand reduces likewise.
+    show Result.ok (decTermC pair00W) = _
     rfl
   · intro h
-    simp only [decTm₀, decPr₀, initGenW, pair00W] at h
+    simp only [decTermC, initGenW, pair00W] at h
     exact DLC.Term.noConfusion h
 
 /-! ## 8. ★ THE STRUCTURAL CORRESPONDENCE SQUARES.
@@ -621,9 +707,17 @@ theorem applyPreservesWS_witness :
       ∧ rsm.apply_command dupGenW initGenW = ok pair00W
       ∧ WellScopedTm pair00W ∧ pair00W ≠ initGenW := by
   refine ⟨?_, ?_, apply_command_dup, ?_, ?_⟩
-  · unfold WellScopedTm; decide
-  · unfold WellScopedTm; decide
-  · unfold WellScopedTm; decide
+  · -- store `now 0`: decodes to `now 0`, closed (no vars); height 0.
+    exact ⟨by intro i _; rfl, by decide⟩
+  · -- payload `λ_. ⟨var0,var0⟩`: decodes to `lam _ ⟨var0,var0⟩`, closed; height 2.
+    refine ⟨?_, by decide⟩
+    intro i _
+    have h0 : ((0#u32 : Std.U32).val) = 0 := rfl
+    simp only [dupGenW, decTermC, decPropC, DLC.usesVar, h0, Bool.or_eq_false_iff,
+      beq_eq_false_iff_ne, ne_eq]
+    omega
+  · -- reduct `⟨now 0, now 0⟩`: closed; height 1.
+    exact ⟨by intro i _; rfl, by decide⟩
   · simp [pair00W, initGenW]
 
 /-- The generalized `apply_prefix` fold-loop spec: from a well-scoped accumulator

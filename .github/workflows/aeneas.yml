@@ -16,12 +16,16 @@ on:
     branches: ["main"]
     paths:
       - "crates/dlc-core/**"
+      - "crates/dlc-d-rsm/**"
       - "lean/DLC/Aeneas/**"
+      - "lean/DLCD/Aeneas/**"
       - ".github/workflows/aeneas.yml"
   pull_request:
     paths:
       - "crates/dlc-core/**"
+      - "crates/dlc-d-rsm/**"
       - "lean/DLC/Aeneas/**"
+      - "lean/DLCD/Aeneas/**"
       - ".github/workflows/aeneas.yml"
   # Weekly reproducibility canary: re-regenerates from the PINNED toolchain and
   # confirms the committed tree still matches bit-for-bit (catches a hand-edited
@@ -68,13 +72,39 @@ jobs:
           # Lean we prove no longer corresponds to the Rust.
           fail-on-drift: 'true'
 
-      # Upload the regenerated Lean as an artifact so maintainers can
-      # download, inspect, and commit it (bootstrap).
-      - name: Upload Aeneas-generated Lean (artifact)
+      # SECOND Charon target (DLC-D Phase R2.1): the verified-runtime-core crate
+      # `dlc-d-rsm`, whose Aeneas image mirrors `lean/DLCD/Rsm.lean`. It
+      # path-depends on `dlc-core`, so its single `dlc_d_rsm.llbc` INLINES
+      # `dlc_core` into one self-contained `DlcDRsm` tree — translated
+      # independently of target #1, same PINNED Charon ↔ Aeneas pair (both trees
+      # must build against the one `require aeneas @ <rev>` in the lakefile).
+      # R2.1 ships NO correspondence proof; this gate fixes the translated
+      # artifact so the refinement (R2.2–R2.4) has a drift-stable target.
+      - uses: coproduct-opensource/aeneas-ci@v1.0.2
+        id: aeneas-dlcd-rsm
+        with:
+          rust-source-dir: crates/dlc-d-rsm
+          lean-output-dir: lean/DLCD/Aeneas/DlcDRsm
+          aeneas-version: nightly-2026.06.10
+          charon-version: 9dd7f23c8458b2366ce0b5ca7529c5ad4c5fb350
+          fail-on-drift: 'true'
+
+      # Upload the regenerated Lean as artifacts so maintainers can download,
+      # inspect, and commit them (bootstrap) — one per target.
+      - name: Upload Aeneas-generated Lean (dlc-core artifact)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: aeneas-generated-lean
           path: lean/DLC/Aeneas/DlcCore/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload Aeneas-generated Lean (dlc-d-rsm artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aeneas-generated-lean-dlcd-rsm
+          path: lean/DLCD/Aeneas/DlcDRsm/
           if-no-files-found: ignore
           retention-days: 14

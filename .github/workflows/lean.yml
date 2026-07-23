@@ -80,8 +80,11 @@ jobs:
                 CoproductAlgebra GradedBridge GradedDistributiveLaw GradedBridgeGeneric \
                 CarveProto DerivClosed CarveCtx CarveJudgment DLCD"
           # DLC: built by the lean-mathlib-cache action above (build-target: DLC).
-          # DLCAeneas: Aeneas-generated translation; gated by scripts/check-drift.sh.
-          EXCLUDED="DLC DLCAeneas"
+          # DLCAeneas / DLCDRsmAeneas: Aeneas-generated translations of
+          # crates/dlc-core and crates/dlc-d-rsm; both gated by
+          # scripts/check-drift.sh (dual-diff), not compiled here. R2.1 ships no
+          # correspondence proof, so the DlcDRsm tree is a drift-gated artifact.
+          EXCLUDED="DLC DLCAeneas DLCDRsmAeneas"
 
           missing=""
           for lib in $(grep -oE 'lean_lib «[A-Za-z0-9_]+»' lakefile.lean \

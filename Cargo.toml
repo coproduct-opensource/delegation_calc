@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/dlc-core",
+    "crates/dlc-d-rsm",
     "crates/dlc-crypto",
     "crates/dlc-protocol",
     "crates/dlc-verifier",

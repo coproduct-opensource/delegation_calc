@@ -1,0 +1,21 @@
+[package]
+name = "dlc-d-rsm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "DLC-D replicated state machine — verified runtime core (Aeneas-clean mirror of lean/DLCD/Rsm.lean)"
+
+[lib]
+path = "src/lib.rs"
+
+# The verified-runtime-core mirror of `lean/DLCD/Rsm.lean`. Like `dlc-core`,
+# this crate is a Charon/Aeneas translation target: it must stay inside the
+# same hard fence (no trait objects, no async, no third-party deps, no unsafe).
+# Its Lean image lands at `lean/DLCD/Aeneas/DlcDRsm/` and is drift-gated.
+[dependencies]
+# The ONLY dependency — path-dep on the calculus kernel, itself Aeneas-clean.
+# Reuses `Term`, `Prop`, and `reduce::reduce_with_fuel`.
+dlc-core = { path = "../dlc-core" }

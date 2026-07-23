@@ -265,19 +265,25 @@ pub fn infer(ctx: &Ctx, term: &Term) -> Option<Prop> {
         // says-extract: let ⟨x⟩_p = M in N. Bind the underlying proof.
         // says-E (`let ⟨x⟩_p = M in N`): like LetSays, but the conclusion
         // PRESERVES the modality — `p says ψ` rather than `ψ`.
-        Term::SaysBind(principal, scrut, body) => {
+        // NOTE: the bound variable is `prin`, not `principal`, on purpose: the
+        // Aeneas Lean translation places `Principal` under a `principal` module,
+        // so a match binder literally named `principal` shadows that namespace
+        // inside `decide::infer`, breaking resolution of `principal::Principal`
+        // in the generated tree. `prin` un-shadows it. (Same class of fix as the
+        // `Discharged::obl` field rename.)
+        Term::SaysBind(prin, scrut, body) => {
             let inner = match infer(ctx, scrut)? {
-                Prop::Says(p, phi) if p == *principal => *phi,
+                Prop::Says(p, phi) if p == *prin => *phi,
                 _ => return None,
             };
             let extended = ctx.clone().cons_a(inner);
             let psi = infer(&extended, body)?;
-            Some(Prop::Says(principal.clone(), Box::new(psi)))
+            Some(Prop::Says(prin.clone(), Box::new(psi)))
         }
 
-        Term::LetSays(principal, scrut, body) => {
+        Term::LetSays(prin, scrut, body) => {
             let inner = match infer(ctx, scrut)? {
-                Prop::Says(p, phi) if p == *principal => *phi,
+                Prop::Says(p, phi) if p == *prin => *phi,
                 _ => return None,
             };
             let extended = ctx.clone().cons_a(inner);

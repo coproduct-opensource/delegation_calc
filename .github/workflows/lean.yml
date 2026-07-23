@@ -78,13 +78,18 @@ jobs:
           LIBS="Decidability CtxWellFormed Correspondence NonInterference \
                 ObligationSoundness ProtocolCorrespondence Progress Witness \
                 CoproductAlgebra GradedBridge GradedDistributiveLaw GradedBridgeGeneric \
-                CarveProto DerivClosed CarveCtx CarveJudgment DLCD"
+                CarveProto DerivClosed CarveCtx CarveJudgment DLCD \
+                DLCAeneas DLCDRsmAeneas"
           # DLC: built by the lean-mathlib-cache action above (build-target: DLC).
           # DLCAeneas / DLCDRsmAeneas: Aeneas-generated translations of
-          # crates/dlc-core and crates/dlc-d-rsm; both gated by
-          # scripts/check-drift.sh (dual-diff), not compiled here. R2.1 ships no
-          # correspondence proof, so the DlcDRsm tree is a drift-gated artifact.
-          EXCLUDED="DLC DLCAeneas DLCDRsmAeneas"
+          # crates/dlc-core and crates/dlc-d-rsm. Still drift-gated by
+          # scripts/check-drift.sh (dual-diff); now ALSO compiled + sorry/axiom
+          # gated here (R2.2a-unblock: the DlcCore tree was made to elaborate by
+          # opacifying the recursive derived Debug/Hash impls — see
+          # DlcCore/FunsExternal.lean — and un-shadowing the `obligation`/
+          # `principal` names). R2.1 ships no correspondence proof, so the
+          # DlcDRsm tree remains an artifact, but it must at least compile.
+          EXCLUDED="DLC"
 
           missing=""
           for lib in $(grep -oE 'lean_lib «[A-Za-z0-9_]+»' lakefile.lean \

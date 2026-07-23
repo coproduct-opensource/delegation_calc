@@ -25,28 +25,6 @@ axiom Array.Insts.CoreHashHash.hash
   (hashHasherInst : core.hash.Hasher H) :
   Array T N → H → Result H
 
-/-- [core::fmt::{core::fmt::Formatter<'a>}::debug_tuple_field2_finish]:
-    Source: '/rustc/library/core/src/fmt/mod.rs', lines 2627:4-2632:15
-    Name pattern: [core::fmt::{core::fmt::Formatter<'a>}::debug_tuple_field2_finish]
-    Visibility: public -/
-@[rust_fun "core::fmt::{core::fmt::Formatter<'a>}::debug_tuple_field2_finish"]
-axiom core.fmt.Formatter.debug_tuple_field2_finish
-  :
-  core.fmt.Formatter → Str → Dyn (fun _dyn => core.fmt.Debug _dyn) → Dyn
-    (fun _dyn => core.fmt.Debug _dyn) → Result ((core.result.Result Unit
-    core.fmt.Error) × core.fmt.Formatter)
-
-/-- [core::fmt::{core::fmt::Formatter<'a>}::debug_tuple_field3_finish]:
-    Source: '/rustc/library/core/src/fmt/mod.rs', lines 2644:4-2650:15
-    Name pattern: [core::fmt::{core::fmt::Formatter<'a>}::debug_tuple_field3_finish]
-    Visibility: public -/
-@[rust_fun "core::fmt::{core::fmt::Formatter<'a>}::debug_tuple_field3_finish"]
-axiom core.fmt.Formatter.debug_tuple_field3_finish
-  :
-  core.fmt.Formatter → Str → Dyn (fun _dyn => core.fmt.Debug _dyn) → Dyn
-    (fun _dyn => core.fmt.Debug _dyn) → Dyn (fun _dyn => core.fmt.Debug _dyn)
-    → Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
-
 /-- [core::hash::impls::{impl core::hash::Hash for u8}::hash]:
     Source: '/rustc/library/core/src/hash/mod.rs', lines 812:16-812:56
     Name pattern: [core::hash::impls::{core::hash::Hash<u8>}::hash]
@@ -131,26 +109,6 @@ axiom Box.Insts.CoreCmpPartialEqBox.ne
   {T : Type} (A : Type) (corecmpPartialEqInst : core.cmp.PartialEq T T) :
   T → T → Result Bool
 
-/-- [alloc::boxed::{impl core::hash::Hash for alloc::boxed::Box<T>}::hash]:
-    Source: '/rustc/library/alloc/src/boxed.rs', lines 2169:4-2169:44
-    Name pattern: [alloc::boxed::{core::hash::Hash<Box<@T>>}::hash]
-    Visibility: public -/
-@[rust_fun "alloc::boxed::{core::hash::Hash<Box<@T>>}::hash"]
-axiom Box.Insts.CoreHashHash.hash
-  {T : Type} (A : Type) {H : Type} (corehashHashInst : core.hash.Hash T)
-  (corehashHasherInst : core.hash.Hasher H) :
-  T → H → Result H
-
-/-- [alloc::boxed::{impl core::fmt::Debug for alloc::boxed::Box<T>}::fmt]:
-    Source: '/rustc/library/alloc/src/boxed.rs', lines 2235:4-2235:60
-    Name pattern: [alloc::boxed::{core::fmt::Debug<Box<@T>>}::fmt]
-    Visibility: public -/
-@[rust_fun "alloc::boxed::{core::fmt::Debug<Box<@T>>}::fmt"]
-axiom Box.Insts.CoreFmtDebug.fmt
-  {T : Type} (A : Type) (corefmtDebugInst : core.fmt.Debug T) :
-  T → core.fmt.Formatter → Result ((core.result.Result Unit core.fmt.Error)
-    × core.fmt.Formatter)
-
 /-- [alloc::boxed::{impl core::convert::AsRef<T> for alloc::boxed::Box<T>}::as_ref]:
     Source: '/rustc/library/alloc/src/boxed.rs', lines 2352:4-2352:26
     Name pattern: [alloc::boxed::{core::convert::AsRef<Box<@T>, @T>}::as_ref]
@@ -193,4 +151,43 @@ axiom alloc.vec.Vec.Insts.CoreHashHash.hash
   "alloc::vec::{core::default::Default<alloc::vec::Vec<@T>>}::default"]
 axiom alloc.vec.Vec.Insts.CoreDefaultDefault.default
   (T : Type) : Result (alloc.vec.Vec T)
+
+/-- [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Prop}::fmt]:
+    Source: 'crates/dlc-core/src/syntax.rs', lines 16:16-16:21
+    Visibility: public -/
+axiom syntax.Prop.Insts.CoreFmtDebug.fmt
+  :
+  syntax.Prop → core.fmt.Formatter → Result ((core.result.Result Unit
+    core.fmt.Error) × core.fmt.Formatter)
+
+/-- [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Term}::fmt]:
+    Source: 'crates/dlc-core/src/syntax.rs', lines 56:16-56:21
+    Visibility: public -/
+axiom syntax.Term.Insts.CoreFmtDebug.fmt
+  :
+  syntax.Term → core.fmt.Formatter → Result ((core.result.Result Unit
+    core.fmt.Error) × core.fmt.Formatter)
+
+/-- [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::Obligation}::fmt]:
+    Source: 'crates/dlc-core/src/obligation.rs', lines 20:16-20:21
+    Visibility: public -/
+axiom obligation.Obligation.Insts.CoreFmtDebug.fmt
+  :
+  obligation.Obligation → core.fmt.Formatter → Result ((core.result.Result
+    Unit core.fmt.Error) × core.fmt.Formatter)
+
+/-- [dlc_core::principal::{impl core::fmt::Debug for dlc_core::principal::Principal}::fmt]:
+    Source: 'crates/dlc-core/src/principal.rs', lines 8:16-8:21
+    Visibility: public -/
+axiom principal.Principal.Insts.CoreFmtDebug.fmt
+  :
+  principal.Principal → core.fmt.Formatter → Result ((core.result.Result
+    Unit core.fmt.Error) × core.fmt.Formatter)
+
+/-- [dlc_core::principal::{impl core::hash::Hash for dlc_core::principal::Principal}::hash]:
+    Source: 'crates/dlc-core/src/principal.rs', lines 8:38-8:42
+    Visibility: public -/
+axiom principal.Principal.Insts.CoreHashHash.hash
+  {__H : Type} (corehashHasherInst : core.hash.Hasher __H) :
+  principal.Principal → __H → Result __H
 

@@ -220,15 +220,15 @@ inductive judgment.RuleName where
 | RunCmd : judgment.RuleName
 
 /-- [dlc_core::obligation::Seal]
-    Source: 'crates/dlc-core/src/obligation.rs', lines 107:0-107:12 -/
+    Source: 'crates/dlc-core/src/obligation.rs', lines 114:0-114:12 -/
 @[reducible]
 def obligation.Seal := Unit
 
 /-- [dlc_core::obligation::Discharged]
-    Source: 'crates/dlc-core/src/obligation.rs', lines 98:0-104:1
+    Source: 'crates/dlc-core/src/obligation.rs', lines 98:0-111:1
     Visibility: public -/
 structure obligation.Discharged where
-  obligation : obligation.Obligation
+  obl : obligation.Obligation
   _seal : obligation.Seal
 
 /-- [dlc_core::rsm::FailureBudget]

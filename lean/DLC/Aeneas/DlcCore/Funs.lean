@@ -37,15 +37,6 @@ def core.option.Option.Insts.CoreFmtDebug {T : Type} (fmtDebugInst :
   fmt := core.option.Option.Insts.CoreFmtDebug.fmt fmtDebugInst
 }
 
-/-- Trait implementation: [alloc::boxed::{impl core::fmt::Debug for alloc::boxed::Box<T>}]
-    Source: '/rustc/library/alloc/src/boxed.rs', lines 2234:0-2234:67
-    Name pattern: [core::fmt::Debug<Box<@T>>] -/
-@[reducible, rust_trait_impl "core::fmt::Debug<Box<@T>>"]
-def Box.Insts.CoreFmtDebug {T : Type} (A : Type) (corefmtDebugInst :
-  core.fmt.Debug T) : core.fmt.Debug T := {
-  fmt := Box.Insts.CoreFmtDebug.fmt A corefmtDebugInst
-}
-
 /-- [dlc_core::time::{impl core::cmp::PartialEq<dlc_core::time::TimeBound> for dlc_core::time::TimeBound}::eq]:
     Source: 'crates/dlc-core/src/time.rs', lines 12:23-12:32
     Visibility: public -/
@@ -765,7 +756,7 @@ def judgment.Ctx.Insts.CoreCloneClone.clone
   ok { additive := v, linear := v1 }
 
 /-- [dlc_core::decide::infer]:
-    Source: 'crates/dlc-core/src/decide.rs', lines 47:0-329:1
+    Source: 'crates/dlc-core/src/decide.rs', lines 47:0-335:1
     Visibility: public -/
 def decide.infer
   (ctx : judgment.Ctx) (term : syntax.Term) : Result (Option syntax.Prop) := do
@@ -975,7 +966,7 @@ def decide.infer
     | core.ops.control_flow.ControlFlow.Break residual =>
       core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
         syntax.Prop residual
-  | syntax.Term.SaysBind principal scrut body =>
+  | syntax.Term.SaysBind prin scrut body =>
     let o ← decide.infer ctx scrut
     let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
@@ -988,8 +979,7 @@ def decide.infer
       | syntax.Prop.And _ _ => ok none
       | syntax.Prop.Or _ _ => ok none
       | syntax.Prop.Says p phi =>
-        let b ←
-          principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq p principal
+        let b ← principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq p prin
         if b
         then
           let c ← judgment.Ctx.Insts.CoreCloneClone.clone ctx
@@ -998,7 +988,7 @@ def decide.infer
           let cf1 ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o1
           match cf1 with
           | core.ops.control_flow.ControlFlow.Continue val1 =>
-            let p1 ← principal.Principal.Insts.CoreCloneClone.clone principal
+            let p1 ← principal.Principal.Insts.CoreCloneClone.clone prin
             ok (some (syntax.Prop.Says p1 val1))
           | core.ops.control_flow.ControlFlow.Break residual =>
             core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
@@ -1262,7 +1252,7 @@ def decide.infer
     | core.ops.control_flow.ControlFlow.Break residual =>
       core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
         syntax.Prop residual
-  | syntax.Term.LetSays principal scrut body =>
+  | syntax.Term.LetSays prin scrut body =>
     let o ← decide.infer ctx scrut
     let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
     match cf with
@@ -1275,8 +1265,7 @@ def decide.infer
       | syntax.Prop.And _ _ => ok none
       | syntax.Prop.Or _ _ => ok none
       | syntax.Prop.Says p phi =>
-        let b ←
-          principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq p principal
+        let b ← principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq p prin
         if b
         then
           let c ← judgment.Ctx.Insts.CoreCloneClone.clone ctx
@@ -1726,269 +1715,6 @@ def judgment.Ctx.Insts.CoreCloneClone : core.clone.Clone judgment.Ctx := {
   clone := judgment.Ctx.Insts.CoreCloneClone.clone
 }
 
-/-- [dlc_core::time::{impl core::fmt::Debug for dlc_core::time::TimeBound}::fmt]:
-    Source: 'crates/dlc-core/src/time.rs', lines 12:16-12:21
-    Visibility: public -/
-def time.TimeBound.Insts.CoreFmtDebug.fmt
-  (self : time.TimeBound) (f : core.fmt.Formatter) :
-  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
-  := do
-  let dyn := Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugU64) self.epoch_ms
-  core.fmt.Formatter.debug_struct_field1_finish f (toStr "TimeBound") (toStr
-    "epoch_ms") dyn
-
-/-- Trait implementation: [dlc_core::time::{impl core::fmt::Debug for dlc_core::time::TimeBound}]
-    Source: 'crates/dlc-core/src/time.rs', lines 12:16-12:21 -/
-@[reducible]
-def time.TimeBound.Insts.CoreFmtDebug : core.fmt.Debug time.TimeBound := {
-  fmt := time.TimeBound.Insts.CoreFmtDebug.fmt
-}
-
-/-- [dlc_core::principal::{impl core::fmt::Debug for dlc_core::principal::PrincipalId}::fmt]:
-    Source: 'crates/dlc-core/src/principal.rs', lines 25:16-25:21
-    Visibility: public -/
-def principal.PrincipalId.Insts.CoreFmtDebug.fmt
-  (self : principal.PrincipalId) (f : core.fmt.Formatter) :
-  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
-  := do
-  let dyn :=
-    Dyn.mk _ (core.fmt.DebugShared (Array.Insts.CoreFmtDebug 32#usize
-      core.fmt.DebugU8)) self
-  core.fmt.Formatter.debug_tuple_field1_finish f (toStr "PrincipalId") dyn
-
-/-- Trait implementation: [dlc_core::principal::{impl core::fmt::Debug for dlc_core::principal::PrincipalId}]
-    Source: 'crates/dlc-core/src/principal.rs', lines 25:16-25:21 -/
-@[reducible]
-def principal.PrincipalId.Insts.CoreFmtDebug : core.fmt.Debug
-  principal.PrincipalId := {
-  fmt := principal.PrincipalId.Insts.CoreFmtDebug.fmt
-}
-
-/-- [dlc_core::principal::{impl core::fmt::Debug for dlc_core::principal::Principal}::fmt]:
-    Source: 'crates/dlc-core/src/principal.rs', lines 8:16-8:21
-    Visibility: public -/
-def principal.Principal.Insts.CoreFmtDebug.fmt
-  (self : principal.Principal) (f : core.fmt.Formatter) :
-  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
-  := do
-  match self with
-  | principal.Principal.Atom __self_0 =>
-    let __self_01 :=
-      Dyn.mk _ (core.fmt.DebugShared principal.PrincipalId.Insts.CoreFmtDebug)
-        __self_0
-    core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Atom") __self_01
-  | principal.Principal.And __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global
-        principal.Principal.Insts.CoreFmtDebug) __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        principal.Principal.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "And") __self_01
-      __self_11
-  | principal.Principal.Or __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global
-        principal.Principal.Insts.CoreFmtDebug) __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        principal.Principal.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Or") __self_01
-      __self_11
-  | principal.Principal.Acting __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global
-        principal.Principal.Insts.CoreFmtDebug) __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        principal.Principal.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Acting") __self_01
-      __self_11
-
-/-- Trait implementation: [dlc_core::principal::{impl core::fmt::Debug for dlc_core::principal::Principal}]
-    Source: 'crates/dlc-core/src/principal.rs', lines 8:16-8:21 -/
-@[reducible]
-def principal.Principal.Insts.CoreFmtDebug : core.fmt.Debug principal.Principal
-  := {
-  fmt := principal.Principal.Insts.CoreFmtDebug.fmt
-}
-
-/-- [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::ActionId}::fmt]:
-    Source: 'crates/dlc-core/src/obligation.rs', lines 41:16-41:21
-    Visibility: public -/
-def obligation.ActionId.Insts.CoreFmtDebug.fmt
-  (self : obligation.ActionId) (f : core.fmt.Formatter) :
-  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
-  := do
-  let dyn :=
-    Dyn.mk _ (core.fmt.DebugShared (core.fmt.DebugVec core.fmt.DebugU8)) self
-  core.fmt.Formatter.debug_tuple_field1_finish f (toStr "ActionId") dyn
-
-/-- Trait implementation: [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::ActionId}]
-    Source: 'crates/dlc-core/src/obligation.rs', lines 41:16-41:21 -/
-@[reducible]
-def obligation.ActionId.Insts.CoreFmtDebug : core.fmt.Debug obligation.ActionId
-  := {
-  fmt := obligation.ActionId.Insts.CoreFmtDebug.fmt
-}
-
-/-- [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::Obligation}::fmt]:
-    Source: 'crates/dlc-core/src/obligation.rs', lines 20:16-20:21
-    Visibility: public -/
-def obligation.Obligation.Insts.CoreFmtDebug.fmt
-  (self : obligation.Obligation) (f : core.fmt.Formatter) :
-  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
-  := do
-  match self with
-  | obligation.Obligation.Top => core.fmt.Formatter.write_str f (toStr "Top")
-  | obligation.Obligation.Bot => core.fmt.Formatter.write_str f (toStr "Bot")
-  | obligation.Obligation.ActOf __self_0 __self_1 =>
-    let __self_01 := Dyn.mk _ principal.Principal.Insts.CoreFmtDebug __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared obligation.ActionId.Insts.CoreFmtDebug)
-        __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "ActOf") __self_01
-      __self_11
-  | obligation.Obligation.Within __self_0 =>
-    let __self_01 :=
-      Dyn.mk _ (core.fmt.DebugShared time.TimeBound.Insts.CoreFmtDebug)
-        __self_0
-    core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Within") __self_01
-  | obligation.Obligation.Tensor __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global
-        obligation.Obligation.Insts.CoreFmtDebug) __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        obligation.Obligation.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Tensor") __self_01
-      __self_11
-  | obligation.Obligation.Lolli __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global
-        obligation.Obligation.Insts.CoreFmtDebug) __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        obligation.Obligation.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Lolli") __self_01
-      __self_11
-  | obligation.Obligation.DpBudget __self_0 =>
-    let __self_01 :=
-      Dyn.mk _ (core.fmt.DebugShared obligation.DpBudget.Insts.CoreFmtDebug)
-        __self_0
-    core.fmt.Formatter.debug_tuple_field1_finish f (toStr "DpBudget") __self_01
-
-/-- Trait implementation: [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::Obligation}]
-    Source: 'crates/dlc-core/src/obligation.rs', lines 20:16-20:21 -/
-@[reducible]
-def obligation.Obligation.Insts.CoreFmtDebug : core.fmt.Debug
-  obligation.Obligation := {
-  fmt := obligation.Obligation.Insts.CoreFmtDebug.fmt
-}
-
-/-- [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Prop}::fmt]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 16:16-16:21
-    Visibility: public -/
-def syntax.Prop.Insts.CoreFmtDebug.fmt
-  (self : syntax.Prop) (f : core.fmt.Formatter) :
-  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
-  := do
-  match self with
-  | syntax.Prop.Top => core.fmt.Formatter.write_str f (toStr "Top")
-  | syntax.Prop.Bot => core.fmt.Formatter.write_str f (toStr "Bot")
-  | syntax.Prop.Atom __self_0 =>
-    let __self_01 := Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugU32) __self_0
-    core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Atom") __self_01
-  | syntax.Prop.Imp __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Prop.Insts.CoreFmtDebug)
-        __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Prop.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Imp") __self_01
-      __self_11
-  | syntax.Prop.And __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Prop.Insts.CoreFmtDebug)
-        __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Prop.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "And") __self_01
-      __self_11
-  | syntax.Prop.Or __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Prop.Insts.CoreFmtDebug)
-        __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Prop.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Or") __self_01
-      __self_11
-  | syntax.Prop.Says __self_0 __self_1 =>
-    let __self_01 := Dyn.mk _ principal.Principal.Insts.CoreFmtDebug __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Prop.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Says") __self_01
-      __self_11
-  | syntax.Prop.SpeaksFor __self_0 __self_1 =>
-    let __self_01 := Dyn.mk _ principal.Principal.Insts.CoreFmtDebug __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared principal.Principal.Insts.CoreFmtDebug)
-        __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "SpeaksFor")
-      __self_01 __self_11
-  | syntax.Prop.At __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Prop.Insts.CoreFmtDebug)
-        __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared ifc.Label.Insts.CoreFmtDebug) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "At") __self_01
-      __self_11
-  | syntax.Prop.Boxed __self_0 __self_1 =>
-    let __self_01 := Dyn.mk _ obligation.Obligation.Insts.CoreFmtDebug __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Prop.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Boxed") __self_01
-      __self_11
-  | syntax.Prop.Within __self_0 __self_1 =>
-    let __self_01 := Dyn.mk _ time.TimeBound.Insts.CoreFmtDebug __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Prop.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Within") __self_01
-      __self_11
-  | syntax.Prop.Tensor __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Prop.Insts.CoreFmtDebug)
-        __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Prop.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Tensor") __self_01
-      __self_11
-  | syntax.Prop.Lolli __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Prop.Insts.CoreFmtDebug)
-        __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Prop.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Lolli") __self_01
-      __self_11
-  | syntax.Prop.Replicated __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Prop.Insts.CoreFmtDebug)
-        __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared ifc.Label.Insts.CoreFmtDebug) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Replicated")
-      __self_01 __self_11
-
 /-- Trait implementation: [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Prop}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 16:16-16:21 -/
 @[reducible]
@@ -2119,6 +1845,26 @@ def judgment.KeyRing.Insts.CoreCloneClone.clone
 def judgment.KeyRing.Insts.CoreCloneClone : core.clone.Clone judgment.KeyRing
   := {
   clone := judgment.KeyRing.Insts.CoreCloneClone.clone
+}
+
+/-- [dlc_core::principal::{impl core::fmt::Debug for dlc_core::principal::PrincipalId}::fmt]:
+    Source: 'crates/dlc-core/src/principal.rs', lines 25:16-25:21
+    Visibility: public -/
+def principal.PrincipalId.Insts.CoreFmtDebug.fmt
+  (self : principal.PrincipalId) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn :=
+    Dyn.mk _ (core.fmt.DebugShared (Array.Insts.CoreFmtDebug 32#usize
+      core.fmt.DebugU8)) self
+  core.fmt.Formatter.debug_tuple_field1_finish f (toStr "PrincipalId") dyn
+
+/-- Trait implementation: [dlc_core::principal::{impl core::fmt::Debug for dlc_core::principal::PrincipalId}]
+    Source: 'crates/dlc-core/src/principal.rs', lines 25:16-25:21 -/
+@[reducible]
+def principal.PrincipalId.Insts.CoreFmtDebug : core.fmt.Debug
+  principal.PrincipalId := {
+  fmt := principal.PrincipalId.Insts.CoreFmtDebug.fmt
 }
 
 /-- [dlc_core::principal::{impl core::fmt::Debug for dlc_core::principal::KeyRecord}::fmt]:
@@ -2392,256 +2138,6 @@ def judgment.TypingProblem.Insts.CoreCloneClone : core.clone.Clone
   clone := judgment.TypingProblem.Insts.CoreCloneClone.clone
 }
 
-/-- [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Signature}::fmt]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 167:16-167:21
-    Visibility: public -/
-def syntax.Signature.Insts.CoreFmtDebug.fmt
-  (self : syntax.Signature) (f : core.fmt.Formatter) :
-  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
-  := do
-  let dyn := Dyn.mk _ core.fmt.DebugU8 self.alg
-  let dyn1 :=
-    Dyn.mk _ (core.fmt.DebugShared (core.fmt.DebugVec core.fmt.DebugU8))
-      self.bytes
-  core.fmt.Formatter.debug_struct_field2_finish f (toStr "Signature") (toStr
-    "alg") dyn (toStr "bytes") dyn1
-
-/-- Trait implementation: [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Signature}]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 167:16-167:21 -/
-@[reducible]
-def syntax.Signature.Insts.CoreFmtDebug : core.fmt.Debug syntax.Signature := {
-  fmt := syntax.Signature.Insts.CoreFmtDebug.fmt
-}
-
-/-- [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Term}::fmt]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 56:16-56:21
-    Visibility: public -/
-def syntax.Term.Insts.CoreFmtDebug.fmt
-  (self : syntax.Term) (f : core.fmt.Formatter) :
-  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
-  := do
-  match self with
-  | syntax.Term.Var __self_0 =>
-    let __self_01 := Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugU32) __self_0
-    core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Var") __self_01
-  | syntax.Term.Lam __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Prop.Insts.CoreFmtDebug)
-        __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Term.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Lam") __self_01
-      __self_11
-  | syntax.Term.App __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
-        __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Term.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "App") __self_01
-      __self_11
-  | syntax.Term.Sign __self_0 __self_1 __self_2 =>
-    let __self_01 := Dyn.mk _ principal.Principal.Insts.CoreFmtDebug __self_0
-    let __self_11 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
-        __self_1
-    let __self_21 :=
-      Dyn.mk _ (core.fmt.DebugShared syntax.Signature.Insts.CoreFmtDebug)
-        __self_2
-    core.fmt.Formatter.debug_tuple_field3_finish f (toStr "Sign") __self_01
-      __self_11 __self_21
-  | syntax.Term.Verify __self_0 __self_1 __self_2 =>
-    let __self_01 := Dyn.mk _ principal.Principal.Insts.CoreFmtDebug __self_0
-    let __self_11 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
-        __self_1
-    let __self_21 :=
-      Dyn.mk _ (core.fmt.DebugShared syntax.Signature.Insts.CoreFmtDebug)
-        __self_2
-    core.fmt.Formatter.debug_tuple_field3_finish f (toStr "Verify") __self_01
-      __self_11 __self_21
-  | syntax.Term.Delegate __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
-        __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Term.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Delegate") __self_01
-      __self_11
-  | syntax.Term.Attenuate __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
-        __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Prop.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Attenuate")
-      __self_01 __self_11
-  | syntax.Term.SaysBind __self_0 __self_1 __self_2 =>
-    let __self_01 := Dyn.mk _ principal.Principal.Insts.CoreFmtDebug __self_0
-    let __self_11 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
-        __self_1
-    let __self_21 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Term.Insts.CoreFmtDebug)) __self_2
-    core.fmt.Formatter.debug_tuple_field3_finish f (toStr "SaysBind") __self_01
-      __self_11 __self_21
-  | syntax.Term.Boxed __self_0 __self_1 __self_2 =>
-    let __self_01 := Dyn.mk _ obligation.Obligation.Insts.CoreFmtDebug __self_0
-    let __self_11 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
-        __self_1
-    let __self_21 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Term.Insts.CoreFmtDebug)) __self_2
-    core.fmt.Formatter.debug_tuple_field3_finish f (toStr "Boxed") __self_01
-      __self_11 __self_21
-  | syntax.Term.Discharge __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
-        __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Term.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Discharge")
-      __self_01 __self_11
-  | syntax.Term.LiftLabel __self_0 __self_1 =>
-    let __self_01 := Dyn.mk _ ifc.Label.Insts.CoreFmtDebug __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Term.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "LiftLabel")
-      __self_01 __self_11
-  | syntax.Term.Declassify __self_0 __self_1 __self_2 =>
-    let __self_01 := Dyn.mk _ ifc.Label.Insts.CoreFmtDebug __self_0
-    let __self_11 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
-        __self_1
-    let __self_21 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Term.Insts.CoreFmtDebug)) __self_2
-    core.fmt.Formatter.debug_tuple_field3_finish f (toStr "Declassify")
-      __self_01 __self_11 __self_21
-  | syntax.Term.Now __self_0 =>
-    let __self_01 :=
-      Dyn.mk _ (core.fmt.DebugShared time.TimeBound.Insts.CoreFmtDebug)
-        __self_0
-    core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Now") __self_01
-  | syntax.Term.WithinIntro __self_0 __self_1 =>
-    let __self_01 := Dyn.mk _ time.TimeBound.Insts.CoreFmtDebug __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Term.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "WithinIntro")
-      __self_01 __self_11
-  | syntax.Term.Pair __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
-        __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Term.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Pair") __self_01
-      __self_11
-  | syntax.Term.Fst __self_0 =>
-    let __self_01 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Term.Insts.CoreFmtDebug)) __self_0
-    core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Fst") __self_01
-  | syntax.Term.Snd __self_0 =>
-    let __self_01 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Term.Insts.CoreFmtDebug)) __self_0
-    core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Snd") __self_01
-  | syntax.Term.Inl __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Prop.Insts.CoreFmtDebug)
-        __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Term.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Inl") __self_01
-      __self_11
-  | syntax.Term.Inr __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Prop.Insts.CoreFmtDebug)
-        __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Term.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Inr") __self_01
-      __self_11
-  | syntax.Term.Case __self_0 __self_1 __self_2 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
-        __self_0
-    let __self_11 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
-        __self_1
-    let __self_21 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Term.Insts.CoreFmtDebug)) __self_2
-    core.fmt.Formatter.debug_tuple_field3_finish f (toStr "Case") __self_01
-      __self_11 __self_21
-  | syntax.Term.TensorIntro __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
-        __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Term.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "TensorIntro")
-      __self_01 __self_11
-  | syntax.Term.LetTensor __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
-        __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Term.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "LetTensor")
-      __self_01 __self_11
-  | syntax.Term.LetSays __self_0 __self_1 __self_2 =>
-    let __self_01 := Dyn.mk _ principal.Principal.Insts.CoreFmtDebug __self_0
-    let __self_11 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
-        __self_1
-    let __self_21 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Term.Insts.CoreFmtDebug)) __self_2
-    core.fmt.Formatter.debug_tuple_field3_finish f (toStr "LetSays") __self_01
-      __self_11 __self_21
-  | syntax.Term.SfExtract __self_0 =>
-    let __self_01 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Term.Insts.CoreFmtDebug)) __self_0
-    core.fmt.Formatter.debug_tuple_field1_finish f (toStr "SfExtract")
-      __self_01
-  | syntax.Term.Command __self_0 __self_1 __self_2 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
-        __self_0
-    let __self_11 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
-        __self_1
-    let __self_21 :=
-      Dyn.mk _ (core.fmt.DebugShared ifc.Label.Insts.CoreFmtDebug) __self_2
-    core.fmt.Formatter.debug_tuple_field3_finish f (toStr "Command") __self_01
-      __self_11 __self_21
-  | syntax.Term.RunCmd __self_0 __self_1 =>
-    let __self_01 :=
-      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
-        __self_0
-    let __self_11 :=
-      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
-        syntax.Term.Insts.CoreFmtDebug)) __self_1
-    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "RunCmd") __self_01
-      __self_11
-
 /-- Trait implementation: [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Term}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 56:16-56:21 -/
 @[reducible]
@@ -2826,6 +2322,14 @@ def obligation.Obligation.Insts.CoreCloneClone : core.clone.Clone
   clone := obligation.Obligation.Insts.CoreCloneClone.clone
 }
 
+/-- Trait implementation: [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::Obligation}]
+    Source: 'crates/dlc-core/src/obligation.rs', lines 20:16-20:21 -/
+@[reducible]
+def obligation.Obligation.Insts.CoreFmtDebug : core.fmt.Debug
+  obligation.Obligation := {
+  fmt := obligation.Obligation.Insts.CoreFmtDebug.fmt
+}
+
 /-- Trait implementation: [dlc_core::obligation::{impl core::marker::StructuralPartialEq for dlc_core::obligation::Obligation}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 20:23-20:32 -/
 @[reducible]
@@ -2856,6 +2360,25 @@ def obligation.Obligation.Insts.CoreCmpEq : core.cmp.Eq obligation.Obligation
 def obligation.ActionId.Insts.CoreCloneClone : core.clone.Clone
   obligation.ActionId := {
   clone := obligation.ActionId.Insts.CoreCloneClone.clone
+}
+
+/-- [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::ActionId}::fmt]:
+    Source: 'crates/dlc-core/src/obligation.rs', lines 41:16-41:21
+    Visibility: public -/
+def obligation.ActionId.Insts.CoreFmtDebug.fmt
+  (self : obligation.ActionId) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn :=
+    Dyn.mk _ (core.fmt.DebugShared (core.fmt.DebugVec core.fmt.DebugU8)) self
+  core.fmt.Formatter.debug_tuple_field1_finish f (toStr "ActionId") dyn
+
+/-- Trait implementation: [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::ActionId}]
+    Source: 'crates/dlc-core/src/obligation.rs', lines 41:16-41:21 -/
+@[reducible]
+def obligation.ActionId.Insts.CoreFmtDebug : core.fmt.Debug obligation.ActionId
+  := {
+  fmt := obligation.ActionId.Insts.CoreFmtDebug.fmt
 }
 
 /-- Trait implementation: [dlc_core::obligation::{impl core::marker::StructuralPartialEq for dlc_core::obligation::ActionId}]
@@ -2962,7 +2485,7 @@ def obligation.DpBudget.Insts.CoreHashHash : core.hash.Hash obligation.DpBudget
 }
 
 /-- [dlc_core::obligation::{impl core::clone::Clone for dlc_core::obligation::Seal}::clone]:
-    Source: 'crates/dlc-core/src/obligation.rs', lines 106:9-106:14
+    Source: 'crates/dlc-core/src/obligation.rs', lines 113:9-113:14
     Visibility: public -/
 def obligation.Seal.Insts.CoreCloneClone.clone
   (self : obligation.Seal) : Result obligation.Seal := do
@@ -2973,9 +2496,9 @@ def obligation.Seal.Insts.CoreCloneClone.clone
     Visibility: public -/
 def obligation.Discharged.Insts.CoreCloneClone.clone
   (self : obligation.Discharged) : Result obligation.Discharged := do
-  let o ← obligation.Obligation.Insts.CoreCloneClone.clone self.obligation
+  let o ← obligation.Obligation.Insts.CoreCloneClone.clone self.obl
   let s ← obligation.Seal.Insts.CoreCloneClone.clone self._seal
-  ok { obligation := o, _seal := s }
+  ok { obl := o, _seal := s }
 
 /-- Trait implementation: [dlc_core::obligation::{impl core::clone::Clone for dlc_core::obligation::Discharged}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 97:9-97:14 -/
@@ -2986,7 +2509,7 @@ def obligation.Discharged.Insts.CoreCloneClone : core.clone.Clone
 }
 
 /-- [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::Seal}::fmt]:
-    Source: 'crates/dlc-core/src/obligation.rs', lines 106:16-106:21
+    Source: 'crates/dlc-core/src/obligation.rs', lines 113:16-113:21
     Visibility: public -/
 def obligation.Seal.Insts.CoreFmtDebug.fmt
   (self : obligation.Seal) (f : core.fmt.Formatter) :
@@ -2995,7 +2518,7 @@ def obligation.Seal.Insts.CoreFmtDebug.fmt
   core.fmt.Formatter.write_str f (toStr "Seal")
 
 /-- Trait implementation: [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::Seal}]
-    Source: 'crates/dlc-core/src/obligation.rs', lines 106:16-106:21 -/
+    Source: 'crates/dlc-core/src/obligation.rs', lines 113:16-113:21 -/
 @[reducible]
 def obligation.Seal.Insts.CoreFmtDebug : core.fmt.Debug obligation.Seal := {
   fmt := obligation.Seal.Insts.CoreFmtDebug.fmt
@@ -3008,12 +2531,12 @@ def obligation.Discharged.Insts.CoreFmtDebug.fmt
   (self : obligation.Discharged) (f : core.fmt.Formatter) :
   Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
   := do
-  let dyn := Dyn.mk _ obligation.Obligation.Insts.CoreFmtDebug self.obligation
+  let dyn := Dyn.mk _ obligation.Obligation.Insts.CoreFmtDebug self.obl
   let dyn1 :=
     Dyn.mk _ (core.fmt.DebugShared obligation.Seal.Insts.CoreFmtDebug)
       self._seal
   core.fmt.Formatter.debug_struct_field2_finish f (toStr "Discharged") (toStr
-    "obligation") dyn (toStr "_seal") dyn1
+    "obl") dyn (toStr "_seal") dyn1
 
 /-- Trait implementation: [dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::Discharged}]
     Source: 'crates/dlc-core/src/obligation.rs', lines 97:16-97:21 -/
@@ -3031,7 +2554,7 @@ def obligation.Discharged.Insts.CoreMarkerStructuralPartialEq :
 }
 
 /-- [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::Seal> for dlc_core::obligation::Seal}::eq]:
-    Source: 'crates/dlc-core/src/obligation.rs', lines 106:23-106:32
+    Source: 'crates/dlc-core/src/obligation.rs', lines 113:23-113:32
     Visibility: public -/
 def obligation.Seal.Insts.CoreCmpPartialEqSeal.eq
   (self : obligation.Seal) (other : obligation.Seal) : Result Bool := do
@@ -3045,8 +2568,8 @@ def obligation.Discharged.Insts.CoreCmpPartialEqDischarged.eq
   Result Bool
   := do
   let b ←
-    obligation.Obligation.Insts.CoreCmpPartialEqObligation.eq self.obligation
-      other.obligation
+    obligation.Obligation.Insts.CoreCmpPartialEqObligation.eq self.obl
+      other.obl
   if b
   then obligation.Seal.Insts.CoreCmpPartialEqSeal.eq self._seal other._seal
   else ok false
@@ -3079,7 +2602,7 @@ def obligation.Discharged.Insts.CoreCmpEq : core.cmp.Eq obligation.Discharged
 }
 
 /-- Trait implementation: [dlc_core::obligation::{impl core::clone::Clone for dlc_core::obligation::Seal}]
-    Source: 'crates/dlc-core/src/obligation.rs', lines 106:9-106:14 -/
+    Source: 'crates/dlc-core/src/obligation.rs', lines 113:9-113:14 -/
 @[reducible]
 def obligation.Seal.Insts.CoreCloneClone : core.clone.Clone obligation.Seal
   := {
@@ -3087,14 +2610,14 @@ def obligation.Seal.Insts.CoreCloneClone : core.clone.Clone obligation.Seal
 }
 
 /-- Trait implementation: [dlc_core::obligation::{impl core::marker::StructuralPartialEq for dlc_core::obligation::Seal}]
-    Source: 'crates/dlc-core/src/obligation.rs', lines 106:23-106:32 -/
+    Source: 'crates/dlc-core/src/obligation.rs', lines 113:23-113:32 -/
 @[reducible]
 def obligation.Seal.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq obligation.Seal := {
 }
 
 /-- Trait implementation: [dlc_core::obligation::{impl core::cmp::PartialEq<dlc_core::obligation::Seal> for dlc_core::obligation::Seal}]
-    Source: 'crates/dlc-core/src/obligation.rs', lines 106:23-106:32 -/
+    Source: 'crates/dlc-core/src/obligation.rs', lines 113:23-113:32 -/
 @[reducible]
 impl_def obligation.Seal.Insts.CoreCmpPartialEqSeal : core.cmp.PartialEq
   obligation.Seal obligation.Seal := {
@@ -3104,14 +2627,14 @@ impl_def obligation.Seal.Insts.CoreCmpPartialEqSeal : core.cmp.PartialEq
 }
 
 /-- [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::Seal}::assert_fields_are_eq]:
-    Source: 'crates/dlc-core/src/obligation.rs', lines 106:34-106:36
+    Source: 'crates/dlc-core/src/obligation.rs', lines 113:34-113:36
     Visibility: public -/
 def obligation.Seal.Insts.CoreCmpEq.assert_fields_are_eq
   (self : obligation.Seal) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [dlc_core::obligation::{impl core::cmp::Eq for dlc_core::obligation::Seal}]
-    Source: 'crates/dlc-core/src/obligation.rs', lines 106:34-106:36 -/
+    Source: 'crates/dlc-core/src/obligation.rs', lines 113:34-113:36 -/
 @[reducible]
 def obligation.Seal.Insts.CoreCmpEq : core.cmp.Eq obligation.Seal := {
   partialEqInst := obligation.Seal.Insts.CoreCmpPartialEqSeal
@@ -3119,17 +2642,17 @@ def obligation.Seal.Insts.CoreCmpEq : core.cmp.Eq obligation.Seal := {
 }
 
 /-- [dlc_core::obligation::{dlc_core::obligation::Discharged}::new_sealed]:
-    Source: 'crates/dlc-core/src/obligation.rs', lines 119:4-124:5 -/
+    Source: 'crates/dlc-core/src/obligation.rs', lines 126:4-131:5 -/
 def obligation.Discharged.new_sealed
-  (obligation : obligation.Obligation) : Result obligation.Discharged := do
-  ok { obligation, _seal := () }
+  (obl : obligation.Obligation) : Result obligation.Discharged := do
+  ok { obl, _seal := () }
 
 /-- [dlc_core::obligation::{dlc_core::obligation::Discharged}::obligation]:
-    Source: 'crates/dlc-core/src/obligation.rs', lines 127:4-129:5
+    Source: 'crates/dlc-core/src/obligation.rs', lines 134:4-136:5
     Visibility: public -/
-def obligation.Discharged.impl.obligation
+def obligation.Discharged.obligation
   (self : obligation.Discharged) : Result obligation.Obligation := do
-  ok self.obligation
+  ok self.obl
 
 /-- Trait implementation: [dlc_core::principal::{impl core::clone::Clone for dlc_core::principal::Principal}]
     Source: 'crates/dlc-core/src/principal.rs', lines 8:9-8:14 -/
@@ -3137,6 +2660,14 @@ def obligation.Discharged.impl.obligation
 def principal.Principal.Insts.CoreCloneClone : core.clone.Clone
   principal.Principal := {
   clone := principal.Principal.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [dlc_core::principal::{impl core::fmt::Debug for dlc_core::principal::Principal}]
+    Source: 'crates/dlc-core/src/principal.rs', lines 8:16-8:21 -/
+@[reducible]
+def principal.Principal.Insts.CoreFmtDebug : core.fmt.Debug principal.Principal
+  := {
+  fmt := principal.Principal.Insts.CoreFmtDebug.fmt
 }
 
 /-- Trait implementation: [dlc_core::principal::{impl core::marker::StructuralPartialEq for dlc_core::principal::Principal}]
@@ -3161,50 +2692,6 @@ def principal.Principal.Insts.CoreCmpEq : core.cmp.Eq principal.Principal := {
   assert_fields_are_eq :=
     principal.Principal.Insts.CoreCmpEq.assert_fields_are_eq
 }
-
-/-- [dlc_core::principal::{impl core::hash::Hash for dlc_core::principal::PrincipalId}::hash]:
-    Source: 'crates/dlc-core/src/principal.rs', lines 25:38-25:42
-    Visibility: public -/
-def principal.PrincipalId.Insts.CoreHashHash.hash
-  {__H : Type} (corehashHasherInst : core.hash.Hasher __H)
-  (self : principal.PrincipalId) (state : __H) :
-  Result __H
-  := do
-  Array.Insts.CoreHashHash.hash U8.Insts.CoreHashHash corehashHasherInst self
-    state
-
-/-- [dlc_core::principal::{impl core::hash::Hash for dlc_core::principal::Principal}::hash]:
-    Source: 'crates/dlc-core/src/principal.rs', lines 8:38-8:42
-    Visibility: public -/
-def principal.Principal.Insts.CoreHashHash.hash
-  {__H : Type} (corehashHasherInst : core.hash.Hasher __H)
-  (self : principal.Principal) (state : __H) :
-  Result __H
-  := do
-  let self1 := read_discriminant self
-  let state1 ← Isize.Insts.CoreHashHash.hash corehashHasherInst self1 state
-  match self with
-  | principal.Principal.Atom __self_0 =>
-    principal.PrincipalId.Insts.CoreHashHash.hash corehashHasherInst __self_0
-      state1
-  | principal.Principal.And __self_0 __self_1 =>
-    let state2 ←
-      Box.Insts.CoreHashHash.hash Global principal.Principal.Insts.CoreHashHash
-        corehashHasherInst __self_0 state1
-    Box.Insts.CoreHashHash.hash Global principal.Principal.Insts.CoreHashHash
-      corehashHasherInst __self_1 state2
-  | principal.Principal.Or __self_0 __self_1 =>
-    let state2 ←
-      Box.Insts.CoreHashHash.hash Global principal.Principal.Insts.CoreHashHash
-        corehashHasherInst __self_0 state1
-    Box.Insts.CoreHashHash.hash Global principal.Principal.Insts.CoreHashHash
-      corehashHasherInst __self_1 state2
-  | principal.Principal.Acting __self_0 __self_1 =>
-    let state2 ←
-      Box.Insts.CoreHashHash.hash Global principal.Principal.Insts.CoreHashHash
-        corehashHasherInst __self_0 state1
-    Box.Insts.CoreHashHash.hash Global principal.Principal.Insts.CoreHashHash
-      corehashHasherInst __self_1 state2
 
 /-- Trait implementation: [dlc_core::principal::{impl core::hash::Hash for dlc_core::principal::Principal}]
     Source: 'crates/dlc-core/src/principal.rs', lines 8:38-8:42 -/
@@ -3246,6 +2733,17 @@ def principal.PrincipalId.Insts.CoreCmpEq : core.cmp.Eq principal.PrincipalId
   assert_fields_are_eq :=
     principal.PrincipalId.Insts.CoreCmpEq.assert_fields_are_eq
 }
+
+/-- [dlc_core::principal::{impl core::hash::Hash for dlc_core::principal::PrincipalId}::hash]:
+    Source: 'crates/dlc-core/src/principal.rs', lines 25:38-25:42
+    Visibility: public -/
+def principal.PrincipalId.Insts.CoreHashHash.hash
+  {__H : Type} (corehashHasherInst : core.hash.Hasher __H)
+  (self : principal.PrincipalId) (state : __H) :
+  Result __H
+  := do
+  Array.Insts.CoreHashHash.hash U8.Insts.CoreHashHash corehashHasherInst self
+    state
 
 /-- Trait implementation: [dlc_core::principal::{impl core::hash::Hash for dlc_core::principal::PrincipalId}]
     Source: 'crates/dlc-core/src/principal.rs', lines 25:38-25:42 -/
@@ -6802,6 +6300,27 @@ def syntax.Signature.Insts.CoreCloneClone : core.clone.Clone syntax.Signature
   clone := syntax.Signature.Insts.CoreCloneClone.clone
 }
 
+/-- [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Signature}::fmt]:
+    Source: 'crates/dlc-core/src/syntax.rs', lines 167:16-167:21
+    Visibility: public -/
+def syntax.Signature.Insts.CoreFmtDebug.fmt
+  (self : syntax.Signature) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn := Dyn.mk _ core.fmt.DebugU8 self.alg
+  let dyn1 :=
+    Dyn.mk _ (core.fmt.DebugShared (core.fmt.DebugVec core.fmt.DebugU8))
+      self.bytes
+  core.fmt.Formatter.debug_struct_field2_finish f (toStr "Signature") (toStr
+    "alg") dyn (toStr "bytes") dyn1
+
+/-- Trait implementation: [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Signature}]
+    Source: 'crates/dlc-core/src/syntax.rs', lines 167:16-167:21 -/
+@[reducible]
+def syntax.Signature.Insts.CoreFmtDebug : core.fmt.Debug syntax.Signature := {
+  fmt := syntax.Signature.Insts.CoreFmtDebug.fmt
+}
+
 /-- Trait implementation: [dlc_core::syntax::{impl core::marker::StructuralPartialEq for dlc_core::syntax::Signature}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 167:23-167:32 -/
 @[reducible]
@@ -6829,6 +6348,24 @@ def syntax.Signature.Insts.CoreCmpEq : core.cmp.Eq syntax.Signature := {
 @[reducible]
 def time.TimeBound.Insts.CoreCloneClone : core.clone.Clone time.TimeBound := {
   clone := time.TimeBound.Insts.CoreCloneClone.clone
+}
+
+/-- [dlc_core::time::{impl core::fmt::Debug for dlc_core::time::TimeBound}::fmt]:
+    Source: 'crates/dlc-core/src/time.rs', lines 12:16-12:21
+    Visibility: public -/
+def time.TimeBound.Insts.CoreFmtDebug.fmt
+  (self : time.TimeBound) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn := Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugU64) self.epoch_ms
+  core.fmt.Formatter.debug_struct_field1_finish f (toStr "TimeBound") (toStr
+    "epoch_ms") dyn
+
+/-- Trait implementation: [dlc_core::time::{impl core::fmt::Debug for dlc_core::time::TimeBound}]
+    Source: 'crates/dlc-core/src/time.rs', lines 12:16-12:21 -/
+@[reducible]
+def time.TimeBound.Insts.CoreFmtDebug : core.fmt.Debug time.TimeBound := {
+  fmt := time.TimeBound.Insts.CoreFmtDebug.fmt
 }
 
 /-- Trait implementation: [dlc_core::time::{impl core::marker::StructuralPartialEq for dlc_core::time::TimeBound}]

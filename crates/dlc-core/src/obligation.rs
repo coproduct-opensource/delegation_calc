@@ -96,7 +96,14 @@ impl DpBudget {
 /// that hasn't actually been satisfied.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Discharged {
-    obligation: Obligation,
+    // NOTE: field is named `obl`, not `obligation`, on purpose: the Aeneas Lean
+    // translation places every item under the `obligation` module namespace, so
+    // a field literally named `obligation` shadows that namespace inside the
+    // generated `Discharged` structure and the `new_sealed` body, breaking
+    // resolution of `obligation::Seal` / `obligation::Discharged`. Renaming the
+    // private field un-shadows it. The public audit accessor is still
+    // `Discharged::obligation()`, so no external API changes.
+    obl: Obligation,
     // The private field plus the absence of a public constructor means only
     // `crate::judgment::discharge_check` can mint this — the only API path
     // is via the typing rule.
@@ -116,16 +123,16 @@ impl Discharged {
     /// then the unit tests are the only callers; mark dead-code-allowed so
     /// the seal stays compilable.
     #[allow(dead_code)]
-    pub(crate) fn new_sealed(obligation: Obligation) -> Self {
+    pub(crate) fn new_sealed(obl: Obligation) -> Self {
         Discharged {
-            obligation,
+            obl,
             _seal: Seal,
         }
     }
 
     /// Inspect the obligation that was discharged. Audit-only.
     pub fn obligation(&self) -> &Obligation {
-        &self.obligation
+        &self.obl
     }
 }
 

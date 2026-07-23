@@ -43,6 +43,21 @@ AENEAS_PIN="${AENEAS_PIN:-$HOME/.aeneas-ci-cache/aeneas-nightly-2026.07.23-ad905
 [ -x "$AENEAS_PIN/aeneas" ] && PATH="$AENEAS_PIN:$PATH"
 export PATH
 
+# Charon `--opaque` patterns (name-matcher syntax). Keep the derived
+# `Debug`/`Hash` trait impls for the *recursive* core types OPAQUE so their
+# self-referencing (forward-ref, no `mutual` block) `fmt`/`hash` bodies are not
+# emitted — they would not elaborate under Lean 4.31 — and become external
+# axioms instead. `Debug`/`Hash` are off every correspondence compute path.
+# MUST stay byte-identical to the list in scripts/aeneas-translate.sh so the
+# committed tree is reproducible and local == CI.
+CHARON_OPAQUE=(
+  --opaque 'dlc_core::principal::{impl core::fmt::Debug for dlc_core::principal::Principal}'
+  --opaque 'dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::Obligation}'
+  --opaque 'dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Prop}'
+  --opaque 'dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Term}'
+  --opaque 'dlc_core::principal::{impl core::hash::Hash for dlc_core::principal::Principal}'
+)
+
 # Target table: "<pkg-name>|<crate-dir>|<llbc-stem>|<committed-dir>".
 # The order matters only for reporting; both are independent.
 TARGETS=(
@@ -82,7 +97,7 @@ for target in "${TARGETS[@]}"; do
   # Run Charon under the pinned nightly.
   (
     cd "$CRATE_DIR"
-    RUSTUP_TOOLCHAIN="$CHARON_TOOLCHAIN" charon cargo --preset aeneas
+    RUSTUP_TOOLCHAIN="$CHARON_TOOLCHAIN" charon cargo --preset aeneas "${CHARON_OPAQUE[@]}"
   )
 
   # Locate the .llbc Charon emitted. For a cargo *workspace member*, Charon

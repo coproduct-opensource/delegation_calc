@@ -27,6 +27,26 @@ AENEAS_PIN="${AENEAS_PIN:-$HOME/.aeneas-ci-cache/aeneas-nightly-2026.07.23-ad905
 [ -x "$AENEAS_PIN/aeneas" ] && PATH="$AENEAS_PIN:$PATH"
 export PATH
 
+# Charon `--opaque` patterns (name-matcher syntax). These keep the derived
+# `Debug`/`Hash` trait impls for the *recursive* core types OPAQUE, i.e. their
+# method bodies are not emitted; they become external axioms in
+# `FunsExternal_Template.lean` instead. Aeneas emits a recursive derived
+# `Debug`/`Hash` `fmt`/`hash` body that self-references the impl's own instance
+# with a FORWARD reference and no `mutual` block, which does not elaborate under
+# Lean 4.31 (`Unknown constant …Insts.CoreFmtDebug`). Opacifying the impl keeps
+# the instance record (referencing the now-axiom method) but drops the offending
+# body. `Debug`/`Hash` are off every correspondence compute path
+# (formatting/hashing only), so the axioms are sound (see FunsExternal.lean).
+# The Rust `#[derive(Debug, Hash)]` is UNCHANGED — tests still get real `Debug`.
+# MUST stay identical to the list in scripts/check-drift.sh so local == CI.
+CHARON_OPAQUE=(
+  --opaque 'dlc_core::principal::{impl core::fmt::Debug for dlc_core::principal::Principal}'
+  --opaque 'dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::Obligation}'
+  --opaque 'dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Prop}'
+  --opaque 'dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Term}'
+  --opaque 'dlc_core::principal::{impl core::hash::Hash for dlc_core::principal::Principal}'
+)
+
 # Target table: "<pkg-name>|<crate-dir>|<llbc-stem>|<committed-subdir>".
 # `committed-subdir` is relative to lean/ .
 TARGETS=(
@@ -38,10 +58,10 @@ charon_run() {
   # $1 = crate dir (absolute)
   cd "$1"
   if command -v charon &>/dev/null; then
-    RUSTUP_TOOLCHAIN="$CHARON_TOOLCHAIN" charon cargo --preset aeneas
+    RUSTUP_TOOLCHAIN="$CHARON_TOOLCHAIN" charon cargo --preset aeneas "${CHARON_OPAQUE[@]}"
   elif command -v nix &>/dev/null; then
     echo "  (using nix run for charon)"
-    nix run github:aeneasverif/aeneas#charon -- cargo --preset aeneas
+    nix run github:aeneasverif/aeneas#charon -- cargo --preset aeneas "${CHARON_OPAQUE[@]}"
   else
     echo "ERROR: Neither 'charon' nor 'nix' found in PATH." >&2
     exit 1

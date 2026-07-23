@@ -78,7 +78,7 @@ jobs:
           LIBS="Decidability CtxWellFormed Correspondence NonInterference \
                 ObligationSoundness ProtocolCorrespondence Progress Witness \
                 CoproductAlgebra GradedBridge GradedDistributiveLaw GradedBridgeGeneric \
-                CarveProto DerivClosed CarveCtx"
+                CarveProto DerivClosed CarveCtx CarveJudgment DLCD"
           # DLC: built by the lean-mathlib-cache action above (build-target: DLC).
           # DLCAeneas: Aeneas-generated translation; gated by scripts/check-drift.sh.
           EXCLUDED="DLC DLCAeneas"
@@ -109,7 +109,7 @@ jobs:
         # Prose mentions of the word in comments (`-- ... sorry ...`)
         # do not trip the gate (ledger.sh uses the same regexes).
         run: |
-          if grep -rEn '(:=[[:space:]]+sorry|:=[[:space:]]+by[[:space:]]+sorry|^[[:space:]]*sorry([[:space:]]|$))' delegation_calc/lean/DLC/ --include='*.lean'; then
+          if grep -rEn '(:=[[:space:]]+sorry|:=[[:space:]]+by[[:space:]]+sorry|^[[:space:]]*sorry([[:space:]]|$))' delegation_calc/lean/DLC/ delegation_calc/lean/DLCD/ --include='*.lean'; then
             echo "::error::Lean proofs contain `sorry` — soundness gate failed."
             exit 1
           fi

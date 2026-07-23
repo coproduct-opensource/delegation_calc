@@ -94,6 +94,16 @@ lean_lib «DLCD» where
 lean_lib «Correspondence» where
   roots := #[`DLC.Correspondence]
 
+-- DLC-D Phase R2.2b: the decode ⟦·⟧ and the conditional structural refinement
+-- squares relating the Aeneas-generated dlc-core / dlc-d-rsm functions to
+-- DLCD.Rsm, assuming the reducer correspondence (AppCommandRefines) as a stated
+-- hypothesis (R2.3 discharges it), plus the closed anti-vacuity witness.
+-- Imports DLCD (hand model) + the generated DlcCore/DlcDRsm trees, so building
+-- this lib COMPILES those trees in the main build (previously drift-gated only).
+-- Name differs from the existing «Correspondence» (the T2 crypto one).
+lean_lib «DLCDCorrespondence» where
+  roots := #[`DLCD.Correspondence]
+
 lean_lib «NonInterference» where
   roots := #[`DLC.NonInterference, `DLC.NonInterferenceTwoRun, `DLC.NonInterferenceLR, `DLC.NonInterferenceEnv, `DLC.NonInterferenceFundamental]
 

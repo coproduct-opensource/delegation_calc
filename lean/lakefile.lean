@@ -85,7 +85,7 @@ lean_lib «CarveProto» where
 -- New module tree `lean/DLCD/`; the committed log is an oracle (consensus is
 -- a later increment).
 lean_lib «DLCD» where
-  roots := #[`DLCD.Rsm, `DLCD.CapSafety, `DLCD.CapSafetyLinear, `DLCD.Consensus, `DLCD.MultiDecree, `DLCD.MultiDecreeLiveness, `DLCD.Liveness, `DLCD.Termination, `DLCD.Linearizable, `DLCD.Witness, `DLCD.LabelFlow, `DLCD.Calm, `DLCD.DistributedNI, `DLCD.TypedLog, `DLCD.Summary]
+  roots := #[`DLCD.Rsm, `DLCD.CapSafety, `DLCD.CapSafetyLinear, `DLCD.Consensus, `DLCD.ByzantineConsensus, `DLCD.MultiDecree, `DLCD.MultiDecreeLiveness, `DLCD.Liveness, `DLCD.Termination, `DLCD.Linearizable, `DLCD.Witness, `DLCD.LabelFlow, `DLCD.Calm, `DLCD.DistributedNI, `DLCD.TypedLog, `DLCD.Summary]
 
 lean_lib «Correspondence» where
   roots := #[`DLC.Correspondence]

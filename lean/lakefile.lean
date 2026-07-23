@@ -79,6 +79,14 @@ lean_lib «CarveJudgment» where
 lean_lib «CarveProto» where
   roots := #[`CarveProto]
 
+-- DLC-D Phase 1.0: the RSM operational substrate — FailureBudget contract,
+-- Command/Replica/CommittedLog/GlobalConfig, deterministic applyCommand, and
+-- the convergence seed (two replicas over the same committed prefix agree).
+-- New module tree `lean/DLCD/`; the committed log is an oracle (consensus is
+-- a later increment).
+lean_lib «DLCD» where
+  roots := #[`DLCD.Rsm]
+
 lean_lib «Correspondence» where
   roots := #[`DLC.Correspondence]
 

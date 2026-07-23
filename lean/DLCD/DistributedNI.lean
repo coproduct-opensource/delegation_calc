@@ -185,6 +185,10 @@ theorem lrel_step_left (ℓLow : Label) :
   | lolli φ ψ ihφ ihψ =>
       intro M M' N h hr X Y hX hY hXY
       exact ihψ (step_app_congr h) (hr X Y hX hY hXY)
+  | replicated φ ih =>
+      -- collapsing def (§5.2): LRel at `replicated φ` is defeq LRel at `φ`.
+      intro M M' N h hr
+      exact ih h hr
 
 /-- Forward closure on the RIGHT, by symmetry. -/
 theorem lrel_step_right (ℓLow : Label) (φ : Prop') {M N N' : Term}

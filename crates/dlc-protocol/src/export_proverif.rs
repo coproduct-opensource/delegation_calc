@@ -111,6 +111,12 @@ fn walk_term(term: &Term, out: &mut String) {
             walk_term(b, out);
         }
         Term::SfExtract(m) => walk_term(m, out),
+        // command(M, c, ℓ) -- structural descent into payload and credential
+        // subterm; no protocol fact this increment (untyped/inert, DLC-D R1).
+        Term::Command(m, c, _l) => {
+            walk_term(m, out);
+            walk_term(c, out);
+        }
         Term::Var(_) | Term::Now(_) => {}
     }
 }

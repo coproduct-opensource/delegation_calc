@@ -77,6 +77,10 @@ def pendingObligations : Term → List Obligation
   | Term.saysBind _ s b          => pendingObligations s ++ pendingObligations b
   | Term.letSays _ s b          => pendingObligations s ++ pendingObligations b
   | Term.sfExtract m            => pendingObligations m
+  -- command(M, c, ℓ) carries no obligation of its OWN (like `app`/`delegate`;
+  -- only `boxed` contributes one), but still walks both subterms so an
+  -- obligation nested in the payload or credential is not silently dropped.
+  | Term.command m c _          => pendingObligations m ++ pendingObligations c
 
 /-! ## Helper lemmas for T4 — partial closure (M1.Q3.d in progress).
 
@@ -125,6 +129,7 @@ theorem pendingObligations_shift (t : Term) (delta cutoff : Nat) :
   | saysBind _ _ _ ihS ihB => simp [shift, pendingObligations, ihS, ihB]
   | letSays _ _ _ ihS ihB => simp [shift, pendingObligations, ihS, ihB]
   | sfExtract _ ih => simp [shift, pendingObligations, ih]
+  | command _ _ _ ihM ihC => simp [shift, pendingObligations, ihM, ihC]
 
 /-- `substAt` doesn't introduce obligations: any obligation pending in
 the result was either pending in the body or pending in the
@@ -391,6 +396,23 @@ theorem pendingObligations_substAt_subset (body : Term) :
     unfold substAt at hmem
     unfold pendingObligations at hmem
     exact ih value depth o hmem
+  | command m c l ihM ihC =>
+    intro value depth o hmem
+    -- substAt (command m c l) = command (substAt m..) (substAt c..) l, whose
+    -- pendingObligations is the ++ of the two subterms' — the `app` shape.
+    have hmem' : o ∈ pendingObligations (substAt m value depth) ++
+                     pendingObligations (substAt c value depth) := hmem
+    rcases List.mem_append.mp hmem' with hM | hC
+    · rcases ihM value depth o hM with h | h
+      · left
+        show o ∈ pendingObligations m ++ pendingObligations c
+        exact List.mem_append.mpr (Or.inl h)
+      · right; exact h
+    · rcases ihC value depth o hC with h | h
+      · left
+        show o ∈ pendingObligations m ++ pendingObligations c
+        exact List.mem_append.mpr (Or.inr h)
+      · right; exact h
 
 /-! ## T4 — Proven (non-introduction direction).
 
@@ -652,6 +674,9 @@ theorem t4_no_new_obligation
         simp [hm] at h
         subst h
         exact ih m' hm o hmem
+  -- command is STUCK: `step (command ..) = none`, so `step M = some M'` is
+  -- impossible — the case is vacuous, exactly like the frozen `sign`/`verify`.
+  | command _ _ _ _ _ => intro M' h; simp [step] at h
 
 /-- T4 — Obligation soundness statement (non-introduction direction).
 Kept as `abbrev` aliasing the proved theorem's statement. NO LONGER

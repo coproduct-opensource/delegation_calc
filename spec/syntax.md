@@ -80,6 +80,7 @@ O, O' ::= ⊤ | ⊥                  trivially / un-dischargeable
        | ◇_τ φ                   time-bounded
        | φ ⊗ ψ                   multiplicative (linear) conjunction
        | φ ⊸ ψ                   linear implication
+       | Replicated φ            committed-replicated store type (DLC-D)
 ```
 
 **Design notes**
@@ -95,6 +96,16 @@ O, O' ::= ⊤ | ⊥                  trivially / un-dischargeable
 - The linear connectives `⊗` and `⊸` enable resource-style accounting for
   proofs that must be used exactly once — load-bearing for the DP-budget
   obligation form (`□_{ε-DP(δ)} φ` of §4.3 in the design spec).
+- `Replicated φ` is the type-level shadow of a value that has entered the
+  committed replicated log at store-type `φ` (DLC-D; see
+  `spec/distributed-calculus-design-2026-07.md` §2). **Added 2026-07-23 as part
+  of the R1 first-classing, increment 1 (pure syntax fan-out).** It is a
+  single-argument modality that recurses into `φ` exactly as `p says φ` does.
+  In this increment it has **no introduction or elimination rule** — the
+  `commit-I`/`query-I` typing rules of the design are deferred to a later
+  increment — so it is an *inert, uninhabited* proposition form: no `Deriv`/
+  `PropDeriv` rule mentions it, and every typing-derivation induction re-founds
+  for free (it never occurs in a derivation).
 
 ## 5. Proof terms
 
@@ -113,6 +124,7 @@ M, N ::= x                             variable (de-Bruijn index)
        | declassify_ℓ(M, π)            controlled label lowering
        | now(τ)                        time anchor proof of now < τ
        | within(M, τ)                  ◇_τ introduction
+       | command(M, c, ℓ)              first-class replicated write (DLC-D)
 ```
 
 **Design notes**
@@ -164,6 +176,21 @@ M, N ::= x                             variable (de-Bruijn index)
   `now < τ`, not a runtime check; the verifier confirms the embedded anchor
   commitment is well-formed (e.g., a drand round signature) and that the
   round's epoch is < `τ`.
+- `command(M, c, ℓ)` is the first-class replicated write of DLC-D (see
+  `spec/distributed-calculus-design-2026-07.md` §1). `M` is the store
+  transformer, `c` is the capability **credential — a SUBTERM**, not a typing
+  side-condition (mirroring the `box_O`/`Sign` "obligation carried by the term"
+  discipline), and `ℓ` is the IFC label at which the write is classified.
+  **Added 2026-07-23 as part of the R1 first-classing, increment 1 (pure syntax
+  fan-out).** Neither subterm is a binder, so — like `M N` / `⟨M, N⟩` and unlike
+  `saysBind`/`letTensor` — `shift`/`substAt` recurse into `M` and `c` **without
+  bumping the cutoff**; the label is untouched. In this increment `command` has
+  **no typing rule and no reduction rule**: it is a *stuck non-value* (`step`
+  leaves it fixed, `Value (command …) = false`) and is *untypable* (no
+  `Deriv`/`PropDeriv`/inference rule produces a type for it). The `commit-I`
+  typing rule and `command-β` reduction of the design are deferred to later
+  increments. Because it is untypable, Progress, NonInterference, subject
+  reduction and every other typing-derivation induction re-found for free.
 
 ## 6. Canonical encoding
 

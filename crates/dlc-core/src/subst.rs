@@ -109,6 +109,13 @@ pub fn shift(term: &Term, delta: i32, cutoff: u32) -> Term {
             Box::new(shift(body, delta, cutoff + 1)),
         ),
         Term::SfExtract(m) => Term::SfExtract(Box::new(shift(m, delta, cutoff))),
+        // command(M, c, ℓ): neither subterm binds, so recurse into payload and
+        // credential at the SAME cutoff (no bump); the label is untouched.
+        Term::Command(m, c, l) => Term::Command(
+            Box::new(shift(m, delta, cutoff)),
+            Box::new(shift(c, delta, cutoff)),
+            l.clone(),
+        ),
     }
 }
 
@@ -206,6 +213,12 @@ fn subst_at(body: &Term, value: &Term, depth: u32) -> Term {
             Box::new(subst_at(body, value, depth + 1)),
         ),
         Term::SfExtract(m) => Term::SfExtract(Box::new(subst_at(m, value, depth))),
+        // command(M, c, ℓ): non-binder subterms, recurse at the same depth.
+        Term::Command(m, c, l) => Term::Command(
+            Box::new(subst_at(m, value, depth)),
+            Box::new(subst_at(c, value, depth)),
+            l.clone(),
+        ),
     }
 }
 

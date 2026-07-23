@@ -29,6 +29,16 @@ inductive Prop' : Type where
   | within : TimeBound → Prop' → Prop'
   | tensor : Prop' → Prop' → Prop'
   | lolli : Prop' → Prop' → Prop'
+  /-- `Replicated φ` — the type of a value committed to the replicated log at
+  store-type `φ` (DLC-D; `spec/distributed-calculus-design-2026-07.md` §2).
+  Mirrors `Prop::Replicated` in `crates/dlc-core/src/syntax.rs`.
+
+  Added 2026-07-23 (R1 first-classing, increment 1: pure syntax fan-out). A
+  single-argument modality that recurses into `φ` as `says`/`within` do. INERT
+  this increment: it has NO `PropDeriv` rule (the `commit-I`/`query-I` rules are
+  deferred), so no typing derivation ever mentions it and every
+  typing-derivation induction re-founds for free. -/
+  | replicated : Prop' → Prop'
   -- No `deriving Repr, DecidableEq` here: the constituent `Label` (alias for
   -- nucleus's Aeneas-generated `nucleus_ifc_kernel.CapabilityLattice`) does not
   -- carry derived instances. Equalities that need to be computed land via
@@ -87,6 +97,22 @@ inductive Term : Type where
   | saysBind : Principal → Term → Term → Term
   | letSays : Principal → Term → Term → Term
   | sfExtract : Term → Term
+  /-- `command(M, c, ℓ)` — first-class replicated write (DLC-D;
+  `spec/distributed-calculus-design-2026-07.md` §1). `M` is the store
+  transformer, `c` is the capability CREDENTIAL SUBTERM (not a typing
+  side-condition — the `boxed`/`sign` "obligation carried by the term"
+  discipline), `ℓ` is the IFC label. Mirrors `Term::Command(Box<Term>,
+  Box<Term>, Label)` in `crates/dlc-core/src/syntax.rs`.
+
+  Added 2026-07-23 (R1 first-classing, increment 1: pure syntax fan-out).
+  Neither subterm is a binder, so — like `app`/`pair`, unlike `saysBind`/
+  `letTensor` — `shift`/`substAt` recurse into `M` and `c` WITHOUT bumping the
+  cutoff; the label is untouched. INERT + UNTYPABLE this increment: `step`
+  leaves it STUCK (`Value (command …) = false`), and there is NO `Deriv`/
+  `PropDeriv`/inference rule that types it (`commit-I` is deferred). Because it
+  is untypable, Progress / NonInterference / subject reduction and every other
+  typing-derivation induction re-found for free. -/
+  | command : Term → Term → Label → Term
   -- No `deriving Repr, DecidableEq` here: the constituent `Label` (alias for
   -- nucleus's Aeneas-generated `nucleus_ifc_kernel.CapabilityLattice`) does not
   -- carry derived instances. Equalities that need to be computed land via

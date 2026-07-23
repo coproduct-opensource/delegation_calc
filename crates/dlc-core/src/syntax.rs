@@ -41,6 +41,15 @@ pub enum Prop {
     Tensor(Box<Prop>, Box<Prop>),
     /// φ ⊸ ψ — linear implication.
     Lolli(Box<Prop>, Box<Prop>),
+    /// `Replicated φ` — the type of a value committed to the replicated log at
+    /// store-type `φ` (DLC-D). A single-argument modality; its DecidableEq /
+    /// inference recurses into `φ` exactly as `Says`/`Within` do.
+    ///
+    /// Added 2026-07-23 (R1 first-classing, increment 1: pure syntax fan-out).
+    /// INERT this increment: no introduction/elimination rule (`commit-I`/
+    /// `query-I` are deferred), so no `Deriv`/`PropDeriv` rule mentions it and
+    /// every typing induction re-founds for free.
+    Replicated(Box<Prop>),
 }
 
 /// Proof term forms — runtime objects whose well-typedness is the calculus.
@@ -126,6 +135,18 @@ pub enum Term {
     /// `sfExtract(M)` — `sf-extract`: from `p says (q ⇒ p)` extract
     /// `q ⇒ p`. Trusts the principal's affirmation.
     SfExtract(Box<Term>),
+    /// `command(M, c, ℓ)` — first-class replicated write (DLC-D). `M` is the
+    /// store transformer, `c` is the capability **credential subterm** (not a
+    /// typing side-condition), `ℓ` is the IFC label of the write.
+    ///
+    /// Added 2026-07-23 (R1 first-classing, increment 1: pure syntax fan-out).
+    /// Neither subterm is a binder, so `shift`/`subst_at` recurse into `M` and
+    /// `c` WITHOUT bumping the cutoff (the `App`/`Pair` shape); the label is
+    /// untouched. INERT + UNTYPABLE this increment: no reduction rule (`step`
+    /// leaves it stuck) and no typing rule (`commit-I` is deferred, so `infer`
+    /// returns `None`). Because it is untypable, Progress / NI / subject
+    /// reduction re-found for free.
+    Command(Box<Term>, Box<Term>, Label),
 }
 
 /// A cryptographic signature carried by `Sign` and `Verify` terms.

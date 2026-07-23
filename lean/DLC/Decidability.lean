@@ -61,6 +61,9 @@ def Term.isPropositional : Term → Bool
   | Term.boxed _ m n      => m.isPropositional && n.isPropositional
   | Term.discharge m n    => m.isPropositional && n.isPropositional
   | Term.letTensor s b    => s.isPropositional && b.isPropositional
+  -- command is UNTYPABLE this increment (no `commit-I` rule); it is not part of
+  -- the propositional fragment `decideLean` types, so it is not propositional.
+  | Term.command _ _ _    => false
 
 /-- A full-calculus term: every constructor accepted, including modal /
 temporal / IFC / linear forms. The Q4 `decide_pure` (Rust mirror at
@@ -90,6 +93,9 @@ def Term.isInCalculus : Term → Bool
   | Term.saysBind _ s b      => s.isInCalculus && b.isInCalculus
   | Term.letSays _ s b      => s.isInCalculus && b.isInCalculus
   | Term.sfExtract m        => m.isInCalculus
+  -- command is UNTYPABLE this increment (no `commit-I` rule), so `decideLean`
+  -- rejects it; keep `isInCalculus` in lockstep by excluding it.
+  | Term.command _ _ _      => false
 
 /-! ## Decidable equality on `Prop'`.
 
@@ -113,6 +119,7 @@ def Prop'.beq : Prop' → Prop' → Bool
   | .within τ a, .within τ' a' => decide (τ = τ') && Prop'.beq a a'
   | .tensor a b, .tensor a' b' => Prop'.beq a a' && Prop'.beq b b'
   | .lolli a b, .lolli a' b' => Prop'.beq a a' && Prop'.beq b b'
+  | .replicated a, .replicated a' => Prop'.beq a a'
   | _, _ => false
 
 /-- Soundness of `Prop'.beq`: a `true` answer implies actual equality. The
@@ -189,6 +196,11 @@ theorem Prop'.beq_eq_true_iff_eq : ∀ (φ ψ : Prop'),
     cases ψ <;> (try (simp [Prop'.beq] at h))
     obtain ⟨ha, hb⟩ := h
     exact congr (congrArg Prop'.lolli (iha _ ha)) (ihb _ hb)
+  case replicated a iha =>
+    intro ψ h
+    cases ψ <;> (try (simp [Prop'.beq] at h))
+    -- single Prop' argument, no extra field: `h : Prop'.beq a a' = true`.
+    exact congrArg Prop'.replicated (iha _ h)
 
 /-- Reflexivity of `Prop'.beq`: every proposition compares equal to itself.
 Load-bearing for T1 completeness — the App case of `decideLean` calls
@@ -211,6 +223,7 @@ theorem Prop'.beq_refl : ∀ (φ : Prop'), Prop'.beq φ φ = true := by
   case within τ a iha => simp [Prop'.beq, iha]
   case tensor a b iha ihb => simp [Prop'.beq, iha, ihb]
   case lolli a b iha ihb => simp [Prop'.beq, iha, ihb]
+  case replicated a iha => simp [Prop'.beq, iha]
 
 /-! ## `decideLean` — Lean mirror of Rust `infer`.
 
@@ -436,6 +449,12 @@ def decideLean (Γ : Ctx) : Term → Option Prop'
       -- matching PropDeriv.letTensor's `(φ :: ψ :: Γₐ)` convention.
       decideLean (Ctx.consA φ (Ctx.consA ψ Γ)) b
     | _ => none
+  | .command _ _ _ =>
+    -- UNTYPABLE this increment: the `commit-I` rule is deferred, so there is no
+    -- rule to give `command` a type. Fail-closed (`none`), exactly like the
+    -- `boxed`/`saysBind` arms — nothing is accepted the calculus cannot derive,
+    -- and every soundness statement re-founds vacuously over this arm.
+    none
 
 /-! ## T1 — Propositional soundness (the headline closure for this PR).
 

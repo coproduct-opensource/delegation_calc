@@ -294,6 +294,11 @@ pub fn infer(ctx: &Ctx, term: &Term) -> Option<Prop> {
             },
             _ => None,
         },
+        // command(M, c, ℓ) is UNTYPABLE this increment: the `commit-I` rule is
+        // deferred, so there is no rule to give it a type. Inference returns
+        // `None` (ill-typed / no type), which is what re-founds every typing
+        // induction for free — a `command` never appears in a derivation.
+        Term::Command(..) => None,
     }
 }
 

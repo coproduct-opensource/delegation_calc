@@ -109,6 +109,10 @@ def Term.allSigsVerify (K : KeyRing) : Term → Bool
   | Term.saysBind _ s b    => s.allSigsVerify K && b.allSigsVerify K
   | Term.letSays _ s b    => s.allSigsVerify K && b.allSigsVerify K
   | Term.sfExtract m      => m.allSigsVerify K
+  -- command(M, c, ℓ): walk BOTH subterms so a `sign` nested in the payload or
+  -- the credential is still signature-checked (mirrors the Rust verifier's
+  -- `all_sigs_verify` command arm; only `sign` itself carries a signature).
+  | Term.command m c _    => m.allSigsVerify K && c.allSigsVerify K
 
 /-! ## `DerivCrypto K` — the cryptographic typing judgment.
 

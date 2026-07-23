@@ -66,6 +66,7 @@ fn prop_id(p: &Prop) -> String {
         Prop::Within(_, _) => "within(...)".to_string(),
         Prop::Tensor(_, _) => "tensor(...)".to_string(),
         Prop::Lolli(_, _) => "lolli(...)".to_string(),
+        Prop::Replicated(_) => "replicated(...)".to_string(),
     }
 }
 
@@ -144,6 +145,13 @@ fn walk_term(term: &Term, out: &mut String) {
         }
         Term::SfExtract(m) => {
             walk_term(m, out);
+        }
+        // command(M, c, ℓ) -- structural descent only; no Tamarin event this
+        // increment (untyped/inert, DLC-D R1). The distributed commit protocol
+        // is modelled separately in the DLCD Lean layer, not synthesised here.
+        Term::Command(m, c, _l) => {
+            walk_term(m, out);
+            walk_term(c, out);
         }
         Term::Var(_) | Term::Now(_) => {}
     }

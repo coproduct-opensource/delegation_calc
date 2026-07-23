@@ -127,6 +127,14 @@ def Indistinguishable (ℓLow : Label) : Prop' → Term → Term → Prop
       -- Linear implication: same conservative LR shape as imp.
       ∀ (M' : Term), Indistinguishable ℓLow α M' M' →
         Indistinguishable ℓLow β (Term.app M M') (Term.app N M')
+  | .replicated φ, M, N =>
+      -- COLLAPSING definition (design §5.2): a replicated value is
+      -- low-related iff its underlying `φ`-value is — convergence collapses
+      -- replicas to one observable. This delegates to `φ` exactly as the
+      -- `boxed`/`within`/`says` modalities do, so reflexivity / symmetry /
+      -- transitivity re-found by the single IH. (Inert this increment:
+      -- `replicated` is untypable, so it never actually arises.)
+      Indistinguishable ℓLow φ M N
 
 /-! ## Reflexivity — every term is self-indistinguishable.
 
@@ -183,6 +191,10 @@ theorem Indistinguishable_refl (ℓLow : Label) (φ : Prop') :
   case lolli α β _ ihβ =>
     intro M M' _
     exact ihβ (Term.app M M')
+  case replicated φ ihφ =>
+    intro M
+    show Indistinguishable ℓLow φ M M
+    exact ihφ M
 
 /-! ## Symmetry — Indistinguishable is symmetric in M, N.
 
@@ -245,6 +257,9 @@ theorem Indistinguishable_symm (ℓLow : Label) (φ : Prop') (M N : Term)
   case lolli α β _ ihβ =>
     intro M' hM'
     exact ihβ _ _ (h M' hM')
+  case replicated φ ihφ =>
+    show Indistinguishable ℓLow φ N M
+    exact ihφ M N h
 
 /-! ## Transitivity — Indistinguishable is transitive in M, N, P.
 
@@ -307,6 +322,9 @@ theorem Indistinguishable_trans (ℓLow : Label) (φ : Prop')
   case lolli α β _ ihβ =>
     intro M' hM'
     exact ihβ _ _ _ (h12 M' hM') (h23 M' hM')
+  case replicated φ ihφ =>
+    show Indistinguishable ℓLow φ M P
+    exact ihφ M N P h12 h23
 
 /-! ## T3 status — the theorems below are NOT non-interference.
 

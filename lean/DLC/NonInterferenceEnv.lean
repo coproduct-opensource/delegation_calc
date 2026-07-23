@@ -214,6 +214,10 @@ theorem closedAbove_sfExtract_iff {m : Term} {k : Nat} :
     ClosedAbove (Term.sfExtract m) k ↔ ClosedAbove m k := by
   simp only [ClosedAbove, usesVar]
 
+theorem closedAbove_command_iff {m c : Term} {ℓ : Label} {k : Nat} :
+    ClosedAbove (Term.command m c ℓ) k ↔ ClosedAbove m k ∧ ClosedAbove c k := by
+  simp only [ClosedAbove, usesVar, Bool.or_eq_false_iff, imp_and, forall_and]
+
 /-! ### Closed terms are fixed points of `shift` and `substAt` -/
 
 private theorem shift_closedAbove_aux (d : Nat) :
@@ -328,6 +332,11 @@ private theorem shift_closedAbove_aux (d : Nat) :
       intro k c h hc
       simp only [shift]
       rw [ih k c (closedAbove_sfExtract_iff.mp h) hc]
+  | command m cr l ihm ihc =>
+      intro k c h hc
+      obtain ⟨hm, hcr⟩ := closedAbove_command_iff.mp h
+      simp only [shift]
+      rw [ihm k c hm hc, ihc k c hcr hc]
 
 /-- Shifting above the free-variable bound is a no-op. -/
 theorem shift_closedAbove {t : Term} {k : Nat} (h : ClosedAbove t k) (d c : Nat)
@@ -449,6 +458,11 @@ private theorem substAt_closedAbove_aux (v : Term) :
       intro k i h hi
       simp only [substAt]
       rw [ih k i (closedAbove_sfExtract_iff.mp h) hi]
+  | command m cr l ihm ihc =>
+      intro k i h hi
+      obtain ⟨hm, hcr⟩ := closedAbove_command_iff.mp h
+      simp only [substAt]
+      rw [ihm k i hm hi, ihc k i hcr hi]
 
 /-- Substituting at or above the free-variable bound is a no-op. -/
 theorem substAt_closedAbove {t : Term} {k : Nat} (h : ClosedAbove t k) (v : Term)
@@ -593,6 +607,11 @@ theorem substAt_closes_gen {v : Term} (hv : Closed v) :
       intro n k hb hk
       simp only [substAt]
       exact closedAbove_sfExtract_iff.mpr (ih n k (closedAbove_sfExtract_iff.mp hb) hk)
+  | command m cr l ihm ihc =>
+      intro n k hb hk
+      obtain ⟨hm, hcr⟩ := closedAbove_command_iff.mp hb
+      simp only [substAt]
+      exact closedAbove_command_iff.mpr ⟨ihm n k hm hk, ihc n k hcr hk⟩
 
 /-- Substituting a CLOSED value at index `k` eliminates that index and
 lowers the ones above: the result is closed-above `k` if the original
@@ -940,6 +959,9 @@ private theorem step_preserves_closed_aux :
             subst h
             exact closedAbove_sfExtract_iff.mpr
               (ih m' hm (closed_of_closed_sfExtract hc))
+  -- command is STUCK: `step (command ..) = none`, so `step M = some M'` is
+  -- impossible — vacuous, like the frozen `sign`/`verify` cases.
+  | command _ _ _ _ _ => intro M' h _; simp [step] at h
 
 /-- One reduction step preserves closedness. -/
 theorem step_preserves_closed {M M' : Term} (h : step M = some M') (hc : Closed M) :

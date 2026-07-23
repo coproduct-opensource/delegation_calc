@@ -126,7 +126,9 @@ pub fn step(term: &Term) -> Option<Term> {
 
         // Frozen forms and values: Var, Lam, Sign, Pair, Inl, Inr,
         // TensorIntro, Now, WithinIntro, Verify, Attenuate, Discharge,
-        // LiftLabel, Declassify.
+        // LiftLabel, Declassify. Also `Command` (DLC-D, R1 increment 1): a
+        // STUCK non-value — its `command-β` reduction is deferred to a later
+        // increment, so it does not step.
         _ => None,
     }
 }

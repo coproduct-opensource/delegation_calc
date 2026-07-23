@@ -103,6 +103,13 @@ def LRel (ℓLow : Label) : Prop' → Term → Term → Prop
   | .lolli φ ψ, M, N =>
       ∀ X Y, Closed X → Closed Y → LRel ℓLow φ X Y →
         LRel ℓLow ψ (Term.app M X) (Term.app N Y)
+  | .replicated φ, M, N =>
+      -- COLLAPSING definition (design §5.2): a replicated value is two-run
+      -- related iff its underlying `φ` is — convergence collapses replicas to
+      -- one observable, so the modality is transparent to the low observer.
+      -- Every PER/anti-reduction/congruence lemma re-founds through the single
+      -- IH. (Inert this increment: `replicated` is untypable, never arises.)
+      LRel ℓLow φ M N
 
 /-! ## Values are inert -/
 
@@ -237,6 +244,10 @@ theorem lrel_expand_left (ℓLow : Label) :
   | lolli φ ψ ihφ ihψ =>
       intro M M' N h hr X Y hX hY hXY
       exact ihψ (step_app_congr h) (hr X Y hX hY hXY)
+  | replicated φ ih =>
+      -- collapsing def: LRel at `replicated φ` is defeq LRel at `φ`.
+      intro M M' N h hr
+      exact ih h hr
 
 /-- Right-side expansion, by the same argument. -/
 theorem lrel_expand_right (ℓLow : Label) :
@@ -289,6 +300,9 @@ theorem lrel_expand_right (ℓLow : Label) :
   | lolli φ ψ ihφ ihψ =>
       intro M N N' h hr X Y hX hY hXY
       exact ihψ (step_app_congr h) (hr X Y hX hY hXY)
+  | replicated φ ih =>
+      intro M N N' h hr
+      exact ih h hr
 
 /-- Multi-step expansion on the left. -/
 theorem lrel_expand_steps_left (ℓLow : Label) (φ : Prop') {M M' N : Term}
@@ -356,6 +370,9 @@ theorem lrel_symm (ℓLow : Label) :
   | lolli φ ψ ihφ ihψ =>
       intro M N hr X Y hX hY hXY
       exact ihψ (hr Y X hY hX (ihφ hXY))
+  | replicated φ ih =>
+      intro M N hr
+      exact ih hr
 
 /-- Transitivity. The value-style cases use determinism
 (`steps_to_value_unique`) to identify the two reducts of the middle
@@ -437,6 +454,9 @@ theorem lrel_trans (ℓLow : Label) :
       intro M N P h₁ h₂ X Y hX hY hXY
       have hYY : LRel ℓLow φ Y Y := ihφ (lrel_symm ℓLow φ hXY) hXY
       exact ihψ (h₁ X Y hX hY hXY) (h₂ Y Y hY hY hYY)
+  | replicated φ ih =>
+      intro M N P h₁ h₂
+      exact ih h₁ h₂
 
 
 /-! ## Design witnesses.

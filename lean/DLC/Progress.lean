@@ -51,6 +51,12 @@ def CoreTerm : Term → Bool
   | Term.saysBind _ s b => CoreTerm s && CoreTerm b
   | Term.letSays _ s b => CoreTerm s && CoreTerm b
   | Term.sfExtract m => CoreTerm m
+  -- command(M, c, ℓ) is a STUCK non-value (its `command-β` reduction is
+  -- deferred to a later increment), so — like the frozen `verify`/`boxed`/
+  -- `discharge` forms — it is NOT a computational-core term. Making it `false`
+  -- keeps Progress ("a core term is a value or steps") true: a `command`
+  -- neither is a `Value` nor steps, so it must be excluded from the core.
+  | Term.command _ _ _ => false
 
 /-- Values of the core: introduction forms (call-by-name — subterms
 unevaluated). -/

@@ -134,6 +134,9 @@ fn enc_prop(p: &Prop) -> Value {
         Prop::Lolli(a, b) => {
             Value::Array(vec![Value::Integer(12.into()), enc_prop(a), enc_prop(b)])
         }
+        // Replicated φ -- tag 13, APPENDED (DLC-D R1 increment 1). Explicit
+        // positional tag, so no existing prop's encoding moves.
+        Prop::Replicated(a) => Value::Array(vec![Value::Integer(13.into()), enc_prop(a)]),
     }
 }
 
@@ -228,6 +231,15 @@ fn enc_term(t: &Term) -> Value {
             enc_obligation(o),
             enc_term(m),
             enc_term(n),
+        ]),
+        // command(M, c, ℓ) -- tag 24, APPENDED (DLC-D R1 increment 1). Payload,
+        // credential subterm, then the IFC label. Explicit positional tag, so
+        // every existing term's encoding stays byte-identical.
+        Term::Command(m, c, l) => Value::Array(vec![
+            Value::Integer(24.into()),
+            enc_term(m),
+            enc_term(c),
+            enc_label(l),
         ]),
     }
 }
@@ -382,6 +394,7 @@ fn dec_prop(v: &Value) -> Result<Prop, ProtocolError> {
             Box::new(dec_prop(&a[1])?),
             Box::new(dec_prop(&a[2])?),
         )),
+        13 => Ok(Prop::Replicated(Box::new(dec_prop(&a[1])?))),
         t => Err(ProtocolError::Cbor(format!("bad prop tag {}", t))),
     }
 }
@@ -484,6 +497,11 @@ fn dec_term(v: &Value) -> Result<Term, ProtocolError> {
             dec_obligation(&a[1])?,
             Box::new(dec_term(&a[2])?),
             Box::new(dec_term(&a[3])?),
+        )),
+        24 => Ok(Term::Command(
+            Box::new(dec_term(&a[1])?),
+            Box::new(dec_term(&a[2])?),
+            dec_label(&a[3])?,
         )),
         t => Err(ProtocolError::Cbor(format!("bad term tag {}", t))),
     }

@@ -1,19 +1,21 @@
 //! Small-step reduction `M ▷ M'`.
 //!
 //! Implements `spec/typing-rules.md` §11 and mirrors
-//! `lean/DLC/Reduce.lean::step` case-for-case: eight head redexes (β,
-//! and-Eₗ/ᵣ-β, or-E-β, let-tensor, says-extract, sf-extract-β,
-//! delegate-β) plus the 2026-07 CONGRUENCE rules — when an elimination
-//! form's head rule does not fire, reduction descends into the
-//! scrutinee/function position (call-by-name, one deterministic
-//! position per form). Without congruence, nested eliminations were
-//! stuck and progress failed; see spec §11 and
-//! `spec/t3-two-run-design-2026-07.md` (FINDING).
+//! `lean/DLC/Reduce.lean::step` case-for-case: the head redexes (β,
+//! and-Eₗ/ᵣ-β, or-E-β, let-tensor, says-extract for both `SaysBind` and
+//! `LetSays`, sf-extract-β, delegate-β, discharge-β, runCmd-β) plus the
+//! 2026-07 CONGRUENCE rules — when an elimination form's head rule does
+//! not fire, reduction descends into the scrutinee/function position
+//! (call-by-name, one deterministic position per form). Without
+//! congruence, nested eliminations were stuck and progress failed; see
+//! spec §11 and `spec/t3-two-run-design-2026-07.md` (FINDING).
 //!
-//! Frozen forms (`verify`, `attenuate`, `declassify`, `discharge`,
-//! `liftLabel`, `withinIntro`) do not reduce: they are checked by the
-//! verifier layers, not computed. discharge-β awaits the
-//! obligation-carrying constructor (T4 non-vacuity package).
+//! Frozen forms (`verify`, `attenuate`, `declassify`, `liftLabel`,
+//! `withinIntro`) do not reduce: they are checked by the verifier
+//! layers, not computed. `discharge` is no longer among them —
+//! discharge-β lands now that the obligation-carrying `Boxed`
+//! constructor exists (T4); and `SaysBind` (the spec's canonical
+//! says-E) reduces exactly as `LetSays` does.
 
 use alloc::boxed::Box;
 
@@ -81,6 +83,27 @@ pub fn step(term: &Term) -> Option<Term> {
             },
         },
 
+        // says-extract-β for SaysBind (the spec's canonical says-E): `let
+        // ⟨x⟩_p = ⟨m, σ⟩_p in body ▷ body[m/x]` when the principals agree
+        // (a signed value under the wrong principal is stuck — typing
+        // rules it out); ξ-saysbind on the scrutinee. Operationally
+        // identical to `LetSays` below; the two differ only in the typing
+        // rule (saysBind PRESERVES the modality). Mirrors `DLC.step`'s
+        // `saysBind` arm.
+        Term::SaysBind(p, s, body) => match s.as_ref() {
+            Term::Sign(p2, m, _sig) => {
+                if p == p2 {
+                    Some(subst(body, m))
+                } else {
+                    None
+                }
+            }
+            _ => match step(s) {
+                Some(s2) => Some(Term::SaysBind(p.clone(), Box::new(s2), body.clone())),
+                None => None,
+            },
+        },
+
         // says-extract: `let ⟨x⟩_p = ⟨m, σ⟩_p in body ▷ body[m/x]` when
         // the principals agree (a signed value under the wrong principal
         // is stuck — typing rules it out); ξ-letsays.
@@ -124,6 +147,20 @@ pub fn step(term: &Term) -> Option<Term> {
             },
         },
 
+        // discharge-β: `discharge(box_O(M, N), P) ▷ M` — eliminating an
+        // obligation-carrying proof yields the underlying proof of φ,
+        // consuming (destroying) the box; the box evidence N and the
+        // discharge evidence P are DISCARDED (both checked at typing).
+        // ξ-discharge descends into the scrutinee, matching the sfExtract
+        // idiom. Mirrors `DLC.step`'s `discharge` arm.
+        Term::Discharge(m, p) => match m.as_ref() {
+            Term::Boxed(_, inner, _) => Some(inner.as_ref().clone()),
+            _ => match step(m) {
+                Some(m2) => Some(Term::Discharge(Box::new(m2), p.clone())),
+                None => None,
+            },
+        },
+
         // runCmd-β: `runCmd (command M c ℓ) s ▷ liftLabel ℓ (app M s)` — run the
         // boxed transformer against the store, ERASE the credential (checked at
         // typing via commit-I), and carry ℓ into the `liftLabel` wrapper (taint
@@ -141,10 +178,13 @@ pub fn step(term: &Term) -> Option<Term> {
         },
 
         // Frozen forms and values: Var, Lam, Sign, Pair, Inl, Inr,
-        // TensorIntro, Now, WithinIntro, Verify, Attenuate, Discharge,
-        // LiftLabel, Declassify, Command. `Command` (DLC-D) is a VALUE — the
-        // introduction form for `Replicated` (commit-I); it is ELIMINATED by
-        // `runCmd` above, not by a `command-β`.
+        // TensorIntro, Now, WithinIntro, Verify, Attenuate, Boxed,
+        // LiftLabel, Declassify, Command. The frozen eliminations (Verify,
+        // Attenuate, Declassify) are checked by the verifier layers, not
+        // computed. `Discharge` is no longer among them — see discharge-β
+        // above. `Command` (DLC-D) is a VALUE — the introduction form for
+        // `Replicated` (commit-I); it is ELIMINATED by `runCmd` above, not
+        // by a `command-β`.
         _ => None,
     }
 }

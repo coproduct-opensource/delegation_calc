@@ -3049,7 +3049,7 @@ def subst.subst
   subst.subst_at body value 0#u32
 
 /-- [dlc_core::reduce::step]:
-    Source: 'crates/dlc-core/src/reduce.rs', lines 34:0-150:1
+    Source: 'crates/dlc-core/src/reduce.rs', lines 36:0-190:1
     Visibility: public -/
 def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
   match term with
@@ -3600,9 +3600,398 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
         let t2 ← syntax.Term.Insts.CoreCloneClone.clone n
         ok (some (syntax.Term.Delegate m2 t2))
   | syntax.Term.Attenuate _ _ => ok none
-  | syntax.Term.SaysBind _ _ _ => ok none
+  | syntax.Term.SaysBind p s body =>
+    let t ← Box.Insts.CoreConvertAsRef.as_ref Global s
+    match t with
+    | syntax.Term.Var _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.Lam _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.App _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.Sign p2 m _ =>
+      let b ← principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq p p2
+      if b
+      then let t1 ← subst.subst body m
+           ok (some t1)
+      else ok none
+    | syntax.Term.Verify _ _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.Delegate _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.Attenuate _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.SaysBind _ _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.Boxed _ _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.Discharge _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.LiftLabel _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.Declassify _ _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.Now _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.WithinIntro _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.Pair _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.Fst _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.Snd _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.Inl _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.Inr _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.Case _ _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.TensorIntro _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.LetTensor _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.LetSays _ _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.SfExtract _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.Command _ _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
+    | syntax.Term.RunCmd _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.SaysBind p1 s2 t1))
   | syntax.Term.Boxed _ _ _ => ok none
-  | syntax.Term.Discharge _ _ => ok none
+  | syntax.Term.Discharge m p =>
+    let t ← Box.Insts.CoreConvertAsRef.as_ref Global m
+    match t with
+    | syntax.Term.Var _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.Lam _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.App _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.Sign _ _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.Verify _ _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.Delegate _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.Attenuate _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.SaysBind _ _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.Boxed _ inner _ =>
+      let t1 ← Box.Insts.CoreConvertAsRef.as_ref Global inner
+      let t2 ← syntax.Term.Insts.CoreCloneClone.clone t1
+      ok (some t2)
+    | syntax.Term.Discharge _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.LiftLabel _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.Declassify _ _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.Now _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.WithinIntro _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.Pair _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.Fst _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.Snd _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.Inl _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.Inr _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.Case _ _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.TensorIntro _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.LetTensor _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.LetSays _ _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.SfExtract _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.Command _ _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
+    | syntax.Term.RunCmd _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone p
+        ok (some (syntax.Term.Discharge m2 t1))
   | syntax.Term.LiftLabel _ _ => ok none
   | syntax.Term.Declassify _ _ _ => ok none
   | syntax.Term.Now _ => ok none
@@ -4785,7 +5174,7 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
 partial_fixpoint
 
 /-- [dlc_core::reduce::reduce_with_fuel]: loop body 0:
-    Source: 'crates/dlc-core/src/reduce.rs', lines 158:4-165:1
+    Source: 'crates/dlc-core/src/reduce.rs', lines 198:4-205:1
     Visibility: public -/
 @[rust_loop_body]
 def reduce.reduce_with_fuel_loop.body
@@ -4804,7 +5193,7 @@ def reduce.reduce_with_fuel_loop.body
     | some next => ok (cont (iter1, next))
 
 /-- [dlc_core::reduce::reduce_with_fuel]: loop 0:
-    Source: 'crates/dlc-core/src/reduce.rs', lines 158:4-165:1
+    Source: 'crates/dlc-core/src/reduce.rs', lines 198:4-205:1
     Visibility: public -/
 @[rust_loop]
 def reduce.reduce_with_fuel_loop
@@ -4816,7 +5205,7 @@ def reduce.reduce_with_fuel_loop
     (iter, cur)
 
 /-- [dlc_core::reduce::reduce_with_fuel]:
-    Source: 'crates/dlc-core/src/reduce.rs', lines 156:0-165:1
+    Source: 'crates/dlc-core/src/reduce.rs', lines 196:0-205:1
     Visibility: public -/
 def reduce.reduce_with_fuel
   (term : syntax.Term) (fuel : Std.U32) : Result (syntax.Term × Std.U32) := do

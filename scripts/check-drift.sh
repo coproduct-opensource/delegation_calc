@@ -37,9 +37,16 @@ mkdir -p "$STAGE_DIR"
   charon cargo --preset aeneas
 )
 
-LLBC_FILE="$CORE_DIR/dlc_core.llbc"
-if [ ! -f "$LLBC_FILE" ]; then
-  echo "drift: Charon did not produce $LLBC_FILE" >&2
+# Locate the .llbc Charon emitted. For a cargo *workspace member*, Charon
+# serializes with cwd = the workspace root (cargo's build cwd), so the file
+# lands at the repo root, NOT in $CORE_DIR. Search both — this mirrors the
+# canonical `coproduct-opensource/aeneas-ci` action's own fallback search.
+LLBC_FILE=""
+for cand in "$CORE_DIR/dlc_core.llbc" "./dlc_core.llbc"; do
+  if [ -f "$cand" ]; then LLBC_FILE="$cand"; break; fi
+done
+if [ -z "$LLBC_FILE" ]; then
+  echo "drift: Charon did not produce dlc_core.llbc (searched $CORE_DIR/ and repo root)" >&2
   exit 1
 fi
 

@@ -345,6 +345,7 @@ def syntax.Prop.Insts.CoreCmpPartialEqProp.eq
       | syntax.Prop.Within _ _ => ok true
       | syntax.Prop.Tensor _ _ => ok true
       | syntax.Prop.Lolli _ _ => ok true
+      | syntax.Prop.Replicated _ _ => ok true
     | syntax.Prop.Imp __self_0 __self_1 =>
       match other with
       | syntax.Prop.Top => ok true
@@ -364,6 +365,7 @@ def syntax.Prop.Insts.CoreCmpPartialEqProp.eq
       | syntax.Prop.Within _ _ => ok true
       | syntax.Prop.Tensor _ _ => ok true
       | syntax.Prop.Lolli _ _ => ok true
+      | syntax.Prop.Replicated _ _ => ok true
     | syntax.Prop.And __self_0 __self_1 =>
       match other with
       | syntax.Prop.Top => ok true
@@ -383,6 +385,7 @@ def syntax.Prop.Insts.CoreCmpPartialEqProp.eq
       | syntax.Prop.Within _ _ => ok true
       | syntax.Prop.Tensor _ _ => ok true
       | syntax.Prop.Lolli _ _ => ok true
+      | syntax.Prop.Replicated _ _ => ok true
     | syntax.Prop.Or __self_0 __self_1 =>
       match other with
       | syntax.Prop.Top => ok true
@@ -402,6 +405,7 @@ def syntax.Prop.Insts.CoreCmpPartialEqProp.eq
       | syntax.Prop.Within _ _ => ok true
       | syntax.Prop.Tensor _ _ => ok true
       | syntax.Prop.Lolli _ _ => ok true
+      | syntax.Prop.Replicated _ _ => ok true
     | syntax.Prop.Says __self_0 __self_1 =>
       match other with
       | syntax.Prop.Top => ok true
@@ -423,6 +427,7 @@ def syntax.Prop.Insts.CoreCmpPartialEqProp.eq
       | syntax.Prop.Within _ _ => ok true
       | syntax.Prop.Tensor _ _ => ok true
       | syntax.Prop.Lolli _ _ => ok true
+      | syntax.Prop.Replicated _ _ => ok true
     | syntax.Prop.SpeaksFor __self_0 __self_1 =>
       match other with
       | syntax.Prop.Top => ok true
@@ -446,6 +451,7 @@ def syntax.Prop.Insts.CoreCmpPartialEqProp.eq
       | syntax.Prop.Within _ _ => ok true
       | syntax.Prop.Tensor _ _ => ok true
       | syntax.Prop.Lolli _ _ => ok true
+      | syntax.Prop.Replicated _ _ => ok true
     | syntax.Prop.At __self_0 __self_1 =>
       match other with
       | syntax.Prop.Top => ok true
@@ -465,6 +471,7 @@ def syntax.Prop.Insts.CoreCmpPartialEqProp.eq
       | syntax.Prop.Within _ _ => ok true
       | syntax.Prop.Tensor _ _ => ok true
       | syntax.Prop.Lolli _ _ => ok true
+      | syntax.Prop.Replicated _ _ => ok true
     | syntax.Prop.Boxed __self_0 __self_1 =>
       match other with
       | syntax.Prop.Top => ok true
@@ -486,6 +493,7 @@ def syntax.Prop.Insts.CoreCmpPartialEqProp.eq
       | syntax.Prop.Within _ _ => ok true
       | syntax.Prop.Tensor _ _ => ok true
       | syntax.Prop.Lolli _ _ => ok true
+      | syntax.Prop.Replicated _ _ => ok true
     | syntax.Prop.Within __self_0 __self_1 =>
       match other with
       | syntax.Prop.Top => ok true
@@ -506,6 +514,7 @@ def syntax.Prop.Insts.CoreCmpPartialEqProp.eq
         else ok false
       | syntax.Prop.Tensor _ _ => ok true
       | syntax.Prop.Lolli _ _ => ok true
+      | syntax.Prop.Replicated _ _ => ok true
     | syntax.Prop.Tensor __self_0 __self_1 =>
       match other with
       | syntax.Prop.Top => ok true
@@ -525,6 +534,7 @@ def syntax.Prop.Insts.CoreCmpPartialEqProp.eq
         then syntax.Prop.Insts.CoreCmpPartialEqProp.eq __self_1 __arg1_1
         else ok false
       | syntax.Prop.Lolli _ _ => ok true
+      | syntax.Prop.Replicated _ _ => ok true
     | syntax.Prop.Lolli __self_0 __self_1 =>
       match other with
       | syntax.Prop.Top => ok true
@@ -544,6 +554,27 @@ def syntax.Prop.Insts.CoreCmpPartialEqProp.eq
         if b
         then syntax.Prop.Insts.CoreCmpPartialEqProp.eq __self_1 __arg1_1
         else ok false
+      | syntax.Prop.Replicated _ _ => ok true
+    | syntax.Prop.Replicated __self_0 __self_1 =>
+      match other with
+      | syntax.Prop.Top => ok true
+      | syntax.Prop.Bot => ok true
+      | syntax.Prop.Atom _ => ok true
+      | syntax.Prop.Imp _ _ => ok true
+      | syntax.Prop.And _ _ => ok true
+      | syntax.Prop.Or _ _ => ok true
+      | syntax.Prop.Says _ _ => ok true
+      | syntax.Prop.SpeaksFor _ _ => ok true
+      | syntax.Prop.At _ _ => ok true
+      | syntax.Prop.Boxed _ _ => ok true
+      | syntax.Prop.Within _ _ => ok true
+      | syntax.Prop.Tensor _ _ => ok true
+      | syntax.Prop.Lolli _ _ => ok true
+      | syntax.Prop.Replicated __arg1_0 __arg1_1 =>
+        let b ← syntax.Prop.Insts.CoreCmpPartialEqProp.eq __self_0 __arg1_0
+        if b
+        then ifc.Label.Insts.CoreCmpPartialEqLabel.eq __self_1 __arg1_1
+        else ok false
   else ok false
 partial_fixpoint
 
@@ -554,6 +585,15 @@ def time.TimeBound.Insts.CoreCloneClone.clone
   (self : time.TimeBound) : Result time.TimeBound := do
   let i ← lift (core.clone.impls.CloneU64.clone self.epoch_ms)
   ok { epoch_ms := i }
+
+/-- Trait implementation: [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Prop> for dlc_core::syntax::Prop}]
+    Source: 'crates/dlc-core/src/syntax.rs', lines 16:23-16:32 -/
+@[reducible]
+def syntax.Prop.Insts.CoreCmpPartialEqProp : core.cmp.PartialEq syntax.Prop
+  syntax.Prop := {
+  eq := syntax.Prop.Insts.CoreCmpPartialEqProp.eq
+  ne := syntax.Prop.Insts.CoreCmpPartialEqProp.ne
+}
 
 /-- [dlc_core::principal::{impl core::clone::Clone for dlc_core::principal::PrincipalId}::clone]:
     Source: 'crates/dlc-core/src/principal.rs', lines 25:9-25:14
@@ -688,6 +728,10 @@ def syntax.Prop.Insts.CoreCloneClone.clone
     let p ← syntax.Prop.Insts.CoreCloneClone.clone __self_0
     let p1 ← syntax.Prop.Insts.CoreCloneClone.clone __self_1
     ok (syntax.Prop.Lolli p p1)
+  | syntax.Prop.Replicated __self_0 __self_1 =>
+    let p ← syntax.Prop.Insts.CoreCloneClone.clone __self_0
+    let l ← ifc.Label.Insts.CoreCloneClone.clone __self_1
+    ok (syntax.Prop.Replicated p l)
 partial_fixpoint
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::clone::Clone for dlc_core::syntax::Prop}]
@@ -725,7 +769,7 @@ def judgment.Ctx.Insts.CoreCloneClone.clone
   ok { additive := v, linear := v1 }
 
 /-- [dlc_core::decide::infer]:
-    Source: 'crates/dlc-core/src/decide.rs', lines 47:0-298:1
+    Source: 'crates/dlc-core/src/decide.rs', lines 47:0-329:1
     Visibility: public -/
 def decide.infer
   (ctx : judgment.Ctx) (term : syntax.Term) : Result (Option syntax.Prop) := do
@@ -792,6 +836,7 @@ def decide.infer
         | syntax.Prop.Within _ _ => ok none
         | syntax.Prop.Tensor _ _ => ok none
         | syntax.Prop.Lolli _ _ => ok none
+        | syntax.Prop.Replicated _ _ => ok none
       | core.ops.control_flow.ControlFlow.Break residual =>
         core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
           syntax.Prop residual
@@ -831,6 +876,7 @@ def decide.infer
       | syntax.Prop.Within _ _ => ok none
       | syntax.Prop.Tensor _ _ => ok none
       | syntax.Prop.Lolli _ _ => ok none
+      | syntax.Prop.Replicated _ _ => ok none
     | core.ops.control_flow.ControlFlow.Break residual =>
       core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
         syntax.Prop residual
@@ -886,17 +932,20 @@ def decide.infer
               | syntax.Prop.Within _ _ => ok none
               | syntax.Prop.Tensor _ _ => ok none
               | syntax.Prop.Lolli _ _ => ok none
+              | syntax.Prop.Replicated _ _ => ok none
           | syntax.Prop.At _ _ => ok none
           | syntax.Prop.Boxed _ _ => ok none
           | syntax.Prop.Within _ _ => ok none
           | syntax.Prop.Tensor _ _ => ok none
           | syntax.Prop.Lolli _ _ => ok none
+          | syntax.Prop.Replicated _ _ => ok none
         | syntax.Prop.SpeaksFor _ _ => ok none
         | syntax.Prop.At _ _ => ok none
         | syntax.Prop.Boxed _ _ => ok none
         | syntax.Prop.Within _ _ => ok none
         | syntax.Prop.Tensor _ _ => ok none
         | syntax.Prop.Lolli _ _ => ok none
+        | syntax.Prop.Replicated _ _ => ok none
       | core.ops.control_flow.ControlFlow.Break residual =>
         core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
           syntax.Prop residual
@@ -924,6 +973,7 @@ def decide.infer
       | syntax.Prop.Within _ _ => ok none
       | syntax.Prop.Tensor _ _ => ok none
       | syntax.Prop.Lolli _ _ => ok none
+      | syntax.Prop.Replicated _ _ => ok none
     | core.ops.control_flow.ControlFlow.Break residual =>
       core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
         syntax.Prop residual
@@ -962,6 +1012,7 @@ def decide.infer
       | syntax.Prop.Within _ _ => ok none
       | syntax.Prop.Tensor _ _ => ok none
       | syntax.Prop.Lolli _ _ => ok none
+      | syntax.Prop.Replicated _ _ => ok none
     | core.ops.control_flow.ControlFlow.Break residual =>
       core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
         syntax.Prop residual
@@ -994,6 +1045,7 @@ def decide.infer
       | syntax.Prop.Within _ _ => ok none
       | syntax.Prop.Tensor _ _ => ok none
       | syntax.Prop.Lolli _ _ => ok none
+      | syntax.Prop.Replicated _ _ => ok none
     | core.ops.control_flow.ControlFlow.Break residual =>
       core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
         syntax.Prop residual
@@ -1028,6 +1080,7 @@ def decide.infer
       | syntax.Prop.Within _ _ => ok none
       | syntax.Prop.Tensor _ _ => ok none
       | syntax.Prop.Lolli _ _ => ok none
+      | syntax.Prop.Replicated _ _ => ok none
     | core.ops.control_flow.ControlFlow.Break residual =>
       core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
         syntax.Prop residual
@@ -1077,6 +1130,7 @@ def decide.infer
       | syntax.Prop.Within _ _ => ok none
       | syntax.Prop.Tensor _ _ => ok none
       | syntax.Prop.Lolli _ _ => ok none
+      | syntax.Prop.Replicated _ _ => ok none
     | core.ops.control_flow.ControlFlow.Break residual =>
       core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
         syntax.Prop residual
@@ -1099,6 +1153,7 @@ def decide.infer
       | syntax.Prop.Within _ _ => ok none
       | syntax.Prop.Tensor _ _ => ok none
       | syntax.Prop.Lolli _ _ => ok none
+      | syntax.Prop.Replicated _ _ => ok none
     | core.ops.control_flow.ControlFlow.Break residual =>
       core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
         syntax.Prop residual
@@ -1162,6 +1217,7 @@ def decide.infer
       | syntax.Prop.Within _ _ => ok none
       | syntax.Prop.Tensor _ _ => ok none
       | syntax.Prop.Lolli _ _ => ok none
+      | syntax.Prop.Replicated _ _ => ok none
     | core.ops.control_flow.ControlFlow.Break residual =>
       core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
         syntax.Prop residual
@@ -1204,6 +1260,7 @@ def decide.infer
         let extended ← judgment.Ctx.cons_l c1 q
         decide.infer extended body
       | syntax.Prop.Lolli _ _ => ok none
+      | syntax.Prop.Replicated _ _ => ok none
     | core.ops.control_flow.ControlFlow.Break residual =>
       core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
         syntax.Prop residual
@@ -1234,6 +1291,7 @@ def decide.infer
       | syntax.Prop.Within _ _ => ok none
       | syntax.Prop.Tensor _ _ => ok none
       | syntax.Prop.Lolli _ _ => ok none
+      | syntax.Prop.Replicated _ _ => ok none
     | core.ops.control_flow.ControlFlow.Break residual =>
       core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
         syntax.Prop residual
@@ -1270,12 +1328,119 @@ def decide.infer
         | syntax.Prop.Within _ _ => ok none
         | syntax.Prop.Tensor _ _ => ok none
         | syntax.Prop.Lolli _ _ => ok none
+        | syntax.Prop.Replicated _ _ => ok none
       | syntax.Prop.SpeaksFor _ _ => ok none
       | syntax.Prop.At _ _ => ok none
       | syntax.Prop.Boxed _ _ => ok none
       | syntax.Prop.Within _ _ => ok none
       | syntax.Prop.Tensor _ _ => ok none
       | syntax.Prop.Lolli _ _ => ok none
+      | syntax.Prop.Replicated _ _ => ok none
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
+        syntax.Prop residual
+  | syntax.Term.Command m c l =>
+    let o ← decide.infer ctx c
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
+    match cf with
+    | core.ops.control_flow.ControlFlow.Continue val =>
+      match val with
+      | syntax.Prop.Top => ok none
+      | syntax.Prop.Bot => ok none
+      | syntax.Prop.Atom _ => ok none
+      | syntax.Prop.Imp _ _ => ok none
+      | syntax.Prop.And _ _ => ok none
+      | syntax.Prop.Or _ _ => ok none
+      | syntax.Prop.Says _ _ =>
+        let o1 ← decide.infer ctx m
+        let cf1 ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o1
+        match cf1 with
+        | core.ops.control_flow.ControlFlow.Continue val1 =>
+          match val1 with
+          | syntax.Prop.Top => ok none
+          | syntax.Prop.Bot => ok none
+          | syntax.Prop.Atom _ => ok none
+          | syntax.Prop.Imp phi phi2 =>
+            let b ← syntax.Prop.Insts.CoreCmpPartialEqProp.eq phi phi2
+            if b
+            then
+              let p ← syntax.Prop.Insts.CoreCloneClone.clone phi
+              let l1 ← ifc.Label.Insts.CoreCloneClone.clone l
+              ok (some (syntax.Prop.Replicated (syntax.Prop.Imp p phi) l1))
+            else ok none
+          | syntax.Prop.And _ _ => ok none
+          | syntax.Prop.Or _ _ => ok none
+          | syntax.Prop.Says _ _ => ok none
+          | syntax.Prop.SpeaksFor _ _ => ok none
+          | syntax.Prop.At _ _ => ok none
+          | syntax.Prop.Boxed _ _ => ok none
+          | syntax.Prop.Within _ _ => ok none
+          | syntax.Prop.Tensor _ _ => ok none
+          | syntax.Prop.Lolli _ _ => ok none
+          | syntax.Prop.Replicated _ _ => ok none
+        | core.ops.control_flow.ControlFlow.Break residual =>
+          core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
+            syntax.Prop residual
+      | syntax.Prop.SpeaksFor _ _ => ok none
+      | syntax.Prop.At _ _ => ok none
+      | syntax.Prop.Boxed _ _ => ok none
+      | syntax.Prop.Within _ _ => ok none
+      | syntax.Prop.Tensor _ _ => ok none
+      | syntax.Prop.Lolli _ _ => ok none
+      | syntax.Prop.Replicated _ _ => ok none
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
+        syntax.Prop residual
+  | syntax.Term.RunCmd v s =>
+    let o ← decide.infer ctx v
+    let cf ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o
+    match cf with
+    | core.ops.control_flow.ControlFlow.Continue val =>
+      match val with
+      | syntax.Prop.Top => ok none
+      | syntax.Prop.Bot => ok none
+      | syntax.Prop.Atom _ => ok none
+      | syntax.Prop.Imp _ _ => ok none
+      | syntax.Prop.And _ _ => ok none
+      | syntax.Prop.Or _ _ => ok none
+      | syntax.Prop.Says _ _ => ok none
+      | syntax.Prop.SpeaksFor _ _ => ok none
+      | syntax.Prop.At _ _ => ok none
+      | syntax.Prop.Boxed _ _ => ok none
+      | syntax.Prop.Within _ _ => ok none
+      | syntax.Prop.Tensor _ _ => ok none
+      | syntax.Prop.Lolli _ _ => ok none
+      | syntax.Prop.Replicated inner l =>
+        match inner with
+        | syntax.Prop.Top => ok none
+        | syntax.Prop.Bot => ok none
+        | syntax.Prop.Atom _ => ok none
+        | syntax.Prop.Imp phi phi2 =>
+          let b ← syntax.Prop.Insts.CoreCmpPartialEqProp.eq phi phi2
+          if b
+          then
+            let o1 ← decide.infer ctx s
+            let cf1 ← core.option.Option.Insts.CoreOpsTry_traitTry.branch o1
+            match cf1 with
+            | core.ops.control_flow.ControlFlow.Continue val1 =>
+              let b1 ← syntax.Prop.Insts.CoreCmpPartialEqProp.eq val1 phi
+              if b1
+              then ok (some (syntax.Prop.At phi l))
+              else ok none
+            | core.ops.control_flow.ControlFlow.Break residual =>
+              core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
+                syntax.Prop residual
+          else ok none
+        | syntax.Prop.And _ _ => ok none
+        | syntax.Prop.Or _ _ => ok none
+        | syntax.Prop.Says _ _ => ok none
+        | syntax.Prop.SpeaksFor _ _ => ok none
+        | syntax.Prop.At _ _ => ok none
+        | syntax.Prop.Boxed _ _ => ok none
+        | syntax.Prop.Within _ _ => ok none
+        | syntax.Prop.Tensor _ _ => ok none
+        | syntax.Prop.Lolli _ _ => ok none
+        | syntax.Prop.Replicated _ _ => ok none
     | core.ops.control_flow.ControlFlow.Break residual =>
       core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual
         syntax.Prop residual
@@ -1816,6 +1981,14 @@ def syntax.Prop.Insts.CoreFmtDebug.fmt
         syntax.Prop.Insts.CoreFmtDebug)) __self_1
     core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Lolli") __self_01
       __self_11
+  | syntax.Prop.Replicated __self_0 __self_1 =>
+    let __self_01 :=
+      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Prop.Insts.CoreFmtDebug)
+        __self_0
+    let __self_11 :=
+      Dyn.mk _ (core.fmt.DebugShared ifc.Label.Insts.CoreFmtDebug) __self_1
+    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "Replicated")
+      __self_01 __self_11
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Prop}]
     Source: 'crates/dlc-core/src/syntax.rs', lines 16:16-16:21 -/
@@ -1866,15 +2039,6 @@ def judgment.Ctx.Insts.CoreDefaultDefault : core.default.Default judgment.Ctx
 @[reducible]
 def judgment.Ctx.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq judgment.Ctx := {
-}
-
-/-- Trait implementation: [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Prop> for dlc_core::syntax::Prop}]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 16:23-16:32 -/
-@[reducible]
-def syntax.Prop.Insts.CoreCmpPartialEqProp : core.cmp.PartialEq syntax.Prop
-  syntax.Prop := {
-  eq := syntax.Prop.Insts.CoreCmpPartialEqProp.eq
-  ne := syntax.Prop.Insts.CoreCmpPartialEqProp.ne
 }
 
 /-- [dlc_core::judgment::{impl core::cmp::PartialEq<dlc_core::judgment::Ctx> for dlc_core::judgment::Ctx}::eq]:
@@ -2085,7 +2249,7 @@ def judgment.KeyRing.Insts.CoreCmpEq : core.cmp.Eq judgment.KeyRing := {
 }
 
 /-- [dlc_core::syntax::{impl core::clone::Clone for dlc_core::syntax::Signature}::clone]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 135:9-135:14
+    Source: 'crates/dlc-core/src/syntax.rs', lines 167:9-167:14
     Visibility: public -/
 def syntax.Signature.Insts.CoreCloneClone.clone
   (self : syntax.Signature) : Result syntax.Signature := do
@@ -2094,7 +2258,7 @@ def syntax.Signature.Insts.CoreCloneClone.clone
   ok { alg := i, bytes := v }
 
 /-- [dlc_core::syntax::{impl core::clone::Clone for dlc_core::syntax::Term}::clone]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 47:9-47:14
+    Source: 'crates/dlc-core/src/syntax.rs', lines 56:9-56:14
     Visibility: public -/
 def syntax.Term.Insts.CoreCloneClone.clone
   (self : syntax.Term) : Result syntax.Term := do
@@ -2197,6 +2361,15 @@ def syntax.Term.Insts.CoreCloneClone.clone
   | syntax.Term.SfExtract __self_0 =>
     let t ← syntax.Term.Insts.CoreCloneClone.clone __self_0
     ok (syntax.Term.SfExtract t)
+  | syntax.Term.Command __self_0 __self_1 __self_2 =>
+    let t ← syntax.Term.Insts.CoreCloneClone.clone __self_0
+    let t1 ← syntax.Term.Insts.CoreCloneClone.clone __self_1
+    let l ← ifc.Label.Insts.CoreCloneClone.clone __self_2
+    ok (syntax.Term.Command t t1 l)
+  | syntax.Term.RunCmd __self_0 __self_1 =>
+    let t ← syntax.Term.Insts.CoreCloneClone.clone __self_0
+    let t1 ← syntax.Term.Insts.CoreCloneClone.clone __self_1
+    ok (syntax.Term.RunCmd t t1)
 partial_fixpoint
 
 /-- [dlc_core::judgment::{impl core::clone::Clone for dlc_core::judgment::TypingProblem}::clone]:
@@ -2218,7 +2391,7 @@ def judgment.TypingProblem.Insts.CoreCloneClone : core.clone.Clone
 }
 
 /-- [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Signature}::fmt]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 135:16-135:21
+    Source: 'crates/dlc-core/src/syntax.rs', lines 167:16-167:21
     Visibility: public -/
 def syntax.Signature.Insts.CoreFmtDebug.fmt
   (self : syntax.Signature) (f : core.fmt.Formatter) :
@@ -2232,14 +2405,14 @@ def syntax.Signature.Insts.CoreFmtDebug.fmt
     "alg") dyn (toStr "bytes") dyn1
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Signature}]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 135:16-135:21 -/
+    Source: 'crates/dlc-core/src/syntax.rs', lines 167:16-167:21 -/
 @[reducible]
 def syntax.Signature.Insts.CoreFmtDebug : core.fmt.Debug syntax.Signature := {
   fmt := syntax.Signature.Insts.CoreFmtDebug.fmt
 }
 
 /-- [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Term}::fmt]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 47:16-47:21
+    Source: 'crates/dlc-core/src/syntax.rs', lines 56:16-56:21
     Visibility: public -/
 def syntax.Term.Insts.CoreFmtDebug.fmt
   (self : syntax.Term) (f : core.fmt.Formatter) :
@@ -2446,9 +2619,29 @@ def syntax.Term.Insts.CoreFmtDebug.fmt
         syntax.Term.Insts.CoreFmtDebug)) __self_0
     core.fmt.Formatter.debug_tuple_field1_finish f (toStr "SfExtract")
       __self_01
+  | syntax.Term.Command __self_0 __self_1 __self_2 =>
+    let __self_01 :=
+      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
+        __self_0
+    let __self_11 :=
+      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
+        __self_1
+    let __self_21 :=
+      Dyn.mk _ (core.fmt.DebugShared ifc.Label.Insts.CoreFmtDebug) __self_2
+    core.fmt.Formatter.debug_tuple_field3_finish f (toStr "Command") __self_01
+      __self_11 __self_21
+  | syntax.Term.RunCmd __self_0 __self_1 =>
+    let __self_01 :=
+      Dyn.mk _ (Box.Insts.CoreFmtDebug Global syntax.Term.Insts.CoreFmtDebug)
+        __self_0
+    let __self_11 :=
+      Dyn.mk _ (core.fmt.DebugShared (Box.Insts.CoreFmtDebug Global
+        syntax.Term.Insts.CoreFmtDebug)) __self_1
+    core.fmt.Formatter.debug_tuple_field2_finish f (toStr "RunCmd") __self_01
+      __self_11
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Term}]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 47:16-47:21 -/
+    Source: 'crates/dlc-core/src/syntax.rs', lines 56:16-56:21 -/
 @[reducible]
 def syntax.Term.Insts.CoreFmtDebug : core.fmt.Debug syntax.Term := {
   fmt := syntax.Term.Insts.CoreFmtDebug.fmt
@@ -2549,6 +2742,9 @@ def judgment.RuleName.Insts.CoreFmtDebug.fmt
     core.fmt.Formatter.write_str f (toStr "SaysExtract")
   | judgment.RuleName.SfExtract =>
     core.fmt.Formatter.write_str f (toStr "SfExtract")
+  | judgment.RuleName.CommitI =>
+    core.fmt.Formatter.write_str f (toStr "CommitI")
+  | judgment.RuleName.RunCmd => core.fmt.Formatter.write_str f (toStr "RunCmd")
 
 /-- Trait implementation: [dlc_core::judgment::{impl core::fmt::Debug for dlc_core::judgment::RuleName}]
     Source: 'crates/dlc-core/src/judgment.rs', lines 64:22-64:27 -/
@@ -3079,14 +3275,14 @@ def principal.KeyRecord.Insts.CoreCmpEq : core.cmp.Eq principal.KeyRecord := {
 }
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::clone::Clone for dlc_core::syntax::Term}]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 47:9-47:14 -/
+    Source: 'crates/dlc-core/src/syntax.rs', lines 56:9-56:14 -/
 @[reducible]
 def syntax.Term.Insts.CoreCloneClone : core.clone.Clone syntax.Term := {
   clone := syntax.Term.Insts.CoreCloneClone.clone
 }
 
 /-- [dlc_core::subst::shift]:
-    Source: 'crates/dlc-core/src/subst.rs', lines 18:0-113:1
+    Source: 'crates/dlc-core/src/subst.rs', lines 18:0-125:1
     Visibility: public -/
 def subst.shift
   (term : syntax.Term) (delta : Std.I32) (cutoff : Std.U32) :
@@ -3204,10 +3400,19 @@ def subst.shift
   | syntax.Term.SfExtract m =>
     let t ← subst.shift m delta cutoff
     ok (syntax.Term.SfExtract t)
+  | syntax.Term.Command m c l =>
+    let t ← subst.shift m delta cutoff
+    let t1 ← subst.shift c delta cutoff
+    let l1 ← ifc.Label.Insts.CoreCloneClone.clone l
+    ok (syntax.Term.Command t t1 l1)
+  | syntax.Term.RunCmd v s =>
+    let t ← subst.shift v delta cutoff
+    let t1 ← subst.shift s delta cutoff
+    ok (syntax.Term.RunCmd t t1)
 partial_fixpoint
 
 /-- [dlc_core::subst::subst_at]:
-    Source: 'crates/dlc-core/src/subst.rs', lines 125:0-210:1 -/
+    Source: 'crates/dlc-core/src/subst.rs', lines 137:0-233:1 -/
 def subst.subst_at
   (body : syntax.Term) (value : syntax.Term) (depth : Std.U32) :
   Result syntax.Term
@@ -3322,17 +3527,26 @@ def subst.subst_at
   | syntax.Term.SfExtract m =>
     let t ← subst.subst_at m value depth
     ok (syntax.Term.SfExtract t)
+  | syntax.Term.Command m c l =>
+    let t ← subst.subst_at m value depth
+    let t1 ← subst.subst_at c value depth
+    let l1 ← ifc.Label.Insts.CoreCloneClone.clone l
+    ok (syntax.Term.Command t t1 l1)
+  | syntax.Term.RunCmd v s =>
+    let t ← subst.subst_at v value depth
+    let t1 ← subst.subst_at s value depth
+    ok (syntax.Term.RunCmd t t1)
 partial_fixpoint
 
 /-- [dlc_core::subst::subst]:
-    Source: 'crates/dlc-core/src/subst.rs', lines 121:0-123:1
+    Source: 'crates/dlc-core/src/subst.rs', lines 133:0-135:1
     Visibility: public -/
 def subst.subst
   (body : syntax.Term) (value : syntax.Term) : Result syntax.Term := do
   subst.subst_at body value 0#u32
 
 /-- [dlc_core::reduce::step]:
-    Source: 'crates/dlc-core/src/reduce.rs', lines 34:0-132:1
+    Source: 'crates/dlc-core/src/reduce.rs', lines 34:0-150:1
     Visibility: public -/
 def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
   match term with
@@ -3498,6 +3712,20 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
         let t1 ← syntax.Term.Insts.CoreCloneClone.clone x
         ok (some (syntax.Term.App f2 t1))
     | syntax.Term.SfExtract _ =>
+      let o ← reduce.step f
+      match o with
+      | none => ok none
+      | some f2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone x
+        ok (some (syntax.Term.App f2 t1))
+    | syntax.Term.Command _ _ _ =>
+      let o ← reduce.step f
+      match o with
+      | none => ok none
+      | some f2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone x
+        ok (some (syntax.Term.App f2 t1))
+    | syntax.Term.RunCmd _ _ =>
       let o ← reduce.step f
       match o with
       | none => ok none
@@ -3700,6 +3928,20 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
         | some n2 =>
           let t2 ← syntax.Term.Insts.CoreCloneClone.clone m
           ok (some (syntax.Term.Delegate t2 n2))
+      | syntax.Term.Command _ _ _ =>
+        let o ← reduce.step n
+        match o with
+        | none => ok none
+        | some n2 =>
+          let t2 ← syntax.Term.Insts.CoreCloneClone.clone m
+          ok (some (syntax.Term.Delegate t2 n2))
+      | syntax.Term.RunCmd _ _ =>
+        let o ← reduce.step n
+        match o with
+        | none => ok none
+        | some n2 =>
+          let t2 ← syntax.Term.Insts.CoreCloneClone.clone m
+          ok (some (syntax.Term.Delegate t2 n2))
     | syntax.Term.Verify _ _ _ =>
       let o ← reduce.step m
       match o with
@@ -3840,6 +4082,20 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
       | some m2 =>
         let t2 ← syntax.Term.Insts.CoreCloneClone.clone n
         ok (some (syntax.Term.Delegate m2 t2))
+    | syntax.Term.Command _ _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t2 ← syntax.Term.Insts.CoreCloneClone.clone n
+        ok (some (syntax.Term.Delegate m2 t2))
+    | syntax.Term.RunCmd _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 =>
+        let t2 ← syntax.Term.Insts.CoreCloneClone.clone n
+        ok (some (syntax.Term.Delegate m2 t2))
   | syntax.Term.Attenuate _ _ => ok none
   | syntax.Term.SaysBind _ _ _ => ok none
   | syntax.Term.Boxed _ _ _ => ok none
@@ -3971,6 +4227,16 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
       match o with
       | none => ok none
       | some m2 => ok (some (syntax.Term.Fst m2))
+    | syntax.Term.Command _ _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 => ok (some (syntax.Term.Fst m2))
+    | syntax.Term.RunCmd _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 => ok (some (syntax.Term.Fst m2))
   | syntax.Term.Snd m =>
     let t ← Box.Insts.CoreConvertAsRef.as_ref Global m
     match t with
@@ -4089,6 +4355,16 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
       | none => ok none
       | some m2 => ok (some (syntax.Term.Snd m2))
     | syntax.Term.SfExtract _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 => ok (some (syntax.Term.Snd m2))
+    | syntax.Term.Command _ _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 => ok (some (syntax.Term.Snd m2))
+    | syntax.Term.RunCmd _ _ =>
       let o ← reduce.step m
       match o with
       | none => ok none
@@ -4278,6 +4554,22 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
         let t1 ← syntax.Term.Insts.CoreCloneClone.clone l
         let t2 ← syntax.Term.Insts.CoreCloneClone.clone r
         ok (some (syntax.Term.Case s2 t1 t2))
+    | syntax.Term.Command _ _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone l
+        let t2 ← syntax.Term.Insts.CoreCloneClone.clone r
+        ok (some (syntax.Term.Case s2 t1 t2))
+    | syntax.Term.RunCmd _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone l
+        let t2 ← syntax.Term.Insts.CoreCloneClone.clone r
+        ok (some (syntax.Term.Case s2 t1 t2))
   | syntax.Term.TensorIntro _ _ => ok none
   | syntax.Term.LetTensor s body =>
     let t ← Box.Insts.CoreConvertAsRef.as_ref Global s
@@ -4442,6 +4734,20 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
         let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
         ok (some (syntax.Term.LetTensor s2 t1))
     | syntax.Term.SfExtract _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.LetTensor s2 t1))
+    | syntax.Term.Command _ _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.LetTensor s2 t1))
+    | syntax.Term.RunCmd _ _ =>
       let o ← reduce.step s
       match o with
       | none => ok none
@@ -4641,6 +4947,22 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
         let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
         let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
         ok (some (syntax.Term.LetSays p1 s2 t1))
+    | syntax.Term.Command _ _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.LetSays p1 s2 t1))
+    | syntax.Term.RunCmd _ _ =>
+      let o ← reduce.step s
+      match o with
+      | none => ok none
+      | some s2 =>
+        let p1 ← principal.Principal.Insts.CoreCloneClone.clone p
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone body
+        ok (some (syntax.Term.LetSays p1 s2 t1))
   | syntax.Term.SfExtract m =>
     let t ← Box.Insts.CoreConvertAsRef.as_ref Global m
     match t with
@@ -4763,10 +5085,204 @@ def reduce.step (term : syntax.Term) : Result (Option syntax.Term) := do
       match o with
       | none => ok none
       | some m2 => ok (some (syntax.Term.SfExtract m2))
+    | syntax.Term.Command _ _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 => ok (some (syntax.Term.SfExtract m2))
+    | syntax.Term.RunCmd _ _ =>
+      let o ← reduce.step m
+      match o with
+      | none => ok none
+      | some m2 => ok (some (syntax.Term.SfExtract m2))
+  | syntax.Term.Command _ _ _ => ok none
+  | syntax.Term.RunCmd v s =>
+    let t ← Box.Insts.CoreConvertAsRef.as_ref Global v
+    match t with
+    | syntax.Term.Var _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.Lam _ _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.App _ _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.Sign _ _ _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.Verify _ _ _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.Delegate _ _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.Attenuate _ _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.SaysBind _ _ _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.Boxed _ _ _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.Discharge _ _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.LiftLabel _ _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.Declassify _ _ _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.Now _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.WithinIntro _ _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.Pair _ _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.Fst _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.Snd _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.Inl _ _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.Inr _ _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.Case _ _ _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.TensorIntro _ _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.LetTensor _ _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.LetSays _ _ _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.SfExtract _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
+    | syntax.Term.Command m _ l =>
+      let l1 ← ifc.Label.Insts.CoreCloneClone.clone l
+      let t1 ← syntax.Term.Insts.CoreCloneClone.clone m
+      let t2 ← syntax.Term.Insts.CoreCloneClone.clone s
+      ok (some (syntax.Term.LiftLabel l1 (syntax.Term.App t1 t2)))
+    | syntax.Term.RunCmd _ _ =>
+      let o ← reduce.step v
+      match o with
+      | none => ok none
+      | some v2 =>
+        let t1 ← syntax.Term.Insts.CoreCloneClone.clone s
+        ok (some (syntax.Term.RunCmd v2 t1))
 partial_fixpoint
 
 /-- [dlc_core::reduce::reduce_with_fuel]: loop body 0:
-    Source: 'crates/dlc-core/src/reduce.rs', lines 140:4-147:1
+    Source: 'crates/dlc-core/src/reduce.rs', lines 158:4-165:1
     Visibility: public -/
 @[rust_loop_body]
 def reduce.reduce_with_fuel_loop.body
@@ -4785,7 +5301,7 @@ def reduce.reduce_with_fuel_loop.body
     | some next => ok (cont (iter1, next))
 
 /-- [dlc_core::reduce::reduce_with_fuel]: loop 0:
-    Source: 'crates/dlc-core/src/reduce.rs', lines 140:4-147:1
+    Source: 'crates/dlc-core/src/reduce.rs', lines 158:4-165:1
     Visibility: public -/
 @[rust_loop]
 def reduce.reduce_with_fuel_loop
@@ -4797,7 +5313,7 @@ def reduce.reduce_with_fuel_loop
     (iter, cur)
 
 /-- [dlc_core::reduce::reduce_with_fuel]:
-    Source: 'crates/dlc-core/src/reduce.rs', lines 138:0-147:1
+    Source: 'crates/dlc-core/src/reduce.rs', lines 156:0-165:1
     Visibility: public -/
 def reduce.reduce_with_fuel
   (term : syntax.Term) (fuel : Std.U32) : Result (syntax.Term × Std.U32) := do
@@ -4827,14 +5343,14 @@ def syntax.Prop.Insts.CoreCmpEq : core.cmp.Eq syntax.Prop := {
 }
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::marker::StructuralPartialEq for dlc_core::syntax::Term}]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 47:23-47:32 -/
+    Source: 'crates/dlc-core/src/syntax.rs', lines 56:23-56:32 -/
 @[reducible]
 def syntax.Term.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq syntax.Term := {
 }
 
 /-- [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Signature> for dlc_core::syntax::Signature}::eq]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 135:23-135:32
+    Source: 'crates/dlc-core/src/syntax.rs', lines 167:23-167:32
     Visibility: public -/
 def syntax.Signature.Insts.CoreCmpPartialEqSignature.eq
   (self : syntax.Signature) (other : syntax.Signature) : Result Bool := do
@@ -4845,7 +5361,7 @@ def syntax.Signature.Insts.CoreCmpPartialEqSignature.eq
   else ok false
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Signature> for dlc_core::syntax::Signature}]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 135:23-135:32 -/
+    Source: 'crates/dlc-core/src/syntax.rs', lines 167:23-167:32 -/
 @[reducible]
 def syntax.Signature.Insts.CoreCmpPartialEqSignature : core.cmp.PartialEq
   syntax.Signature syntax.Signature := {
@@ -4854,7 +5370,7 @@ def syntax.Signature.Insts.CoreCmpPartialEqSignature : core.cmp.PartialEq
 }
 
 /-- [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Term> for dlc_core::syntax::Term}::eq]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 47:23-47:32
+    Source: 'crates/dlc-core/src/syntax.rs', lines 56:23-56:32
     Visibility: public -/
 def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
   (self : syntax.Term) (other : syntax.Term) : Result Bool := do
@@ -4890,6 +5406,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.Lam __self_0 __self_1 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -4920,6 +5438,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.App __self_0 __self_1 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -4950,6 +5470,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.Sign __self_0 __self_1 __self_2 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -4989,6 +5511,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.Verify __self_0 __self_1 __self_2 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -5028,6 +5552,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.Delegate __self_0 __self_1 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -5058,6 +5584,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.Attenuate __self_0 __self_1 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -5088,6 +5616,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.SaysBind __self_0 __self_1 __self_2 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -5125,6 +5655,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.Boxed __self_0 __self_1 __self_2 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -5162,6 +5694,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.Discharge __self_0 __self_1 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -5192,6 +5726,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.LiftLabel __self_0 __self_1 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -5222,6 +5758,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.Declassify __self_0 __self_1 __self_2 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -5257,6 +5795,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.Now __self_0 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -5284,6 +5824,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.WithinIntro __self_0 __self_1 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -5315,6 +5857,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.Pair __self_0 __self_1 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -5345,6 +5889,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.Fst __self_0 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -5372,6 +5918,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.Snd __self_0 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -5399,6 +5947,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.Inl __self_0 __self_1 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -5429,6 +5979,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.Inr __self_0 __self_1 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -5459,6 +6011,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.Case __self_0 __self_1 __self_2 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -5494,6 +6048,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.TensorIntro __self_0 __self_1 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -5524,6 +6080,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetTensor _ _ => fail panic
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.LetTensor __self_0 __self_1 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -5554,6 +6112,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
         else ok false
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.LetSays __self_0 __self_1 __self_2 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -5591,6 +6151,8 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
           else ok false
         else ok false
       | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
     | syntax.Term.SfExtract __self_0 =>
       match other with
       | syntax.Term.Var _ => fail panic
@@ -5618,11 +6180,82 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm.eq
       | syntax.Term.LetSays _ _ _ => fail panic
       | syntax.Term.SfExtract __arg1_0 =>
         syntax.Term.Insts.CoreCmpPartialEqTerm.eq __self_0 __arg1_0
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd _ _ => fail panic
+    | syntax.Term.Command __self_0 __self_1 __self_2 =>
+      match other with
+      | syntax.Term.Var _ => fail panic
+      | syntax.Term.Lam _ _ => fail panic
+      | syntax.Term.App _ _ => fail panic
+      | syntax.Term.Sign _ _ _ => fail panic
+      | syntax.Term.Verify _ _ _ => fail panic
+      | syntax.Term.Delegate _ _ => fail panic
+      | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
+      | syntax.Term.Boxed _ _ _ => fail panic
+      | syntax.Term.Discharge _ _ => fail panic
+      | syntax.Term.LiftLabel _ _ => fail panic
+      | syntax.Term.Declassify _ _ _ => fail panic
+      | syntax.Term.Now _ => fail panic
+      | syntax.Term.WithinIntro _ _ => fail panic
+      | syntax.Term.Pair _ _ => fail panic
+      | syntax.Term.Fst _ => fail panic
+      | syntax.Term.Snd _ => fail panic
+      | syntax.Term.Inl _ _ => fail panic
+      | syntax.Term.Inr _ _ => fail panic
+      | syntax.Term.Case _ _ _ => fail panic
+      | syntax.Term.TensorIntro _ _ => fail panic
+      | syntax.Term.LetTensor _ _ => fail panic
+      | syntax.Term.LetSays _ _ _ => fail panic
+      | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command __arg1_0 __arg1_1 __arg1_2 =>
+        let b ← syntax.Term.Insts.CoreCmpPartialEqTerm.eq __self_0 __arg1_0
+        if b
+        then
+          let b1 ←
+            syntax.Term.Insts.CoreCmpPartialEqTerm.eq __self_1 __arg1_1
+          if b1
+          then ifc.Label.Insts.CoreCmpPartialEqLabel.eq __self_2 __arg1_2
+          else ok false
+        else ok false
+      | syntax.Term.RunCmd _ _ => fail panic
+    | syntax.Term.RunCmd __self_0 __self_1 =>
+      match other with
+      | syntax.Term.Var _ => fail panic
+      | syntax.Term.Lam _ _ => fail panic
+      | syntax.Term.App _ _ => fail panic
+      | syntax.Term.Sign _ _ _ => fail panic
+      | syntax.Term.Verify _ _ _ => fail panic
+      | syntax.Term.Delegate _ _ => fail panic
+      | syntax.Term.Attenuate _ _ => fail panic
+      | syntax.Term.SaysBind _ _ _ => fail panic
+      | syntax.Term.Boxed _ _ _ => fail panic
+      | syntax.Term.Discharge _ _ => fail panic
+      | syntax.Term.LiftLabel _ _ => fail panic
+      | syntax.Term.Declassify _ _ _ => fail panic
+      | syntax.Term.Now _ => fail panic
+      | syntax.Term.WithinIntro _ _ => fail panic
+      | syntax.Term.Pair _ _ => fail panic
+      | syntax.Term.Fst _ => fail panic
+      | syntax.Term.Snd _ => fail panic
+      | syntax.Term.Inl _ _ => fail panic
+      | syntax.Term.Inr _ _ => fail panic
+      | syntax.Term.Case _ _ _ => fail panic
+      | syntax.Term.TensorIntro _ _ => fail panic
+      | syntax.Term.LetTensor _ _ => fail panic
+      | syntax.Term.LetSays _ _ _ => fail panic
+      | syntax.Term.SfExtract _ => fail panic
+      | syntax.Term.Command _ _ _ => fail panic
+      | syntax.Term.RunCmd __arg1_0 __arg1_1 =>
+        let b ← syntax.Term.Insts.CoreCmpPartialEqTerm.eq __self_0 __arg1_0
+        if b
+        then syntax.Term.Insts.CoreCmpPartialEqTerm.eq __self_1 __arg1_1
+        else ok false
   else ok false
 partial_fixpoint
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Term> for dlc_core::syntax::Term}]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 47:23-47:32 -/
+    Source: 'crates/dlc-core/src/syntax.rs', lines 56:23-56:32 -/
 @[reducible]
 def syntax.Term.Insts.CoreCmpPartialEqTerm : core.cmp.PartialEq syntax.Term
   syntax.Term := {
@@ -5631,14 +6264,14 @@ def syntax.Term.Insts.CoreCmpPartialEqTerm : core.cmp.PartialEq syntax.Term
 }
 
 /-- [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Term}::assert_fields_are_eq]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 47:34-47:36
+    Source: 'crates/dlc-core/src/syntax.rs', lines 56:34-56:36
     Visibility: public -/
 def syntax.Term.Insts.CoreCmpEq.assert_fields_are_eq
   (self : syntax.Term) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Term}]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 47:34-47:36 -/
+    Source: 'crates/dlc-core/src/syntax.rs', lines 56:34-56:36 -/
 @[reducible]
 def syntax.Term.Insts.CoreCmpEq : core.cmp.Eq syntax.Term := {
   partialEqInst := syntax.Term.Insts.CoreCmpPartialEqTerm
@@ -5646,7 +6279,7 @@ def syntax.Term.Insts.CoreCmpEq : core.cmp.Eq syntax.Term := {
 }
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::clone::Clone for dlc_core::syntax::Signature}]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 135:9-135:14 -/
+    Source: 'crates/dlc-core/src/syntax.rs', lines 167:9-167:14 -/
 @[reducible]
 def syntax.Signature.Insts.CoreCloneClone : core.clone.Clone syntax.Signature
   := {
@@ -5654,21 +6287,21 @@ def syntax.Signature.Insts.CoreCloneClone : core.clone.Clone syntax.Signature
 }
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::marker::StructuralPartialEq for dlc_core::syntax::Signature}]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 135:23-135:32 -/
+    Source: 'crates/dlc-core/src/syntax.rs', lines 167:23-167:32 -/
 @[reducible]
 def syntax.Signature.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq syntax.Signature := {
 }
 
 /-- [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Signature}::assert_fields_are_eq]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 135:34-135:36
+    Source: 'crates/dlc-core/src/syntax.rs', lines 167:34-167:36
     Visibility: public -/
 def syntax.Signature.Insts.CoreCmpEq.assert_fields_are_eq
   (self : syntax.Signature) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [dlc_core::syntax::{impl core::cmp::Eq for dlc_core::syntax::Signature}]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 135:34-135:36 -/
+    Source: 'crates/dlc-core/src/syntax.rs', lines 167:34-167:36 -/
 @[reducible]
 def syntax.Signature.Insts.CoreCmpEq : core.cmp.Eq syntax.Signature := {
   partialEqInst := syntax.Signature.Insts.CoreCmpPartialEqSignature

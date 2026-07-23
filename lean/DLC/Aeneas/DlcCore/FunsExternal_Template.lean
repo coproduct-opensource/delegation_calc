@@ -262,6 +262,12 @@ axiom obligation.ActionId.Insts.CoreCmpPartialEqActionId.ne
 axiom ifc.Label.Insts.CoreCmpPartialEqLabel.ne
   : ifc.Label → ifc.Label → Result Bool
 
+/-- [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Prop> for dlc_core::syntax::Prop}::ne]:
+    Source: 'crates/dlc-core/src/syntax.rs', lines 16:23-16:32
+    Visibility: public -/
+axiom syntax.Prop.Insts.CoreCmpPartialEqProp.ne
+  : syntax.Prop → syntax.Prop → Result Bool
+
 /-- [dlc_core::graded::{impl core::cmp::PartialEq<dlc_core::graded::Graded<P>> for dlc_core::graded::Graded<P>}::ne]:
     Source: 'crates/dlc-core/src/graded.rs', lines 31:23-31:32
     Visibility: public -/
@@ -274,12 +280,6 @@ axiom graded.Graded.Insts.CoreCmpPartialEqGraded.ne
     Visibility: public -/
 axiom judgment.Ctx.Insts.CoreCmpPartialEqCtx.ne
   : judgment.Ctx → judgment.Ctx → Result Bool
-
-/-- [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Prop> for dlc_core::syntax::Prop}::ne]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 16:23-16:32
-    Visibility: public -/
-axiom syntax.Prop.Insts.CoreCmpPartialEqProp.ne
-  : syntax.Prop → syntax.Prop → Result Bool
 
 /-- [dlc_core::judgment::{impl core::cmp::PartialEq<dlc_core::judgment::KeyRing> for dlc_core::judgment::KeyRing}::ne]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 43:32-43:41
@@ -312,13 +312,13 @@ axiom obligation.Seal.Insts.CoreCmpPartialEqSeal.ne
   : obligation.Seal → obligation.Seal → Result Bool
 
 /-- [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Term> for dlc_core::syntax::Term}::ne]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 47:23-47:32
+    Source: 'crates/dlc-core/src/syntax.rs', lines 56:23-56:32
     Visibility: public -/
 axiom syntax.Term.Insts.CoreCmpPartialEqTerm.ne
   : syntax.Term → syntax.Term → Result Bool
 
 /-- [dlc_core::syntax::{impl core::cmp::PartialEq<dlc_core::syntax::Signature> for dlc_core::syntax::Signature}::ne]:
-    Source: 'crates/dlc-core/src/syntax.rs', lines 135:23-135:32
+    Source: 'crates/dlc-core/src/syntax.rs', lines 167:23-167:32
     Visibility: public -/
 axiom syntax.Signature.Insts.CoreCmpPartialEqSignature.ne
   : syntax.Signature → syntax.Signature → Result Bool

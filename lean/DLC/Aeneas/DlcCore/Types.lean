@@ -21,7 +21,7 @@ structure time.TimeBound where
   epoch_ms : Std.U64
 
 /-- [dlc_core::syntax::Signature]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 136:0-141:1
+    Source: 'crates/dlc-core/src/syntax.rs', lines 168:0-173:1
     Visibility: public -/
 structure syntax.Signature where
   alg : Std.U8
@@ -82,7 +82,7 @@ inductive obligation.Obligation where
 def ifc.Label := alloc.vec.Vec Std.U32
 
 /-- [dlc_core::syntax::Prop]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 17:0-44:1
+    Source: 'crates/dlc-core/src/syntax.rs', lines 17:0-53:1
     Visibility: public -/
 @[discriminant isize]
 inductive syntax.Prop where
@@ -99,9 +99,10 @@ inductive syntax.Prop where
 | Within : time.TimeBound → syntax.Prop → syntax.Prop
 | Tensor : syntax.Prop → syntax.Prop → syntax.Prop
 | Lolli : syntax.Prop → syntax.Prop → syntax.Prop
+| Replicated : syntax.Prop → ifc.Label → syntax.Prop
 
 /-- [dlc_core::syntax::Term]
-    Source: 'crates/dlc-core/src/syntax.rs', lines 48:0-129:1
+    Source: 'crates/dlc-core/src/syntax.rs', lines 57:0-161:1
     Visibility: public -/
 @[discriminant isize]
 inductive syntax.Term where
@@ -141,6 +142,8 @@ inductive syntax.Term where
 | LetTensor : syntax.Term → syntax.Term → syntax.Term
 | LetSays : principal.Principal → syntax.Term → syntax.Term → syntax.Term
 | SfExtract : syntax.Term → syntax.Term
+| Command : syntax.Term → syntax.Term → ifc.Label → syntax.Term
+| RunCmd : syntax.Term → syntax.Term → syntax.Term
 
 /-- [dlc_core::judgment::Ctx]
     Source: 'crates/dlc-core/src/judgment.rs', lines 16:0-21:1
@@ -179,7 +182,7 @@ structure judgment.KeyRing where
   entries : alloc.vec.Vec principal.KeyRecord
 
 /-- [dlc_core::judgment::RuleName]
-    Source: 'crates/dlc-core/src/judgment.rs', lines 65:0-128:1
+    Source: 'crates/dlc-core/src/judgment.rs', lines 65:0-141:1
     Visibility: public -/
 @[discriminant isize]
 inductive judgment.RuleName where
@@ -213,6 +216,8 @@ inductive judgment.RuleName where
 | LetTensor : judgment.RuleName
 | SaysExtract : judgment.RuleName
 | SfExtract : judgment.RuleName
+| CommitI : judgment.RuleName
+| RunCmd : judgment.RuleName
 
 /-- [dlc_core::obligation::Seal]
     Source: 'crates/dlc-core/src/obligation.rs', lines 107:0-107:12 -/

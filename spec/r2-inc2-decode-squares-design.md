@@ -17,15 +17,93 @@ crux). The honest R2.2 claim is: *the operational structural squares hold
 **conditional on** the reducer correspondence; the whole operational transport
 is thereby reduced to exactly one stated lemma.*
 
-> **BLOCKING FINDING — read §0.1 and OPEN QUESTION 1 first.** In the *committed
-> generated tree*, `dlc_core.reduce.reduce_with_fuel` is translated as an
-> **`axiom`** (an external stub in `FunsExternal_Template.lean`), not a `def`.
-> The structural squares are still statable and provable *conditionally* (they
-> reduce `apply_command` to the hypothesis and never force reduction). But the
-> **anti-vacuity witness (ruling 4) — the whole point of this pass — cannot be
-> closed against the current tree**, because `⟦apply_command dup init⟧` is stuck
-> on an opaque axiom and therefore does not compute. This is a genuine design
-> fork not covered by the rulings; it is surfaced as OPEN QUESTION 1.
+> **BLOCKING FINDING — SUPERSEDED by Arch-1 (see §R2.2a UPDATE below).** In the
+> *pre-Arch-1* tree, `dlc_core.reduce.reduce_with_fuel` was translated as an
+> **`axiom`** in the *standalone DlcDRsm* tree (`dlc-d-rsm` had `reduce` as a
+> dependency crate, so Charon exposed only optimized MIR → opaque stub). The
+> "anti-vacuity witness cannot compute" fork below was a direct consequence.
+> Arch-1 (commit `4bf9ff1`) relocated the RSM transition core + reducer into
+> `dlc-core` as ONE primary Aeneas tree, so `reduce_with_fuel`, `apply_command`,
+> `world_step`, `deliver` are now **real `def`s in the DlcCore tree** and
+> `apply_command` computes. OPEN QUESTION 1 is therefore **resolved for the
+> correspondence target** (which is now DlcCore, not DlcDRsm). A *different*
+> blocker now gates actually evaluating the witness — see §R2.2a UPDATE.
+
+---
+
+## §R2.2a UPDATE (2026-07-23, post-Arch-1, HEAD `4bf9ff1`)
+
+This increment (R2.2a) is the "make the DlcCore Aeneas tree compile by filling
+its external-function holes, with a soundness-conscious per-external ruling"
+step that precedes writing the decode `⟦·⟧` and the squares (still R2.2b). Four
+things change relative to the body of this document, which was written pre-Arch-1
+against the standalone DlcDRsm tree:
+
+1. **Correspondence target is the DlcCore tree, not DlcDRsm.** The decode and
+   squares now relate the **`lean/DLC/Aeneas/DlcCore`** tree (real defs:
+   `reduce.reduce_with_fuel`, `reduce.step`, `rsm.apply_command`,
+   `rsm.apply_prefix`, `rsm.deliver`, `rsm.world_step`, `rsm.commit`) to the
+   hand model. The DlcDRsm tree is now only the consensus layer
+   (`consensus.is_quorum`, `consensus.decided`) over `dlc_core.rsm.Command`.
+
+2. **Decode `⟦·⟧` directions (unchanged shape, retargeted names).**
+   - `⟦·⟧_Tm : DlcCore.syntax.Term → DLC.Term` (hand model in `lean/DLC/Syntax.lean`).
+   - `⟦·⟧_Pr : DlcCore.syntax.Prop → DLC.Prop'` likewise.
+   - `⟦·⟧_rsm : DlcCore.rsm.{Command,Replica,GlobalConfig,FailureBudget} → DLCD.*`
+     (the RSM state decodes into the DLCD hand model). Container decodes
+     (`Vec`, `Option`) compose as before (§2.2).
+
+3. **`AppCommandRefines` (restated, now a computing target).** The single
+   deferred obligation is unchanged in spirit but is now stated against the
+   real `rsm.apply_command`:
+   `∀ (c : DlcCore.rsm.Command) (s : DlcCore.syntax.Term),`
+   `  (rsm.apply_command c s).map ⟦·⟧_Tm = ok (DLCD.applyCommand ⟦c⟧ ⟦s⟧)`.
+   Because `apply_command` is now a real `def` that unfolds to
+   `reduce_with_fuel (App c.payload s) APPLY_FUEL`, this is a statement about a
+   *computing* function, not an opaque axiom. It remains an explicit
+   `Prop`-valued **hypothesis** (never an `axiom`, never `sorry`); R2.2b proves
+   the cheap squares conditional on it, R2.3 discharges it.
+
+4. **Anti-vacuity witness is now CLOSABLE (in principle).** `apply_command`
+   computes, so `⟦rsm.apply_command dup init⟧` reduces to a concrete hand-model
+   term and the satisfiability witness for `AppCommandRefines` at a closed input
+   can be closed by `decide`/`native_decide`/`rfl` once the tree elaborates.
+   The pre-Arch-1 "stuck on an opaque axiom" obstruction is gone.
+
+**NEW blocker discovered in R2.2a (must clear before the witness can be
+evaluated).** Filling the external holes is *necessary but not sufficient* to
+compile the DlcCore tree. The committed, drift-clean generated
+`lean/DLC/Aeneas/DlcCore/Funs.lean` does **not** elaborate under Lean 4.31:
+Aeneas (`ad905f5`) emits the **recursive `Debug`/`Hash` trait instances**
+(`syntax.Term.Insts.CoreFmtDebug`, `syntax.Prop.…`, `principal.Principal.…`,
+`obligation.Obligation.…`; `principal.Principal.Insts.CoreHashHash`) with a
+**forward reference** — the `…Insts.CoreFmtDebug.fmt` function body mentions the
+`…Insts.CoreFmtDebug` *instance* that is defined ~200 lines later, with **no
+`mutual` block** — so Lean reports `Unknown constant …Insts.CoreFmtDebug`
+(63 sites). Two more sites are **namespace/field shadowing**: struct fields
+named `obligation` / `principal` shadow the same-named modules, so
+`obligation.Seal` / `obligation.Discharged` / `principal.…` resolve as
+(nonexistent) field projections (`Types.lean:232`, `Funs.lean:3124`, +2). Total
+**73 elaboration errors, none in `FunsExternal.lean` and none related to the
+external holes.** These are pre-existing generated-code defects that were latent
+because the `DLCAeneas` lib had only ever been *drift-gated, never compiled*.
+
+Clearing them (a **pre-req to R2.2b**, out of R2.2a's "fill the holes" scope) is
+a source-level fix + regenerate: either (a) drop `#[derive(Debug, Hash)]` from
+the recursive `dlc-core` types (Debug/Hash are formatting-only, off every
+correspondence compute path — see the ruling table) so Aeneas stops emitting the
+recursive instances, and rename the `Discharged.obligation` field (and any
+`principal`-named field) to un-shadow the module; or (b) an Aeneas emission fix
+that wraps recursive `Debug`/`Hash` instances in `mutual` / self-references the
+`fmt` function. Both require regenerating the tree (and re-running the drift
+gate). This is escalated, not silently worked around.
+
+> The DlcDRsm tree, by contrast, emits **no** `Debug`/`Hash` instances (only the
+> consensus functions + the `Command` `PartialEq`), so with its filled
+> `FunsExternal.lean` (structural `BEq`-derived `Command::eq`, on the `decided`
+> compute path) the **`DLCDRsmAeneas` lib COMPILES** and
+> `dlc_core.rsm.Command.Insts.CoreCmpPartialEqCommand.eq` has a clean axiom
+> footprint `[propext, Classical.choice, Quot.sound]`.
 
 ---
 

@@ -139,9 +139,18 @@ for target in "${TARGETS[@]}"; do
   done
 
   # Also detect files committed but no longer generated (dead translations).
+  # EXCEPTION: FunsExternal.lean is the HAND-FILLED external-model file
+  # (renamed from the Aeneas-emitted FunsExternal_Template.lean per the
+  # `-split-files` "fill the holes" workflow). Aeneas never emits it, so it is
+  # legitimately "committed but not generated" and must be skipped here — but
+  # its regeneration reference, FunsExternal_Template.lean, IS emitted and stays
+  # diffed by the loop above, so external-surface drift is still caught.
   for f in "$COMMITTED_DIR"/*.lean; do
     [ -f "$f" ] || continue
     base="$(basename "$f")"
+    if [ "$base" = "FunsExternal.lean" ]; then
+      continue
+    fi
     if [ ! -f "$STAGE_DIR/$base" ]; then
       echo "drift: committed $base not produced by current Aeneas run ($PKG)" >&2
       MISMATCH=1

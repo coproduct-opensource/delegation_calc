@@ -24,6 +24,15 @@ To regenerate locally:
   bash scripts/aeneas-translate.sh
 -/
 
-import DLCD.Aeneas.DlcDRsm.Types
-import DLCD.Aeneas.DlcDRsm.Funs
-import DLCD.Aeneas.DlcDRsm.FunsExternal_Template
+-- Short module names (`DlcDRsm.*`) resolve against this lib's
+-- `srcDir := "DLCD/Aeneas"` (see lakefile.lean, lean_lib «DLCDRsmAeneas», whose
+-- root is `DlcDRsm`), matching the imports Aeneas emits inside Funs.lean /
+-- Types.lean.
+import DlcDRsm.Types
+import DlcDRsm.Funs
+-- Import the HAND-FILLED external models (renamed from FunsExternal_Template
+-- per Aeneas `-split-files`), NOT the template: the template's `axiom` and
+-- this file's `def` share the name `dlc_core.rsm.Command.Insts`
+-- `.CoreCmpPartialEqCommand.eq` and must not both be elaborated. The template
+-- stays on disk purely as the drift-gate regeneration reference.
+import DlcDRsm.FunsExternal

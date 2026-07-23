@@ -355,36 +355,37 @@ that rules out every `hcast`/`+` overflow. On the RSM's actual inputs — closed
 ground stores, small closed λ payloads — both conjuncts hold with astronomical
 headroom (see `applyPreservesWS_witness`). -/
 
-/-- Decidable AST height: `+1` at every node, `max` over children. Bounds the
-binder depth accumulated by `shift`/`subst_at` (`depth ≤ 2·heightB`), which is
-what discharges the `I32`/`U32` overflow obligations in R2.3a. -/
+/-- Decidable AST size: `+1` at every node, SUM over children (a coarse upper
+bound for the AST height, hence for the binder depth accumulated by
+`shift`/`subst_at`: `depth ≤ 2·heightB`). Summing rather than `max`ing keeps the
+child-bound discharges pure linear arithmetic (`omega`), no `Nat.max` atoms. -/
 def heightB : syntax.Term → Nat
   | .Var _ => 0
   | .Now _ => 0
   | .Lam _ t => heightB t + 1
-  | .App a b => Nat.max (heightB a) (heightB b) + 1
+  | .App a b => heightB a + heightB b + 1
   | .Sign _ t _ => heightB t + 1
   | .Verify _ t _ => heightB t + 1
-  | .Delegate a b => Nat.max (heightB a) (heightB b) + 1
+  | .Delegate a b => heightB a + heightB b + 1
   | .Attenuate t _ => heightB t + 1
-  | .SaysBind _ a b => Nat.max (heightB a) (heightB b) + 1
-  | .Boxed _ a b => Nat.max (heightB a) (heightB b) + 1
-  | .Discharge a b => Nat.max (heightB a) (heightB b) + 1
+  | .SaysBind _ a b => heightB a + heightB b + 1
+  | .Boxed _ a b => heightB a + heightB b + 1
+  | .Discharge a b => heightB a + heightB b + 1
   | .LiftLabel _ t => heightB t + 1
-  | .Declassify _ a b => Nat.max (heightB a) (heightB b) + 1
+  | .Declassify _ a b => heightB a + heightB b + 1
   | .WithinIntro _ t => heightB t + 1
-  | .Pair a b => Nat.max (heightB a) (heightB b) + 1
+  | .Pair a b => heightB a + heightB b + 1
   | .Fst t => heightB t + 1
   | .Snd t => heightB t + 1
   | .Inl _ t => heightB t + 1
   | .Inr _ t => heightB t + 1
-  | .Case a b c => Nat.max (heightB a) (Nat.max (heightB b) (heightB c)) + 1
-  | .TensorIntro a b => Nat.max (heightB a) (heightB b) + 1
-  | .LetTensor a b => Nat.max (heightB a) (heightB b) + 1
-  | .LetSays _ a b => Nat.max (heightB a) (heightB b) + 1
+  | .Case a b c => heightB a + heightB b + heightB c + 1
+  | .TensorIntro a b => heightB a + heightB b + 1
+  | .LetTensor a b => heightB a + heightB b + 1
+  | .LetSays _ a b => heightB a + heightB b + 1
   | .SfExtract t => heightB t + 1
-  | .Command a b _ => Nat.max (heightB a) (heightB b) + 1
-  | .RunCmd a b => Nat.max (heightB a) (heightB b) + 1
+  | .Command a b _ => heightB a + heightB b + 1
+  | .RunCmd a b => heightB a + heightB b + 1
 
 /-- The well-scopedness fence (parent ruling #1): the term decodes to a CLOSED
 hand term (the shift/subst/reduce-preserved invariant) and is height-bounded
@@ -811,5 +812,315 @@ theorem commit_square (decTm : DecTm) (decPr : DecPr)
   simp only [bind_tc_ok, decGC, decLog]
   show ok (List.map (decCmd decTm decPr) log1.val) = _
   rw [hlog1, List.map_append]; rfl
+
+/-! ## 9. ★ R2.3a — the subst/shift correspondence (the reducer-correspondence crux).
+
+`subst.shift`/`subst.subst_at` are the leaf the whole R2 operational transport
+rests on. We discharge them by structural induction on the term (the emitted
+`partial_fixpoint` defs carry no functional-induction principle, so we unfold one
+constructor layer via `.eq_def` and thread the child IHs), under the closedness +
+height fence.
+
+**Why closedness collapses the feared arithmetic.** The generated `shift` Var arm
+raises free indices by `delta` via an `I64` add + `U32` recast that can `.fail`.
+But `ClosedAbove (decTermC t) cutoff.val` means every `Var i` reached at recursion
+cutoff `c` has `i.val < c` — so the generated `if i < cutoff` ALWAYS takes the
+then-branch (`ok term`, unchanged) and the `I64`/`U32` branch is **dead**. Both
+`shift`s are the identity on the moved indices; the only live `U32` obligations are
+the binder-depth bumps `cutoff + k#u32`, discharged from `heightB` by `scalar_tac`.
+No `delta` bound is even needed. -/
+
+/-- **`shift_corr`.** The generated `subst.shift` refines the hand `DLC.shift`
+under the full decode on closed, height-bounded terms, and never `.fail`s (folded
+into the `= ok` shape). -/
+theorem shift_corr (delta : Std.I32) (t : syntax.Term) :
+    ∀ (cutoff : Std.U32),
+      DLC.ClosedAbove (decTermC t) cutoff.val →
+      cutoff.val + 2 * heightB t < 4294967296 →
+      decTermC <$> subst.shift t delta cutoff
+        = ok (DLC.shift (decTermC t) delta.toNat cutoff.val) := by
+  induction t with
+  | Var i =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_var_iff] at hcl
+      rw [subst.shift.eq_def]; simp only []
+      rw [if_pos (by scalar_tac)]
+      simp only [DLC.shift, if_pos hcl]; rfl
+  | Lam p body ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_lam_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨c1, hc1, hc1v⟩ :=
+        WP.spec_imp_exists (U32.add_spec (x := cutoff) (y := 1#u32) (by scalar_tac))
+      have hc1val : c1.val = cutoff.val + 1 := by rw [hc1v]; rfl
+      obtain ⟨tb, hb, hbd⟩ := map_ok_inv (ih c1 (by rw [hc1val]; exact hcl) (by omega))
+      rw [subst.shift.eq_def]
+      simp only [propClone_id, hc1, hb, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Lam p tb)) = _
+      simp only [decTermC, hbd, hc1val, DLC.shift]
+  | App f x ihf ihx =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_app_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨tf, hf, hfd⟩ := map_ok_inv (ihf cutoff hcl.1 (by omega))
+      obtain ⟨tx, hx, hxd⟩ := map_ok_inv (ihx cutoff hcl.2 (by omega))
+      rw [subst.shift.eq_def]
+      simp only [hf, hx, bind_tc_ok]
+      show ok (decTermC (syntax.Term.App tf tx)) = _
+      simp only [decTermC, hfd, hxd, DLC.shift]
+  | Sign p m sig ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_sign_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ih cutoff hcl (by omega))
+      rw [subst.shift.eq_def]
+      simp only [principalClone_id, hm, signatureClone_id, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Sign p tm sig)) = _
+      simp only [decTermC, hmd, DLC.shift]
+  | Verify p m sig ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_verify_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ih cutoff hcl (by omega))
+      rw [subst.shift.eq_def]
+      simp only [principalClone_id, hm, signatureClone_id, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Verify p tm sig)) = _
+      simp only [decTermC, hmd, DLC.shift]
+  | Delegate m n ihm ihn =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_delegate_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ihm cutoff hcl.1 (by omega))
+      obtain ⟨tn, hn, hnd⟩ := map_ok_inv (ihn cutoff hcl.2 (by omega))
+      rw [subst.shift.eq_def]
+      simp only [hm, hn, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Delegate tm tn)) = _
+      simp only [decTermC, hmd, hnd, DLC.shift]
+  | Attenuate m psi ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_attenuate_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ih cutoff hcl (by omega))
+      rw [subst.shift.eq_def]
+      simp only [hm, propClone_id, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Attenuate tm psi)) = _
+      simp only [decTermC, hmd, DLC.shift]
+  | SaysBind p scrut body ihs ihb =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_saysBind_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨c1, hc1, hc1v⟩ :=
+        WP.spec_imp_exists (U32.add_spec (x := cutoff) (y := 1#u32) (by scalar_tac))
+      have hc1val : c1.val = cutoff.val + 1 := by rw [hc1v]; rfl
+      obtain ⟨ts, hs, hsd⟩ := map_ok_inv (ihs cutoff hcl.1 (by omega))
+      obtain ⟨tb, hb, hbd⟩ := map_ok_inv (ihb c1 (by rw [hc1val]; exact hcl.2) (by omega))
+      rw [subst.shift.eq_def]
+      simp only [principalClone_id, hc1, hs, hb, bind_tc_ok]
+      show ok (decTermC (syntax.Term.SaysBind p ts tb)) = _
+      simp only [decTermC, hsd, hbd, hc1val, DLC.shift]
+  | Boxed o m n ihm ihn =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_boxed_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ihm cutoff hcl.1 (by omega))
+      obtain ⟨tn, hn, hnd⟩ := map_ok_inv (ihn cutoff hcl.2 (by omega))
+      rw [subst.shift.eq_def]
+      simp only [obligationClone_id, hm, hn, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Boxed o tm tn)) = _
+      simp only [decTermC, hmd, hnd, DLC.shift]
+  | Discharge m n ihm ihn =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_discharge_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ihm cutoff hcl.1 (by omega))
+      obtain ⟨tn, hn, hnd⟩ := map_ok_inv (ihn cutoff hcl.2 (by omega))
+      rw [subst.shift.eq_def]
+      simp only [hm, hn, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Discharge tm tn)) = _
+      simp only [decTermC, hmd, hnd, DLC.shift]
+  | LiftLabel l m ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_liftLabel_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ih cutoff hcl (by omega))
+      rw [subst.shift.eq_def]
+      simp only [labelClone_id, hm, bind_tc_ok]
+      show ok (decTermC (syntax.Term.LiftLabel l tm)) = _
+      simp only [decTermC, hmd, DLC.shift]
+  | Declassify l m pi ihm ihpi =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_declassify_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ihm cutoff hcl.1 (by omega))
+      obtain ⟨tpi, hpi, hpid⟩ := map_ok_inv (ihpi cutoff hcl.2 (by omega))
+      rw [subst.shift.eq_def]
+      simp only [labelClone_id, hm, hpi, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Declassify l tm tpi)) = _
+      simp only [decTermC, hmd, hpid, DLC.shift]
+  | Now t =>
+      intro cutoff hcl hh
+      rw [subst.shift.eq_def]
+      simp only [timeBoundClone_id, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Now t)) = _
+      simp only [decTermC, DLC.shift]
+  | WithinIntro t m ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_withinIntro_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ih cutoff hcl (by omega))
+      rw [subst.shift.eq_def]
+      simp only [timeBoundClone_id, hm, bind_tc_ok]
+      show ok (decTermC (syntax.Term.WithinIntro t tm)) = _
+      simp only [decTermC, hmd, DLC.shift]
+  | Pair a b iha ihb =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_pair_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨ta, ha, had⟩ := map_ok_inv (iha cutoff hcl.1 (by omega))
+      obtain ⟨tb, hb, hbd⟩ := map_ok_inv (ihb cutoff hcl.2 (by omega))
+      rw [subst.shift.eq_def]
+      simp only [ha, hb, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Pair ta tb)) = _
+      simp only [decTermC, had, hbd, DLC.shift]
+  | Fst a ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_fst_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨ta, ha, had⟩ := map_ok_inv (ih cutoff hcl (by omega))
+      rw [subst.shift.eq_def]
+      simp only [ha, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Fst ta)) = _
+      simp only [decTermC, had, DLC.shift]
+  | Snd a ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_snd_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨ta, ha, had⟩ := map_ok_inv (ih cutoff hcl (by omega))
+      rw [subst.shift.eq_def]
+      simp only [ha, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Snd ta)) = _
+      simp only [decTermC, had, DLC.shift]
+  | Inl p a ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_inl_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨ta, ha, had⟩ := map_ok_inv (ih cutoff hcl (by omega))
+      rw [subst.shift.eq_def]
+      simp only [propClone_id, ha, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Inl p ta)) = _
+      simp only [decTermC, had, DLC.shift]
+  | Inr p a ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_inr_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨ta, ha, had⟩ := map_ok_inv (ih cutoff hcl (by omega))
+      rw [subst.shift.eq_def]
+      simp only [propClone_id, ha, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Inr p ta)) = _
+      simp only [decTermC, had, DLC.shift]
+  | Case scrut left right ihs ihl ihr =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_case_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨c1, hc1, hc1v⟩ :=
+        WP.spec_imp_exists (U32.add_spec (x := cutoff) (y := 1#u32) (by scalar_tac))
+      have hc1val : c1.val = cutoff.val + 1 := by rw [hc1v]; rfl
+      obtain ⟨ts, hs, hsd⟩ := map_ok_inv (ihs cutoff hcl.1 (by omega))
+      obtain ⟨tl, hl, hld⟩ := map_ok_inv (ihl c1 (by rw [hc1val]; exact hcl.2.1) (by omega))
+      obtain ⟨tr, hr, hrd⟩ := map_ok_inv (ihr c1 (by rw [hc1val]; exact hcl.2.2) (by omega))
+      rw [subst.shift.eq_def]
+      simp only [hc1, hs, hl, hr, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Case ts tl tr)) = _
+      simp only [decTermC, hsd, hld, hrd, hc1val, DLC.shift]
+  | TensorIntro a b iha ihb =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_tensorIntro_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨ta, ha, had⟩ := map_ok_inv (iha cutoff hcl.1 (by omega))
+      obtain ⟨tb, hb, hbd⟩ := map_ok_inv (ihb cutoff hcl.2 (by omega))
+      rw [subst.shift.eq_def]
+      simp only [ha, hb, bind_tc_ok]
+      show ok (decTermC (syntax.Term.TensorIntro ta tb)) = _
+      simp only [decTermC, had, hbd, DLC.shift]
+  | LetTensor scrut body ihs ihb =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_letTensor_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨c2, hc2, hc2v⟩ :=
+        WP.spec_imp_exists (U32.add_spec (x := cutoff) (y := 2#u32) (by scalar_tac))
+      have hc2val : c2.val = cutoff.val + 2 := by rw [hc2v]; rfl
+      obtain ⟨ts, hs, hsd⟩ := map_ok_inv (ihs cutoff hcl.1 (by omega))
+      obtain ⟨tb, hb, hbd⟩ := map_ok_inv (ihb c2 (by rw [hc2val]; exact hcl.2) (by omega))
+      rw [subst.shift.eq_def]
+      simp only [hc2, hs, hb, bind_tc_ok]
+      show ok (decTermC (syntax.Term.LetTensor ts tb)) = _
+      simp only [decTermC, hsd, hbd, hc2val, DLC.shift]
+  | LetSays p scrut body ihs ihb =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_letSays_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨c1, hc1, hc1v⟩ :=
+        WP.spec_imp_exists (U32.add_spec (x := cutoff) (y := 1#u32) (by scalar_tac))
+      have hc1val : c1.val = cutoff.val + 1 := by rw [hc1v]; rfl
+      obtain ⟨ts, hs, hsd⟩ := map_ok_inv (ihs cutoff hcl.1 (by omega))
+      obtain ⟨tb, hb, hbd⟩ := map_ok_inv (ihb c1 (by rw [hc1val]; exact hcl.2) (by omega))
+      rw [subst.shift.eq_def]
+      simp only [principalClone_id, hc1, hs, hb, bind_tc_ok]
+      show ok (decTermC (syntax.Term.LetSays p ts tb)) = _
+      simp only [decTermC, hsd, hbd, hc1val, DLC.shift]
+  | SfExtract m ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_sfExtract_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ih cutoff hcl (by omega))
+      rw [subst.shift.eq_def]
+      simp only [hm, bind_tc_ok]
+      show ok (decTermC (syntax.Term.SfExtract tm)) = _
+      simp only [decTermC, hmd, DLC.shift]
+  | Command m c l ihm ihc =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_command_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨tm, hm, hmd⟩ := map_ok_inv (ihm cutoff hcl.1 (by omega))
+      obtain ⟨tc, hc, hcd⟩ := map_ok_inv (ihc cutoff hcl.2 (by omega))
+      rw [subst.shift.eq_def]
+      simp only [hm, hc, labelClone_id, bind_tc_ok]
+      show ok (decTermC (syntax.Term.Command tm tc l)) = _
+      simp only [decTermC, hmd, hcd, DLC.shift]
+  | RunCmd v s ihv ihs =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl ⊢
+      rw [DLC.closedAbove_runCmd_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨tv, hv, hvd⟩ := map_ok_inv (ihv cutoff hcl.1 (by omega))
+      obtain ⟨ts, hs, hsd⟩ := map_ok_inv (ihs cutoff hcl.2 (by omega))
+      rw [subst.shift.eq_def]
+      simp only [hv, hs, bind_tc_ok]
+      show ok (decTermC (syntax.Term.RunCmd tv ts)) = _
+      simp only [decTermC, hvd, hsd, DLC.shift]
 
 end DLCD.Correspondence

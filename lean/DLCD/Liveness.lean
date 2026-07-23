@@ -1,4 +1,5 @@
 import DLCD.Consensus
+import DLCD.FaultGrade
 
 /-! # DLC-D Phase 1.2c — LIVENESS under the `FailureBudget` (the failure-model-as-contract, completed)
 
@@ -483,5 +484,84 @@ theorem decided7_concrete : Decided (allVote 0) 7 :=
   ⟨correctAll, correctAll_quorum, by intro r _; rfl⟩
 
 end LivenessAntiVacuity
+
+/-! ## 6. R1 stageE-E2 — the liveness guarantee PACKAGED behind the fault-threshold.
+
+E1 (`DLCD.FaultGrade`) made "over fault-budget ⇒ guarantee unconstructible" a
+type-level fact for a *generic* payload `G` (`budgeted_guarantee_voids_over_budget`).
+E2 instantiates that on the REAL liveness metatheorem: an ADDITIVE graded wrapper
+that delivers §3's actual `∃ k, Decided … ∧ ∃ m, applied …` conclusion *at a
+grade* as a `BudgetedGuarantee budget.maxFaults budget.consumed …`. The original
+`command_eventually_written` is applied UNCHANGED as the engine (it stays
+byte-identical); the wrapper only re-packages its conclusion so the counit is
+available exactly within budget and the guarantee *type* is empty over budget.
+
+The `withinContract = true` hypothesis of the original is SPLIT here (via
+`FailureBudget.withinContract_iff`) into its two grade-literature-separate
+concerns (Atkey LICS'18): the **threshold** `consumed ≤ maxFaults` becomes the
+graded counit's availability side (the `charged` field), and **fair delivery**
+stays the qualitative liveness premise. Over budget (`consumed > maxFaults`) the
+`charged` field `consumed ≤ maxFaults` is uninhabitable ⇒ the whole
+`BudgetedGuarantee` type is empty ⇒ the eventual-decision guarantee is
+type-level-unavailable. -/
+
+/-- **THE LIVENESS METATHEOREM, DELIVERED AT A GRADE (E2 headline).** Identical
+to `command_eventually_written` except the runtime `withinContract = true`
+hypothesis is split into the **threshold** `budget.consumed ≤ budget.maxFaults`
+(the graded counit's availability side) and **fair delivery**
+`budget.fairDelivery = true`, and the conclusion is packaged as a
+`BudgetedGuarantee budget.maxFaults budget.consumed G` where `G` is §3's exact
+eventual-decision-and-application conjunction. The `charged` field is the
+threshold; over budget (`consumed > maxFaults`) it is unconstructible, so the
+guarantee TYPE is empty (the E1 void, `budgeted_guarantee_voids_over_budget`,
+instantiated on the real liveness `G`). The engine is the ORIGINAL theorem,
+applied verbatim after `withinContract_iff` re-assembles its `withinContract`
+premise from the split parts — so nothing is re-proved or weakened. -/
+theorem command_eventually_written_budgeted {n : ℕ}
+    (budget : FailureBudget)
+    (hthreshold : budget.consumed ≤ budget.maxFaults)
+    (hfairDelivery : budget.fairDelivery = true)
+    (run : ℕ → Votes n Command) (correct : Finset (Fin n)) (c : Command)
+    (hq : IsQuorum correct)
+    (hhonest : ∀ k r, r ∈ correct → (run k) r ≠ none → (run k) r = some c)
+    (hfair : budget.fairDelivery = true →
+      ∀ k, 0 < rank correct (run k) → rank correct (run (k + 1)) < rank correct (run k))
+    {init : Term} {log : CommittedLog} {i : Nat} (hi : i < log.length)
+    (hci : log[i]? = some c)
+    {r : Replica} (h0 : r.applied = 0) (hinv : AppliedPrefix init log r) :
+    BudgetedGuarantee budget.maxFaults budget.consumed
+      ((∃ k, Decided (run k) c) ∧
+       (∃ m, ((deliver log)^[m] r).applied = i + 1 ∧
+             ((deliver log)^[m] r).store = applyCommand c (applyPrefix init (log.take i)) ∧
+             AppliedPrefix init log ((deliver log)^[m] r))) :=
+  ⟨hthreshold,
+   command_eventually_written budget
+     ((FailureBudget.withinContract_iff budget).mpr ⟨hthreshold, hfairDelivery⟩)
+     run correct c hq hhonest hfair hi hci h0 hinv⟩
+
+/-- **The graded form loses nothing — `extract` recovers §3's conclusion.** Given
+the threshold (carried by the value's `charged` field), the counit
+`BudgetedGuarantee.extract` on `command_eventually_written_budgeted` yields back
+the EXACT original `∃ k, Decided … ∧ ∃ m, applied …` guarantee. So the budgeted
+packaging is a faithful re-founding: within budget the real liveness conclusion
+is fully recoverable; the type-level teeth are only felt off budget. -/
+theorem command_eventually_written_budgeted_extract {n : ℕ}
+    (budget : FailureBudget)
+    (hthreshold : budget.consumed ≤ budget.maxFaults)
+    (hfairDelivery : budget.fairDelivery = true)
+    (run : ℕ → Votes n Command) (correct : Finset (Fin n)) (c : Command)
+    (hq : IsQuorum correct)
+    (hhonest : ∀ k r, r ∈ correct → (run k) r ≠ none → (run k) r = some c)
+    (hfair : budget.fairDelivery = true →
+      ∀ k, 0 < rank correct (run k) → rank correct (run (k + 1)) < rank correct (run k))
+    {init : Term} {log : CommittedLog} {i : Nat} (hi : i < log.length)
+    (hci : log[i]? = some c)
+    {r : Replica} (h0 : r.applied = 0) (hinv : AppliedPrefix init log r) :
+    (∃ k, Decided (run k) c) ∧
+    (∃ m, ((deliver log)^[m] r).applied = i + 1 ∧
+          ((deliver log)^[m] r).store = applyCommand c (applyPrefix init (log.take i)) ∧
+          AppliedPrefix init log ((deliver log)^[m] r)) :=
+  (command_eventually_written_budgeted budget hthreshold hfairDelivery
+    run correct c hq hhonest hfair hi hci h0 hinv).extract
 
 end DLCD

@@ -1,6 +1,7 @@
 import DLCD.CapSafety
 import DLCD.Linearizable
 import DLCD.Liveness
+import DLCD.Termination
 
 /-! # DLC-D Phase 1.3 — THE DLC-D VERTICAL-SLICE WITNESS
 
@@ -283,6 +284,81 @@ theorem both_eventually_apply :
     (∃ m, 0 < ((deliver clog)^[m] r2Seed).applied) :=
   ⟨command_eventually_applied clog r1Seed 0 (by decide),
    command_eventually_applied clog r2Seed 0 (by decide)⟩
+
+/-! ## 5b. R1 stageE-E2 — the in-budget BOUNDARY WITNESS for the graded liveness
+guarantee.
+
+The E2 graded wrappers (`command_eventually_written(_weakfair)_budgeted`) deliver
+`write_live`'s conclusion as a `BudgetedGuarantee budget.maxFaults budget.consumed
+…`. On this concrete run `budget = FailureBudget.zero 1`, so `maxFaults = 1` and
+`consumed = 0`: the guarantee lands at the in-budget grade `BudgetedGuarantee 1 0
+…` (`charged : 0 ≤ 1`), FIRES, and its `extract` recovers the real
+`write_live` conclusion verbatim — the graded packaging loses nothing within
+budget. The over-budget void (grade `maxFaults + 1 = 2`) is the E1 headline
+(`budgeted_guarantee_voids_over_budget`) instantiated on this very liveness
+payload: at grade `2` the guarantee TYPE is uninhabited. Non-vacuous both ways. -/
+
+/-- **In-budget graded liveness (raw-`hfair` route).** `command_eventually_written
+_budgeted` at `budget = FailureBudget.zero 1` delivers `write_live`'s
+eventual-decision-and-application guarantee as a `BudgetedGuarantee 1 0 …` — the
+counit is available (`0 ≤ 1`). -/
+theorem write_live_budgeted :
+    BudgetedGuarantee budget.maxFaults budget.consumed
+      ((∃ k, Decided (run k) wcmd) ∧
+       (∃ m, ((deliver clog)^[m] r1Seed).applied = 0 + 1 ∧
+             ((deliver clog)^[m] r1Seed).store = applyCommand wcmd (applyPrefix init (clog.take 0)) ∧
+             AppliedPrefix init clog ((deliver clog)^[m] r1Seed))) :=
+  command_eventually_written_budgeted budget (by decide) (by decide)
+    run Qall wcmd Qall_quorum run_honest run_fair
+    (i := 0) (log := clog) (by decide) rfl rfl r1Seed_inv
+
+/-- **The counit FIRES within budget:** `extract` recovers the EXACT `write_live`
+guarantee (same statement as `write_live`) from the graded form. The graded
+re-founding is faithful — nothing is lost inside budget. -/
+theorem write_live_budgeted_fires :
+    (∃ k, Decided (run k) wcmd) ∧
+    (∃ m, ((deliver clog)^[m] r1Seed).applied = 0 + 1 ∧
+          ((deliver clog)^[m] r1Seed).store = applyCommand wcmd (applyPrefix init (clog.take 0)) ∧
+          AppliedPrefix init clog ((deliver clog)^[m] r1Seed)) :=
+  write_live_budgeted.extract
+
+/-- `run` is `WeakFair` (vacuously: every replica has already voted `wcmd`, so no
+enabled replica awaits its vote) — the fairness premise the weak-fair wrapper
+needs on this run. -/
+theorem run_weakfair : WeakFair run Qall wcmd := by
+  intro k r _ h; simp [run, votesW] at h
+
+/-- `run` is non-retracting (`MonotoneVotes`): it is constant in the step. -/
+theorem run_monotone : MonotoneVotes run := by
+  intro k r x h; exact h
+
+/-- **In-budget graded liveness (weak-fairness route).**
+`command_eventually_written_weakfair_budgeted` at `budget = FailureBudget.zero 1`
+delivers the same guarantee as a `BudgetedGuarantee 1 0 …`, founded on `WeakFair`
++ `MonotoneVotes` instead of the raw rank-decrease. -/
+theorem write_live_weakfair_budgeted :
+    BudgetedGuarantee budget.maxFaults budget.consumed
+      ((∃ k, Decided (run k) wcmd) ∧
+       (∃ m, ((deliver clog)^[m] r1Seed).applied = 0 + 1 ∧
+             ((deliver clog)^[m] r1Seed).store = applyCommand wcmd (applyPrefix init (clog.take 0)) ∧
+             AppliedPrefix init clog ((deliver clog)^[m] r1Seed))) :=
+  command_eventually_written_weakfair_budgeted budget (by decide) (by decide)
+    run Qall wcmd Qall_quorum run_honest (fun _ => run_weakfair) run_monotone
+    (i := 0) (log := clog) (by decide) rfl rfl r1Seed_inv
+
+/-- **The over-budget void, instantiated on the real liveness payload.** At the
+over-budget grade `budget.maxFaults + 1 = 2`, the graded liveness guarantee TYPE
+is GENUINELY UNINHABITED — even for the concrete `write_live` payload. This is the
+E1 headline (`budgeted_guarantee_voids_over_budget`) landing on the real
+eventual-decision guarantee: crossing the 1-fault budget voids the liveness
+guarantee at the type level, not merely as a `Prop` one fails to supply. -/
+theorem write_live_over_budget_void :
+    ¬ BudgetedGuarantee budget.maxFaults (budget.maxFaults + 1)
+        ((∃ k, Decided (run k) wcmd) ∧
+         (∃ m, ((deliver clog)^[m] r1Seed).applied = 0 + 1 ∧
+               ((deliver clog)^[m] r1Seed).store = applyCommand wcmd (applyPrefix init (clog.take 0)) ∧
+               AppliedPrefix init clog ((deliver clog)^[m] r1Seed))) :=
+  budgeted_guarantee_voids_over_budget
 
 /-! ## 6. THE SEAL — all five facts bundled on the one concrete run. -/
 

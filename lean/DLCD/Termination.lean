@@ -1,4 +1,5 @@
 import DLCD.Liveness
+import DLCD.FaultGrade
 
 /-! # DLC-D Phase 2.a — CONSENSUS TERMINATION derived from schedule WEAK-FAIRNESS
 
@@ -459,5 +460,76 @@ theorem prog_terminates : ∃ k, Decided (prog k) 7 :=
   weakfair_terminates prog Qp 7 prog_weakfair prog_monotone prog_quorum prog_honest
 
 end WeakFairAntiVacuity
+
+/-! ## 8. R1 stageE-E2 — the weak-fair liveness guarantee PACKAGED behind the fault-threshold.
+
+The `WeakFair`-founded twin of `command_eventually_written_budgeted`
+(`DLCD.Liveness`): an ADDITIVE graded wrapper that delivers §5's
+`command_eventually_written_weakfair` conclusion (`∃ k, Decided … ∧ ∃ m, applied
+…`) *at a grade* as a `BudgetedGuarantee budget.maxFaults budget.consumed …`.
+The bridge is identical: the original's `withinContract = true` is split (via
+`FailureBudget.withinContract_iff`) into the **threshold** `consumed ≤ maxFaults`
+(the graded counit's availability side = the `charged` field) and **fair
+delivery** (the qualitative premise that unlocks `WeakFair`). The engine is the
+ORIGINAL `command_eventually_written_weakfair`, applied UNCHANGED after
+`withinContract_iff` re-assembles its premise — byte-identical, not re-proved.
+Over budget the `charged` field is uninhabitable, so the weak-fair eventual-
+decision guarantee is type-level-unavailable (the E1 void on the real `G`). -/
+
+/-- **THE WEAK-FAIR LIVENESS METATHEOREM, DELIVERED AT A GRADE (E2 headline).**
+Identical to `command_eventually_written_weakfair` except `withinContract = true`
+is split into the **threshold** `budget.consumed ≤ budget.maxFaults` (the counit's
+availability side) and **fair delivery** `budget.fairDelivery = true`, and the
+conclusion is packaged as a `BudgetedGuarantee budget.maxFaults budget.consumed
+G` for §5's exact eventual-decision-and-application `G`. The `charged` field is
+the threshold; over budget it is unconstructible, so the guarantee TYPE is empty
+(`budgeted_guarantee_voids_over_budget` on the real weak-fair `G`). The consensus
+engine `weakfair_terminates` is untouched; the top-level original is applied
+verbatim. -/
+theorem command_eventually_written_weakfair_budgeted {n : ℕ}
+    (budget : FailureBudget)
+    (hthreshold : budget.consumed ≤ budget.maxFaults)
+    (hfairDelivery : budget.fairDelivery = true)
+    (run : ℕ → Votes n Command) (correct : Finset (Fin n)) (c : Command)
+    (hq : IsQuorum correct)
+    (hhonest : ∀ k r, r ∈ correct → (run k) r ≠ none → (run k) r = some c)
+    (hwf : budget.fairDelivery = true → WeakFair run correct c)
+    (hmono : MonotoneVotes run)
+    {init : Term} {log : CommittedLog} {i : Nat} (hi : i < log.length)
+    (hci : log[i]? = some c)
+    {r : Replica} (h0 : r.applied = 0) (hinv : AppliedPrefix init log r) :
+    BudgetedGuarantee budget.maxFaults budget.consumed
+      ((∃ k, Decided (run k) c) ∧
+       (∃ m, ((deliver log)^[m] r).applied = i + 1 ∧
+             ((deliver log)^[m] r).store = applyCommand c (applyPrefix init (log.take i)) ∧
+             AppliedPrefix init log ((deliver log)^[m] r))) :=
+  ⟨hthreshold,
+   command_eventually_written_weakfair budget
+     ((FailureBudget.withinContract_iff budget).mpr ⟨hthreshold, hfairDelivery⟩)
+     run correct c hq hhonest hwf hmono hi hci h0 hinv⟩
+
+/-- **The graded form loses nothing — `extract` recovers §5's conclusion.** Given
+the threshold, the counit `BudgetedGuarantee.extract` on
+`command_eventually_written_weakfair_budgeted` yields back the EXACT original
+weak-fair `∃ k, Decided … ∧ ∃ m, applied …` guarantee. Faithful re-founding:
+within budget the real liveness conclusion is fully recoverable. -/
+theorem command_eventually_written_weakfair_budgeted_extract {n : ℕ}
+    (budget : FailureBudget)
+    (hthreshold : budget.consumed ≤ budget.maxFaults)
+    (hfairDelivery : budget.fairDelivery = true)
+    (run : ℕ → Votes n Command) (correct : Finset (Fin n)) (c : Command)
+    (hq : IsQuorum correct)
+    (hhonest : ∀ k r, r ∈ correct → (run k) r ≠ none → (run k) r = some c)
+    (hwf : budget.fairDelivery = true → WeakFair run correct c)
+    (hmono : MonotoneVotes run)
+    {init : Term} {log : CommittedLog} {i : Nat} (hi : i < log.length)
+    (hci : log[i]? = some c)
+    {r : Replica} (h0 : r.applied = 0) (hinv : AppliedPrefix init log r) :
+    (∃ k, Decided (run k) c) ∧
+    (∃ m, ((deliver log)^[m] r).applied = i + 1 ∧
+          ((deliver log)^[m] r).store = applyCommand c (applyPrefix init (log.take i)) ∧
+          AppliedPrefix init log ((deliver log)^[m] r)) :=
+  (command_eventually_written_weakfair_budgeted budget hthreshold hfairDelivery
+    run correct c hq hhonest hwf hmono hi hci h0 hinv).extract
 
 end DLCD

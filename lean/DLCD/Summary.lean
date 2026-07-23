@@ -59,6 +59,12 @@ sync with the theorems it advertises.
   single decree is eventually decided (single-decree progress).
 - **`log_grows_unbounded`** (`DLCD/MultiDecreeLiveness.lean`): under a fair slot
   schedule the multi-decree committed log grows without bound.
+- **`command_eventually_written_budgeted`** / **`…_weakfair_budgeted`**
+  (`DLCD/Liveness.lean`, `DLCD/Termination.lean`, R1 stageE-E2): the real
+  eventual-decision-and-application guarantee delivered AT a fault grade as a
+  `BudgetedGuarantee maxFaults consumed …` — over the fault budget the guarantee
+  TYPE is unconstructible; the original liveness metatheorems are the
+  byte-identical engine, recovered by `extract` within budget.
 
 ### G4 — convergence + multi-decree safety
 - **`replicas_converge_via_consensus`** (`DLCD/Consensus.lean`): replicas that
@@ -130,6 +136,13 @@ abbrev byz_agreement                := @DLCD.byz_agreement
 -- guarantee is UNINHABITED at the over-budget grade (the counit is unavailable
 -- off-budget) for EVERY payload, while it DELIVERS + `extract`s within budget.
 abbrev budgeted_guarantee_voids_over_budget := @DLCD.budgeted_guarantee_voids_over_budget
+-- G3 (R1 stageE-E2): the REAL liveness metatheorems packaged AT a grade — the
+-- eventual-decision-and-application guarantee delivered as a `BudgetedGuarantee
+-- maxFaults consumed …`, so over the fault budget the guarantee TYPE is
+-- unconstructible; the originals are the byte-identical engine, recovered by
+-- `extract` within budget. Raw-`hfair` and `WeakFair` routes.
+abbrev command_eventually_written_budgeted          := @DLCD.command_eventually_written_budgeted
+abbrev command_eventually_written_weakfair_budgeted := @DLCD.command_eventually_written_weakfair_budgeted
 -- The seal (a `def`, so re-exported as an `abbrev`)
 abbrev dlc_d_slice_witness          := @DLCD.SliceWitness.dlc_d_slice_witness
 

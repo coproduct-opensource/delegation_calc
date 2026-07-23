@@ -1,0 +1,1 @@
+'DLCD.command_eventually_written_weakfair_budgeted' depends on axioms: [propext, Classical.choice, Quot.sound]

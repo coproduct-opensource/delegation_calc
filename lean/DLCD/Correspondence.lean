@@ -1408,4 +1408,1388 @@ theorem subst_corr (body value : syntax.Term)
   rw [h0] at h
   exact h
 
+/-! ## 10. ★ R2.3b — the single-step correspondence `step_corr` (the reducer crux).
+
+The R2.3a `subst_corr` is fenced on **`heightB`**, which grows MULTIPLICATIVELY
+under substitution (`heightB (subst body v) ≤ (heightB body + 1)(heightB v + 1)`).
+That fence therefore does NOT compose through `LetTensor`, whose reduct
+`subst (subst body (shift a 1 0)) b` is a *nested* substitution: the OUTER
+`subst_corr` would need `heightB (subst body (shift a 1 0)) < 2^31`, but that
+intermediate can reach `~2^60`.
+
+**The honest fix: a binder-DEPTH metric `depthB`.** Unlike `heightB` (which sums
+`+1` at every node), `depthB` counts only the *max binder-nesting weight* — the
+exact quantity the generated `subst_at`/`shift` accumulate into the `U32` depth
+cursor (Lam/Case/SaysBind/LetSays bump `+1`, LetTensor bumps `+2`, everything
+else `+0`, and branches `max`). It is **subadditive under subst**
+(`depthB (subst body v) ≤ depthB body + depthB v`) and satisfies
+`depthB t ≤ 2 · heightB t`, so the landed `WellScopedTm` (heightB < 2^31) fence
+supplies every `depthB` bound `step_corr` needs, and the depth fence composes
+through the nested `LetTensor` substitution. -/
+
+/-- **Binder-nesting depth** (the composable metric). `+1` at single binders
+(`Lam`/`Case` branches/`SaysBind`/`LetSays` bodies), `+2` at `LetTensor` bodies,
+`max` over branches, `+0` at every non-binder node — exactly the `U32` depth
+cursor the generated `subst_at`/`shift` accumulate. Contrast `heightB` (sum `+1`
+everywhere), which overflows through nested subst. -/
+def depthB : syntax.Term → Nat
+  | .Var _ => 0
+  | .Now _ => 0
+  | .Lam _ t => depthB t + 1
+  | .App a b => max (depthB a) (depthB b)
+  | .Sign _ t _ => depthB t
+  | .Verify _ t _ => depthB t
+  | .Delegate a b => max (depthB a) (depthB b)
+  | .Attenuate t _ => depthB t
+  | .SaysBind _ a b => max (depthB a) (depthB b + 1)
+  | .Boxed _ a b => max (depthB a) (depthB b)
+  | .Discharge a b => max (depthB a) (depthB b)
+  | .LiftLabel _ t => depthB t
+  | .Declassify _ a b => max (depthB a) (depthB b)
+  | .WithinIntro _ t => depthB t
+  | .Pair a b => max (depthB a) (depthB b)
+  | .Fst t => depthB t
+  | .Snd t => depthB t
+  | .Inl _ t => depthB t
+  | .Inr _ t => depthB t
+  | .Case a b c => max (depthB a) (max (depthB b + 1) (depthB c + 1))
+  | .TensorIntro a b => max (depthB a) (depthB b)
+  | .LetTensor a b => max (depthB a) (depthB b + 2)
+  | .LetSays _ a b => max (depthB a) (depthB b + 1)
+  | .SfExtract t => depthB t
+  | .Command a b _ => max (depthB a) (depthB b)
+  | .RunCmd a b => max (depthB a) (depthB b)
+
+/-- **`depthB ≤ 2 · heightB`** — the exact relation (the `LetTensor` double
+binder is why plain `depthB ≤ heightB` fails and the `2·` appears, matching the
+landed `shift_corr`/`substAt_corr` fences). Lets the `heightB` `WellScopedTm`
+fence supply every `depthB` bound. -/
+theorem depthB_le_2heightB (t : syntax.Term) : depthB t ≤ 2 * heightB t := by
+  induction t <;> simp only [depthB, heightB] <;> omega
+
+/-- **`shift_id_closed`.** The generated `subst.shift` is the IDENTITY (in the
+`Result` monad) on a term that is closed at the cutoff: every `Var` reached takes
+the unchanged then-branch, and the binder-depth `U32` bumps never overflow under
+the height fence. This is the raw-equality strengthening of `shift_corr` for a
+closed argument (`shift_corr` only gives the decoded image); it is what lets
+`step_corr`'s `LetTensor` arm treat `subst.shift a 1 0` as literally `a`, so both
+the `heightB` and `depthB` of the shifted value equal those of `a`. -/
+theorem shift_id_closed (delta : Std.I32) (t : syntax.Term) :
+    ∀ (cutoff : Std.U32),
+      DLC.ClosedAbove (decTermC t) cutoff.val →
+      cutoff.val + 2 * heightB t < 4294967296 →
+      subst.shift t delta cutoff = ok t := by
+  induction t with
+  | Var i =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_var_iff] at hcl
+      rw [subst.shift.eq_def]; simp only []
+      rw [if_pos (by scalar_tac)]
+  | Lam p body ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_lam_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨c1, hc1, hc1v⟩ :=
+        WP.spec_imp_exists (U32.add_spec (x := cutoff) (y := 1#u32) (by scalar_tac))
+      have hc1val : c1.val = cutoff.val + 1 := by rw [hc1v]; rfl
+      have hb := ih c1 (by rw [hc1val]; exact hcl) (by omega)
+      rw [subst.shift.eq_def]
+      simp only [propClone_id, hc1, hb, bind_tc_ok]
+  | App f x ihf ihx =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_app_iff] at hcl
+      simp only [heightB] at hh
+      have hf := ihf cutoff hcl.1 (by omega)
+      have hx := ihx cutoff hcl.2 (by omega)
+      rw [subst.shift.eq_def]
+      simp only [hf, hx, bind_tc_ok]
+  | Sign p m sig ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_sign_iff] at hcl
+      simp only [heightB] at hh
+      have hm := ih cutoff hcl (by omega)
+      rw [subst.shift.eq_def]
+      simp only [principalClone_id, hm, signatureClone_id, bind_tc_ok]
+  | Verify p m sig ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_verify_iff] at hcl
+      simp only [heightB] at hh
+      have hm := ih cutoff hcl (by omega)
+      rw [subst.shift.eq_def]
+      simp only [principalClone_id, hm, signatureClone_id, bind_tc_ok]
+  | Delegate m n ihm ihn =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_delegate_iff] at hcl
+      simp only [heightB] at hh
+      have hm := ihm cutoff hcl.1 (by omega)
+      have hn := ihn cutoff hcl.2 (by omega)
+      rw [subst.shift.eq_def]
+      simp only [hm, hn, bind_tc_ok]
+  | Attenuate m psi ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_attenuate_iff] at hcl
+      simp only [heightB] at hh
+      have hm := ih cutoff hcl (by omega)
+      rw [subst.shift.eq_def]
+      simp only [hm, propClone_id, bind_tc_ok]
+  | SaysBind p scrut body ihs ihb =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_saysBind_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨c1, hc1, hc1v⟩ :=
+        WP.spec_imp_exists (U32.add_spec (x := cutoff) (y := 1#u32) (by scalar_tac))
+      have hc1val : c1.val = cutoff.val + 1 := by rw [hc1v]; rfl
+      have hs := ihs cutoff hcl.1 (by omega)
+      have hb := ihb c1 (by rw [hc1val]; exact hcl.2) (by omega)
+      rw [subst.shift.eq_def]
+      simp only [principalClone_id, hc1, hs, hb, bind_tc_ok]
+  | Boxed o m n ihm ihn =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_boxed_iff] at hcl
+      simp only [heightB] at hh
+      have hm := ihm cutoff hcl.1 (by omega)
+      have hn := ihn cutoff hcl.2 (by omega)
+      rw [subst.shift.eq_def]
+      simp only [obligationClone_id, hm, hn, bind_tc_ok]
+  | Discharge m n ihm ihn =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_discharge_iff] at hcl
+      simp only [heightB] at hh
+      have hm := ihm cutoff hcl.1 (by omega)
+      have hn := ihn cutoff hcl.2 (by omega)
+      rw [subst.shift.eq_def]
+      simp only [hm, hn, bind_tc_ok]
+  | LiftLabel l m ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_liftLabel_iff] at hcl
+      simp only [heightB] at hh
+      have hm := ih cutoff hcl (by omega)
+      rw [subst.shift.eq_def]
+      simp only [labelClone_id, hm, bind_tc_ok]
+  | Declassify l m pi ihm ihpi =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_declassify_iff] at hcl
+      simp only [heightB] at hh
+      have hm := ihm cutoff hcl.1 (by omega)
+      have hpi := ihpi cutoff hcl.2 (by omega)
+      rw [subst.shift.eq_def]
+      simp only [labelClone_id, hm, hpi, bind_tc_ok]
+  | Now t =>
+      intro cutoff hcl hh
+      rw [subst.shift.eq_def]
+      simp only [timeBoundClone_id, bind_tc_ok]
+  | WithinIntro t m ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_withinIntro_iff] at hcl
+      simp only [heightB] at hh
+      have hm := ih cutoff hcl (by omega)
+      rw [subst.shift.eq_def]
+      simp only [timeBoundClone_id, hm, bind_tc_ok]
+  | Pair a b iha ihb =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_pair_iff] at hcl
+      simp only [heightB] at hh
+      have ha := iha cutoff hcl.1 (by omega)
+      have hb := ihb cutoff hcl.2 (by omega)
+      rw [subst.shift.eq_def]
+      simp only [ha, hb, bind_tc_ok]
+  | Fst a ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_fst_iff] at hcl
+      simp only [heightB] at hh
+      have ha := ih cutoff hcl (by omega)
+      rw [subst.shift.eq_def]
+      simp only [ha, bind_tc_ok]
+  | Snd a ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_snd_iff] at hcl
+      simp only [heightB] at hh
+      have ha := ih cutoff hcl (by omega)
+      rw [subst.shift.eq_def]
+      simp only [ha, bind_tc_ok]
+  | Inl p a ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_inl_iff] at hcl
+      simp only [heightB] at hh
+      have ha := ih cutoff hcl (by omega)
+      rw [subst.shift.eq_def]
+      simp only [propClone_id, ha, bind_tc_ok]
+  | Inr p a ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_inr_iff] at hcl
+      simp only [heightB] at hh
+      have ha := ih cutoff hcl (by omega)
+      rw [subst.shift.eq_def]
+      simp only [propClone_id, ha, bind_tc_ok]
+  | Case scrut left right ihs ihl ihr =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_case_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨c1, hc1, hc1v⟩ :=
+        WP.spec_imp_exists (U32.add_spec (x := cutoff) (y := 1#u32) (by scalar_tac))
+      have hc1val : c1.val = cutoff.val + 1 := by rw [hc1v]; rfl
+      have hs := ihs cutoff hcl.1 (by omega)
+      have hl := ihl c1 (by rw [hc1val]; exact hcl.2.1) (by omega)
+      have hr := ihr c1 (by rw [hc1val]; exact hcl.2.2) (by omega)
+      rw [subst.shift.eq_def]
+      simp only [hc1, hs, hl, hr, bind_tc_ok]
+  | TensorIntro a b iha ihb =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_tensorIntro_iff] at hcl
+      simp only [heightB] at hh
+      have ha := iha cutoff hcl.1 (by omega)
+      have hb := ihb cutoff hcl.2 (by omega)
+      rw [subst.shift.eq_def]
+      simp only [ha, hb, bind_tc_ok]
+  | LetTensor scrut body ihs ihb =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_letTensor_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨c2, hc2, hc2v⟩ :=
+        WP.spec_imp_exists (U32.add_spec (x := cutoff) (y := 2#u32) (by scalar_tac))
+      have hc2val : c2.val = cutoff.val + 2 := by rw [hc2v]; rfl
+      have hs := ihs cutoff hcl.1 (by omega)
+      have hb := ihb c2 (by rw [hc2val]; exact hcl.2) (by omega)
+      rw [subst.shift.eq_def]
+      simp only [hc2, hs, hb, bind_tc_ok]
+  | LetSays p scrut body ihs ihb =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_letSays_iff] at hcl
+      simp only [heightB] at hh
+      obtain ⟨c1, hc1, hc1v⟩ :=
+        WP.spec_imp_exists (U32.add_spec (x := cutoff) (y := 1#u32) (by scalar_tac))
+      have hc1val : c1.val = cutoff.val + 1 := by rw [hc1v]; rfl
+      have hs := ihs cutoff hcl.1 (by omega)
+      have hb := ihb c1 (by rw [hc1val]; exact hcl.2) (by omega)
+      rw [subst.shift.eq_def]
+      simp only [principalClone_id, hc1, hs, hb, bind_tc_ok]
+  | SfExtract m ih =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_sfExtract_iff] at hcl
+      simp only [heightB] at hh
+      have hm := ih cutoff hcl (by omega)
+      rw [subst.shift.eq_def]
+      simp only [hm, bind_tc_ok]
+  | Command m c l ihm ihc =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_command_iff] at hcl
+      simp only [heightB] at hh
+      have hm := ihm cutoff hcl.1 (by omega)
+      have hc := ihc cutoff hcl.2 (by omega)
+      rw [subst.shift.eq_def]
+      simp only [hm, hc, labelClone_id, bind_tc_ok]
+  | RunCmd v s ihv ihs =>
+      intro cutoff hcl hh
+      simp only [decTermC] at hcl
+      rw [DLC.closedAbove_runCmd_iff] at hcl
+      simp only [heightB] at hh
+      have hv := ihv cutoff hcl.1 (by omega)
+      have hs := ihs cutoff hcl.2 (by omega)
+      rw [subst.shift.eq_def]
+      simp only [hv, hs, bind_tc_ok]
+
+/-! ### `substAt_corr_d` — the DEPTH-fenced substitution correspondence.
+
+Identical to the landed `substAt_corr` in what it says about the decode, but
+fenced on `depthB body` (the composable metric) rather than `heightB body`, and
+strengthened to ALSO return a `depthB` bound on the *result* — the subadditivity
+`depthB (subst_at body value d) ≤ depthB body + depthB value`. Both facts are
+proven in ONE structural induction (existential form). The `value` fence stays on
+`heightB` (its only use is the closed `shift_id_closed` in the `Var`/`eq` arm).
+
+This is the lemma that composes through `LetTensor`: its `heightB` twin cannot,
+because `heightB` is multiplicative under subst; `depthB` is subadditive. -/
+theorem substAt_corr_d (value : syntax.Term)
+    (hvcl : DLC.ClosedAbove (decTermC value) 0) (hvh : heightB value < 2147483648)
+    (body : syntax.Term) :
+    ∀ (depth : Std.U32),
+      depth.val + depthB body < 4294967296 →
+      ∃ t, subst.subst_at body value depth = ok t
+        ∧ decTermC t = DLC.substAt (decTermC body) (decTermC value) depth.val
+        ∧ depthB t ≤ depthB body + depthB value := by
+  induction body with
+  | Var i =>
+      intro depth hh
+      rcases Nat.lt_trichotomy i.val depth.val with hlt | heq | hgt
+      · refine ⟨syntax.Term.Var i, ?_, ?_, ?_⟩
+        · rw [subst.subst_at.eq_def]
+          simp only [core.cmp.impls.OrdU32.cmp, lift, Nat.compare_eq_lt.mpr hlt, bind_tc_ok]
+        · simp only [decTermC, DLC.substAt, if_neg (by omega : ¬ i.val = depth.val),
+            if_neg (by omega : ¬ i.val > depth.val)]
+        · simp only [depthB]; omega
+      · have hsh : subst.shift value (UScalar.hcast IScalarTy.I32 depth) 0#u32 = ok value :=
+          shift_id_closed (UScalar.hcast IScalarTy.I32 depth) value 0#u32 hvcl
+            (by have h0 : (0#u32 : Std.U32).val = 0 := rfl; omega)
+        refine ⟨value, ?_, ?_, ?_⟩
+        · rw [subst.subst_at.eq_def]
+          simp only [core.cmp.impls.OrdU32.cmp, lift, Nat.compare_eq_eq.mpr heq, hsh, bind_tc_ok]
+        · simp only [decTermC, DLC.substAt, if_pos heq]
+          rw [DLC.shift_closed hvcl]
+        · simp only [depthB]; omega
+      · obtain ⟨i1, hi1, hi1v⟩ :=
+          WP.spec_imp_exists (U32.sub_spec (x := i) (y := 1#u32) (by scalar_tac))
+        have hi1val : i1.val = i.val - 1 := by rw [hi1v.1]; rfl
+        refine ⟨syntax.Term.Var i1, ?_, ?_, ?_⟩
+        · rw [subst.subst_at.eq_def]
+          simp only [core.cmp.impls.OrdU32.cmp, lift, Nat.compare_eq_gt.mpr hgt, hi1, bind_tc_ok]
+        · simp only [decTermC, DLC.substAt, if_neg (by omega : ¬ i.val = depth.val),
+            if_pos (by omega : i.val > depth.val), hi1val]
+        · simp only [depthB]; omega
+  | Lam p inner ih =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨c1, hc1, hc1v⟩ :=
+        WP.spec_imp_exists (U32.add_spec (x := depth) (y := 1#u32) (by scalar_tac))
+      have hc1val : c1.val = depth.val + 1 := by rw [hc1v]; rfl
+      obtain ⟨ti, hti, htid, htdep⟩ := ih c1 (by omega)
+      refine ⟨syntax.Term.Lam p ti, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [propClone_id, hc1, hti, bind_tc_ok]
+      · simp only [decTermC, htid, hc1val, DLC.substAt]
+      · simp only [depthB]; omega
+  | App f x ihf ihx =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨tf, hf, hfd, hfdep⟩ := ihf depth (by omega)
+      obtain ⟨tx, hx, hxd, hxdep⟩ := ihx depth (by omega)
+      refine ⟨syntax.Term.App tf tx, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [hf, hx, bind_tc_ok]
+      · simp only [decTermC, hfd, hxd, DLC.substAt]
+      · simp only [depthB]; omega
+  | Sign p m sig ih =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨tm, hm, hmd, hmdep⟩ := ih depth (by omega)
+      refine ⟨syntax.Term.Sign p tm sig, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]
+        simp only [principalClone_id, hm, signatureClone_id, bind_tc_ok]
+      · simp only [decTermC, hmd, DLC.substAt]
+      · simp only [depthB]; omega
+  | Verify p m sig ih =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨tm, hm, hmd, hmdep⟩ := ih depth (by omega)
+      refine ⟨syntax.Term.Verify p tm sig, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]
+        simp only [principalClone_id, hm, signatureClone_id, bind_tc_ok]
+      · simp only [decTermC, hmd, DLC.substAt]
+      · simp only [depthB]; omega
+  | Delegate m n ihm ihn =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨tm, hm, hmd, hmdep⟩ := ihm depth (by omega)
+      obtain ⟨tn, hn, hnd, hndep⟩ := ihn depth (by omega)
+      refine ⟨syntax.Term.Delegate tm tn, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [hm, hn, bind_tc_ok]
+      · simp only [decTermC, hmd, hnd, DLC.substAt]
+      · simp only [depthB]; omega
+  | Attenuate m psi ih =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨tm, hm, hmd, hmdep⟩ := ih depth (by omega)
+      refine ⟨syntax.Term.Attenuate tm psi, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [hm, propClone_id, bind_tc_ok]
+      · simp only [decTermC, hmd, DLC.substAt]
+      · simp only [depthB]; omega
+  | SaysBind p scrut body ihs ihb =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨c1, hc1, hc1v⟩ :=
+        WP.spec_imp_exists (U32.add_spec (x := depth) (y := 1#u32) (by scalar_tac))
+      have hc1val : c1.val = depth.val + 1 := by rw [hc1v]; rfl
+      obtain ⟨ts, hs, hsd, hsdep⟩ := ihs depth (by omega)
+      obtain ⟨tb, hb, hbd, hbdep⟩ := ihb c1 (by omega)
+      refine ⟨syntax.Term.SaysBind p ts tb, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]
+        simp only [principalClone_id, hc1, hs, hb, bind_tc_ok]
+      · simp only [decTermC, hsd, hbd, hc1val, DLC.substAt]
+      · simp only [depthB]; omega
+  | Boxed o m n ihm ihn =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨tm, hm, hmd, hmdep⟩ := ihm depth (by omega)
+      obtain ⟨tn, hn, hnd, hndep⟩ := ihn depth (by omega)
+      refine ⟨syntax.Term.Boxed o tm tn, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [obligationClone_id, hm, hn, bind_tc_ok]
+      · simp only [decTermC, hmd, hnd, DLC.substAt]
+      · simp only [depthB]; omega
+  | Discharge m n ihm ihn =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨tm, hm, hmd, hmdep⟩ := ihm depth (by omega)
+      obtain ⟨tn, hn, hnd, hndep⟩ := ihn depth (by omega)
+      refine ⟨syntax.Term.Discharge tm tn, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [hm, hn, bind_tc_ok]
+      · simp only [decTermC, hmd, hnd, DLC.substAt]
+      · simp only [depthB]; omega
+  | LiftLabel l m ih =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨tm, hm, hmd, hmdep⟩ := ih depth (by omega)
+      refine ⟨syntax.Term.LiftLabel l tm, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [labelClone_id, hm, bind_tc_ok]
+      · simp only [decTermC, hmd, DLC.substAt]
+      · simp only [depthB]; omega
+  | Declassify l m pi ihm ihpi =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨tm, hm, hmd, hmdep⟩ := ihm depth (by omega)
+      obtain ⟨tpi, hpi, hpid, hpidep⟩ := ihpi depth (by omega)
+      refine ⟨syntax.Term.Declassify l tm tpi, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [labelClone_id, hm, hpi, bind_tc_ok]
+      · simp only [decTermC, hmd, hpid, DLC.substAt]
+      · simp only [depthB]; omega
+  | Now t =>
+      intro depth hh
+      refine ⟨syntax.Term.Now t, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [timeBoundClone_id, bind_tc_ok]
+      · simp only [decTermC, DLC.substAt]
+      · simp only [depthB]; omega
+  | WithinIntro t m ih =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨tm, hm, hmd, hmdep⟩ := ih depth (by omega)
+      refine ⟨syntax.Term.WithinIntro t tm, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [timeBoundClone_id, hm, bind_tc_ok]
+      · simp only [decTermC, hmd, DLC.substAt]
+      · simp only [depthB]; omega
+  | Pair a b iha ihb =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨ta, ha, had, hadep⟩ := iha depth (by omega)
+      obtain ⟨tb, hb, hbd, hbdep⟩ := ihb depth (by omega)
+      refine ⟨syntax.Term.Pair ta tb, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [ha, hb, bind_tc_ok]
+      · simp only [decTermC, had, hbd, DLC.substAt]
+      · simp only [depthB]; omega
+  | Fst a ih =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨ta, ha, had, hadep⟩ := ih depth (by omega)
+      refine ⟨syntax.Term.Fst ta, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [ha, bind_tc_ok]
+      · simp only [decTermC, had, DLC.substAt]
+      · simp only [depthB]; omega
+  | Snd a ih =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨ta, ha, had, hadep⟩ := ih depth (by omega)
+      refine ⟨syntax.Term.Snd ta, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [ha, bind_tc_ok]
+      · simp only [decTermC, had, DLC.substAt]
+      · simp only [depthB]; omega
+  | Inl p a ih =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨ta, ha, had, hadep⟩ := ih depth (by omega)
+      refine ⟨syntax.Term.Inl p ta, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [propClone_id, ha, bind_tc_ok]
+      · simp only [decTermC, had, DLC.substAt]
+      · simp only [depthB]; omega
+  | Inr p a ih =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨ta, ha, had, hadep⟩ := ih depth (by omega)
+      refine ⟨syntax.Term.Inr p ta, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [propClone_id, ha, bind_tc_ok]
+      · simp only [decTermC, had, DLC.substAt]
+      · simp only [depthB]; omega
+  | Case scrut left right ihs ihl ihr =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨c1, hc1, hc1v⟩ :=
+        WP.spec_imp_exists (U32.add_spec (x := depth) (y := 1#u32) (by scalar_tac))
+      have hc1val : c1.val = depth.val + 1 := by rw [hc1v]; rfl
+      obtain ⟨ts, hs, hsd, hsdep⟩ := ihs depth (by omega)
+      obtain ⟨tl, hl, hld, hldep⟩ := ihl c1 (by omega)
+      obtain ⟨tr, hr, hrd, hrdep⟩ := ihr c1 (by omega)
+      refine ⟨syntax.Term.Case ts tl tr, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [hc1, hs, hl, hr, bind_tc_ok]
+      · simp only [decTermC, hsd, hld, hrd, hc1val, DLC.substAt]
+      · simp only [depthB]; omega
+  | TensorIntro a b iha ihb =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨ta, ha, had, hadep⟩ := iha depth (by omega)
+      obtain ⟨tb, hb, hbd, hbdep⟩ := ihb depth (by omega)
+      refine ⟨syntax.Term.TensorIntro ta tb, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [ha, hb, bind_tc_ok]
+      · simp only [decTermC, had, hbd, DLC.substAt]
+      · simp only [depthB]; omega
+  | LetTensor scrut body ihs ihb =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨c2, hc2, hc2v⟩ :=
+        WP.spec_imp_exists (U32.add_spec (x := depth) (y := 2#u32) (by scalar_tac))
+      have hc2val : c2.val = depth.val + 2 := by rw [hc2v]; rfl
+      obtain ⟨ts, hs, hsd, hsdep⟩ := ihs depth (by omega)
+      obtain ⟨tb, hb, hbd, hbdep⟩ := ihb c2 (by omega)
+      refine ⟨syntax.Term.LetTensor ts tb, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [hc2, hs, hb, bind_tc_ok]
+      · simp only [decTermC, hsd, hbd, hc2val, DLC.substAt]
+      · simp only [depthB]; omega
+  | LetSays p scrut body ihs ihb =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨c1, hc1, hc1v⟩ :=
+        WP.spec_imp_exists (U32.add_spec (x := depth) (y := 1#u32) (by scalar_tac))
+      have hc1val : c1.val = depth.val + 1 := by rw [hc1v]; rfl
+      obtain ⟨ts, hs, hsd, hsdep⟩ := ihs depth (by omega)
+      obtain ⟨tb, hb, hbd, hbdep⟩ := ihb c1 (by omega)
+      refine ⟨syntax.Term.LetSays p ts tb, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]
+        simp only [principalClone_id, hc1, hs, hb, bind_tc_ok]
+      · simp only [decTermC, hsd, hbd, hc1val, DLC.substAt]
+      · simp only [depthB]; omega
+  | SfExtract m ih =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨tm, hm, hmd, hmdep⟩ := ih depth (by omega)
+      refine ⟨syntax.Term.SfExtract tm, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [hm, bind_tc_ok]
+      · simp only [decTermC, hmd, DLC.substAt]
+      · simp only [depthB]; omega
+  | Command m c l ihm ihc =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨tm, hm, hmd, hmdep⟩ := ihm depth (by omega)
+      obtain ⟨tc, hc, hcd, hcdep⟩ := ihc depth (by omega)
+      refine ⟨syntax.Term.Command tm tc l, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [hm, hc, labelClone_id, bind_tc_ok]
+      · simp only [decTermC, hmd, hcd, DLC.substAt]
+      · simp only [depthB]; omega
+  | RunCmd v s ihv ihs =>
+      intro depth hh
+      simp only [depthB] at hh
+      obtain ⟨tv, hv, hvd, hvdep⟩ := ihv depth (by omega)
+      obtain ⟨ts, hs, hsd, hsdep⟩ := ihs depth (by omega)
+      refine ⟨syntax.Term.RunCmd tv ts, ?_, ?_, ?_⟩
+      · rw [subst.subst_at.eq_def]; simp only [hv, hs, bind_tc_ok]
+      · simp only [decTermC, hvd, hsd, DLC.substAt]
+      · simp only [depthB]; omega
+
+/-- **`subst_corr_d`** — the depth-fenced β-substitution corollary (depth 0). The
+outer half of `LetTensor`'s nested subst routes through this: its `heightB` twin
+`subst_corr` cannot, because the intermediate `subst body (shift a 1 0)` has
+unbounded `heightB` but `depthB`-subadditive-bounded `depthB`. -/
+theorem subst_corr_d (body value : syntax.Term)
+    (hvcl : DLC.ClosedAbove (decTermC value) 0) (hvh : heightB value < 2147483648)
+    (hbd : depthB body < 4294967296) :
+    ∃ t, subst.subst body value = ok t
+      ∧ decTermC t = DLC.subst (decTermC body) (decTermC value)
+      ∧ depthB t ≤ depthB body + depthB value := by
+  simp only [subst.subst, DLC.subst]
+  obtain ⟨t, ht, htd, htdep⟩ := substAt_corr_d value hvcl hvh body 0#u32
+    (by have h0 : (0#u32 : Std.U32).val = 0 := rfl; omega)
+  have h0 : (0#u32 : Std.U32).val = 0 := rfl
+  rw [h0] at htd
+  exact ⟨t, ht, htd, htdep⟩
+
+/-! ### Principal decidable-equality bridge (for the `SaysBind`/`LetSays` arms).
+
+The generated reducer decides principal agreement with the structural
+`PartialEq::eq` on `syntax.Principal` (a `Bool` in the `Result` monad); the hand
+`DLC.step` decides it with the hand `DecidableEq` on `DLC.Principal`. The bridge
+`principalEq_corr` shows the generated `eq p q` succeeds and returns exactly the
+`decPrin`-image agreement bit, so both branches of `if p = p'` align. -/
+
+/-- The `U8` `PartialEq::ne` spec: `ne x y` iff `x ≠ y` (the leaf the array/slice
+element-wise equality is built from). -/
+private theorem partialEqU8_ne_spec (x y : Std.U8) :
+    core.cmp.PartialEqU8.ne x y ⦃ (b : Bool) => b ↔ ¬ (x = y) ⦄ := by
+  simp only [core.cmp.PartialEqU8, core.cmp.impls.PartialEqU8.ne, liftFun2, WP.spec_ok]
+  simp
+
+/-- The generated `PrincipalId::eq` (a 32-byte `[u8;32]` array equality) succeeds
+and returns the structural agreement bit. Routed through the library's slice
+`eq_homo_spec` after converting the array equality to its `to_slice` form. -/
+private theorem principalIdEq_spec (a b : principal.PrincipalId) :
+    ∃ bb, principal.PrincipalId.Insts.CoreCmpPartialEqPrincipalId.eq a b = ok bb
+      ∧ (bb = true ↔ a = b) := by
+  have hconv :
+      principal.PrincipalId.Insts.CoreCmpPartialEqPrincipalId.eq a b
+        = core.slice.cmp.PartialEqSlice.eq core.cmp.PartialEqU8 a.to_slice b.to_slice := by
+    unfold principal.PrincipalId.Insts.CoreCmpPartialEqPrincipalId.eq
+      core.array.equality.PartialEqArray.eq core.slice.cmp.PartialEqSlice.eq
+    simp only [Array.val_to_slice, Array.length_to_slice, Slice.length]
+  have hspec := core.slice.cmp.PartialEqSlice.eq_homo_spec core.cmp.PartialEqU8
+    a.to_slice b.to_slice partialEqU8_ne_spec
+  obtain ⟨bb, hbb, hbbP⟩ := WP.spec_imp_exists hspec
+  refine ⟨bb, by rw [hconv]; exact hbb, ?_⟩
+  rw [hbbP]
+  constructor
+  · intro h; have : a.to_slice.val = b.to_slice.val := by rw [Slice.eq_iff] at h; exact h
+    rw [Array.val_to_slice, Array.val_to_slice] at this
+    exact Subtype.ext this
+  · intro h; rw [h]
+
+/-- The generated structural `Principal::eq` succeeds and returns the syntactic
+agreement bit. Structural induction on the left principal, casing the right; the
+`Atom` base routes through `principalIdEq_spec`, the recursive `And`/`Or`/`Acting`
+short-circuit through the child IHs, and the off-diagonal constructor pairs
+`ok false` by discriminant mismatch. -/
+theorem principalEq_synEq : ∀ (p q : principal.Principal),
+    ∃ bb, principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq p q = ok bb
+      ∧ (bb = true ↔ p = q) := by
+  intro p
+  induction p with
+  | Atom a =>
+      intro q
+      cases q with
+      | Atom b =>
+          obtain ⟨bb, hbb, hP⟩ := principalIdEq_spec a b
+          refine ⟨bb, ?_, ?_⟩
+          · rw [principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq]
+            simp only [principal.Principal.read_discriminant, if_pos rfl]
+            exact hbb
+          · rw [hP]; exact ⟨fun h => by rw [h], fun h => by injection h⟩
+      | And b1 b2 =>
+          refine ⟨false, ?_, by simp⟩
+          rw [principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq]
+          simp [principal.Principal.read_discriminant]
+      | Or b1 b2 =>
+          refine ⟨false, ?_, by simp⟩
+          rw [principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq]
+          simp [principal.Principal.read_discriminant]
+      | Acting b1 b2 =>
+          refine ⟨false, ?_, by simp⟩
+          rw [principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq]
+          simp [principal.Principal.read_discriminant]
+  | And a1 a2 ih1 ih2 =>
+      intro q
+      cases q with
+      | Atom b =>
+          refine ⟨false, ?_, by simp⟩
+          rw [principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq]
+          simp [principal.Principal.read_discriminant]
+      | And b1 b2 =>
+          obtain ⟨bb1, hbb1, hP1⟩ := ih1 b1
+          obtain ⟨bb2, hbb2, hP2⟩ := ih2 b2
+          cases bb1v : bb1 with
+          | true =>
+              have ha1 : a1 = b1 := hP1.mp bb1v
+              refine ⟨bb2, ?_, ?_⟩
+              · rw [principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq]
+                simp [principal.Principal.read_discriminant, hbb1, bb1v, hbb2]
+              · simp [hP2, principal.Principal.And.injEq, ha1]
+          | false =>
+              have hne : a1 ≠ b1 := fun h => by
+                have := hP1.mpr h; rw [bb1v] at this; exact absurd this (by simp)
+              refine ⟨false, ?_, ?_⟩
+              · rw [principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq]
+                simp [principal.Principal.read_discriminant, hbb1, bb1v]
+              · rw [principal.Principal.And.injEq]
+                simp only [Bool.false_eq_true, false_iff]
+                exact fun h => hne h.1
+      | Or b1 b2 =>
+          refine ⟨false, ?_, by simp⟩
+          rw [principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq]
+          simp [principal.Principal.read_discriminant]
+      | Acting b1 b2 =>
+          refine ⟨false, ?_, by simp⟩
+          rw [principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq]
+          simp [principal.Principal.read_discriminant]
+  | Or a1 a2 ih1 ih2 =>
+      intro q
+      cases q with
+      | Atom b =>
+          refine ⟨false, ?_, by simp⟩
+          rw [principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq]
+          simp [principal.Principal.read_discriminant]
+      | And b1 b2 =>
+          refine ⟨false, ?_, by simp⟩
+          rw [principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq]
+          simp [principal.Principal.read_discriminant]
+      | Or b1 b2 =>
+          obtain ⟨bb1, hbb1, hP1⟩ := ih1 b1
+          obtain ⟨bb2, hbb2, hP2⟩ := ih2 b2
+          cases bb1v : bb1 with
+          | true =>
+              have ha1 : a1 = b1 := hP1.mp bb1v
+              refine ⟨bb2, ?_, ?_⟩
+              · rw [principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq]
+                simp [principal.Principal.read_discriminant, hbb1, bb1v, hbb2]
+              · simp [hP2, principal.Principal.Or.injEq, ha1]
+          | false =>
+              have hne : a1 ≠ b1 := fun h => by
+                have := hP1.mpr h; rw [bb1v] at this; exact absurd this (by simp)
+              refine ⟨false, ?_, ?_⟩
+              · rw [principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq]
+                simp [principal.Principal.read_discriminant, hbb1, bb1v]
+              · rw [principal.Principal.Or.injEq]
+                simp only [Bool.false_eq_true, false_iff]
+                exact fun h => hne h.1
+      | Acting b1 b2 =>
+          refine ⟨false, ?_, by simp⟩
+          rw [principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq]
+          simp [principal.Principal.read_discriminant]
+  | Acting a1 a2 ih1 ih2 =>
+      intro q
+      cases q with
+      | Atom b =>
+          refine ⟨false, ?_, by simp⟩
+          rw [principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq]
+          simp [principal.Principal.read_discriminant]
+      | And b1 b2 =>
+          refine ⟨false, ?_, by simp⟩
+          rw [principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq]
+          simp [principal.Principal.read_discriminant]
+      | Or b1 b2 =>
+          refine ⟨false, ?_, by simp⟩
+          rw [principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq]
+          simp [principal.Principal.read_discriminant]
+      | Acting b1 b2 =>
+          obtain ⟨bb1, hbb1, hP1⟩ := ih1 b1
+          obtain ⟨bb2, hbb2, hP2⟩ := ih2 b2
+          cases bb1v : bb1 with
+          | true =>
+              have ha1 : a1 = b1 := hP1.mp bb1v
+              refine ⟨bb2, ?_, ?_⟩
+              · rw [principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq]
+                simp [principal.Principal.read_discriminant, hbb1, bb1v, hbb2]
+              · simp [hP2, principal.Principal.Acting.injEq, ha1]
+          | false =>
+              have hne : a1 ≠ b1 := fun h => by
+                have := hP1.mpr h; rw [bb1v] at this; exact absurd this (by simp)
+              refine ⟨false, ?_, ?_⟩
+              · rw [principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq]
+                simp [principal.Principal.read_discriminant, hbb1, bb1v]
+              · rw [principal.Principal.Acting.injEq]
+                simp only [Bool.false_eq_true, false_iff]
+                exact fun h => hne h.1
+
+/-- `decPrinId` is injective (byte-map by the injective `UInt8.ofNat` on `< 256`
+values). -/
+theorem decPrinId_inj (a b : principal.PrincipalId) : decPrinId a = decPrinId b ↔ a = b := by
+  have finj : Function.Injective (fun (x : Std.U8) => UInt8.ofNat x.val) := by
+    intro x y h
+    apply Std.UScalar.eq_of_val_eq
+    have hx : (↑x : Nat) < UInt8.size := by
+      have : (↑x : Nat) < 256 := by scalar_tac
+      simpa [UInt8.size] using this
+    have hy : (↑y : Nat) < UInt8.size := by
+      have : (↑y : Nat) < 256 := by scalar_tac
+      simpa [UInt8.size] using this
+    have hh := congrArg UInt8.toNat h
+    rw [UInt8.toNat_ofNat_of_lt' hx, UInt8.toNat_ofNat_of_lt' hy] at hh
+    exact hh
+  constructor
+  · intro h
+    simp only [decPrinId, DLC.PrincipalId.mk.injEq] at h
+    exact Subtype.ext (List.map_injective_iff.mpr finj h)
+  · intro h; rw [h]
+
+/-- `decPrin` is injective (structural, via `decPrinId_inj`). -/
+theorem decPrin_inj (p q : principal.Principal) : decPrin p = decPrin q ↔ p = q := by
+  induction p generalizing q with
+  | Atom a =>
+      cases q with
+      | Atom b => simp only [decPrin, DLC.Principal.atom.injEq, decPrinId_inj,
+          principal.Principal.Atom.injEq]
+      | And _ _ => simp [decPrin]
+      | Or _ _ => simp [decPrin]
+      | Acting _ _ => simp [decPrin]
+  | And a1 a2 ih1 ih2 =>
+      cases q with
+      | Atom _ => simp [decPrin]
+      | And b1 b2 => simp only [decPrin, DLC.Principal.and.injEq, ih1, ih2,
+          principal.Principal.And.injEq]
+      | Or _ _ => simp [decPrin]
+      | Acting _ _ => simp [decPrin]
+  | Or a1 a2 ih1 ih2 =>
+      cases q with
+      | Atom _ => simp [decPrin]
+      | And _ _ => simp [decPrin]
+      | Or b1 b2 => simp only [decPrin, DLC.Principal.or.injEq, ih1, ih2,
+          principal.Principal.Or.injEq]
+      | Acting _ _ => simp [decPrin]
+  | Acting a1 a2 ih1 ih2 =>
+      cases q with
+      | Atom _ => simp [decPrin]
+      | And _ _ => simp [decPrin]
+      | Or _ _ => simp [decPrin]
+      | Acting b1 b2 => simp only [decPrin, DLC.Principal.acting.injEq, ih1, ih2,
+          principal.Principal.Acting.injEq]
+
+/-- **The Principal-equality bridge.** The generated `eq p q` returns the
+`decPrin`-image agreement bit — aligning both branches of the hand `if p = p'`. -/
+theorem principalEq_corr (p q : principal.Principal) :
+    ∃ bb, principal.Principal.Insts.CoreCmpPartialEqPrincipal.eq p q = ok bb
+      ∧ (bb = true ↔ decPrin p = decPrin q) := by
+  obtain ⟨bb, hbb, hP⟩ := principalEq_synEq p q
+  exact ⟨bb, hbb, by rw [hP]; exact (decPrin_inj p q).symm⟩
+
+/-! ### `step_corr` — the single-step correspondence.
+
+`step_corr` is assembled from one lemma per elimination form, each taking the
+child single-step correspondences as hypotheses (the shape the outer induction's
+IHs provide). Every elimination form's generated body case-splits its scrutinee
+27 ways; the redex constructor is peeled off by name (routing β through
+`subst_corr`/`subst_corr_d`/`principalEq_corr`), and the 26 ξ-congruence
+constructors are discharged uniformly by `all_goals` through the child IH. -/
+
+/-- `f <$> ok x = ok (f x)` in the `Result` monad (definitional; a simp handle). -/
+private theorem result_map_ok {α β} (f : α → β) (x : α) :
+    f <$> (ok x : Result α) = ok (f x) := rfl
+
+/-- The hand `step`'s `app`-ξ layer as a `map`, for a non-`lam` function head. This
+is the shape every ξ-congruence arm reduces its hand side to WITHOUT evaluating the
+recursive `step F` (which stays symbolic, pinned to the child IH). Proven by
+casing `F`: the `lam` head is excluded by `hnl`, every other head reduces the
+`app` match's ξ-branch definitionally. -/
+private theorem handStep_app_cong (F X : DLC.Term) (hnl : ∀ p b, F ≠ DLC.Term.lam p b) :
+    DLC.step (DLC.Term.app F X)
+      = (match DLC.step F with
+          | some f' => some (DLC.Term.app f' X)
+          | none => none) := by
+  cases F with
+  | lam p b => exact absurd rfl (hnl p b)
+  | _ => rfl
+
+private theorem step_app (f x : syntax.Term)
+    (ihf : WellScopedTm f →
+      Option.map decTermC <$> reduce.step f = ok (DLC.step (decTermC f)))
+    (hws : WellScopedTm (syntax.Term.App f x)) :
+    Option.map decTermC <$> reduce.step (syntax.Term.App f x)
+      = ok (DLC.step (decTermC (syntax.Term.App f x))) := by
+  obtain ⟨hcl, hh⟩ := hws
+  simp only [decTermC] at hcl
+  rw [DLC.closedAbove_app_iff] at hcl
+  simp only [heightB] at hh
+  have IHf := ihf ⟨hcl.1, by omega⟩
+  cases f
+  case Lam p body =>
+      simp only [heightB] at hh
+      obtain ⟨t, ht, htd⟩ := map_ok_inv
+        (subst_corr body x hcl.2 (by omega) (by omega))
+      rw [reduce.step]
+      simp only [Box.Insts.CoreConvertAsRef.as_ref, ht, bind_tc_ok, result_map_ok,
+        Option.map_some, htd, decTermC, DLC.step]
+  all_goals
+    rw [reduce.step]
+    simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok]
+    obtain ⟨o, ho, hod⟩ := map_ok_inv IHf
+    rw [ho]
+    simp only [bind_tc_ok, decTermC] at hod ⊢
+    rw [handStep_app_cong _ _ (by intro _ _ h; cases h), ← hod]
+    cases o with
+    | none => simp only [Option.map_none, result_map_ok]
+    | some f2 =>
+        simp only [Option.map_some, termClone_id, bind_tc_ok, result_map_ok, decTermC]
+
+/-- Hand-`step` ξ layer for `fst` (scrutinee not a `pair`). -/
+private theorem handStep_fst_cong (M : DLC.Term) (hnl : ∀ a b, M ≠ DLC.Term.pair a b) :
+    DLC.step (DLC.Term.fst M)
+      = (match DLC.step M with | some m' => some (DLC.Term.fst m') | none => none) := by
+  cases M with | pair a b => exact absurd rfl (hnl a b) | _ => rfl
+
+/-- Hand-`step` ξ layer for `snd` (scrutinee not a `pair`). -/
+private theorem handStep_snd_cong (M : DLC.Term) (hnl : ∀ a b, M ≠ DLC.Term.pair a b) :
+    DLC.step (DLC.Term.snd M)
+      = (match DLC.step M with | some m' => some (DLC.Term.snd m') | none => none) := by
+  cases M with | pair a b => exact absurd rfl (hnl a b) | _ => rfl
+
+/-- Hand-`step` ξ layer for `sfExtract` (scrutinee not a `sign`). -/
+private theorem handStep_sfExtract_cong (M : DLC.Term) (hnl : ∀ p m s, M ≠ DLC.Term.sign p m s) :
+    DLC.step (DLC.Term.sfExtract M)
+      = (match DLC.step M with | some m' => some (DLC.Term.sfExtract m') | none => none) := by
+  cases M with | sign p m s => exact absurd rfl (hnl p m s) | _ => rfl
+
+/-- Hand-`step` ξ layer for `discharge` (scrutinee not a `boxed`). -/
+private theorem handStep_discharge_cong (M P : DLC.Term)
+    (hnl : ∀ o m n, M ≠ DLC.Term.boxed o m n) :
+    DLC.step (DLC.Term.discharge M P)
+      = (match DLC.step M with | some m' => some (DLC.Term.discharge m' P) | none => none) := by
+  cases M with | boxed o m n => exact absurd rfl (hnl o m n) | _ => rfl
+
+/-- Hand-`step` ξ layer for `runCmd` (scrutinee not a `command`). -/
+private theorem handStep_runCmd_cong (V S : DLC.Term)
+    (hnl : ∀ m c l, V ≠ DLC.Term.command m c l) :
+    DLC.step (DLC.Term.runCmd V S)
+      = (match DLC.step V with | some v' => some (DLC.Term.runCmd v' S) | none => none) := by
+  cases V with | command m c l => exact absurd rfl (hnl m c l) | _ => rfl
+
+private theorem step_fst (m : syntax.Term)
+    (ihm : WellScopedTm m →
+      Option.map decTermC <$> reduce.step m = ok (DLC.step (decTermC m)))
+    (hws : WellScopedTm (syntax.Term.Fst m)) :
+    Option.map decTermC <$> reduce.step (syntax.Term.Fst m)
+      = ok (DLC.step (decTermC (syntax.Term.Fst m))) := by
+  obtain ⟨hcl, hh⟩ := hws
+  simp only [decTermC] at hcl
+  rw [DLC.closedAbove_fst_iff] at hcl
+  simp only [heightB] at hh
+  have IHm := ihm ⟨hcl, by omega⟩
+  cases m
+  case Pair a b =>
+      rw [reduce.step]
+      simp only [Box.Insts.CoreConvertAsRef.as_ref, termClone_id, bind_tc_ok, result_map_ok,
+        Option.map_some, decTermC, DLC.step]
+  all_goals
+    rw [reduce.step]
+    simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok]
+    obtain ⟨o, ho, hod⟩ := map_ok_inv IHm
+    rw [ho]
+    simp only [bind_tc_ok, decTermC] at hod ⊢
+    rw [handStep_fst_cong _ (by intro _ _ h; cases h), ← hod]
+    cases o with
+    | none => simp only [Option.map_none, result_map_ok]
+    | some m2 => simp only [Option.map_some, termClone_id, bind_tc_ok, result_map_ok, decTermC]
+
+private theorem step_snd (m : syntax.Term)
+    (ihm : WellScopedTm m →
+      Option.map decTermC <$> reduce.step m = ok (DLC.step (decTermC m)))
+    (hws : WellScopedTm (syntax.Term.Snd m)) :
+    Option.map decTermC <$> reduce.step (syntax.Term.Snd m)
+      = ok (DLC.step (decTermC (syntax.Term.Snd m))) := by
+  obtain ⟨hcl, hh⟩ := hws
+  simp only [decTermC] at hcl
+  rw [DLC.closedAbove_snd_iff] at hcl
+  simp only [heightB] at hh
+  have IHm := ihm ⟨hcl, by omega⟩
+  cases m
+  case Pair a b =>
+      rw [reduce.step]
+      simp only [Box.Insts.CoreConvertAsRef.as_ref, termClone_id, bind_tc_ok, result_map_ok,
+        Option.map_some, decTermC, DLC.step]
+  all_goals
+    rw [reduce.step]
+    simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok]
+    obtain ⟨o, ho, hod⟩ := map_ok_inv IHm
+    rw [ho]
+    simp only [bind_tc_ok, decTermC] at hod ⊢
+    rw [handStep_snd_cong _ (by intro _ _ h; cases h), ← hod]
+    cases o with
+    | none => simp only [Option.map_none, result_map_ok]
+    | some m2 => simp only [Option.map_some, termClone_id, bind_tc_ok, result_map_ok, decTermC]
+
+private theorem step_sfExtract (m : syntax.Term)
+    (ihm : WellScopedTm m →
+      Option.map decTermC <$> reduce.step m = ok (DLC.step (decTermC m)))
+    (hws : WellScopedTm (syntax.Term.SfExtract m)) :
+    Option.map decTermC <$> reduce.step (syntax.Term.SfExtract m)
+      = ok (DLC.step (decTermC (syntax.Term.SfExtract m))) := by
+  obtain ⟨hcl, hh⟩ := hws
+  simp only [decTermC] at hcl
+  rw [DLC.closedAbove_sfExtract_iff] at hcl
+  simp only [heightB] at hh
+  have IHm := ihm ⟨hcl, by omega⟩
+  cases m
+  case Sign p inner s =>
+      rw [reduce.step]
+      simp only [Box.Insts.CoreConvertAsRef.as_ref, termClone_id, bind_tc_ok, result_map_ok,
+        Option.map_some, decTermC, DLC.step]
+  all_goals
+    rw [reduce.step]
+    simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok]
+    obtain ⟨o, ho, hod⟩ := map_ok_inv IHm
+    rw [ho]
+    simp only [bind_tc_ok, decTermC] at hod ⊢
+    rw [handStep_sfExtract_cong _ (by intro _ _ _ h; cases h), ← hod]
+    cases o with
+    | none => simp only [Option.map_none, result_map_ok]
+    | some m2 => simp only [Option.map_some, termClone_id, bind_tc_ok, result_map_ok, decTermC]
+
+private theorem step_discharge (m p : syntax.Term)
+    (ihm : WellScopedTm m →
+      Option.map decTermC <$> reduce.step m = ok (DLC.step (decTermC m)))
+    (hws : WellScopedTm (syntax.Term.Discharge m p)) :
+    Option.map decTermC <$> reduce.step (syntax.Term.Discharge m p)
+      = ok (DLC.step (decTermC (syntax.Term.Discharge m p))) := by
+  obtain ⟨hcl, hh⟩ := hws
+  simp only [decTermC] at hcl
+  rw [DLC.closedAbove_discharge_iff] at hcl
+  simp only [heightB] at hh
+  have IHm := ihm ⟨hcl.1, by omega⟩
+  cases m
+  case Boxed o inner n =>
+      rw [reduce.step]
+      simp only [Box.Insts.CoreConvertAsRef.as_ref, termClone_id, bind_tc_ok, result_map_ok,
+        Option.map_some, decTermC, DLC.step]
+  all_goals
+    rw [reduce.step]
+    simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok]
+    obtain ⟨o, ho, hod⟩ := map_ok_inv IHm
+    rw [ho]
+    simp only [bind_tc_ok, decTermC] at hod ⊢
+    rw [handStep_discharge_cong _ _ (by intro _ _ _ h; cases h), ← hod]
+    cases o with
+    | none => simp only [Option.map_none, result_map_ok]
+    | some m2 => simp only [Option.map_some, termClone_id, bind_tc_ok, result_map_ok, decTermC]
+
+private theorem step_runCmd (v s : syntax.Term)
+    (ihv : WellScopedTm v →
+      Option.map decTermC <$> reduce.step v = ok (DLC.step (decTermC v)))
+    (hws : WellScopedTm (syntax.Term.RunCmd v s)) :
+    Option.map decTermC <$> reduce.step (syntax.Term.RunCmd v s)
+      = ok (DLC.step (decTermC (syntax.Term.RunCmd v s))) := by
+  obtain ⟨hcl, hh⟩ := hws
+  simp only [decTermC] at hcl
+  rw [DLC.closedAbove_runCmd_iff] at hcl
+  simp only [heightB] at hh
+  have IHv := ihv ⟨hcl.1, by omega⟩
+  cases v
+  case Command m c l =>
+      rw [reduce.step]
+      simp only [Box.Insts.CoreConvertAsRef.as_ref, labelClone_id, termClone_id, bind_tc_ok,
+        result_map_ok, Option.map_some, decTermC, DLC.step]
+  all_goals
+    rw [reduce.step]
+    simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok]
+    obtain ⟨o, ho, hod⟩ := map_ok_inv IHv
+    rw [ho]
+    simp only [bind_tc_ok, decTermC] at hod ⊢
+    rw [handStep_runCmd_cong _ _ (by intro _ _ _ h; cases h), ← hod]
+    cases o with
+    | none => simp only [Option.map_none, result_map_ok]
+    | some v2 => simp only [Option.map_some, termClone_id, bind_tc_ok, result_map_ok, decTermC]
+
+/-- Hand-`step` ξ layer for `case` (scrutinee neither `inl` nor `inr`). -/
+private theorem handStep_case_cong (S L R : DLC.Term)
+    (hnl : ∀ p a, S ≠ DLC.Term.inl p a) (hnr : ∀ p a, S ≠ DLC.Term.inr p a) :
+    DLC.step (DLC.Term.case S L R)
+      = (match DLC.step S with | some s' => some (DLC.Term.case s' L R) | none => none) := by
+  cases S with
+  | inl p a => exact absurd rfl (hnl p a)
+  | inr p a => exact absurd rfl (hnr p a)
+  | _ => rfl
+
+private theorem step_case (s l r : syntax.Term)
+    (ihs : WellScopedTm s →
+      Option.map decTermC <$> reduce.step s = ok (DLC.step (decTermC s)))
+    (hws : WellScopedTm (syntax.Term.Case s l r)) :
+    Option.map decTermC <$> reduce.step (syntax.Term.Case s l r)
+      = ok (DLC.step (decTermC (syntax.Term.Case s l r))) := by
+  obtain ⟨hcl, hh⟩ := hws
+  simp only [decTermC] at hcl
+  rw [DLC.closedAbove_case_iff] at hcl
+  obtain ⟨hcls, hcll, hclr⟩ := hcl
+  simp only [heightB] at hh
+  have IHs := ihs ⟨hcls, by omega⟩
+  cases s
+  case Inl p a =>
+      simp only [decTermC] at hcls
+      rw [DLC.closedAbove_inl_iff] at hcls
+      simp only [heightB] at hh
+      obtain ⟨t, ht, htd⟩ := map_ok_inv (subst_corr l a hcls (by omega) (by omega))
+      rw [reduce.step]
+      simp only [Box.Insts.CoreConvertAsRef.as_ref, ht, bind_tc_ok, result_map_ok,
+        Option.map_some, htd, decTermC, DLC.step]
+  case Inr p a =>
+      simp only [decTermC] at hcls
+      rw [DLC.closedAbove_inr_iff] at hcls
+      simp only [heightB] at hh
+      obtain ⟨t, ht, htd⟩ := map_ok_inv (subst_corr r a hcls (by omega) (by omega))
+      rw [reduce.step]
+      simp only [Box.Insts.CoreConvertAsRef.as_ref, ht, bind_tc_ok, result_map_ok,
+        Option.map_some, htd, decTermC, DLC.step]
+  all_goals
+    rw [reduce.step]
+    simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok]
+    obtain ⟨o, ho, hod⟩ := map_ok_inv IHs
+    rw [ho]
+    simp only [bind_tc_ok, decTermC] at hod ⊢
+    rw [handStep_case_cong _ _ _ (by intro _ _ h; cases h) (by intro _ _ h; cases h), ← hod]
+    cases o with
+    | none => simp only [Option.map_none, result_map_ok]
+    | some s2 => simp only [Option.map_some, termClone_id, bind_tc_ok, result_map_ok, decTermC]
+
+/-- Hand-`step` ξ layer for `letTensor` (scrutinee not a `tensorIntro`). -/
+private theorem handStep_letTensor_cong (S B : DLC.Term)
+    (hnl : ∀ a b, S ≠ DLC.Term.tensorIntro a b) :
+    DLC.step (DLC.Term.letTensor S B)
+      = (match DLC.step S with | some s' => some (DLC.Term.letTensor s' B) | none => none) := by
+  cases S with | tensorIntro a b => exact absurd rfl (hnl a b) | _ => rfl
+
+/-- **`step_letTensor` — the headline depth-metric arm.** `LetTensor`'s β-reduct is
+the NESTED substitution `subst (subst body (shift a 1 0)) b`. The inner and outer
+substitutions both route through the DEPTH-fenced `subst_corr_d`: the inner returns
+a `depthB` bound on its result (`depthB inner ≤ depthB body + depthB a`), which,
+via `depthB ≤ 2·heightB` and the `WellScopedTm` `heightB` fence, meets the outer
+`subst_corr_d`'s `depthB inner < 2^32` fence — the composition the multiplicative
+`heightB` metric could NOT close. The closed scrutinee makes `shift a 1 0 = a`
+(`shift_id_closed`), matching the hand `DLC.shift_closed`. -/
+private theorem step_letTensor (s body : syntax.Term)
+    (ihs : WellScopedTm s →
+      Option.map decTermC <$> reduce.step s = ok (DLC.step (decTermC s)))
+    (hws : WellScopedTm (syntax.Term.LetTensor s body)) :
+    Option.map decTermC <$> reduce.step (syntax.Term.LetTensor s body)
+      = ok (DLC.step (decTermC (syntax.Term.LetTensor s body))) := by
+  obtain ⟨hcl, hh⟩ := hws
+  simp only [decTermC] at hcl
+  rw [DLC.closedAbove_letTensor_iff] at hcl
+  obtain ⟨hcls, hclb⟩ := hcl
+  simp only [heightB] at hh
+  have IHs := ihs ⟨hcls, by omega⟩
+  cases s
+  case TensorIntro a b =>
+      simp only [decTermC] at hcls
+      rw [DLC.closedAbove_tensorIntro_iff] at hcls
+      obtain ⟨hca, hcb⟩ := hcls
+      simp only [heightB] at hh
+      have hsh : subst.shift a 1#i32 0#u32 = ok a :=
+        shift_id_closed 1#i32 a 0#u32 hca
+          (by have h0 : (0#u32 : Std.U32).val = 0 := rfl; omega)
+      obtain ⟨inner, hinner, hinnerd, hinnerdep⟩ :=
+        subst_corr_d body a hca (by omega) (by have := depthB_le_2heightB body; omega)
+      obtain ⟨res, hres, hresd, _⟩ :=
+        subst_corr_d inner b hcb (by omega)
+          (by have h1 := depthB_le_2heightB body; have h2 := depthB_le_2heightB a; omega)
+      rw [reduce.step]
+      simp only [Box.Insts.CoreConvertAsRef.as_ref, hsh, hinner, hres, bind_tc_ok, result_map_ok,
+        Option.map_some, hresd, hinnerd, decTermC, DLC.step]
+      rw [DLC.shift_closed hca]
+  all_goals
+    rw [reduce.step]
+    simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok]
+    obtain ⟨o, ho, hod⟩ := map_ok_inv IHs
+    rw [ho]
+    simp only [bind_tc_ok, decTermC] at hod ⊢
+    rw [handStep_letTensor_cong _ _ (by intro _ _ h; cases h), ← hod]
+    cases o with
+    | none => simp only [Option.map_none, result_map_ok]
+    | some s2 => simp only [Option.map_some, termClone_id, bind_tc_ok, result_map_ok, decTermC]
+
+/-- Hand-`step` ξ layer for `saysBind` (scrutinee not a `sign`). -/
+private theorem handStep_saysBind_cong (P : DLC.Principal) (S B : DLC.Term)
+    (hnl : ∀ p m s, S ≠ DLC.Term.sign p m s) :
+    DLC.step (DLC.Term.saysBind P S B)
+      = (match DLC.step S with | some s' => some (DLC.Term.saysBind P s' B) | none => none) := by
+  cases S with | sign p m s => exact absurd rfl (hnl p m s) | _ => rfl
+
+/-- Hand-`step` ξ layer for `letSays` (scrutinee not a `sign`). -/
+private theorem handStep_letSays_cong (P : DLC.Principal) (S B : DLC.Term)
+    (hnl : ∀ p m s, S ≠ DLC.Term.sign p m s) :
+    DLC.step (DLC.Term.letSays P S B)
+      = (match DLC.step S with | some s' => some (DLC.Term.letSays P s' B) | none => none) := by
+  cases S with | sign p m s => exact absurd rfl (hnl p m s) | _ => rfl
+
+private theorem step_saysBind (p : principal.Principal) (s body : syntax.Term)
+    (ihs : WellScopedTm s →
+      Option.map decTermC <$> reduce.step s = ok (DLC.step (decTermC s)))
+    (hws : WellScopedTm (syntax.Term.SaysBind p s body)) :
+    Option.map decTermC <$> reduce.step (syntax.Term.SaysBind p s body)
+      = ok (DLC.step (decTermC (syntax.Term.SaysBind p s body))) := by
+  obtain ⟨hcl, hh⟩ := hws
+  simp only [decTermC] at hcl
+  rw [DLC.closedAbove_saysBind_iff] at hcl
+  obtain ⟨hcls, hclb⟩ := hcl
+  simp only [heightB] at hh
+  have IHs := ihs ⟨hcls, by omega⟩
+  cases s
+  case Sign p2 m sg =>
+      simp only [decTermC] at hcls
+      rw [DLC.closedAbove_sign_iff] at hcls
+      simp only [heightB] at hh
+      obtain ⟨bb, hbb, hbP⟩ := principalEq_corr p p2
+      obtain ⟨t, ht, htd⟩ := map_ok_inv (subst_corr body m hcls (by omega) (by omega))
+      rw [reduce.step]
+      cases hbv : bb with
+      | true =>
+          have hpeq : decPrin p = decPrin p2 := hbP.mp hbv
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, hbb, hbv, ht, bind_tc_ok, result_map_ok,
+            Option.map_some, htd, decTermC, DLC.step, if_true]
+          rw [if_pos hpeq]
+      | false =>
+          have hpne : decPrin p ≠ decPrin p2 := fun h => by
+            have := hbP.mpr h; rw [hbv] at this; exact absurd this (by decide)
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, hbb, hbv, bind_tc_ok, decTermC, DLC.step]
+          rw [if_neg (show ¬((false : Bool) = true) from by decide), if_neg hpne]
+          simp only [result_map_ok, Option.map_none]
+  all_goals
+    rw [reduce.step]
+    simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok]
+    obtain ⟨o, ho, hod⟩ := map_ok_inv IHs
+    rw [ho]
+    simp only [bind_tc_ok, decTermC] at hod ⊢
+    rw [handStep_saysBind_cong _ _ _ (by intro _ _ _ h; cases h), ← hod]
+    cases o with
+    | none => simp only [Option.map_none, result_map_ok]
+    | some s2 =>
+        simp only [Option.map_some, principalClone_id, termClone_id, bind_tc_ok, result_map_ok,
+          decTermC]
+
+private theorem step_letSays (p : principal.Principal) (s body : syntax.Term)
+    (ihs : WellScopedTm s →
+      Option.map decTermC <$> reduce.step s = ok (DLC.step (decTermC s)))
+    (hws : WellScopedTm (syntax.Term.LetSays p s body)) :
+    Option.map decTermC <$> reduce.step (syntax.Term.LetSays p s body)
+      = ok (DLC.step (decTermC (syntax.Term.LetSays p s body))) := by
+  obtain ⟨hcl, hh⟩ := hws
+  simp only [decTermC] at hcl
+  rw [DLC.closedAbove_letSays_iff] at hcl
+  obtain ⟨hcls, hclb⟩ := hcl
+  simp only [heightB] at hh
+  have IHs := ihs ⟨hcls, by omega⟩
+  cases s
+  case Sign p2 m sg =>
+      simp only [decTermC] at hcls
+      rw [DLC.closedAbove_sign_iff] at hcls
+      simp only [heightB] at hh
+      obtain ⟨bb, hbb, hbP⟩ := principalEq_corr p p2
+      obtain ⟨t, ht, htd⟩ := map_ok_inv (subst_corr body m hcls (by omega) (by omega))
+      rw [reduce.step]
+      cases hbv : bb with
+      | true =>
+          have hpeq : decPrin p = decPrin p2 := hbP.mp hbv
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, hbb, hbv, ht, bind_tc_ok, result_map_ok,
+            Option.map_some, htd, decTermC, DLC.step, if_true]
+          rw [if_pos hpeq]
+      | false =>
+          have hpne : decPrin p ≠ decPrin p2 := fun h => by
+            have := hbP.mpr h; rw [hbv] at this; exact absurd this (by decide)
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, hbb, hbv, bind_tc_ok, decTermC, DLC.step]
+          rw [if_neg (show ¬((false : Bool) = true) from by decide), if_neg hpne]
+          simp only [result_map_ok, Option.map_none]
+  all_goals
+    rw [reduce.step]
+    simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok]
+    obtain ⟨o, ho, hod⟩ := map_ok_inv IHs
+    rw [ho]
+    simp only [bind_tc_ok, decTermC] at hod ⊢
+    rw [handStep_letSays_cong _ _ _ (by intro _ _ _ h; cases h), ← hod]
+    cases o with
+    | none => simp only [Option.map_none, result_map_ok]
+    | some s2 =>
+        simp only [Option.map_some, principalClone_id, termClone_id, bind_tc_ok, result_map_ok,
+          decTermC]
+
+/-- Hand-`step` ξ layer for `delegate` in the FUNCTION position (left not a `sign`). -/
+private theorem handStep_delegate_congM (M N : DLC.Term)
+    (hnl : ∀ p mi si, M ≠ DLC.Term.sign p mi si) :
+    DLC.step (DLC.Term.delegate M N)
+      = (match DLC.step M with | some m' => some (DLC.Term.delegate m' N) | none => none) := by
+  cases M with | sign p mi si => exact absurd rfl (hnl p mi si) | _ => rfl
+
+/-- Hand-`step` ξ layer for `delegate` in the ARGUMENT position (left a `sign`,
+right not a `sign`). -/
+private theorem handStep_delegate_congN (pm : DLC.Principal) (mi : DLC.Term)
+    (si : DLC.Signature) (N : DLC.Term)
+    (hnl : ∀ q inner sig, N ≠ DLC.Term.sign q inner sig) :
+    DLC.step (DLC.Term.delegate (DLC.Term.sign pm mi si) N)
+      = (match DLC.step N with
+          | some n' => some (DLC.Term.delegate (DLC.Term.sign pm mi si) n')
+          | none => none) := by
+  cases N with | sign q inner sig => exact absurd rfl (hnl q inner sig) | _ => rfl
+
+private theorem step_delegate (m n : syntax.Term)
+    (ihm : WellScopedTm m →
+      Option.map decTermC <$> reduce.step m = ok (DLC.step (decTermC m)))
+    (ihn : WellScopedTm n →
+      Option.map decTermC <$> reduce.step n = ok (DLC.step (decTermC n)))
+    (hws : WellScopedTm (syntax.Term.Delegate m n)) :
+    Option.map decTermC <$> reduce.step (syntax.Term.Delegate m n)
+      = ok (DLC.step (decTermC (syntax.Term.Delegate m n))) := by
+  obtain ⟨hcl, hh⟩ := hws
+  simp only [decTermC] at hcl
+  rw [DLC.closedAbove_delegate_iff] at hcl
+  obtain ⟨hclm, hcln⟩ := hcl
+  simp only [heightB] at hh
+  have IHm := ihm ⟨hclm, by omega⟩
+  have IHn := ihn ⟨hcln, by omega⟩
+  cases m
+  case Sign pm mi si =>
+      cases n
+      case Sign pn inner sig =>
+          rw [reduce.step]
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, principalClone_id, signatureClone_id,
+            termClone_id, bind_tc_ok, result_map_ok, Option.map_some, decTermC, decPrin, DLC.step]
+      all_goals
+          rw [reduce.step]
+          simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok]
+          obtain ⟨o, ho, hod⟩ := map_ok_inv IHn
+          rw [ho]
+          simp only [bind_tc_ok, decTermC] at hod ⊢
+          rw [handStep_delegate_congN _ _ _ _ (by intro _ _ _ h; cases h), ← hod]
+          cases o with
+          | none => simp only [Option.map_none, result_map_ok]
+          | some n2 =>
+              simp only [Option.map_some, principalClone_id, signatureClone_id, termClone_id,
+                bind_tc_ok, result_map_ok, decTermC]
+  all_goals
+    rw [reduce.step]
+    simp only [Box.Insts.CoreConvertAsRef.as_ref, bind_tc_ok]
+    obtain ⟨o, ho, hod⟩ := map_ok_inv IHm
+    rw [ho]
+    simp only [bind_tc_ok, decTermC] at hod ⊢
+    rw [handStep_delegate_congM _ _ (by intro _ _ _ h; cases h), ← hod]
+    cases o with
+    | none => simp only [Option.map_none, result_map_ok]
+    | some m2 =>
+        simp only [Option.map_some, termClone_id, bind_tc_ok, result_map_ok, decTermC]
+
+/-- **★ `step_corr` — the single-step correspondence.** Under the `WellScopedTm`
+fence, decoding the generated single reduction step yields exactly the hand
+`DLC.step` of the decoded term (and the generated reducer never fails). The 15
+value/frozen constructors are inert (`ok none` / `none`); the 11 elimination forms
+dispatch to their per-form lemmas, which route β through `subst_corr`, the nested
+`LetTensor` β through the depth-fenced `subst_corr_d`, and principal agreement
+through `principalEq_corr`. -/
+theorem step_corr : ∀ (t : syntax.Term), WellScopedTm t →
+    Option.map decTermC <$> reduce.step t = ok (DLC.step (decTermC t)) := by
+  intro t
+  induction t with
+  | Var i => intro _; simp only [reduce.step, result_map_ok, Option.map_none, decTermC, DLC.step]
+  | Lam p body _ => intro _
+                    simp only [reduce.step, result_map_ok, Option.map_none, decTermC, DLC.step]
+  | App f x ihf _ => exact step_app f x ihf
+  | Sign p m sig _ => intro _
+                      simp only [reduce.step, result_map_ok, Option.map_none, decTermC, DLC.step]
+  | Verify p m sig _ => intro _
+                        simp only [reduce.step, result_map_ok, Option.map_none, decTermC, DLC.step]
+  | Delegate m n ihm ihn => exact step_delegate m n ihm ihn
+  | Attenuate m psi _ => intro _
+                         simp only [reduce.step, result_map_ok, Option.map_none, decTermC, DLC.step]
+  | SaysBind p s body ihs _ => exact step_saysBind p s body ihs
+  | Boxed o m n _ _ => intro _
+                       simp only [reduce.step, result_map_ok, Option.map_none, decTermC, DLC.step]
+  | Discharge m n ihm _ => exact step_discharge m n ihm
+  | LiftLabel l m _ => intro _
+                       simp only [reduce.step, result_map_ok, Option.map_none, decTermC, DLC.step]
+  | Declassify l m pi _ _ => intro _
+                             simp only [reduce.step, result_map_ok, Option.map_none, decTermC, DLC.step]
+  | Now t => intro _; simp only [reduce.step, result_map_ok, Option.map_none, decTermC, DLC.step]
+  | WithinIntro t m _ => intro _
+                         simp only [reduce.step, result_map_ok, Option.map_none, decTermC, DLC.step]
+  | Pair a b _ _ => intro _
+                    simp only [reduce.step, result_map_ok, Option.map_none, decTermC, DLC.step]
+  | Fst a ih => exact step_fst a ih
+  | Snd a ih => exact step_snd a ih
+  | Inl p a _ => intro _
+                 simp only [reduce.step, result_map_ok, Option.map_none, decTermC, DLC.step]
+  | Inr p a _ => intro _
+                 simp only [reduce.step, result_map_ok, Option.map_none, decTermC, DLC.step]
+  | Case s l r ihs _ _ => exact step_case s l r ihs
+  | TensorIntro a b _ _ => intro _
+                           simp only [reduce.step, result_map_ok, Option.map_none, decTermC, DLC.step]
+  | LetTensor s body ihs _ => exact step_letTensor s body ihs
+  | LetSays p s body ihs _ => exact step_letSays p s body ihs
+  | SfExtract m ih => exact step_sfExtract m ih
+  | Command m c l _ _ => intro _
+                         simp only [reduce.step, result_map_ok, Option.map_none, decTermC, DLC.step]
+  | RunCmd v s ihv _ => exact step_runCmd v s ihv
+
 end DLCD.Correspondence

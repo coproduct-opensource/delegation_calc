@@ -1,0 +1,1 @@
+'DLCD.capability_safety_linear' depends on axioms: [propext]

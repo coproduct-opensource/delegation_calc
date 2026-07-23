@@ -11,6 +11,8 @@ import DLCD.LabelFlow
 import DLCD.Calm
 import DLCD.DistributedNI
 import DLCD.TypedLog
+import DLCD.CapSafetyLinear
+import DLCD.ByzantineConsensus
 
 /-!
 # DLC-D guarantee ledger — the machine-checked status manifest
@@ -102,6 +104,7 @@ namespace DLCD.Ledger
 
 -- G1: authority + confidentiality
 abbrev capability_safety            := @DLCD.capability_safety
+abbrev capability_safety_linear     := @DLCD.capability_safety_linear
 abbrev log_noninterference          := @DLCD.log_noninterference
 abbrev distributed_noninterference  := @DLCD.distributed_noninterference
 abbrev wellTypedLog_implies_htyped  := @DLCD.wellTypedLog_implies_htyped
@@ -114,6 +117,8 @@ abbrev log_grows_unbounded          := @DLCD.log_grows_unbounded
 abbrev replicas_converge_via_consensus := @DLCD.replicas_converge_via_consensus
 abbrev coordination_free_convergence   := @DLCD.Calm.coordination_free_convergence
 abbrev log_agreement_eq             := @DLCD.log_agreement_eq
+-- Byzantine fault-model extension (single-decree safety under ≤f Byzantine)
+abbrev byz_agreement                := @DLCD.byz_agreement
 -- The seal (a `def`, so re-exported as an `abbrev`)
 abbrev dlc_d_slice_witness          := @DLCD.SliceWitness.dlc_d_slice_witness
 

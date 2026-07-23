@@ -130,6 +130,26 @@
       "carry the signed says credential on CDeriv so the capability layer runs on the migrated judgment"
     ]
   },
+  "DLCD_capability_safety_linear": {
+    "status": "proven",
+    "file": "DLCD/CapSafetyLinear.lean",
+    "witness": "DLCD/CapSafetyLinear.lean",
+    "proven_content": "capability_safety_linear (G1, authority, LINEAR layer): every command in a WellFormedLogL carries a genuine CDerivS (issuer says capProp) linear signed credential — the CARVe/CDeriv-native twin of capability_safety.",
+    "note": "CDerivS is a SEAL over CDeriv (embed + saysI), NOT a CDeriv constructor: adding saysI to CDeriv breaks cderiv_subject_reduction' by a modality mismatch (saysE keeps the says modality while step strips it, consistent only while says is uninhabited). CDeriv is left untouched. SCOPE FENCES: model, not runtime; the additive (Deriv) <-> linear (CDerivS) functorial credential bridge is deferred (needs the open L4 Deriv->CARVe migration).",
+    "open": [
+      "prove the Deriv -> CDerivS credential embedding (blocked on full Deriv->CARVe L4 substitution migration)"
+    ]
+  },
+  "DLCD_byz_agreement": {
+    "status": "proven",
+    "file": "DLCD/ByzantineConsensus.lean",
+    "witness": "DLCD/ByzantineConsensus.lean",
+    "proven_content": "byz_agreement (fault-model extension): single-decree agreement under <= f BYZANTINE faults with n >= 3f+1 — a >2n/3 Byzantine quorum plus the honest-intersection lemma (any two Byzantine quorums share a non-faulty replica) forces at most one certified value. Consensus.lean (crash-fault) untouched.",
+    "note": "ByzDecided constrains only HONEST quorum members (Byzantine members equivocate, unconstrained) — the faithful Byzantine-quorum model, which is what makes the honest-intersection (the r-not-in-B) load-bearing. Right-reason bite: a crash-majority (2*card>n) quorum FAILS under Byzantine faults (two majorities can intersect only in the faulty node). SCOPE FENCES: single-decree SAFETY only.",
+    "open": [
+      "Byzantine LIVENESS (view-change / leader-election / partial-synchrony) and the multi-decree Byzantine lift — SOTA path: Bythos (CCS'24), TetraBFT (PODC'24)"
+    ]
+  },
   "DLCD_log_noninterference": {
     "status": "proven",
     "file": "DLCD/LabelFlow.lean",

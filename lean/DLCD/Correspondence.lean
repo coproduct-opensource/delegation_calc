@@ -26,8 +26,8 @@ the Aeneas-generated `dlc_core.rsm` transition engine (real `def`s in the
 - **`AppCommandRefines` — the single deferred obligation.** A `def … : Prop`
   (never an `axiom`, never a `sorry`) stating that the generated per-command
   engine refines `DLCD.applyCommand` under the payload decode on well-scoped
-  inputs. R2.2b PROVES the cheap structural squares **conditional on** this
-  hypothesis; R2.3 discharges it.
+  inputs. The reducer-routed structural squares are stated **conditional on**
+  this hypothesis; R2.3 discharges it.
 - **the anti-vacuity witness.** `appCommandRefines_witness` proves the
   `AppCommandRefines` equation holds on the concrete *state-changing* `dup`
   instance (`⟨var0,var0⟩ ≠ var0`), computed through the now-real
@@ -37,11 +37,20 @@ the Aeneas-generated `dlc_core.rsm` transition engine (real `def`s in the
   real input. Its axiom footprint is exactly `[propext, Classical.choice,
   Quot.sound]`.
 
-The honest R2.2b claim: *the operational structural squares hold conditional on
-the single stated reducer correspondence `AppCommandRefines`; the whole
-operational transport is thereby reduced to exactly that one lemma, and that
-lemma's consequent is machine-checked non-vacuous on a state-changing input.*
-This is NOT a claim that the Rust core satisfies G1–G4.
+The honest R2.2b claim: *the whole operational transport is reduced to exactly
+one stated reducer correspondence `AppCommandRefines`, and that lemma's
+consequent is machine-checked non-vacuous on a state-changing input.* This is
+NOT a claim that the Rust core satisfies G1–G4.
+
+**Square coverage (R2.2b).** `is_quorum_square` lands (in the companion module
+`DLCD.CorrespondenceConsensus`, which owns the `dlc_d_rsm` tree). The
+reducer-routed structural squares (`deliver`, `world_step`, `apply_prefix`) plus
+`commit` and `decided` are the R2.2b-continuation: they route the reducer through
+the `AppCommandRefines` hypothesis and additionally rest on an AST-wide
+clone-identity lemma (tractable via `List.mapM_clone_eq` + a mutual induction —
+the `vecClone_id` helper below is the Vec base case) and, for the loop functions,
+accumulator inductions. They are not yet landed and — per the no-`sorry`
+discipline — are therefore not stated here.
 
 Prior art (web-searched 2026-07-23; URLs recorded):
 - Aeneas (Ho–Protzenko–Fromherz, ICFP 2022): each Rust fn → a `Result α`
@@ -94,6 +103,26 @@ def decGC (decTm : DecTm) (decPr : DecPr) (g : rsm.GlobalConfig) : DLCD.GlobalCo
   { replicas := g.replicas.val.map (decRep decTm),
     log := decLog decTm decPr g.log,
     budget := decBudget g.budget }
+
+/-! ## 2b. Clone-identity base case (groundwork for the reducer-routed squares).
+
+The generated `deliver`/`world_step`/`commit` all `clone` a `Vec`/`Term` before
+decoding it; the structural squares therefore rest on an AST-wide clone-identity
+fact `clone x = ok x`. Its `Vec` base case is `vecClone_id` (via
+`List.mapM_clone_eq`); the recursive `Term`/`Prop`/`Principal`/`Obligation` cases
+are a mutual induction that is the R2.2b-continuation. -/
+
+/-- A `Vec` whose elements each clone to themselves clones to itself. -/
+private theorem vecClone_id {T} (cl : core.clone.Clone T) (v : alloc.vec.Vec T)
+    (h : ∀ x ∈ v.val, cl.clone x = ok x) :
+    alloc.vec.CloneVec.clone cl v = ok v := by
+  have hm := List.mapM_clone_eq h
+  simp only [alloc.vec.CloneVec.clone, Slice.clone, List.clone]
+  split
+  · rename_i v1 heq; rw [hm] at heq; injection heq with heq; subst heq
+    simp only [bind_tc_ok]; rfl
+  · rename_i e heq; rw [hm] at heq; exact absurd heq (by simp)
+  · rename_i heq; rw [hm] at heq; exact absurd heq (by simp)
 
 /-! ## 3. The `WellScopedTm` fence (the sound content of the `U32`-vs-`Nat` gap).
 

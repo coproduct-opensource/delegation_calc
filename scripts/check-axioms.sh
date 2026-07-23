@@ -75,6 +75,10 @@ SCRIPT_FILE="$SCRIPT_DIR/PrintAll.lean"
   echo "import DLC.NonInterferenceFundamental"
   echo "import DLC.CtxWellFormed"
   echo "import DLCD.Summary"
+  # R2.2b: the anti-vacuity witness `appCommandRefines_witness` lives here
+  # (imports the DlcCore Aeneas tree). NOT DLCD.CorrespondenceConsensus — the
+  # two generated trees cannot co-elaborate in one module.
+  echo "import DLCD.Correspondence"
   echo ""
   for fqn in "${SNAP_FQNS[@]}"; do
     echo "#print axioms $fqn"

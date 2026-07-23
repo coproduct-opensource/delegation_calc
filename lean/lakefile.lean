@@ -102,7 +102,7 @@ lean_lib «Correspondence» where
 -- this lib COMPILES those trees in the main build (previously drift-gated only).
 -- Name differs from the existing «Correspondence» (the T2 crypto one).
 lean_lib «DLCDCorrespondence» where
-  roots := #[`DLCD.Correspondence]
+  roots := #[`DLCD.Correspondence, `DLCD.CorrespondenceConsensus]
 
 lean_lib «NonInterference» where
   roots := #[`DLC.NonInterference, `DLC.NonInterferenceTwoRun, `DLC.NonInterferenceLR, `DLC.NonInterferenceEnv, `DLC.NonInterferenceFundamental]

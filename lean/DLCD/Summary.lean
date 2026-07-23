@@ -1,4 +1,5 @@
 import DLCD.Rsm
+import DLCD.FaultGrade
 import DLCD.CapSafety
 import DLCD.Consensus
 import DLCD.MultiDecree
@@ -125,6 +126,10 @@ abbrev coordination_free_convergence   := @DLCD.Calm.coordination_free_convergen
 abbrev log_agreement_eq             := @DLCD.log_agreement_eq
 -- Byzantine fault-model extension (single-decree safety under ≤f Byzantine)
 abbrev byz_agreement                := @DLCD.byz_agreement
+-- G3 (R1 stageE-E1): the type-level FAILURE-BUDGET CONTRACT — the graded-comonad
+-- guarantee is UNINHABITED at the over-budget grade (the counit is unavailable
+-- off-budget) for EVERY payload, while it DELIVERS + `extract`s within budget.
+abbrev budgeted_guarantee_voids_over_budget := @DLCD.budgeted_guarantee_voids_over_budget
 -- The seal (a `def`, so re-exported as an `abbrev`)
 abbrev dlc_d_slice_witness          := @DLCD.SliceWitness.dlc_d_slice_witness
 

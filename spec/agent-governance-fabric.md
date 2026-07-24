@@ -134,8 +134,11 @@ proving a gate is exercised. That method is directly transferable to an ACP-styl
   faulty leader via rotation, agreement + anti-equivocation survive. The full temporal ◇ ("always
   eventually decides") needs a fair-scheduling model-checker (TLA+/TLC) this no-Mathlib Lean toolchain
   lacks — FLP forces the synchrony assumption, which DLC-D states explicitly (unlike ACP's
-  assumption-free TLA+ check). Remaining: TLA+/TLC ◇ liveness; the tight f=1 Byzantine safety bound
-  (f+1 reveals, fenced — a Tamarin disequality limit); multi-decree Byzantine lift.
+  assumption-free TLA+ check). **The temporal ◇ is now also LANDED** as a bounded TLC model-check
+  (`models/tla/DlcdViewChange.tla`, CI-gated): `Liveness == <>decided` verified under `WF` fairness at
+  n=4/f=1, with the partial-synchrony `ASSUME` shown load-bearing (an all-faulty config trips it).
+  Remaining: the tight f=1 Byzantine safety bound (f+1 reveals, fenced — a Tamarin disequality limit);
+  multi-decree Byzantine lift.
 - **`attenuate` converse — CLOSED.** `attenuate_only_narrows` proves a typed attenuation *carries* the
   narrowing witness; the converse (a genuine *widening* is *underivable*) is now proved too
   (`lean/DLC/DerivSound.lean`, `[propext]`): a boolean valuation model + full soundness `deriv_sound`

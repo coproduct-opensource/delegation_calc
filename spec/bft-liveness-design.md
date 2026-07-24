@@ -88,10 +88,17 @@ that would be a multi-month infrastructure build to add.
 The pragmatic **provable** target is a **bounded, model-checked** liveness, matching how the field
 actually mechanizes it:
 
-- **TLA+/TLC** — specify the view-change protocol in TLA+ and model-check progress (`◇ decided`) under a
-  `WF`-fair, GST-after-`k` scheduler for small `n` (e.g. `n=4, f=1`), bounded message counts. This is
-  precisely how HotStuff was verified for industry (Springer 2021). State the numeric bound (nodes,
-  views, depth) explicitly — a bounded check is evidence, not a universal proof.
+- **TLA+/TLC — LANDED** (`models/tla/DlcdViewChange.tla` + `.cfg`, `scripts/check-tla.sh`, CI job
+  `.github/workflows/tla.yml`). TLC model-checks the temporal **`Liveness == <>decided`** ("always
+  eventually decides") under `WF`-fair decide/view-change actions, plus `DecidedStable` (stable
+  agreement) and `TypeOK`, over the complete state space at `n=4, f=1` (`MaxView=2`, `FaultyViews={0}` —
+  view 0's leader Byzantine, view 1 correct): *"Model checking completed. No error has been found."*
+  This is the temporal ◇ the Tamarin reachability lemmas do NOT give. **Non-vacuous / right-reason:** the
+  partial-synchrony `ASSUME (∃ v : v ∉ FaultyViews)` is load-bearing — an all-faulty config
+  (`FaultyViews={0,1,2}`) trips the `ASSUME`, so liveness genuinely rests on the GST assumption (FLP).
+  The honest difference from ACP, whose TLA+ checks liveness WITHOUT stating a synchrony assumption. This
+  is how HotStuff was verified for industry (Springer 2021); the bound (nodes/views) is stated, so it is
+  bounded evidence, not a universal proof.
 - **Tamarin/ProVerif exists-trace** — a `progress_reachable` lemma (a decision IS reachable after a
   view-change under a synchrony restriction) is a cheap first artifact in the existing model-first
   pipeline, complementing the safety lemmas. It shows the view-change *can* drive progress; it does not

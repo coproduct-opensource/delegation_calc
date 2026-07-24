@@ -1,0 +1,39 @@
+name: TLA+
+
+# TLC model-checks the DLC-D view-change TEMPORAL liveness (<>decided) — the
+# inevitability the Tamarin reachability lemmas cannot express
+# (spec/bft-liveness-design.md §4). Companion to the Tamarin/ProVerif gates.
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "models/tla/**"
+      - "scripts/check-tla.sh"
+      - ".github/workflows/tla.yml"
+  pull_request:
+    paths:
+      - "models/tla/**"
+      - "scripts/check-tla.sh"
+      - ".github/workflows/tla.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tlc:
+    name: TLC on DlcdViewChange.tla
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+
+      - name: Install a JRE (TLC is Java)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y default-jre
+          java -version
+
+      - name: TLC — Liveness (<>decided) + DecidedStable
+        run: bash scripts/check-tla.sh

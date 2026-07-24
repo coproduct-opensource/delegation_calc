@@ -112,6 +112,17 @@ lean_lib «DLCDCorrespondence» where
 lean_lib «DLCDTransport» where
   roots := #[`DLCD.Transport]
 
+-- DLC-D Phase R2.4b: the CONSENSUS-tree transport. Pulls the hand consensus
+-- SAFETY metatheorems (agreement / log_agreement_eq) back to the deployed Rust
+-- runtime via the R2.2b squares (is_quorum_square / decided_square), as `rust_*`
+-- corollaries conditioned on the Rust `consensus.decided` op returning `ok true`.
+-- Rooted on the SECOND generated tree (dlc_d_rsm, via DLCD.CorrespondenceConsensus);
+-- does NOT import DLCD.Correspondence/DLCD.Transport (the dlc_core tree would
+-- collide on the `@[discriminant isize]` Term instance). This is the mirror of the
+-- Correspondence-vs-CorrespondenceConsensus two-tree split, one level up at transport.
+lean_lib «DLCDTransportConsensus» where
+  roots := #[`DLCD.TransportConsensus]
+
 lean_lib «NonInterference» where
   roots := #[`DLC.NonInterference, `DLC.NonInterferenceTwoRun, `DLC.NonInterferenceLR, `DLC.NonInterferenceEnv, `DLC.NonInterferenceFundamental]
 

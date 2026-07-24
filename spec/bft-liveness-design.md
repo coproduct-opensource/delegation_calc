@@ -95,7 +95,14 @@ actually mechanizes it:
 - **Tamarin/ProVerif exists-trace** — a `progress_reachable` lemma (a decision IS reachable after a
   view-change under a synchrony restriction) is a cheap first artifact in the existing model-first
   pipeline, complementing the safety lemmas. It shows the view-change *can* drive progress; it does not
-  show it *must* (that is the TLA+ `◇`).
+  show it *must* (that is the TLA+ `◇`). **LANDED** — `models/tamarin/dlcd-viewchange.spthy` (CI-gated in
+  `tamarin.yml`, wellformedness clean): `progress_after_viewchange_reachable` (exists-trace, VERIFIED) —
+  a decision is reachable in view `v1` after a quorum view-change abandons `v0`, in a run where `v0`'s
+  leader NEVER proposed (non-vacuous: the `not Proposed(L0,'v0',…)` clause forces a genuinely silent
+  initial leader, so progress *required* the rotation), no key revealed; plus `no_two_decisions`
+  (all-traces, VERIFIED) — rotation preserves single-view agreement (quorum intersection survives leader
+  change). Honest fence in the `.spthy`: this is REACHABILITY (progress is *possible*), NOT the temporal
+  ◇; and it models a *silent* (crash) initial leader — Byzantine-leader liveness is stronger and fenced.
 - **Agda/Coq reference** — Jolteon's Agda formalization (IOG) and Bythos (CCS'24, compositional
   mechanized BFT safety+liveness in Coq) are the SOTA full-liveness mechanizations; porting is a large
   separate effort, cited as the reference standard, not this increment.

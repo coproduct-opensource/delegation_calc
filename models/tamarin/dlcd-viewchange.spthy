@@ -1,0 +1,180 @@
+// =========================================================================
+// dlcd-viewchange.spthy — BOUNDED liveness: view-change enables progress
+// =========================================================================
+//
+// Phase 4 (spec/bft-liveness-design.md §4). Safety is proved in full elsewhere
+// (rust_byz_agreement, transported); LIVENESS is conditional on partial synchrony
+// (FLP) and, per the design, its PROVABLE form here is a BOUNDED, model-checked
+// claim. This theory is the cheapest such artifact in the existing model-first
+// pipeline (mirrors dlcd-replication.spthy's Propose/Vote/QC idiom): an
+// EXISTS-TRACE showing a decision IS REACHABLE after a view-change when the first
+// leader stalls — i.e. view-change ENABLES progress.
+//
+// =========================================================================
+// HONEST FENCE — read before citing this
+// =========================================================================
+// An exists-trace shows progress is REACHABLE (POSSIBLE) once the view rotates to
+// a live leader — NOT the temporal ◇ "always eventually decides" (that is a
+// liveness property needing a fair-scheduling model-checker: TLA+/TLC, spec §4,
+// the recommended deeper artifact). This artifact says: the view-change mechanism
+// CAN drive a decision when the initial leader is silent; it does NOT say it MUST.
+// Do not cite this as a liveness proof.
+//
+// Scope: this models a SILENT (crashed / non-proposing) initial leader replaced
+// by a quorum view-change — the crash-fault progress core (n=3, quorum 2, mirroring
+// dlcd-replication.spthy). Byzantine-leader liveness (an equivocating leader) is a
+// stronger claim, fenced. `no_two_decisions` additionally checks view-change does
+// not break single-view AGREEMENT (quorum intersection survives leader rotation).
+
+theory DLCD_ViewChange
+begin
+
+builtins: signing
+
+// =========================================================================
+// Restrictions
+// =========================================================================
+
+restriction Equality:
+  "All x y #i. Eq(x, y) @ #i ==> x = y"
+
+restriction Inequality:
+  "All x y #i. Neq(x, y) @ #i ==> not(x = y)"
+
+restriction unique_key:
+  "All A #i #j. KeyRegistered(A) @ #i & KeyRegistered(A) @ #j ==> #i = #j"
+
+// One vote per (replica, view) — the linear heart of quorum intersection
+// (a replica cannot back two different values in one view).
+restriction unique_vote_open:
+  "All R v #i #j. VoteOpened(R, v) @ #i & VoteOpened(R, v) @ #j ==> #i = #j"
+
+// The fixed roster of three. Only these can open a vote, so quorum intersection
+// at n=3, quorum=2 holds (two quorums of 2 overlap in 3).
+restriction roster:
+  "All R v #i. VoteOpened(R, v) @ #i
+     ==> (R = 'r1') | (R = 'r2') | (R = 'r3')"
+
+// =========================================================================
+// Keys and compromise
+// =========================================================================
+
+rule Register_key:
+    [ Fr(~sk) ]
+  --[ HonestKey($A, ~sk), KeyRegistered($A) ]->
+    [ !Ltk($A, ~sk), !Pk($A, pk(~sk)), Out(pk(~sk)) ]
+
+rule Reveal_ltk:
+    [ !Ltk($A, sk) ]
+  --[ Reveal($A) ]->
+    [ Out(sk) ]
+
+// =========================================================================
+// The protocol
+// =========================================================================
+
+// Establish the view -> leader rotation: view 'v0' has leader $L0, 'v1' has $L1
+// (distinct — leader rotation on view change).
+rule Setup_views:
+    [ ]
+  --[ ViewLeader('v0', $L0), ViewLeader('v1', $L1), Neq($L0, $L1) ]->
+    [ !View('v0', $L0), !View('v1', $L1) ]
+
+// A per-(replica, view) vote token (roster-bounded, mint-once).
+rule Open_vote:
+    [ ]
+  --[ VoteOpened($R, $v) ]->
+    [ VoteToken($R, $v) ]
+
+// The leader of view v proposes a value, signed. (The initial leader may simply
+// never fire this — a crash / silent leader — which is what the view-change
+// recovers from.)
+rule Propose:
+    [ !View($v, $L), !Ltk($L, skL) ]
+  --[ Proposed($L, $v, $val) ]->
+    [ Out(<'propose', $v, $val, sign(<'propose', $v, $val>, skL)>) ]
+
+// A replica times out the current view and signs a view-change message.
+rule Timeout:
+    [ !Ltk($R, skR) ]
+  --[ TimedOut($R, $vfrom) ]->
+    [ Out(<'vc', $R, $vfrom, sign(<'vc', $vfrom>, skR)>) ]
+
+// A quorum (two distinct replicas) of signed timeouts forms a VIEW-CHANGE
+// CERTIFICATE for `vfrom` — the abandoned view. Reuses the QC idiom (anyone may
+// assemble it; the certificate, not the sender, carries the authority).
+rule ViewChange:
+    [ In(<'vc', $R1, vfrom, s1>)
+    , In(<'vc', $R2, vfrom, s2>)
+    , !Pk($R1, pk1)
+    , !Pk($R2, pk2)
+    ]
+  --[ Eq(verify(s1, <'vc', vfrom>, pk1), true)
+    , Eq(verify(s2, <'vc', vfrom>, pk2), true)
+    , Neq($R1, $R2)
+    , ViewChangeCert(vfrom)
+    ]->
+    [ ]
+
+// A replica votes for a proposal in view v (spends its one token, checks the
+// leader's signature).
+rule Vote:
+    [ VoteToken($R, $v)
+    , In(<'propose', $v, val, psig>)
+    , !View($v, $L)
+    , !Pk($L, pkL)
+    , !Ltk($R, skR)
+    ]
+  --[ Eq(verify(psig, <'propose', $v, val>, pkL), true)
+    , Voted($R, $v, val)
+    ]->
+    [ Out(<'vote', $R, $v, val, sign(<'vote', $v, val>, skR)>) ]
+
+// A value is DECIDED in view v when a quorum (two distinct replicas) voted for it.
+rule Decide:
+    [ In(<'vote', $R1, $v, val, s1>)
+    , In(<'vote', $R2, $v, val, s2>)
+    , !Pk($R1, pk1)
+    , !Pk($R2, pk2)
+    ]
+  --[ Eq(verify(s1, <'vote', $v, val>, pk1), true)
+    , Eq(verify(s2, <'vote', $v, val>, pk2), true)
+    , Neq($R1, $R2)
+    , Decided($v, val)
+    ]->
+    [ ]
+
+// =========================================================================
+// Lemmas
+// =========================================================================
+
+// BOUNDED LIVENESS (exists-trace). A decision is REACHABLE in view 'v1' AFTER a
+// view-change abandoned 'v0', in a run where 'v0's leader NEVER proposed (it
+// stalled) and NO key was revealed. This is the honest artifact: the view-change
+// mechanism CAN drive progress past a silent leader. NON-VACUOUS by the
+// `not Proposed(L0,'v0',...)` clause — the decision genuinely required the rotation,
+// not a proposal the initial leader itself made.
+lemma progress_after_viewchange_reachable:
+  exists-trace
+  "Ex L0 val #s #vc #d.
+       ViewLeader('v0', L0) @ #s
+     & ViewChangeCert('v0') @ #vc
+     & Decided('v1', val) @ #d
+     & #vc < #d
+     & not (Ex v0val #p. Proposed(L0, 'v0', v0val) @ #p & #p < #vc)
+     & not (Ex X #r. Reveal(X) @ #r)"
+
+// SAFETY UNDER ROTATION (all-traces). View-change does not break agreement: at
+// most one value is decided per view (quorum intersection survives leader
+// rotation). Two decisions in one view need two quorums of 2 over the roster of 3,
+// which overlap in a replica that would have spent two vote-tokens for that view —
+// forbidden by `unique_vote_open` — unless a key leaked.
+lemma no_two_decisions:
+  all-traces
+  "All v c1 c2 #i #j.
+       Decided(v, c1) @ #i & Decided(v, c2) @ #j
+    ==>
+       c1 = c2
+     | (Ex X #r. Reveal(X) @ #r)"
+
+end

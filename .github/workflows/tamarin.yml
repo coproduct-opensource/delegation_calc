@@ -310,6 +310,49 @@ jobs:
       - name: Revocation bite is a controlled experiment (differential gate)
         run: bash scripts/check-tamarin-revocation-bite.sh
 
+      # =====================================================================
+      # Phase 4 BFT liveness — BOUNDED (spec/bft-liveness-design.md §4). An
+      # exists-trace that view-change ENABLES progress past a silent leader
+      # (reachability, NOT the temporal ◇), + a safety companion that rotation
+      # preserves single-view agreement.
+      # =====================================================================
+      - name: View-change wellformedness (strict — zero warnings)
+        run: |
+          set -o pipefail
+          cd models/tamarin
+          tamarin-prover dlcd-viewchange.spthy 2>&1 | tee wf-dlcd-viewchange.log
+          if ! grep -q "All wellformedness checks were successful" wf-dlcd-viewchange.log; then
+            echo "::error::dlcd-viewchange.spthy has wellformedness warnings — analysis may be unsound"
+            exit 1
+          fi
+
+      - name: Prove the view-change lemmas
+        run: |
+          set -o pipefail
+          cd models/tamarin
+          tamarin-prover --prove dlcd-viewchange.spthy 2>&1 | tee prove-viewchange.log
+          if grep -E "^.*: (falsified|incomplete)" prove-viewchange.log; then
+            echo "::error::Tamarin reported falsified or incomplete lemmas in prove-viewchange.log"
+            exit 1
+          fi
+          if ! grep -q "summary of summaries" prove-viewchange.log; then
+            echo "::error::prove-viewchange.log: Tamarin did not reach 'summary of summaries' — run truncated"
+            exit 1
+          fi
+          ok=1
+          # The bounded-liveness artifact: progress after view-change must be REACHABLE
+          # (non-vacuous — a silent v0 leader replaced by rotation drives a v1 decision).
+          if ! grep -qE "\bprogress_after_viewchange_reachable\b.*: +verified" prove-viewchange.log; then
+            echo "::error::progress_after_viewchange_reachable did not verify — the liveness artifact is broken"
+            ok=0
+          fi
+          # Safety under rotation: at most one value decided per view.
+          if ! grep -qE "\bno_two_decisions\b.*: +verified" prove-viewchange.log; then
+            echo "::error::no_two_decisions did not verify — view-change broke agreement"
+            ok=0
+          fi
+          if [ "$ok" -ne 1 ]; then exit 1; fi
+
       - name: Upload Tamarin output
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

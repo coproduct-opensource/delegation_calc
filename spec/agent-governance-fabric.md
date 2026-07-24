@@ -135,10 +135,12 @@ proving a gate is exercised. That method is directly transferable to an ACP-styl
   synchrony assumption, which DLC-D states explicitly (unlike ACP's assumption-free TLA+ check).
   Remaining: TLA+/TLC ◇ liveness; Byzantine-leader (equivocating) liveness (the artifact models a
   *crash*/silent leader); multi-decree Byzantine lift.
-- **`attenuate` converse (Deriv-consistency) deferred.** `attenuate_only_narrows` proves a typed
-  attenuation *carries* the narrowing witness; the converse (a genuine *widening* is *underivable* in
-  `Deriv`) needs a semantic model of `Deriv` — an all-or-nothing soundness induction over ~30
-  constructors, deferred.
+- **`attenuate` converse — CLOSED.** `attenuate_only_narrows` proves a typed attenuation *carries* the
+  narrowing witness; the converse (a genuine *widening* is *underivable*) is now proved too
+  (`lean/DLC/DerivSound.lean`, `[propext]`): a boolean valuation model + full soundness `deriv_sound`
+  (all 31 constructors) gives `widening_says_underivable` / `attenuate_cannot_widen`. The model is the
+  program's first NEGATIVE-direction engine (underivability from a falsifying valuation) — it also
+  under-writes the Deriv-level revocation bite.
 - **Runtime IFC is type-level.** A faithful runtime label-decode was shown *impossible* (finite
   hand lattice vs unbounded runtime labels); the `flow` axis is a compile-time claim checked at
   build, not runtime label-byte enforcement. This is a design principle, not an apology, but it
@@ -191,7 +193,7 @@ parallel island — the same "reuse the encoder, add a framing layer, model befo
 > multi-hop **attenuation narrowing proved**, **revocation** mechanized across five layers (Lean →
 > Deriv → Tamarin → ProVerif → real Biscuit wire), and **BFT liveness designed + bounded-checked** —
 > and is honest about exactly where the proof stops (single-decree, liveness bounded-not-temporal,
-> type-level flow, the `attenuate` converse deferred).
+> type-level flow — with the `attenuate` converse now closed via a boolean model of `Deriv`).
 
 That envelope-as-a-type surface is R6.2, reframed as the agent authority-envelope
 (`spec/r6.2-agent-service-envelope.md`); the runnable governed service is R6.3.

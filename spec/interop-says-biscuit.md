@@ -63,10 +63,13 @@ encode/decode** between the two representations of one credential, not a re-deri
   IH `within`≠`says` clash). Non-vacuity witness `attenuate_narrows_genuinely`: a genuine *non-identity*
   narrowing `p says (a ∧ b) ↝ p says a` (so the recovered `φ ≠ ψ` — the statement is not the trivial
   `φ := ψ`). Checker-level right-reason bite `decideLean_refuses_nonidentity_attenuation` (the shipped
-  checker returns `none` on a non-narrowing attenuation). **Remaining fence:** the *converse*
-  (Deriv-consistency: a genuine widening `ψ` is NOT derivable from `φ`) needs a semantic model of
-  `Deriv` — the next increment. This lemma is what the Tamarin `attenuation_roots_in_issuance` lemma
-  assumed structurally; the interop story no longer rests on that assumption.
+  checker returns `none` on a non-narrowing attenuation). **The converse is now CLOSED**
+  (`lean/DLC/DerivSound.lean`, `[propext]`): a boolean valuation model of `Deriv` (`evalProp`) with a
+  full soundness theorem `deriv_sound` (over all 31 constructors) yields `widening_says_underivable` /
+  `attenuate_cannot_widen` — a genuine widening (`p says (atom 0) ↝ p says (atom 1)`) has NO derivation
+  under any subject, so narrowing is *witnessed* and widening is *impossible*. This lemma is what the
+  Tamarin `attenuation_roots_in_issuance` lemma assumed structurally; the interop story no longer rests
+  on that assumption.
 - **Attenuation CHAINING — LANDED (Phase 4).** `attenuate_chain_narrows`: for a two-hop chain
   `attenuate (attenuate M ψ₁) ψ₂ : p says ψ₂`, the leaf authority `ψ₂` is entailed by the ROOT the
   issuer signed (`M : p says φ_root`, `φ_root ⊢ ψ₂`) — across the whole chain, not merely the previous

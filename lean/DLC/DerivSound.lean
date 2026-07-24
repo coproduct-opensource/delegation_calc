@@ -224,4 +224,46 @@ theorem deriv_sound_witness (v : Nat → Bool) :
       (Deriv.varA _ 0 _ rfl))
     (satisfies_empty v)
 
+/-! ## The NEGATIVE direction — underivability from soundness.
+
+`deriv_sound` gives the first consistency corollaries: a valuation that satisfies the hypotheses but
+falsifies the conclusion proves NO derivation exists. The prototype is `atom 1 ⊬ atom 0`, from which
+the `attenuate` CONVERSE (a genuine widening is underivable) falls out — closing the fence
+`attenuate_only_narrows` left open (spec/interop-says-biscuit.md §2; positioning-doc §5). -/
+
+/-- The valuation separating atom 0 (true) from atom 1 (false). -/
+private def sep : Nat → Bool := fun n => n == 0
+
+/-- **`atom 1` is NOT derivable from `atom 0`.** The prototype underivability result: `sep` satisfies
+the hypothesis `atom 0` but falsifies `atom 1`, so soundness forbids any derivation. -/
+theorem atom_not_derivable_from_atom :
+    ¬ ∃ N, Nonempty (Deriv (Ctx.consA (Prop'.atom 0) Ctx.empty) N (Prop'.atom 1)) := by
+  rintro ⟨N, ⟨d⟩⟩
+  have hsat : satisfies (Ctx.consA (Prop'.atom 0) Ctx.empty) sep :=
+    satisfies_consA.2 ⟨rfl, satisfies_empty _⟩
+  have h := deriv_sound sep d hsat
+  simp [evalProp, sep] at h
+
+/-- **A genuine widening is underivable.** `p says (atom 1)` cannot be concluded from a hypothesis
+`p says (atom 0)` — by ANY subject term. This is the `Deriv`-level converse of `attenuate_only_narrows`:
+narrowing carries a witness (proved there); widening has none (proved here). Subject-agnostic, so it a
+fortiori rules out an `attenuate` node — see `attenuate_cannot_widen`. -/
+theorem widening_says_underivable (p : Principal) :
+    ¬ ∃ M, Nonempty (Deriv (Ctx.consA (Prop'.says p (Prop'.atom 0)) Ctx.empty) M
+             (Prop'.says p (Prop'.atom 1))) := by
+  rintro ⟨M, ⟨d⟩⟩
+  have hsat : satisfies (Ctx.consA (Prop'.says p (Prop'.atom 0)) Ctx.empty) sep :=
+    satisfies_consA.2 ⟨rfl, satisfies_empty _⟩
+  have h := deriv_sound sep d hsat
+  simp [evalProp, sep] at h
+
+/-- **`attenuate` cannot widen.** No `attenuate _ (atom 1)` node concludes `p says (atom 1)` from a
+`p says (atom 0)` hypothesis — the right-reason bite completing the attenuation-narrowing story:
+narrowing is always witnessed (`attenuate_only_narrows`), widening is impossible (here). -/
+theorem attenuate_cannot_widen (p : Principal) :
+    ¬ ∃ M, Nonempty (Deriv (Ctx.consA (Prop'.says p (Prop'.atom 0)) Ctx.empty)
+             (Term.attenuate M (Prop'.atom 1)) (Prop'.says p (Prop'.atom 1))) := by
+  rintro ⟨M, hd⟩
+  exact widening_says_underivable p ⟨_, hd⟩
+
 end DLC

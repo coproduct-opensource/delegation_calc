@@ -77,9 +77,14 @@ theorem acceptableAt_witness_expired : ¬ acceptableAt ⟨10⟩ ⟨10⟩ := by d
 /-- **The gap this design closes.** The CURRENT `within-E` strips the `◇_τ` bound UNCONDITIONALLY:
 acceptance of `within τ φ` does not depend on `now` vs `τ` (the `now` here is unused). So the time
 bound is decorative at the calculus level — the `now < τ` check lives only in `dlc-crypto`, and the
-calculus alone offers no revocation guarantee. The next increment adds a premise-carrying `within-E`
-requiring an `acceptableAt validUntil now` witness, after which an expired (revoked) credential —
-having no such witness by `revoke_bounds_acceptance` — is underivable. -/
+calculus alone offers no time-ENFORCEMENT guarantee. (A premise-carrying `within-E` requiring an
+`acceptableAt` witness would make an expired credential un-strippable; that is deferred.)
+
+What the calculus DOES now guarantee negatively: the inner authority of a time-bounded credential
+cannot be WIDENED/forged — `DerivSound.within_says_widening_underivable` proves
+`within τ (p says (atom 0)) ⊬ within τ (p says (atom 1))`. So a held credential's authority cannot be
+silently strengthened inside `◇_τ`. Keep the two distinct: forgery of a stronger inner `says` is ruled
+out (proved); un-strippability of an expired `within` is not (this `theorem` shows the gap). -/
 theorem current_withinE_ignores_time {Γ : Ctx} {M : Term} {τ : TimeBound} {φ : Prop'}
     (_now : TimeBound) (d : Deriv Γ M (Prop'.within τ φ)) : Nonempty (Deriv Γ M φ) :=
   ⟨Deriv.withinE Γ τ φ M d⟩

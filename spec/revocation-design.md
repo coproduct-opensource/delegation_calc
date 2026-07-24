@@ -82,6 +82,13 @@ Proven (`Revocation.lean`, axioms ⊆ `[propext, Quot.sound]`):
   `now=5` and rejected at `now=10` (bound 10): two-sided over an actual derivation, so the judgment is
   inhabited and the soundness theorem non-vacuous.
 
+**Negative direction — LANDED.** `lean/DLC/DerivSound.lean`'s boolean model + `deriv_sound` give
+`within_says_widening_underivable` (`[propext]`): a time-bounded credential's inner authority cannot be
+WIDENED — `within τ (p says (atom 0)) ⊬ within τ (p says (atom 1))`. A held credential's `says` cannot
+be silently strengthened inside `◇_τ`. Kept crisply distinct from time-ENFORCEMENT: forgery of a
+stronger inner authority is ruled out (proved); un-strippability of an *expired* `within` is not (the
+`within-E` time-strip is still unconditional — `current_withinE_ignores_time`).
+
 **Deeper alternative (later):** the premise-carrying `within-E` constructor makes an expired credential
 *underivable* in `Deriv` itself (not merely un-accepted by the outer judgment) — stronger, but requires
 the full metatheory sweep (every `Deriv` consumer updated). The layered judgment delivers the guarantee

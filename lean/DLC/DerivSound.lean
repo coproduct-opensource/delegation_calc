@@ -266,4 +266,22 @@ theorem attenuate_cannot_widen (p : Principal) :
   rintro ⟨M, hd⟩
   exact widening_says_underivable p ⟨_, hd⟩
 
+/-- **A time-bounded credential's inner authority cannot be WIDENED (forged).** From a hypothesis
+`within τ (p says (atom 0))` — a revocable credential (`spec/revocation-design.md`) — one cannot
+derive `within τ (p says (atom 1))`: the calculus admits no forgery of a STRONGER inner authority,
+even inside the `◇_τ` modality. The `Deriv`-level companion to `Revocation.lean`'s
+`revoked_credential_not_accepted` (which lives at the layered `AcceptsRevocable` level). NB — this is
+distinct from enforcing the time bound itself: it says the inner `says` cannot be strengthened, not
+that an expired `within` is un-strippable (`current_withinE_ignores_time` still stands on that). -/
+theorem within_says_widening_underivable (p : Principal) (τ : TimeBound) :
+    ¬ ∃ M, Nonempty (Deriv
+             (Ctx.consA (Prop'.within τ (Prop'.says p (Prop'.atom 0))) Ctx.empty) M
+             (Prop'.within τ (Prop'.says p (Prop'.atom 1)))) := by
+  rintro ⟨M, ⟨d⟩⟩
+  have hsat : satisfies
+      (Ctx.consA (Prop'.within τ (Prop'.says p (Prop'.atom 0))) Ctx.empty) sep :=
+    satisfies_consA.2 ⟨rfl, satisfies_empty _⟩
+  have h := deriv_sound sep d hsat
+  simp [evalProp, sep] at h
+
 end DLC

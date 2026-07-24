@@ -288,13 +288,31 @@ honest replica diverges; `two_byzantine_quorums_cannot_both_form` and
 + `tests/networked.rs::byzantine_roster_converges_over_the_wire` keep the happy path (the latter
 over the real async node, so the mode is reachable, not a self-tested branch).
 
-**Fence:** the crash threshold is cross-checked against a *transported* Lean predicate
-(`rust_consensus_agreement`); the Byzantine threshold's Lean side (`byz_agreement`) is
-**model-level only** — `DLCD.ByzantineConsensus` is not Aeneas-translated to a Rust predicate,
-so `Quorum::Byzantine` matches the Lean *definition* (`3·card > 2n`) by inspection, not by a
-transported theorem. Wiring `ByzantineConsensus` through Aeneas is backlog. Also still single-
-decree and single-round: this gives Byzantine *agreement* (safety), not Byzantine *liveness*
-(no view change / leader election — roadmap §5).
+**The threshold now rides an Aeneas-translated predicate.** `dlc_d_rsm::consensus` gained
+`is_byz_quorum` (`3·card > 2n`) and `byz_decided`, both Aeneas-translated to
+`lean/DLCD/Aeneas/DlcDRsm` with real bodies (drift-clean). `Quorum::Byzantine.reached` is
+cross-checked against `is_byz_quorum` over a range of `n`
+(`proto::tests::byzantine_threshold_matches_the_verified_predicate`), exactly as the crash
+threshold is cross-checked against `is_quorum` — so the deployed Byzantine bar is the same
+decidable predicate the Lean side reasons about, not a hand-inlined constant.
+
+**A latent bug this closed.** `AuthNode`'s leader tallied with the crash `decided`
+*unconditionally*, ignoring the roster's mode. That coincides at n=4 (both thresholds need 3),
+which is why the iteration-that-added-Byzantine passed — but at n=7 (f=2) crash needs 4 and
+Byzantine needs 5, so a 7-node Byzantine leader would have committed at 4 votes and then
+stalled, its 4-vote certificate rejected by followers verifying at 5 (the leader's own
+`debug_assert!(verify_commit)` fires under the revert). The leader's decision now dispatches on
+`roster.quorum()` — `decided` for crash, `byz_decided` for Byzantine — so it clears the same bar
+its followers verify. Regression: `tests/byzantine.rs::byzantine_leader_needs_byzantine_quorum`
+(n=7, end-to-end async: 7 honest commit, 4 survivors stall cleanly), and it fails against the
+reverted fix.
+
+**Fence that remains:** the crash threshold rides a transported *agreement theorem*
+(`rust_consensus_agreement`); the Byzantine side has the translated *predicate* but not yet a
+transported *theorem* — `DLCD.ByzantineConsensus.byz_agreement` is proven in Lean but a
+`rust_byz_agreement` correspondence (which needs the honest set `B` as a parameter, unlike the
+all-honest crash case) is backlog. Also still single-decree, single-round: Byzantine *agreement*
+(safety), not *liveness* (no view change / leader election — roadmap §5).
 
 ## 7. Fences — what this model does not say
 

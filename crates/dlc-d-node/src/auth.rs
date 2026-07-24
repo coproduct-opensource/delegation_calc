@@ -39,11 +39,11 @@
 
 use dlc_core::rsm::{commit, world_step, Command, FailureBudget, GlobalConfig, Replica};
 use dlc_core::syntax::Term;
-use dlc_d_rsm::consensus::decided;
+use dlc_d_rsm::consensus::{byz_decided, decided};
 
 use crate::proto::{
     self, propose, verify_commit, verify_proposal, verify_vote, vote, Capability, Commit, Proposal,
-    PubKey, QuorumCert, Roster, Vote,
+    PubKey, Quorum, QuorumCert, Roster, Vote,
 };
 
 /// An authenticated replication message. Unlike R6.1a's [`crate::Msg`], every
@@ -278,8 +278,18 @@ impl AuthNode {
             }
         }
 
-        // DECISION GATE: the Lean-transported strict-majority predicate.
-        if !decided(&self.ballot, &cmd) {
+        // DECISION GATE: the decision predicate for THIS roster's fault model.
+        // A leader on a Byzantine roster must clear the same `3·card > 2n` bar
+        // its followers verify commits against — otherwise it would broadcast a
+        // commit its own followers (correctly) reject. Using the crash `decided`
+        // unconditionally was a latent bug: it happened to coincide at n=4 (both
+        // thresholds need 3) but diverges at n≥7. `tests/byzantine.rs::
+        // byzantine_leader_needs_byzantine_quorum` is the n=7 regression.
+        let is_decided = match self.roster.quorum() {
+            Quorum::Crash => decided(&self.ballot, &cmd),
+            Quorum::Byzantine => byz_decided(&self.ballot, &cmd),
+        };
+        if !is_decided {
             return Vec::new();
         }
 

@@ -376,3 +376,84 @@ fn byzantine_honest_cluster_still_converges() {
     assert_eq!(fb.applied(), 1);
     assert_eq!(fa.store(), fb.store());
 }
+
+/// ★ REGRESSION for a latent bug the n=4 tests could not catch. A Byzantine
+/// LEADER must decide with the Byzantine threshold, not the crash one. At n=7
+/// (f=2) they DIVERGE — crash quorum is 4 (`2·4 > 7`), Byzantine quorum is 5
+/// (`3·5 > 14`). The leader collecting only 4 votes must NOT commit, because its
+/// followers verify against the Byzantine bar and would reject a 4-vote
+/// certificate. `auth.rs` originally used the crash `decided` unconditionally,
+/// which coincides at n=4 but would have let a 7-node Byzantine leader commit
+/// prematurely (a self-inflicted stall, and a broken threshold). The fix
+/// dispatches the leader's decision on the roster's `Quorum` mode.
+#[tokio::test]
+async fn byzantine_leader_needs_byzantine_quorum() {
+    use dlc_d_node::netauth::{run_auth_cluster, AuthClusterConfig};
+    use dlc_d_node::proto::{issue_capability, Capability};
+    use std::time::Duration;
+
+    let seeds: Vec<[u8; 32]> = (1u8..=7).map(seed_n).collect();
+    let roster = Roster::new_byzantine(seeds.iter().map(ed25519::public_key).collect()).unwrap();
+    // Sanity: the two thresholds genuinely differ at n=7.
+    assert!(Quorum::Crash.reached(4, 7), "crash quorum is 4 at n=7");
+    assert!(
+        !Quorum::Byzantine.reached(4, 7),
+        "Byzantine quorum is NOT 4 at n=7"
+    );
+    assert!(
+        Quorum::Byzantine.reached(5, 7),
+        "Byzantine quorum is 5 at n=7"
+    );
+
+    let c = cmd(1);
+    let cap: Capability = issue_capability(&seed_n(9), &c);
+
+    // ALL 7 honest: 7 votes ≥ the Byzantine quorum of 5, so it commits — the
+    // proof the leader is using the RIGHT (reachable) threshold, not that it
+    // never commits.
+    let o = run_auth_cluster(AuthClusterConfig {
+        seeds: seeds.clone(),
+        roster: roster.clone(),
+        leader: 0,
+        init: init(),
+        workload: vec![(c.clone(), cap.clone())],
+        crashed: vec![],
+        budget: FailureBudget::zero(2),
+        settle: Duration::from_millis(3_000),
+    })
+    .await;
+    assert!(o.complete, "7 honest votes clear the Byzantine quorum of 5");
+    assert!(o.converged());
+
+    // Now crash 3 of 7: only 4 honest remain. 4 < the Byzantine quorum of 5, so
+    // the leader must NOT commit — even though 4 IS a crash quorum. This is the
+    // case the old crash-`decided` leader would have wrongly committed (then
+    // stalled, its 4-vote cert rejected by followers). Correct behaviour: stall
+    // cleanly, nothing applied, no divergence.
+    let o2 = run_auth_cluster(AuthClusterConfig {
+        seeds,
+        roster,
+        leader: 0,
+        init: init(),
+        workload: vec![(c, cap)],
+        crashed: vec![4, 5, 6],
+        budget: FailureBudget::zero(2),
+        settle: Duration::from_millis(1_000),
+    })
+    .await;
+    assert!(
+        !o2.complete,
+        "4 votes must NOT reach the Byzantine quorum of 5"
+    );
+    assert_eq!(
+        o2.committed(),
+        0,
+        "the leader correctly withheld the commit"
+    );
+    for v in o2.views.values() {
+        assert_eq!(
+            v.replicas[0].applied, 0,
+            "no replica applied — clean stall, no divergence"
+        );
+    }
+}

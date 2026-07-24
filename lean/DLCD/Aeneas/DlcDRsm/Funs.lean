@@ -36,8 +36,16 @@ def consensus.is_quorum (card : Std.U32) (n : Std.U32) : Result Bool := do
   let i ← 2#u32 * card
   ok (i > n)
 
+/-- [dlc_d_rsm::consensus::is_byz_quorum]:
+    Source: 'crates/dlc-d-rsm/src/consensus.rs', lines 39:0-41:1
+    Visibility: public -/
+def consensus.is_byz_quorum (card : Std.U32) (n : Std.U32) : Result Bool := do
+  let i ← 3#u32 * card
+  let i1 ← 2#u32 * n
+  ok (i > i1)
+
 /-- [dlc_d_rsm::consensus::decided]: loop body 0:
-    Source: 'crates/dlc-d-rsm/src/consensus.rs', lines 42:4-51:5
+    Source: 'crates/dlc-d-rsm/src/consensus.rs', lines 58:4-67:5
     Visibility: public -/
 @[rust_loop_body]
 def consensus.decided_loop.body
@@ -61,7 +69,7 @@ def consensus.decided_loop.body
       else ok (cont (iter1, count))
 
 /-- [dlc_d_rsm::consensus::decided]: loop 0:
-    Source: 'crates/dlc-d-rsm/src/consensus.rs', lines 42:4-51:5
+    Source: 'crates/dlc-d-rsm/src/consensus.rs', lines 58:4-67:5
     Visibility: public -/
 @[rust_loop]
 def consensus.decided_loop
@@ -75,7 +83,7 @@ def consensus.decided_loop
     (iter, count)
 
 /-- [dlc_d_rsm::consensus::decided]:
-    Source: 'crates/dlc-d-rsm/src/consensus.rs', lines 40:0-53:1
+    Source: 'crates/dlc-d-rsm/src/consensus.rs', lines 56:0-69:1
     Visibility: public -/
 def consensus.decided
   (votes : Slice (Option dlc_core.rsm.Command)) (v : dlc_core.rsm.Command) :
@@ -87,5 +95,58 @@ def consensus.decided
   let i1 := Slice.len votes
   let i2 ← lift (UScalar.cast .U32 i1)
   consensus.is_quorum count i2
+
+/-- [dlc_d_rsm::consensus::byz_decided]: loop body 0:
+    Source: 'crates/dlc-d-rsm/src/consensus.rs', lines 81:4-90:5
+    Visibility: public -/
+@[rust_loop_body]
+def consensus.byz_decided_loop.body
+  (votes : Slice (Option dlc_core.rsm.Command)) (v : dlc_core.rsm.Command)
+  (iter : core.ops.range.Range Std.Usize) (count : Std.U32) :
+  Result (ControlFlow ((core.ops.range.Range Std.Usize) × Std.U32) Std.U32)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (done count)
+  | some i =>
+    let o1 ← Slice.index_usize votes i
+    match o1 with
+    | none => ok (cont (iter1, count))
+    | some c =>
+      let b ← dlc_core.rsm.Command.Insts.CoreCmpPartialEqCommand.eq c v
+      if b
+      then let count1 ← count + 1#u32
+           ok (cont (iter1, count1))
+      else ok (cont (iter1, count))
+
+/-- [dlc_d_rsm::consensus::byz_decided]: loop 0:
+    Source: 'crates/dlc-d-rsm/src/consensus.rs', lines 81:4-90:5
+    Visibility: public -/
+@[rust_loop]
+def consensus.byz_decided_loop
+  (iter : core.ops.range.Range Std.Usize)
+  (votes : Slice (Option dlc_core.rsm.Command)) (v : dlc_core.rsm.Command)
+  (count : Std.U32) :
+  Result Std.U32
+  := do
+  loop
+    (fun (iter1, count1) => consensus.byz_decided_loop.body votes v iter1
+      count1)
+    (iter, count)
+
+/-- [dlc_d_rsm::consensus::byz_decided]:
+    Source: 'crates/dlc-d-rsm/src/consensus.rs', lines 79:0-92:1
+    Visibility: public -/
+def consensus.byz_decided
+  (votes : Slice (Option dlc_core.rsm.Command)) (v : dlc_core.rsm.Command) :
+  Result Bool
+  := do
+  let i := Slice.len votes
+  let count ←
+    consensus.byz_decided_loop { start := 0#usize, «end» := i } votes v 0#u32
+  let i1 := Slice.len votes
+  let i2 ← lift (UScalar.cast .U32 i1)
+  consensus.is_byz_quorum count i2
 
 end dlc_d_rsm

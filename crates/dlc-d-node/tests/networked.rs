@@ -137,8 +137,7 @@ async fn over_budget_stalls_over_the_wire() {
 #[tokio::test]
 async fn byzantine_roster_converges_over_the_wire() {
     let seeds: Vec<[u8; 32]> = (1u8..=4).map(seed).collect();
-    let roster =
-        Roster::new_byzantine(seeds.iter().map(ed25519::public_key).collect()).unwrap();
+    let roster = Roster::new_byzantine(seeds.iter().map(ed25519::public_key).collect()).unwrap();
     let workload = vec![dup_cmd(), fst_cmd()];
 
     let o = run_auth_cluster(AuthClusterConfig {

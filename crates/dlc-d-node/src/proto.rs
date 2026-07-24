@@ -551,4 +551,22 @@ mod tests {
             );
         }
     }
+
+    /// The Byzantine threshold matches the Aeneas-translated
+    /// `dlc_d_rsm::consensus::is_byz_quorum` — so the deployed `Quorum::Byzantine`
+    /// bar is the same predicate the Lean side reasons about, exactly as the
+    /// crash threshold matches `is_quorum`. Swept over a range of `n` including
+    /// where crash and Byzantine diverge.
+    #[test]
+    fn byzantine_threshold_matches_the_verified_predicate() {
+        for n in 0u32..=10 {
+            for card in 0..=n {
+                assert_eq!(
+                    Quorum::Byzantine.reached(card as usize, n as usize),
+                    dlc_d_rsm::consensus::is_byz_quorum(card, n),
+                    "Byzantine threshold disagrees with is_byz_quorum at card={card}, n={n}"
+                );
+            }
+        }
+    }
 }

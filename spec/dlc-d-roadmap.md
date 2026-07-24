@@ -130,9 +130,15 @@ proof-to-the-metal bridge already exists (R2), and the shell substrate is instal
     `3·card > 2n` (image of `DLCD.ByzantineConsensus.IsByzQuorum`). Single-round
     safety via honest quorum intersection; `tests/byzantine.rs` runs the *exact*
     §6.4 attack against the Byzantine roster and shows it defeated, plus an
-    end-to-end async convergence test. Fence: crash threshold is cross-checked vs
-    a *transported* predicate; the Byzantine one matches the Lean *definition* by
-    inspection (`ByzantineConsensus` not yet Aeneas-translated). Byzantine
+    end-to-end async convergence test.
+  - **Byzantine threshold now Aeneas-translated ✅** (`dlc_d_rsm::consensus::
+    is_byz_quorum` / `byz_decided`): `Quorum::Byzantine` is cross-checked against
+    the translated predicate, as crash is against `is_quorum`. Closed a latent bug
+    — the leader tallied crash-quorum regardless of mode (coincides at n=4, wrong
+    at n≥7 where it would commit-then-stall); it now dispatches on `roster.quorum()`
+    (`byz_decided` for Byzantine). Regression at n=7, end-to-end. Fence that
+    remains: the *theorem* transport (`rust_byz_agreement`, needs the honest set as
+    a parameter) is backlog; crash has `rust_consensus_agreement`. Byzantine
     *agreement*, not *liveness* (no view change).
   - **Only remaining for R6.1b: literal socket carrier.** The channel carries
     exactly the bytes a socket would, so bind/connect is a carrier swap, not a

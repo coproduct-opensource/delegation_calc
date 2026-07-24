@@ -16,13 +16,17 @@ const LIB: &str = include_str!("../src/lib.rs");
 const NET: &str = include_str!("../src/net.rs");
 const MAIN: &str = include_str!("../src/main.rs");
 const DEMO: &str = include_str!("../src/demo.rs");
+const AUTH: &str = include_str!("../src/auth.rs");
 
-fn sources() -> [(&'static str, &'static str); 4] {
+fn sources() -> [(&'static str, &'static str); 5] {
     [
         ("src/lib.rs", LIB),
         ("src/net.rs", NET),
         ("src/main.rs", MAIN),
         ("src/demo.rs", DEMO),
+        // The authenticated node also transitions model state, and only through
+        // `commit`/`world_step` — the tripwire scans it too.
+        ("src/auth.rs", AUTH),
     ]
 }
 
@@ -114,11 +118,14 @@ fn view_is_only_replaced_by_verified_transitions() {
             );
         }
     }
-    // The check must actually be checking something.
+    // The check must actually be checking something. Two per node type
+    // (`Node::apply_commit` and `AuthNode::apply_commit`, each a
+    // commit-then-drain-via-world_step pair) = 4.
     assert_eq!(
-        assignments, 2,
-        "expected exactly the commit and world_step transitions; \
-         if a transition was added, verify it is corresponded and update this count"
+        assignments, 4,
+        "expected exactly the commit and world_step transitions in Node and \
+         AuthNode; if a transition was added, verify it is corresponded and \
+         update this count"
     );
 }
 

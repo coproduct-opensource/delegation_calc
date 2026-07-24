@@ -10,11 +10,13 @@ This document is that model's output: the message shapes, the properties proved 
 them, and the obligations the socket implementation inherits.
 
 **Status:** models done and proved (Tamarin + ProVerif); the authenticated protocol layer
-implemented and unit-proved against the model obligations (`crates/dlc-d-node/src/proto.rs`),
-composed end-to-end with the verified core in `tests/authenticated.rs`. **Not yet done:** the
-live event loop still runs on `u32` identities and unsigned in-process messages (R6.1a); keying
-it onto `proto` is the next increment. So the cryptographic content of the wire exists and is
-exercised; the async plumbing that carries it does not yet.
+(`crates/dlc-d-node/src/proto.rs`) and an authenticated **node** (`src/auth.rs`, `AuthNode`)
+that runs the whole chain on a live decision path — proposals verified before voting, votes
+authenticated before they enter the ballot, commits verified against their certificate before
+they are applied. **Not yet done:** the async/socket transport carrying `AuthMsg` between
+processes (`AuthNode` is currently driven by a deterministic in-memory harness in tests). So
+the authenticated decision logic is live and exercised end-to-end; only the network carrier is
+outstanding.
 
 ---
 
@@ -173,6 +175,32 @@ and cross-command certificate replay rejected, mismatched capability rejected at
 `tests/authenticated.rs` composes the whole chain and shows the certified command is exactly
 what the verified `commit`/`world_step` then applies — so `proto` is reachable from the
 verified core, not just from its own tests.
+
+## 6.2 The authenticated node (`src/auth.rs`, `AuthNode`) — two proof chains, both live
+
+Where `proto` and the verified core meet on a running decision path. The design decision that
+matters: there are two independently-verified decision surfaces, and the node keeps **both**
+rather than substituting one for the other.
+
+- `dlc_d_rsm::consensus::decided` — the strict-majority tally, transported to Lean as
+  `rust_consensus_agreement` — makes the leader's **decision**.
+- `proto::{verify_proposal, verify_vote, verify_commit}` — Tamarin/ProVerif-proved — gate
+  **admissibility**: what may reach the decision, and what a follower may apply.
+
+Authentication decides admissibility; the verified predicate decides agreement. A forged vote
+never reaches `decided`; a forged commit never reaches `commit`/`world_step`. Neither proof is
+weakened for the other. A replica is its Ed25519 key; its `u32` ballot index is its roster
+position, so the ballot stays the exact shape `rust_consensus_agreement` reasons about —
+authentication maps a verified signer to that index, it does not change the index space.
+
+Model-state discipline is preserved: `AuthNode`'s entire state is a singleton `GlobalConfig`
+replaced only by `commit`/`world_step`, and `purity.rs` scans `auth.rs` too (the transition
+count it pins went 2 → 4, one pair per node type).
+
+Tests (deterministic in-memory harness, no async): a 3-node authenticated cluster converges on
+the changed store; one crash within budget still commits; a non-member vote never enters the
+ballot; a single-signer (XDC-style) certificate is rejected by a follower; a vote for the wrong
+command does not count; a seed that does not match its roster seat is refused at construction.
 
 ## 7. Fences — what this model does not say
 

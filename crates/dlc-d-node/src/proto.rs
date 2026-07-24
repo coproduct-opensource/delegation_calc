@@ -121,6 +121,18 @@ impl Roster {
         self.members.iter().any(|m| m == k)
     }
 
+    /// The member at roster position `idx`, if any. The position is a replica's
+    /// `u32` identity — the ballot index `rust_consensus_agreement` reasons over.
+    pub fn member(&self, idx: u32) -> Option<PubKey> {
+        self.members.get(idx as usize).copied()
+    }
+
+    /// The roster position of a key, if it is a member. Maps a verified signer
+    /// back to its ballot index.
+    pub fn index_of(&self, k: &PubKey) -> Option<u32> {
+        self.members.iter().position(|m| m == k).map(|i| i as u32)
+    }
+
     /// Strict-majority test — the byte-level image of
     /// `dlc_d_rsm::consensus::is_quorum` (`2 * card > n`), which is what the
     /// transported `rust_consensus_agreement` reasons about.

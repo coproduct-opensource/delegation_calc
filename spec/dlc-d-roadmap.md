@@ -108,10 +108,19 @@ proof-to-the-metal bridge already exists (R2), and the shell substrate is instal
     counting **distinct signers** (guards the Nethermind XDC duplicate-signature
     bypass), domain-separated signing, duplicate-member roster rejection. 13 tests
     incl. `tests/authenticated.rs` composing the chain into the verified core.
-  - **Live event loop keying — NEXT.** The async node still runs on `u32` ids +
-    unsigned in-process messages; thread `proto` through it (identities become
-    pubkeys, messages carry signatures), then a socket carrier. This is where the
-    R6.1a purity property and the authenticated layer meet.
+  - **Authenticated node ✅** (`crates/dlc-d-node/src/auth.rs`, `AuthNode`): the
+    whole chain on a live decision path. **Two proof chains kept live at once** —
+    `proto` (Tamarin/ProVerif) gates *admissibility*, the Lean-transported
+    `decided` predicate makes the *decision*; a forged vote never reaches
+    `decided`, a forged commit never reaches `commit`/`world_step`. Replica =
+    Ed25519 key, ballot index = roster position (so `rust_consensus_agreement`'s
+    shape is preserved). Purity invariant extended to `auth.rs`. Tests: 3-node
+    convergence, crash-within-budget, non-member vote ignored, XDC single-signer
+    certificate rejected, wrong-command vote ignored, seed/seat mismatch refused.
+  - **Socket transport — NEXT.** `AuthNode` is driven by a deterministic
+    in-memory harness; the remaining piece is the async/socket carrier for
+    `AuthMsg` between processes. The decision logic is done and live; only the
+    network plumbing is outstanding.
 - **R6.2 — the surface + compile-time rejections.** `lark` grammar → AST bridge (or
   a Rust macro front-end); the checker accepts the good program and rejects the
   three violation variants with human errors.

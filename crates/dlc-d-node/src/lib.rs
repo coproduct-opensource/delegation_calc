@@ -44,6 +44,7 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
+pub mod auth;
 pub mod demo;
 pub mod net;
 pub mod proto;

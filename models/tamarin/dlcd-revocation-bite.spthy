@@ -1,0 +1,81 @@
+// =========================================================================
+// dlcd-revocation-bite.spthy — the revocation differential BITE (NOT the model)
+// =========================================================================
+//
+// This file is dlcd-revocation.spthy with EXACTLY ONE restriction removed —
+// `RevocationCheck`. Every RULE is byte-identical (scripts/check-tamarin-
+// revocation-bite.sh asserts that). With the revocation-list lookup gone,
+// POST-REVOCATION REPLAY becomes REACHABLE: a credential is revoked and then
+// still accepted afterwards, with no key ever revealed. A VERIFIED (reachable)
+// result here, together with the SAME lemma FALSIFIED in the guarded model
+// (checked by the script), is the machine-checked statement that
+// `RevocationCheck` is load-bearing — the revocation gate is what stops replay,
+// not an unrelated feature of the encoding.
+
+theory DLCD_Revocation
+begin
+
+builtins: signing
+
+// =========================================================================
+// Restrictions  (RevocationCheck REMOVED — this is the only difference)
+// =========================================================================
+
+restriction Equality:
+  "All x y #i. Eq(x, y) @ #i ==> x = y"
+
+restriction unique_key:
+  "All A #i #j.
+      KeyRegistered(A) @ #i & KeyRegistered(A) @ #j ==> #i = #j"
+
+// =========================================================================
+// Keys and compromise
+// =========================================================================
+
+rule Register_key:
+    [ Fr(~sk) ]
+  --[ HonestKey($A, ~sk), KeyRegistered($A) ]->
+    [ !Ltk($A, ~sk), !Pk($A, pk(~sk)), Out(pk(~sk)) ]
+
+rule Reveal_ltk:
+    [ !Ltk($A, sk) ]
+  --[ Reveal($A) ]->
+    [ Out(sk) ]
+
+// =========================================================================
+// The protocol
+// =========================================================================
+
+rule Issue_cred:
+    [ Fr(~cid), !Ltk($I, skI) ]
+  --[ CredIssued($I, ~cid) ]->
+    [ Out(<'cred', $I, ~cid, sign(<'cred', $I, ~cid>, skI)>) ]
+
+rule Revoke_cred:
+    [ In(<'cred', $I, cid, credsig>), !Ltk($I, skI) ]
+  --[ Revoked($I, cid) ]->
+    [ Out(<'revoke', $I, cid, sign(<'revoke', $I, cid>, skI)>) ]
+
+rule Verify_accept:
+    [ In(<'cred', I, cid, sig>), !Pk(I, pkI) ]
+  --[ Eq(verify(sig, <'cred', I, cid>, pkI), true)
+    , Accept(I, cid) ]->
+    [ ]
+
+// =========================================================================
+// The BITE attack lemma
+// =========================================================================
+//
+// With `RevocationCheck` removed, a credential can be accepted AFTER it was
+// revoked (#r < #a), with no key ever revealed — the exact replay the revocation
+// gate exists to stop. VERIFIED (reachable) here; the check script asserts the
+// SAME lemma is FALSIFIED in the guarded model.
+lemma revoked_replay_reachable:
+  exists-trace
+  "Ex I cid #r #a.
+       Revoked(I, cid) @ #r
+     & Accept(I, cid) @ #a
+     & #r < #a
+     & not (Ex X #x. Reveal(X) @ #x)"
+
+end

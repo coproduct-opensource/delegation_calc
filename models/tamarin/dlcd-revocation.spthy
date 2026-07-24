@@ -1,0 +1,166 @@
+// =========================================================================
+// dlcd-revocation.spthy — verified revocation for time/epoch-bounded credentials
+// =========================================================================
+//
+// Phase 4 of the agent-governance program (spec/revocation-design.md). The
+// field's named gap: TTL-based expiry fails at agent execution speed, so a
+// leaked/rogue credential stays live for the whole TTL window ("short-lived
+// credentials are necessary but not sufficient", nhimg 2026). The research
+// target is FAST revocation whose protocol is formally mechanized — named OPEN
+// by "Heartbeat-Bound Hierarchical Credentials: Cryptographic Revocation for AI
+// Agent Swarms" (arXiv 2605.20704). This theory is that mechanization for the
+// DLC-D revocable credential (`within validUntil (p says φ)`; the Lean side is
+// `lean/DLC/Revocation.lean`).
+//
+// MODEL-FIRST (CLAUDE.md): Tamarin FIRST, then ProVerif (dlcd-revocation.pv, next
+// increment), then wire. House style of dlcd-interop.spthy: builtins signing; the
+// Equality restriction discharges signature checks; long-term-key reveal
+// conditions the forgery-resistance lemma; an exists-trace witness rules out
+// vacuity; a differential BITE (dlcd-revocation-bite.spthy) proves the revocation
+// check is load-bearing.
+//
+// Modelling choices:
+//   1. A credential is `<'cred', I, cid, sign(<'cred', I, cid>, skI)>` — issuer
+//      `I`, a fresh credential id `~cid` (names exactly one issuance), signed by
+//      `I`. This is the wire form of `Says(I, φ)` carrying an identifier the
+//      revocation list keys on.
+//   2. Tamarin has no native time; an EPOCH is the trace ordering (`#r < #a`) and
+//      REVOCATION is a `Revoked(I, cid)` action published by the issuer. The
+//      verifier consults the revocation list: it accepts only if NO revocation of
+//      that credential precedes the acceptance — modelled by the `RevocationCheck`
+//      restriction (the standard Tamarin idiom; V2X revocation, NDSS 2024). This
+//      is exactly the `now < τ` / not-revoked gate that DLC's `within-E` defers to
+//      `dlc-crypto`, and that `Revocation.lean`'s `AcceptsRevocable` enforces at
+//      the Lean level. Removing this restriction is the BITE.
+
+theory DLCD_Revocation
+begin
+
+builtins: signing
+
+// =========================================================================
+// Restrictions
+// =========================================================================
+
+// Signature verification, the derivable way (the Verify rule emits the check as
+// an action; this restriction discharges it).
+restriction Equality:
+  "All x y #i. Eq(x, y) @ #i ==> x = y"
+
+// One keypair per principal — otherwise "its" signature is not well defined.
+restriction unique_key:
+  "All A #i #j.
+      KeyRegistered(A) @ #i & KeyRegistered(A) @ #j ==> #i = #j"
+
+// THE structural heart of revocation: a verifier accepts a credential only if NO
+// revocation of it was published BEFORE the acceptance. This models the verifier
+// consulting the revocation list / heartbeat (the `now < τ` + not-revoked gate).
+// Removing this is the bite (dlcd-revocation-bite.spthy) — post-revocation replay
+// becomes reachable.
+restriction RevocationCheck:
+  "All I cid #a.
+      Accept(I, cid) @ #a
+    ==>
+      not (Ex #r. Revoked(I, cid) @ #r & #r < #a)"
+
+// =========================================================================
+// Keys and compromise
+// =========================================================================
+
+rule Register_key:
+    [ Fr(~sk) ]
+  --[ HonestKey($A, ~sk), KeyRegistered($A) ]->
+    [ !Ltk($A, ~sk), !Pk($A, pk(~sk)), Out(pk(~sk)) ]
+
+// Static long-term-key reveal — the adversary learns a principal's secret. The
+// forgery-resistance lemma is conditioned on this not having happened.
+rule Reveal_ltk:
+    [ !Ltk($A, sk) ]
+  --[ Reveal($A) ]->
+    [ Out(sk) ]
+
+// =========================================================================
+// The protocol
+// =========================================================================
+
+// An issuer mints a says-credential with a fresh id `~cid` (the revocation list
+// keys on it). Wire form of `Says(I, φ)`.
+rule Issue_cred:
+    [ Fr(~cid), !Ltk($I, skI) ]
+  --[ CredIssued($I, ~cid) ]->
+    [ Out(<'cred', $I, ~cid, sign(<'cred', $I, ~cid>, skI)>) ]
+
+// The issuer REVOKES a credential: it publishes a signed revocation for `cid`.
+// This is the heartbeat/revocation-list update. Signed by the issuer's key, so
+// only the issuer (or a revealed key) can revoke its own credentials.
+rule Revoke_cred:
+    [ In(<'cred', $I, cid, credsig>), !Ltk($I, skI) ]
+  --[ Revoked($I, cid) ]->
+    [ Out(<'revoke', $I, cid, sign(<'revoke', $I, cid>, skI)>) ]
+
+// A verifier accepts a credential: it checks the issuer's signature over the
+// exact body. The `RevocationCheck` restriction ADDITIONALLY forbids acceptance
+// once the credential has been revoked (the verifier's revocation-list lookup).
+rule Verify_accept:
+    [ In(<'cred', I, cid, sig>), !Pk(I, pkI) ]
+  --[ Eq(verify(sig, <'cred', I, cid>, pkI), true)
+    , Accept(I, cid) ]->
+    [ ]
+
+// =========================================================================
+// Security lemmas (all-traces) + non-vacuity witness (exists-trace)
+// =========================================================================
+
+// FORGERY-RESISTANCE. An accepted credential was really issued by the issuer it
+// names — unless that issuer's key was revealed. (The revocation machinery does
+// not weaken this; it is the wire form of `verify_in_keyring`.)
+lemma accept_binds_issuer:
+  all-traces
+  "All I cid #a.
+       Accept(I, cid) @ #a
+    ==>
+       (Ex #j. CredIssued(I, cid) @ #j)
+     | (Ex #r. Reveal(I) @ #r)"
+
+// REVOCATION SOUNDNESS. An accepted credential was NOT revoked before the moment
+// of acceptance — the `Deriv`-level `revoked_credential_not_accepted`
+// (Revocation.lean) at the protocol layer. Enabled by `RevocationCheck`; the
+// bite proves that restriction is what buys this.
+lemma accept_not_revoked:
+  all-traces
+  "All I cid #a.
+       Accept(I, cid) @ #a
+    ==>
+       not (Ex #r. Revoked(I, cid) @ #r & #r < #a)"
+
+// PERMANENCE (no un-revocation). If a credential is both revoked and accepted,
+// the acceptance strictly PRECEDES the revocation — once revoked, it is never
+// accepted again. The protocol twin of `revoked_stays_revoked` (Revocation.lean).
+lemma revoke_is_permanent:
+  all-traces
+  "All I cid #r #a.
+       Revoked(I, cid) @ #r & Accept(I, cid) @ #a
+    ==>
+       #a < #r"
+
+// NON-VACUITY (anti-vacuity witness). The safety lemmas above are not vacuously
+// true: there is a trace where an honest credential is issued and accepted with
+// no key ever revealed (so `accept_*` is not holding merely because nothing is
+// accepted).
+lemma exec_accept:
+  exists-trace
+  "Ex I cid #a #j.
+       CredIssued(I, cid) @ #j
+     & Accept(I, cid) @ #a
+     & not (Ex X #r. Reveal(X) @ #r)"
+
+// =========================================================================
+// Fences (next increments — NOT yet modelled)
+// =========================================================================
+//   * ProVerif cross-check (`models/proverif/dlcd-revocation.pv`) — next.
+//   * The revocation LIST is an issuer-published action; a distributed/quorum
+//     revocation service (multiple revokers, gossip) is a later refinement.
+//   * Epoch is trace ordering here; a numeric epoch/bound with arithmetic
+//     comparison is the Lean model's job (`acceptableAt`, Revocation.lean).
+
+end

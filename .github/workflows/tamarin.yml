@@ -259,6 +259,57 @@ jobs:
       - name: Interop bite is a controlled experiment (differential gate)
         run: bash scripts/check-tamarin-interop-bite.sh
 
+      # =====================================================================
+      # Phase 4 verified revocation (spec/revocation-design.md). Companion to
+      # lean/DLC/Revocation.lean — the protocol-layer mechanization of the
+      # arXiv 2605.20704 open item.
+      # =====================================================================
+      - name: Revocation wellformedness (strict — zero warnings)
+        run: |
+          set -o pipefail
+          cd models/tamarin
+          for f in dlcd-revocation.spthy dlcd-revocation-bite.spthy; do
+            tamarin-prover "$f" 2>&1 | tee "wf-${f%.spthy}.log"
+            if ! grep -q "All wellformedness checks were successful" "wf-${f%.spthy}.log"; then
+              echo "::error::${f} has wellformedness warnings — Tamarin's analysis may be unsound"
+              exit 1
+            fi
+          done
+
+      - name: Prove the revocation lemmas
+        run: |
+          set -o pipefail
+          cd models/tamarin
+          tamarin-prover --prove dlcd-revocation.spthy 2>&1 | tee prove-revocation.log
+          tamarin-prover --prove dlcd-revocation-bite.spthy 2>&1 | tee prove-revocation-bite.log
+          for log in prove-revocation.log prove-revocation-bite.log; do
+            if grep -E "^.*: (falsified|incomplete)" "$log"; then
+              echo "::error::Tamarin reported falsified or incomplete lemmas in ${log}"
+              exit 1
+            fi
+            if ! grep -q "summary of summaries" "$log"; then
+              echo "::error::${log}: Tamarin did not reach 'summary of summaries' — run truncated"
+              exit 1
+            fi
+          done
+          ok=1
+          for lem in accept_binds_issuer accept_not_revoked revoke_is_permanent exec_accept; do
+            if ! grep -qE "\b${lem}\b.*: +verified" prove-revocation.log; then
+              echo "::error::lemma '${lem}' did not verify in dlcd-revocation.spthy"
+              ok=0
+            fi
+          done
+          # The BITE: post-revocation replay must be REACHABLE once RevocationCheck
+          # is gone. If this stops verifying, the bite has gone vacuous.
+          if ! grep -qE "\brevoked_replay_reachable\b.*: +verified" prove-revocation-bite.log; then
+            echo "::error::the revocation bite lemma 'revoked_replay_reachable' did not verify — the bite is vacuous"
+            ok=0
+          fi
+          if [ "$ok" -ne 1 ]; then exit 1; fi
+
+      - name: Revocation bite is a controlled experiment (differential gate)
+        run: bash scripts/check-tamarin-revocation-bite.sh
+
       - name: Upload Tamarin output
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

@@ -90,10 +90,30 @@ mirrors it at the protocol layer.
 
 ## 4. Honest fences
 
-- **Model-level today.** §2 is over the `acceptableAt` predicate; §3 (wiring the premise into `Deriv`)
-  is the next increment — `current_withinE_ignores_time` marks exactly what is not yet enforced.
+- **Layered, not intrinsic.** §3's `AcceptsRevocable` is an outer judgment; making an expired
+  credential *underivable in `Deriv` itself* (the premise-carrying `within-E` constructor) is the
+  deeper, later alternative — `current_withinE_ignores_time` marks what the bare calculus still omits.
 - **Time-bound expiry, not a revocation LIST.** This is shrink-the-horizon revocation; an explicit
   per-credential JTI/blocklist (revoke one id before its natural expiry) is a separate mechanism.
 - **Single time anchor.** No distributed-clock / anchor-freshness modelling — that is the
   `dlc-crypto::TimeAnchor` realization layer (opaque to the calculus).
 - **Single-decree, safety-not-liveness**, like the rest of the transport chain until BFT liveness.
+
+## 5. Protocol-layer mechanization (Tamarin) — LANDED
+
+`models/tamarin/dlcd-revocation.spthy` (companion `dlcd-revocation-bite.spthy`) mechanizes the
+revocation protocol under Dolev–Yao — the arXiv 2605.20704 open item, mirroring the house style of
+`dlcd-interop.spthy` (tamarin-prover 1.12.0, CI-gated in `tamarin.yml`). Epoch = trace ordering
+(`#r < #a`); revocation = an issuer-published `Revoked(I, cid)` action; the verifier consults the
+revocation list via the `RevocationCheck` restriction (accept only if no earlier revocation).
+
+Lemmas — **all verified**: `accept_binds_issuer` (forgery-resistance: acceptance ⟹ genuine issuance
+unless the key is revealed), `accept_not_revoked` (**revocation soundness**: an accepted credential
+was not revoked before acceptance — the protocol twin of `Revocation.lean`'s
+`revoked_credential_not_accepted`), `revoke_is_permanent` (once revoked, any acceptance strictly
+precedes the revocation — no un-revocation), `exec_accept` (anti-vacuity: an honest issue+accept with
+no key revealed is reachable). The differential **BITE** (`dlcd-revocation-bite.spthy` +
+`scripts/check-tamarin-revocation-bite.sh`, CI-gated): with `RevocationCheck` removed,
+`revoked_replay_reachable` (post-revocation replay) is VERIFIED (reachable), while the same lemma is
+FALSIFIED in the guarded model — the machine-checked statement that the revocation check is
+load-bearing. ProVerif cross-check (`dlcd-revocation.pv`) is the next increment.

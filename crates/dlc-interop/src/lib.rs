@@ -13,14 +13,25 @@
 //! guarantee the *bridge* must preserve is that a credential the verifier accepts stays acceptable
 //! after a round trip — pinned by [`tests`].
 //!
+//! Two token forms are provided:
+//! - the native CBOR [`InteropToken`] (this module) — the DLC-D wire form; and
+//! - a **genuine Biscuit token** ([`biscuit`]) — the CBOR credential embedded as a Datalog fact in a
+//!   real Ed25519-block-chained Biscuit, so a Biscuit-native verifier parses it and the embedded DLC
+//!   credential still `verify_in_keyring`-verifies. The `biscuit-auth` dep is confined here.
+//!
 //! ## Fences
-//! - **First increment: a native CBOR interop token.** The actual `biscuit-auth` wire bytes (a real
-//!   Biscuit) are a follow-up; that dep will be confined to this crate (never `dlc-core`, whose
-//!   Aeneas fence bans third-party deps).
+//! - **Aeneas fence:** `biscuit-auth` is confined to this crate; `dlc-core` never sees it (its fence
+//!   bans third-party deps). Confirmed by `cargo tree -p dlc-core | grep biscuit` being empty.
+//! - **Biscuit carries, DLC checks.** The Biscuit's own block chain provides the append-only /
+//!   offline-attenuation structure the Tamarin model proves; the *authorization decision* stays the
+//!   DLC-side [`verify_credential`] over the embedded `says`-credential — the two guarantees are
+//!   joined, not collapsed.
 //! - **Partial-correctness**, like the rest of the transport: this joins a *typed* credential to a
 //!   *signed* token; it does not collapse the two guarantees.
 
 #![forbid(unsafe_code)]
+
+pub mod biscuit;
 
 use dlc_core::principal::{Principal, PrincipalId};
 use dlc_core::syntax::{Signature, Term};

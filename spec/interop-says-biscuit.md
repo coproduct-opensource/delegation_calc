@@ -76,19 +76,28 @@ encode/decode** between the two representations of one credential, not a re-deri
    (non-vacuity), `attenuation_roots_in_issuance` (offline attenuation never fabricates a root the
    issuer never signed — Biscuit/DCC "authority monotonic narrowing"), `exec_attenuate` (attenuation
    non-vacuity) — **all 5 `verified`**. ✅ The differential BITE landed (`dlcd-interop-bite.spthy` + `scripts/check-tamarin-interop-bite.sh`, CI-gated): removing `AudienceBinding` makes `cross_audience_reachable` reachable while it is FALSIFIED in the guarded model — the audience check is machine-checked load-bearing. ✅ ProVerif cross-check landed (models/proverif/dlcd-interop.pv, CI-gated): both correspondences prove `is true`, accept events reachable; surfaced a real encoding difference (ProVerif `sign` is public ⟹ honest-issuer scoping; disequality audience form stays Tamarin-only).
-3. 🔨 **`dlc-interop` bridge crate STARTED** (`crates/dlc-interop`) — a native CBOR interop token
+3. ✅ **`dlc-interop` native-CBOR bridge** (`crates/dlc-interop/src/lib.rs`) — a native CBOR interop token
    (`InteropToken{issuer, audience, term, sig}`) that embeds the proof term via `dlc_protocol::wire`
    VERBATIM (so the signed bytes are preserved). `encode_credential`/`decode_credential`/`verify_credential`
    (thin over `verify_in_keyring`); the KEY test `round_trip_preserves_verification` PASSES (a credential
    the verifier accepts still verifies after encode→decode) + tamper-fails + corrupt-decode-fails.
-   `biscuit-auth` (the real Biscuit bytes) is confined to this crate as a follow-up; dlc-core/Aeneas
-   untouched. Original spec of the bridge crate:
-
-   **`dlc-interop` bridge crate** — `encode`/`decode` a `says`-credential (`Term::Sign` + Ed25519)
-   to/from a Biscuit token, reusing `dlc-protocol::wire::{encode, decode}` **verbatim** for the embedded
-   term (the `codec.rs` discipline), with a **round-trip-preserves-verification** test: a credential that
-   `verify_in_keyring` accepts, encoded to a Biscuit and back, still verifies (and vice-versa for the
-   attenuation edge).
+   dlc-core/Aeneas untouched.
+4. ✅ **Real `biscuit-auth` encoding** (`crates/dlc-interop/src/biscuit.rs`) — `to_biscuit(cbor, &root)`
+   / `from_biscuit(bytes, root_pk)` carry the CBOR `InteropToken` inside a **genuine Biscuit token**
+   (`biscuit-auth` v6.0.0), confined to `dlc-interop` (Aeneas fence intact: `cargo tree -p dlc-core |
+   grep biscuit` is empty). **The Datalog fact mapping:** the whole CBOR credential rides as the single
+   authority fact `dlc_says_credential("<hex>")`, signed by the Biscuit root key (a real Ed25519 block
+   chain). `from_biscuit` parses+verifies the Biscuit against `root_pk`, then extracts the fact via the
+   authorizer query `data($d) <- dlc_says_credential($d)` and hex-decodes it back to the CBOR bytes.
+   Tests (`biscuit::tests`, both PASS): `real_biscuit_round_trips_and_credential_still_verifies` — the
+   output is genuine Biscuit bytes a Biscuit-native verifier parses, the credential round-trips
+   byte-for-byte, and the embedded `says`-credential still `verify_credential`-verifies; and
+   `wrong_root_key_rejects_the_biscuit` — a different root key fails the signature chain (real crypto,
+   not a structural stub). **Fence:** Biscuit carries; DLC checks — the Biscuit's block chain provides
+   the append-only structure the Tamarin model proves, and the *authorization decision* stays the
+   DLC-side `verify_credential` over the embedded credential. First faithful mapping: the credential is
+   ONE opaque fact (not yet decomposed into per-field Biscuit facts + Biscuit-native attenuation blocks —
+   that decomposition, and mapping `Attenuate` onto Biscuit `append`, is the natural follow-up).
 
 ## 4. Reading list (grounded)
 

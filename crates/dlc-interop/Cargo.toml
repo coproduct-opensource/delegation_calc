@@ -17,3 +17,4 @@ dlc-protocol = { path = "../dlc-protocol", version = "1.5.0" }
 ciborium = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
+biscuit-auth = "6.0.0"

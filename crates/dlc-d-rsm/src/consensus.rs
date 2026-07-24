@@ -30,6 +30,13 @@ pub fn is_quorum(card: u32, n: u32) -> bool {
 /// Lean-only; this counts the witnessing index-set's cardinality directly.
 ///
 /// Closure-free explicit loop (no `iter().filter().count()`).
+///
+/// Both allows are load-bearing, not laziness: clippy's suggested iterator form
+/// and `if let` rewrite are the shapes the Aeneas fence forbids / the shape the
+/// generated Lean image was drift-gated against, so taking the suggestions would
+/// either produce opaque axioms or churn the translation. CI runs clippy with
+/// `-D warnings`, so the allows have to be explicit.
+#[allow(clippy::needless_range_loop, clippy::single_match)]
 pub fn decided(votes: &[Option<Command>], v: &Command) -> bool {
     let mut count: u32 = 0;
     for i in 0..votes.len() {

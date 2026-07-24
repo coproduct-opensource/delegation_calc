@@ -37,7 +37,7 @@ def consensus.is_quorum (card : Std.U32) (n : Std.U32) : Result Bool := do
   ok (i > n)
 
 /-- [dlc_d_rsm::consensus::decided]: loop body 0:
-    Source: 'crates/dlc-d-rsm/src/consensus.rs', lines 35:4-44:5
+    Source: 'crates/dlc-d-rsm/src/consensus.rs', lines 42:4-51:5
     Visibility: public -/
 @[rust_loop_body]
 def consensus.decided_loop.body
@@ -61,7 +61,7 @@ def consensus.decided_loop.body
       else ok (cont (iter1, count))
 
 /-- [dlc_d_rsm::consensus::decided]: loop 0:
-    Source: 'crates/dlc-d-rsm/src/consensus.rs', lines 35:4-44:5
+    Source: 'crates/dlc-d-rsm/src/consensus.rs', lines 42:4-51:5
     Visibility: public -/
 @[rust_loop]
 def consensus.decided_loop
@@ -75,7 +75,7 @@ def consensus.decided_loop
     (iter, count)
 
 /-- [dlc_d_rsm::consensus::decided]:
-    Source: 'crates/dlc-d-rsm/src/consensus.rs', lines 33:0-46:1
+    Source: 'crates/dlc-d-rsm/src/consensus.rs', lines 40:0-53:1
     Visibility: public -/
 def consensus.decided
   (votes : Slice (Option dlc_core.rsm.Command)) (v : dlc_core.rsm.Command) :

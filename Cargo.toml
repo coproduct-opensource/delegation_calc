@@ -2,6 +2,7 @@
 members = [
     "crates/dlc-core",
     "crates/dlc-d-rsm",
+    "crates/dlc-d-node",
     "crates/dlc-crypto",
     "crates/dlc-protocol",
     "crates/dlc-verifier",

@@ -193,6 +193,13 @@ pub fn apply_command(c: &Command, s: &Term) -> Term {
 ///
 /// Mirror of `DLCD.applyPrefix` (`cmds.foldl (fun s c => applyCommand c s) init`).
 /// Written as an explicit indexed loop (closure-free) rather than `iter().fold`.
+///
+/// The `needless_range_loop` allow is load-bearing, not laziness: clippy's
+/// suggested `for c in cmds` iterator form is exactly the shape the Aeneas fence
+/// forbids (iterator/closure-based folds translate to opaque axioms), and taking
+/// the suggestion would break the R2 correspondence at this leaf. CI runs clippy
+/// with `-D warnings`, so the allow has to be explicit.
+#[allow(clippy::needless_range_loop)]
 pub fn apply_prefix(init: &Term, cmds: &[Command]) -> Term {
     let mut acc = init.clone();
     for i in 0..cmds.len() {

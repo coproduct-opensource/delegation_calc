@@ -71,9 +71,20 @@ proof-to-the-metal bridge already exists (R2), and the shell substrate is instal
   **Error ergonomics is a first-class requirement, not polish** — obligation
   failures must read like `rustc` errors, not Lean goals. This is where verified
   systems usually fail the "easy" test.
-- **R6.1 — runnable node (the R4 core).** Thin trusted tokio event loop wrapping
-  the verified synchronous transition core; TCB honestly enumerated (rustc, event
-  loop, transport, clock). Two nodes converge under `cargo run`.
+- **R6.1a — runnable node (the R4 core).** ✅ `crates/dlc-d-node` — thin trusted
+  tokio event loop wrapping the verified synchronous transition core; TCB
+  enumerated (`spec/r6-1-node-design.md` §5). A cluster converges under
+  `cargo run`, and the *deployed* transitions are exactly the R2-corresponded
+  functions (`rsm::commit` / `rsm::world_step`, decisions via
+  `consensus::decided`), enforced by a source-level purity tripwire rather than
+  by intent. Right-reason scenarios included: over-budget crashes **stall without
+  diverging** — the runtime shadow of `budgeted_guarantee_voids_over_budget`.
+  *Fences:* in-process transport, no leader election, `cap` carried not checked.
+- **R6.1b — networked node.** Tamarin model + ProVerif cross-check of the
+  replication protocol **first**, then a socket carrier reusing
+  `dlc_protocol::wire` verbatim. Deliberately staged this way: `CLAUDE.md` bans
+  wire-format changes that outrun the models, so R6.1a introduces no encoding at
+  all.
 - **R6.2 — the surface + compile-time rejections.** `lark` grammar → AST bridge (or
   a Rust macro front-end); the checker accepts the good program and rejects the
   three violation variants with human errors.
@@ -121,6 +132,18 @@ proof-to-the-metal bridge already exists (R2), and the shell substrate is instal
 - **Merge `dlc-d/phase0-carve` → main** — all R2 work is unmerged. Decide when.
 - **Identity reservation** (`spec/IDENTIFIERS.md`) — the real DLC-D name.
 - **README/paper external claim** — your wording call.
+
+## 6b. Hygiene found while landing R6.1a
+
+- **CI clippy was already red** at `crates/dlc-core/src/rsm.rs:198` (and warning in
+  `dlc-d-rsm/src/consensus.rs`) under the pinned 1.89 toolchain: `ci.yml` runs
+  `clippy --workspace -- -D warnings`, and `needless_range_loop` fires on exactly
+  the closure-free indexed loops the Aeneas fence *requires*. Introduced by
+  `4bf9ff1` (R2 Arch-1 relocation). Fixed with targeted `#[allow]`s documenting
+  why the lint's suggestion is forbidden here — taking it would translate to
+  opaque axioms and break the R2 correspondence at that leaf. Aeneas trees
+  regenerated (the added doc lines shifted embedded source-location comments;
+  diff is comment-only, drift gate clean, 77 snapshots byte-unchanged).
 
 ## 7. Recommended next thrust
 

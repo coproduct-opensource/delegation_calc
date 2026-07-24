@@ -6508,7 +6508,7 @@ def rsm.apply_command
   ok t2
 
 /-- [dlc_core::rsm::apply_prefix]: loop body 0:
-    Source: 'crates/dlc-core/src/rsm.rs', lines 198:4-200:5
+    Source: 'crates/dlc-core/src/rsm.rs', lines 205:4-207:5
     Visibility: public -/
 @[rust_loop_body]
 def rsm.apply_prefix_loop.body
@@ -6527,7 +6527,7 @@ def rsm.apply_prefix_loop.body
     ok (cont (iter1, acc1))
 
 /-- [dlc_core::rsm::apply_prefix]: loop 0:
-    Source: 'crates/dlc-core/src/rsm.rs', lines 198:4-200:5
+    Source: 'crates/dlc-core/src/rsm.rs', lines 205:4-207:5
     Visibility: public -/
 @[rust_loop]
 def rsm.apply_prefix_loop
@@ -6540,7 +6540,7 @@ def rsm.apply_prefix_loop
     (iter, acc)
 
 /-- [dlc_core::rsm::apply_prefix]:
-    Source: 'crates/dlc-core/src/rsm.rs', lines 196:0-202:1
+    Source: 'crates/dlc-core/src/rsm.rs', lines 203:0-209:1
     Visibility: public -/
 def rsm.apply_prefix
   (init : syntax.Term) (cmds : Slice rsm.Command) : Result syntax.Term := do
@@ -6549,7 +6549,7 @@ def rsm.apply_prefix
   rsm.apply_prefix_loop { start := 0#usize, «end» := i } cmds acc
 
 /-- [dlc_core::rsm::deliver]:
-    Source: 'crates/dlc-core/src/rsm.rs', lines 210:0-219:1
+    Source: 'crates/dlc-core/src/rsm.rs', lines 217:0-226:1
     Visibility: public -/
 def rsm.deliver
   (log : alloc.vec.Vec rsm.Command) (r : rsm.Replica) :
@@ -6568,7 +6568,7 @@ def rsm.deliver
     ok { r with store := t, applied := i1 }
 
 /-- [dlc_core::rsm::world_step]: loop body 0:
-    Source: 'crates/dlc-core/src/rsm.rs', lines 233:4-235:5
+    Source: 'crates/dlc-core/src/rsm.rs', lines 240:4-242:5
     Visibility: public -/
 @[rust_loop_body]
 def rsm.world_step_loop.body
@@ -6591,7 +6591,7 @@ def rsm.world_step_loop.body
     ok (cont (iter1, stepped1))
 
 /-- [dlc_core::rsm::world_step]: loop 0:
-    Source: 'crates/dlc-core/src/rsm.rs', lines 233:4-235:5
+    Source: 'crates/dlc-core/src/rsm.rs', lines 240:4-242:5
     Visibility: public -/
 @[rust_loop]
 def rsm.world_step_loop
@@ -6604,7 +6604,7 @@ def rsm.world_step_loop
     (iter, stepped)
 
 /-- [dlc_core::rsm::world_step]:
-    Source: 'crates/dlc-core/src/rsm.rs', lines 231:0-241:1
+    Source: 'crates/dlc-core/src/rsm.rs', lines 238:0-248:1
     Visibility: public -/
 def rsm.world_step (g : rsm.GlobalConfig) : Result rsm.GlobalConfig := do
   let i := alloc.vec.Vec.len g.replicas
@@ -6616,7 +6616,7 @@ def rsm.world_step (g : rsm.GlobalConfig) : Result rsm.GlobalConfig := do
   ok { replicas := stepped, log := v, budget := fb }
 
 /-- [dlc_core::rsm::commit]:
-    Source: 'crates/dlc-core/src/rsm.rs', lines 250:0-258:1
+    Source: 'crates/dlc-core/src/rsm.rs', lines 257:0-265:1
     Visibility: public -/
 def rsm.commit
   (g : rsm.GlobalConfig) (c : rsm.Command) : Result rsm.GlobalConfig := do

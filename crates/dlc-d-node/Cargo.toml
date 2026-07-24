@@ -1,0 +1,34 @@
+[package]
+name = "dlc-d-node"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "DLC-D runnable node — the trusted async shell around the verified (Aeneas-corresponded) RSM transition core"
+# NOT published: `spec/IDENTIFIERS.md` reserves no DLC-D identity yet (the real
+# name is still the author's call — roadmap §6), and `CLAUDE.md` treats reserved
+# identifiers as irreversible published API. Publishing would burn the crates.io
+# name on a placeholder. Flip this when the identity ruling lands.
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "dlc-d-node"
+path = "src/main.rs"
+
+# This crate is DELIBERATELY OUTSIDE the Aeneas fence: it is the TRUSTED SHELL
+# (event loop, transport, leader bookkeeping). It is not a Charon/Aeneas
+# translation target and must never become a dependency of `dlc-core` or
+# `dlc-d-rsm`. The verified content is what it CALLS, never what it contains —
+# see `spec/r6-1-node-design.md` §5 for the enumerated TCB.
+[dependencies]
+# The verified transition core (commit / world_step / deliver / apply_prefix).
+dlc-core = { path = "../dlc-core", version = "1.5.0" }
+# The verified decision predicates (is_quorum / decided).
+dlc-d-rsm = { path = "../dlc-d-rsm", version = "1.5.0" }
+# The async shell — in the TCB, by design.
+tokio = { workspace = true, features = ["sync", "time"] }

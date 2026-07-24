@@ -80,7 +80,7 @@ jobs:
                 CoproductAlgebra GradedBridge GradedDistributiveLaw GradedBridgeGeneric \
                 CarveProto DerivClosed CarveCtx CarveJudgment DLCD \
                 DLCAeneas DLCDRsmAeneas DLCDCorrespondence DLCDTransport \
-                DLCDTransportConsensus"
+                DLCDTransportNI DLCDTransportConsensus"
           # DLC: built by the lean-mathlib-cache action above (build-target: DLC).
           # DLCAeneas / DLCDRsmAeneas: Aeneas-generated translations of
           # crates/dlc-core and crates/dlc-d-rsm. Still drift-gated by

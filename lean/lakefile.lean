@@ -112,6 +112,15 @@ lean_lib «DLCDCorrespondence» where
 lean_lib «DLCDTransport» where
   roots := #[`DLCD.Transport]
 
+-- DLC-D Phase R5 / IFC-1: the FULL-EXECUTION noninterference transport. Generalizes
+-- the single-step `rust_worldStep_preserves_high` (DLCDTransport) to a whole k-step
+-- Rust run — transports the model's `distributed_noninterference` (+ the low case) to
+-- the deployed runtime core, conditioned on every `world_step` returning `ok`. Same
+-- single generated tree (dlc_core, via DLCD.Transport → DLCD.Correspondence); the
+-- labels stay EXTERNAL typing parameters (the R6/IFC-2 hook). See spec/r5-ifc-replan.md §5.
+lean_lib «DLCDTransportNI» where
+  roots := #[`DLCD.TransportNI]
+
 -- DLC-D Phase R2.4b: the CONSENSUS-tree transport. Pulls the hand consensus
 -- SAFETY metatheorems (agreement / log_agreement_eq) back to the deployed Rust
 -- runtime via the R2.2b squares (is_quorum_square / decided_square), as `rust_*`

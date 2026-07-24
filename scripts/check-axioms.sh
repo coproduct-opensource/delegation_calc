@@ -101,6 +101,9 @@ SCRIPT_FILE="$SCRIPT_DIR/PrintAll.lean"
   # (the dlc_core tree) only — NOT DLCD.CorrespondenceConsensus — so it co-elaborates
   # with the block above.
   echo "import DLCD.Transport"
+  # R5 / IFC-1: the full-execution NI transport. Imports DLCD.Transport (same
+  # dlc_core tree), so it co-elaborates with the block above.
+  echo "import DLCD.TransportNI"
   echo ""
   for fqn in "${MAIN_FQNS[@]}"; do
     echo "#print axioms $fqn"

@@ -18,21 +18,25 @@
 //! ```
 //!
 //! ## Increment status
-//! **Step 1 (this scaffold):** the attribute is recognized, the annotated item is validated
-//! (it must parse as a Rust item) and passed through unchanged. Tier-1 phantom-type emission
-//! (`Cap`/`FlowsInto`/`Faults`) and the Tier-2 certificate (a `dlc_core::TypingProblem`
-//! validated at build time by the verified checker) land in subsequent increments.
+//! **Step 2 (this increment):** the four envelope axes are parsed into [`envelope::Envelope`]
+//! with a hand `syn::Parse` over the non-standard grammar (`@`, `<=`), producing source-located
+//! diagnostics on malformed axes. The annotated item is still passed through unchanged; Tier-1
+//! phantom-type emission and the Tier-2 certificate land next.
 
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, Item};
 
+pub(crate) mod envelope;
+
 /// The agent authority-envelope attribute macro. See the crate docs for the axis grammar.
 #[proc_macro_attribute]
-pub fn agent_service(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    // Validate the annotated item is a well-formed Rust item; a parse failure becomes a
-    // source-located `rustc` diagnostic rather than a silent miscompile.
+pub fn agent_service(attr: TokenStream, item: TokenStream) -> TokenStream {
+    // Parse + validate the envelope axes; a malformed axis becomes a source-located `rustc`
+    // diagnostic (via `parse_macro_input!`'s `compile_error!` emission) rather than silent UB.
+    let _envelope = parse_macro_input!(attr as envelope::Envelope);
+    // Validate the annotated item is a well-formed Rust item.
     let item = parse_macro_input!(item as Item);
-    // SCAFFOLD: emit unchanged. Envelope parsing + Tier-1 types + Tier-2 certificate next.
+    // SCAFFOLD: emit unchanged. Tier-1 phantom types + Tier-2 certificate consume `_envelope` next.
     quote! { #item }.into()
 }

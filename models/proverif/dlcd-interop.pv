@@ -1,0 +1,141 @@
+(* =========================================================================
+ * DLC-D -- says-credential ↔ Biscuit/RFC-8707 interop protocol, ProVerif cross-check.
+ * =========================================================================
+ *
+ * Phase 2 (spec/interop-says-biscuit.md). Companion to
+ * models/tamarin/dlcd-interop.spthy, whose header carries the full rationale.
+ * CLAUDE.md's discipline is Tamarin first, then this ProVerif cross-check, then
+ * the wire format. Independent in two senses (as with dlc.pv): a different
+ * intermediate representation (applied-pi / Horn clauses vs multiset rewriting)
+ * and a different proof engine (resolution-based saturation vs constraint
+ * solving), so a model bug invisible to one tool's heuristics can surface in the
+ * other. It must AGREE with the Tamarin model on the security properties.
+ *
+ * =========================================================================
+ * DIVISION OF LABOUR -- read before adding a query
+ * =========================================================================
+ * ProVerif cross-checks the two ORIGIN/correspondence properties:
+ *   cred_binds_issuer   -- an accepted credential was issued by the named issuer
+ *                          (forgery-resistance), FOR THE SAME AUDIENCE. Because
+ *                          the correspondence carries `aud`, accept-at-aud ⟹
+ *                          issued-for-aud is exactly RFC-8707 audience binding in
+ *                          its correspondence form.
+ *   attenuation_roots   -- an accepted ATTENUATED token's root authority was
+ *                          genuinely issued (offline attenuation never fabricates
+ *                          a root -- the monotone-narrowing safety core).
+ *
+ * ProVerif CANNOT express the DISEQUALITY form of Tamarin's
+ * `no_cross_audience_replay` (aud1 ≠ aud2) -- there is no disequality over query
+ * variables (the same structural limit noted in dlcd-replication.pv). The
+ * CORRESPONDENCE form above is the honest projection: it forbids accepting a
+ * credential at any audience other than the one it was issued for, which is the
+ * property that matters, without naming a distinct second audience.
+ *
+ *   cred_binds_issuer / audience binding -- CROSS-CHECKED: Tamarin AND ProVerif
+ *   attenuation_roots_in_issuance        -- CROSS-CHECKED
+ *   no_cross_audience_replay (disequality form) -- TAMARIN ONLY (no disequality)
+ * ========================================================================= *)
+
+free c: channel.
+free cred_tag: bitstring.
+free att_tag: bitstring.
+(* Two public resource audiences (RFC-8707 `aud`/`resource`). *)
+free audA: bitstring.
+free audB: bitstring.
+
+(* Ed25519-style signatures. *)
+type skey.
+type pkey.
+fun pk(skey): pkey.
+fun sign(bitstring, skey): bitstring.
+reduc forall m: bitstring, k: skey;
+  checksign(sign(m, k), pk(k)) = m.
+
+(* Events. *)
+event HonestSk(skey).
+event HonestIssuer(pkey).   (* fired when an honest issuer's public key is set up *)
+event Compromised(pkey).
+event CredIssued(pkey, bitstring, bitstring).             (* issuer, aud, scope *)
+event Accepted(pkey, bitstring, bitstring).               (* issuer, aud, scope *)
+event AttAccepted(pkey, bitstring, bitstring, bitstring). (* issuer, aud, scope, restr *)
+
+(* ---- Correspondence queries (forgery-resistance + audience binding) ---- *)
+
+(* FORGERY-RESISTANCE + AUDIENCE-BINDING: a credential accepted in an HONEST
+ * issuer's name was issued by that issuer for THE SAME audience -- unless the key
+ * leaked. The `HonestIssuer(I)` premise is load-bearing and is the difference
+ * from the Tamarin model: there `sign` is oracle-only (Issue_cred), so every
+ * acceptable credential fires `CredIssued`; here `sign` is a PUBLIC function, so
+ * the adversary can self-issue credentials under its OWN key. Those accepts are
+ * benign (anyone may issue for themselves) but are not forgeries of an honest
+ * issuer -- so the property is scoped to honest issuers. This is exactly the kind
+ * of encoding difference a cross-check exists to surface. *)
+query I: pkey, aud: bitstring, sc: bitstring;
+  event(Accepted(I, aud, sc)) && event(HonestIssuer(I)) ==>
+    event(CredIssued(I, aud, sc)) || event(Compromised(I)).
+
+(* ATTENUATION-MONOTONE: an accepted attenuated token issued in an honest issuer's
+ * name has its ROOT genuinely issued (offline attenuation cannot manufacture a
+ * root the issuer never signed). *)
+query I: pkey, aud: bitstring, sc: bitstring, r: bitstring;
+  event(AttAccepted(I, aud, sc, r)) && event(HonestIssuer(I)) ==>
+    event(CredIssued(I, aud, sc)) || event(Compromised(I)).
+
+(* ---- Reachability / non-vacuity ----
+ * A bare event query is a reachability check: ProVerif reports `is false` for
+ * (the negation of) a reachable event, so `is false` is the PASS condition. It
+ * guards the correspondences above against vacuity (an implication over an
+ * unreachable event holds trivially). *)
+query I: pkey, aud: bitstring, sc: bitstring;
+  event(Accepted(I, aud, sc)).
+query I: pkey, aud: bitstring, sc: bitstring, r: bitstring;
+  event(AttAccepted(I, aud, sc, r)).
+
+(* ---- Processes ---- *)
+
+(* An issuer mints a says-credential bound to audience `aud`. *)
+let issuer(skI: skey, aud: bitstring) =
+  new scope: bitstring;
+  event CredIssued(pk(skI), aud, scope);
+  out(c, (cred_tag, pk(skI), aud, scope, sign((cred_tag, pk(skI), aud, scope), skI))).
+
+(* Offline attenuation: a holder appends a fresh restriction, carrying the root
+ * signature forward (authority authenticated back to the root). *)
+let attenuator() =
+  in(c, (=cred_tag, I: pkey, aud: bitstring, scope: bitstring, sig: bitstring));
+  new restr: bitstring;
+  out(c, (att_tag, I, aud, scope, restr, sig)).
+
+(* A resource server for audience `srvAud`: verify the root signature AND bind
+ * the audience (accept only if the credential's audience equals the server's). *)
+let server(srvAud: bitstring) =
+  in(c, (=cred_tag, I: pkey, credAud: bitstring, scope: bitstring, sig: bitstring));
+  let (=cred_tag, =I, =credAud, =scope) = checksign(sig, I) in
+  if credAud = srvAud then
+  event Accepted(I, srvAud, scope).
+
+(* The attenuated-token verifier: same root-signature + audience checks. *)
+let server_att(srvAud: bitstring) =
+  in(c, (=att_tag, I: pkey, credAud: bitstring, scope: bitstring, restr: bitstring, sig: bitstring));
+  let (=cred_tag, =I, =credAud, =scope) = checksign(sig, I) in
+  if credAud = srvAud then
+  event AttAccepted(I, srvAud, scope, restr).
+
+(* Static long-term-key reveal -- Dolev-Yao compromise. *)
+let reveal(skX: skey) =
+  event Compromised(pk(skX));
+  out(c, skX).
+
+process
+  ! ( new skI: skey;
+      event HonestSk(skI);
+      event HonestIssuer(pk(skI));
+      out(c, pk(skI));
+      ( ! issuer(skI, audA)
+      | ! issuer(skI, audB)
+      | ! server(audA)
+      | ! server(audB)
+      | ! server_att(audA)
+      | ! server_att(audB)
+      | ! attenuator()
+      | reveal(skI) ) )

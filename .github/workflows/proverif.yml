@@ -190,6 +190,38 @@ jobs:
           if [ "$ok" -ne 1 ]; then exit 1; fi
           echo "dlcd-replication.pv: all queries as expected."
 
+      # =====================================================================
+      # Phase 2 interop cross-check (spec/interop-says-biscuit.md). Companion to
+      # models/tamarin/dlcd-interop.spthy — must AGREE on the security properties.
+      # =====================================================================
+      - name: Run ProVerif on dlcd-interop.pv
+        run: |
+          eval $(opam env)
+          cd models/proverif
+          proverif dlcd-interop.pv 2>&1 | tee prove-interop.log
+
+          ok=1
+          # Correspondences (require `is true`): forgery-resistance + audience
+          # binding, and attenuation-monotone — both scoped to honest issuers.
+          if ! grep -qE "^RESULT event\(Accepted.*HonestIssuer.*CredIssued.*is true" prove-interop.log; then
+            echo "::error::interop cred_binds_issuer / audience-binding did not prove"; ok=0
+          fi
+          if ! grep -qE "^RESULT event\(AttAccepted.*HonestIssuer.*CredIssued.*is true" prove-interop.log; then
+            echo "::error::interop attenuation_roots_in_issuance did not prove"; ok=0
+          fi
+          # Reachability (anti-vacuity): `is false` for the negation IS the pass.
+          if ! grep -qE "^RESULT not event\(Accepted.*is false" prove-interop.log; then
+            echo "::error::interop Accepted is unreachable — the correspondences are VACUOUS"; ok=0
+          fi
+          if ! grep -qE "^RESULT not event\(AttAccepted.*is false" prove-interop.log; then
+            echo "::error::interop AttAccepted is unreachable — the attenuation path never executes"; ok=0
+          fi
+          if grep -E "^RESULT.*cannot be proved" prove-interop.log; then
+            echo "::error::an interop query could not be proved"; ok=0
+          fi
+          if [ "$ok" -ne 1 ]; then exit 1; fi
+          echo "dlcd-interop.pv: all queries as expected."
+
       - name: Upload ProVerif output
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

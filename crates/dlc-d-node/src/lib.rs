@@ -45,8 +45,10 @@
 #![deny(missing_docs)]
 
 pub mod auth;
+pub mod codec;
 pub mod demo;
 pub mod net;
+pub mod netauth;
 pub mod proto;
 
 use dlc_core::rsm::{commit, world_step, Command, FailureBudget, GlobalConfig, Replica};

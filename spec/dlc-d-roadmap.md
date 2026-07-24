@@ -117,10 +117,18 @@ proof-to-the-metal bridge already exists (R2), and the shell substrate is instal
     shape is preserved). Purity invariant extended to `auth.rs`. Tests: 3-node
     convergence, crash-within-budget, non-member vote ignored, XDC single-signer
     certificate rejected, wrong-command vote ignored, seed/seat mismatch refused.
-  - **Socket transport — NEXT.** `AuthNode` is driven by a deterministic
-    in-memory harness; the remaining piece is the async/socket carrier for
-    `AuthMsg` between processes. The decision logic is done and live; only the
-    network plumbing is outstanding.
+  - **Wire codec + async transport ✅** (`src/codec.rs`, `src/netauth.rs`): the
+    `AuthMsg` CBOR frame (hand-rolled `ciborium::Value`, terms through
+    `dlc_protocol::wire` verbatim) + a tokio driver running `AuthNode` with every
+    message crossing as bytes. Codec's load-bearing test is *decode still
+    verifies* (not `encode∘decode=id`), plus exhaustive single-byte-flip
+    corruption rejection. `tests/networked.rs` runs the whole stack (auth +
+    `decided` + codec + tokio) to convergence + crash-within-budget +
+    over-budget-stall, over the byte transport.
+  - **Only remaining: literal socket carrier.** The channel carries exactly the
+    bytes a socket would, so bind/connect is a carrier swap, not a protocol
+    change. The authenticated networked node is complete over an in-process byte
+    transport.
 - **R6.2 — the surface + compile-time rejections.** `lark` grammar → AST bridge (or
   a Rust macro front-end); the checker accepts the good program and rejects the
   three violation variants with human errors.

@@ -17,8 +17,9 @@ const NET: &str = include_str!("../src/net.rs");
 const MAIN: &str = include_str!("../src/main.rs");
 const DEMO: &str = include_str!("../src/demo.rs");
 const AUTH: &str = include_str!("../src/auth.rs");
+const NETAUTH: &str = include_str!("../src/netauth.rs");
 
-fn sources() -> [(&'static str, &'static str); 5] {
+fn sources() -> [(&'static str, &'static str); 6] {
     [
         ("src/lib.rs", LIB),
         ("src/net.rs", NET),
@@ -27,6 +28,9 @@ fn sources() -> [(&'static str, &'static str); 5] {
         // The authenticated node also transitions model state, and only through
         // `commit`/`world_step` — the tripwire scans it too.
         ("src/auth.rs", AUTH),
+        // The async authenticated transport: must carry bytes via `codec`, never
+        // grow its own encoder.
+        ("src/netauth.rs", NETAUTH),
     ]
 }
 
@@ -131,16 +135,15 @@ fn view_is_only_replaced_by_verified_transitions() {
 
 /// The SHELL introduces no term encoding of its own.
 ///
-/// Scope note (updated for R6.1b): this scans the shell files only —
-/// `lib`/`net`/`main`/`demo`, via `sources()`. It deliberately does NOT scan
-/// `proto.rs`, which is the authenticated protocol layer: `proto` legitimately
-/// adds a signed *framing* layer (domain-prefixed signing messages) now that the
-/// Tamarin + ProVerif models exist (`models/tamarin/dlcd-replication.spthy`), and
-/// it encodes terms by REUSING `dlc_protocol::wire::canonical_bytes` — the same
-/// encoder `says`-credentials are signed under — rather than inventing a second
-/// canonical form. What must stay true, and is what this test guards, is that the
-/// event loop itself never grows an ad-hoc encoder: framing lives in `proto`
-/// behind the model, not scattered through the scheduler.
+/// Scope note (updated for R6.1b): this scans the shell + transport files via
+/// `sources()`. It deliberately does NOT scan the two legitimate encoders:
+/// `proto.rs` (the authenticated protocol layer — signed framing, now that the
+/// Tamarin + ProVerif models exist) and `codec.rs` (the `AuthMsg` wire frame).
+/// Both encode terms by REUSING `dlc_protocol::wire` — the same encoder
+/// `says`-credentials are signed under — rather than inventing a second canonical
+/// form. What this test guards is that the shell and the async transport never
+/// grow their OWN ad-hoc encoder: `netauth.rs` must carry bytes through `codec`,
+/// the scheduler must not `serde`/`ciborium` anything itself.
 #[test]
 fn shell_introduces_no_term_encoding() {
     let forbidden = ["serde", "ciborium", "to_bytes", "from_bytes", "serialize"];

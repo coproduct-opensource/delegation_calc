@@ -316,6 +316,7 @@ dependencies = [
 name = "dlc-d-node"
 version = "1.5.0"
 dependencies = [
+ "ciborium",
  "dlc-core",
  "dlc-crypto",
  "dlc-d-rsm",

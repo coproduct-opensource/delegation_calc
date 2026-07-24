@@ -34,5 +34,7 @@ dlc-d-rsm = { path = "../dlc-d-rsm", version = "1.5.0" }
 # `says`-credentials are signed under (no second canonical form).
 dlc-crypto = { path = "../dlc-crypto", version = "1.5.0" }
 dlc-protocol = { path = "../dlc-protocol", version = "1.5.0" }
+# CBOR for the AuthMsg wire frame (the same encoder dlc-protocol::wire uses).
+ciborium = { workspace = true }
 # The async shell — in the TCB, by design.
 tokio = { workspace = true, features = ["sync", "time"] }

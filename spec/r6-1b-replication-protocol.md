@@ -10,13 +10,12 @@ This document is that model's output: the message shapes, the properties proved 
 them, and the obligations the socket implementation inherits.
 
 **Status:** models done and proved (Tamarin + ProVerif); the authenticated protocol layer
-(`crates/dlc-d-node/src/proto.rs`) and an authenticated **node** (`src/auth.rs`, `AuthNode`)
-that runs the whole chain on a live decision path — proposals verified before voting, votes
-authenticated before they enter the ballot, commits verified against their certificate before
-they are applied. **Not yet done:** the async/socket transport carrying `AuthMsg` between
-processes (`AuthNode` is currently driven by a deterministic in-memory harness in tests). So
-the authenticated decision logic is live and exercised end-to-end; only the network carrier is
-outstanding.
+(`src/proto.rs`), the authenticated node (`src/auth.rs`, `AuthNode`), the wire codec
+(`src/codec.rs`), and the async byte transport (`src/netauth.rs`) that runs a cluster over
+tokio with every message crossing the channel as encoded bytes. **Remaining:** only the literal
+socket carrier (bind/connect) — the channel in `netauth.rs` carries exactly the bytes a socket
+would, so that is a carrier swap, not a protocol change. The authenticated networked node is
+complete end-to-end over an in-process byte transport.
 
 ---
 
@@ -201,6 +200,28 @@ Tests (deterministic in-memory harness, no async): a 3-node authenticated cluste
 the changed store; one crash within budget still commits; a non-member vote never enters the
 ballot; a single-signer (XDC-style) certificate is rejected by a follower; a vote for the wrong
 command does not count; a seed that does not match its roster seat is refused at construction.
+
+## 6.3 The wire codec + async transport (`src/codec.rs`, `src/netauth.rs`)
+
+`AuthMsg` crosses the wire as a CBOR `[tag, body]` frame. The codec hand-rolls
+`ciborium::Value` (the repo idiom — no serde-derive on terms) and encodes the embedded terms
+through `dlc_protocol::wire::encode` **verbatim**. That verbatim reuse is not cosmetic: a
+`proto` signature is computed over `wire::canonical_bytes(&payload)`, so if decode did not
+reproduce the payload byte-for-byte the decoded message's signatures would stop verifying.
+
+So the codec's load-bearing test is **not** `encode∘decode = id` — it is *the decoded message
+still verifies* (`roundtrip_preserves_verification`: sign → encode → decode → verify = true for
+proposal, vote, commit). Plus: malformed frames are clean errors not panics, and an exhaustive
+single-byte-flip test (`corruption_never_passes_verification`) confirms no corruption ever
+decodes into a *different* verifying message.
+
+`netauth.rs` runs `AuthNode` over tokio, each peer exchanging `Vec<u8>` frames and decoding at
+the wire boundary (a frame that fails to decode is dropped, as a real node drops a bad packet).
+This is what makes the codec load-bearing rather than a self-tested library. Its integration
+tests (`tests/networked.rs`) run the whole stack — `proto` auth + Lean-transported `decided` +
+codec + tokio — to convergence, plus crash-within-budget and the over-budget stall, all over
+the byte transport. The channel carries exactly the bytes a socket would, so the only remaining
+piece is the literal bind/connect carrier — a swap, not a protocol change.
 
 ## 7. Fences — what this model does not say
 

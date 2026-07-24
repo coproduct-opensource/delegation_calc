@@ -1,0 +1,19 @@
+[package]
+name = "dlc-interop"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The says-credential ↔ Biscuit/RFC-8707 interop bridge: encode/decode a DLC-D says-credential to/from an interop token, reusing dlc-protocol::wire for the embedded term. Verified protocol: models/tamarin/dlcd-interop.spthy + models/proverif/dlcd-interop.pv."
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+dlc-core = { path = "../dlc-core", version = "1.5.0" }
+dlc-crypto = { path = "../dlc-crypto", version = "1.5.0" }
+dlc-protocol = { path = "../dlc-protocol", version = "1.5.0" }
+ciborium = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }

@@ -76,7 +76,15 @@ encode/decode** between the two representations of one credential, not a re-deri
    (non-vacuity), `attenuation_roots_in_issuance` (offline attenuation never fabricates a root the
    issuer never signed — Biscuit/DCC "authority monotonic narrowing"), `exec_attenuate` (attenuation
    non-vacuity) — **all 5 `verified`**. ✅ The differential BITE landed (`dlcd-interop-bite.spthy` + `scripts/check-tamarin-interop-bite.sh`, CI-gated): removing `AudienceBinding` makes `cross_audience_reachable` reachable while it is FALSIFIED in the guarded model — the audience check is machine-checked load-bearing. ✅ ProVerif cross-check landed (models/proverif/dlcd-interop.pv, CI-gated): both correspondences prove `is true`, accept events reachable; surfaced a real encoding difference (ProVerif `sign` is public ⟹ honest-issuer scoping; disequality audience form stays Tamarin-only).
-3. **`dlc-interop` bridge crate** — `encode`/`decode` a `says`-credential (`Term::Sign` + Ed25519)
+3. 🔨 **`dlc-interop` bridge crate STARTED** (`crates/dlc-interop`) — a native CBOR interop token
+   (`InteropToken{issuer, audience, term, sig}`) that embeds the proof term via `dlc_protocol::wire`
+   VERBATIM (so the signed bytes are preserved). `encode_credential`/`decode_credential`/`verify_credential`
+   (thin over `verify_in_keyring`); the KEY test `round_trip_preserves_verification` PASSES (a credential
+   the verifier accepts still verifies after encode→decode) + tamper-fails + corrupt-decode-fails.
+   `biscuit-auth` (the real Biscuit bytes) is confined to this crate as a follow-up; dlc-core/Aeneas
+   untouched. Original spec of the bridge crate:
+
+   **`dlc-interop` bridge crate** — `encode`/`decode` a `says`-credential (`Term::Sign` + Ed25519)
    to/from a Biscuit token, reusing `dlc-protocol::wire::{encode, decode}` **verbatim** for the embedded
    term (the `codec.rs` discipline), with a **round-trip-preserves-verification** test: a credential that
    `verify_in_keyring` accepts, encoded to a Biscuit and back, still verifies (and vice-versa for the

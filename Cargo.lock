@@ -359,6 +359,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "dlc-interop"
+version = "1.5.0"
+dependencies = [
+ "ciborium",
+ "dlc-core",
+ "dlc-crypto",
+ "dlc-protocol",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "dlc-protocol"
 version = "1.5.0"
 dependencies = [

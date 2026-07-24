@@ -133,17 +133,8 @@ impl Parse for Envelope {
 pub fn lower(env: &Envelope) -> TokenStream {
     let mut out = TokenStream::new();
 
-    if let Some(cap) = &env.cap {
-        let (tool, issuer) = (&cap.tool, &cap.issuer);
-        // Tier-1 admission: anchor the capability types `Invoke<Tool> @ Issuer`. An undefined
-        // `Tool`/`Issuer` type is a compile error here. (Presence-of-witness enforcement — a
-        // missing `Cap` value at the write site — is a later increment; this pins the types.)
-        out.extend(quote! {
-            const _: ::core::marker::PhantomData<
-                ::dlc_d::Cap<::dlc_d::Invoke<#tool>, #issuer>,
-            > = ::core::marker::PhantomData;
-        });
-    }
+    // The `cap` axis is enforced by an injected capability-witness parameter (see
+    // `agent_service`), not a `const` anchor — so a *missing* witness is a call-site error.
 
     if let Some(flow) = &env.flow {
         let (source, sink) = (&flow.source, &flow.sink);

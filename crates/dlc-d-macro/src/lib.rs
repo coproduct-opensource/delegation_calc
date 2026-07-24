@@ -40,7 +40,18 @@ pub fn agent_service(attr: TokenStream, item: TokenStream) -> TokenStream {
     // diagnostic (via `parse_macro_input!`'s `compile_error!` emission) rather than silent UB.
     let env = parse_macro_input!(attr as envelope::Envelope);
     // The governed unit is a `fn`; a non-`fn` item is a clear parse error.
-    let func = parse_macro_input!(item as ItemFn);
+    let mut func = parse_macro_input!(item as ItemFn);
+    // Tier-1 admission (cap-presence): append a capability-witness parameter, so every CALLER must
+    // supply a `Cap<Invoke<Tool>, Issuer>` of the exact tool/issuer — a call without it, or with the
+    // wrong capability, is a `rustc` type error. (The witness's *validity* is backed by the Tier-2
+    // certificate; `Cap::new()` is freely mintable for now — a gated mint is a follow-up.)
+    if let Some(cap) = &env.cap {
+        let (tool, issuer) = (&cap.tool, &cap.issuer);
+        let cap_param: syn::FnArg = syn::parse_quote! {
+            _dlc_d_cap: ::dlc_d::Cap<::dlc_d::Invoke<#tool>, #issuer>
+        };
+        func.sig.inputs.push(cap_param);
+    }
     let obligations = envelope::lower(&env);
     // If a `cap` axis is present, emit a hidden `#[test]` whose green run means the verified
     // checker accepted the admission certificate (macro out of the TCB — see `certificate_test`).

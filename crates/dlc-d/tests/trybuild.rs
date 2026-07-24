@@ -7,4 +7,5 @@ fn ui() {
     let t = trybuild::TestCases::new();
     t.pass("tests/ui/good.rs");
     t.compile_fail("tests/ui/illegal_flow.rs");
+    t.compile_fail("tests/ui/missing_cap.rs");
 }

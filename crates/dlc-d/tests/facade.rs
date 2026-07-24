@@ -1,29 +1,30 @@
 //! End-to-end facade + lowering checks: users write `#[dlc_d::agent_service]` on a `fn`; the macro
-//! lowers the parsed envelope onto sibling `const _` obligations referencing the Tier-1 vocabulary.
-//! A well-formed envelope (legal flow `Public ⊑ Secret`) compiles; the violation classes live in
-//! `tests/ui/` (trybuild compile-fail).
+//! lowers the parsed envelope — a `flow` axis becomes an `assert_flows_into` obligation, and a `cap`
+//! axis appends a `Cap<Invoke<Tool>, Issuer>` witness parameter so callers must present the
+//! capability. A well-formed envelope compiles; the violation classes live in `tests/ui/`.
 
 use dlc_d::agent_service;
 use dlc_d::labels::{Public, Secret};
+use dlc_d::{Cap, Invoke};
 
-// Capability types the `cap` axis names (any type works; the axis anchors them).
+// Capability types the `cap` axis names.
 struct FileWrite;
 struct Admin;
 
-// A fully-governed service: `Public ⊑ Secret` is a declared lattice edge, so the emitted
-// `assert_flows_into::<Public, Secret>()` obligation type-checks.
+// A fully-governed service: `Public ⊑ Secret` type-checks, and the macro appends a
+// `Cap<Invoke<FileWrite>, Admin>` parameter — callers must present the capability witness.
 #[agent_service(cap = Invoke<FileWrite> @ Admin, flow = Public <= Secret, budget = Faults<1>)]
 fn governed_write() -> u32 {
     7
 }
 
-// Reflexive flow also type-checks.
+// Flow-only: no `cap` axis, so no witness parameter is appended.
 #[agent_service(flow = Secret <= Secret)]
 fn reflexive_flow() -> u32 {
     1
 }
 
-// A bare envelope lowers to nothing.
+// A bare envelope lowers to nothing and keeps the original signature.
 #[agent_service]
 fn ungoverned() -> u32 {
     0
@@ -31,14 +32,14 @@ fn ungoverned() -> u32 {
 
 #[test]
 fn governed_fns_run() {
-    assert_eq!(governed_write(), 7);
+    // `governed_write` requires the capability witness (Tier-1 admission).
+    assert_eq!(governed_write(Cap::<Invoke<FileWrite>, Admin>::new()), 7);
     assert_eq!(reflexive_flow(), 1);
     assert_eq!(ungoverned(), 0);
 }
 
 #[test]
 fn labels_are_reachable() {
-    // The lowering references these; confirm they are the expected facade types.
     let _p = Public;
     let _s = Secret;
 }

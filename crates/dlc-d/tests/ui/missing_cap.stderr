@@ -1,0 +1,17 @@
+error[E0061]: this function takes 1 argument but 0 arguments were supplied
+  --> tests/ui/missing_cap.rs:16:13
+   |
+16 |     let _ = needs_cap();
+   |             ^^^^^^^^^-- argument #1 of type `Cap<Invoke<FileWrite>, Admin>` is missing
+   |
+note: function defined here
+  --> tests/ui/missing_cap.rs:10:4
+   |
+9  | #[agent_service(cap = Invoke<FileWrite> @ Admin)]
+   | -------------------------------------------------
+10 | fn needs_cap() -> u32 {
+   |    ^^^^^^^^^
+help: provide the argument
+   |
+16 |     let _ = needs_cap(/* Cap<Invoke<FileWrite>, Admin> */);
+   |                       +++++++++++++++++++++++++++++++++++

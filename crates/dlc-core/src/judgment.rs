@@ -34,8 +34,8 @@ impl Ctx {
     /// empty context* and *replaces the head on a non-empty one* — an unfaithful
     /// image that made the type-checker's Aeneas translation wrong at every
     /// context-extending arm (see `spec/r6.2-inc1-infer-square-design.md` §4c).
-    /// `push` (append) is modeled faithfully (`v ++ [x]`) and `extend_from_slice`
-    /// as `v ++ s` — so building `[phi] ++ additive` keeps the exact prepend
+    /// Aeneas models `Vec::push` (append) faithfully (`v ++ [x]`) and
+    /// `extend_from_slice` as `v ++ s` — so building `[phi] ++ additive` keeps the exact prepend
     /// semantics with a faithful, loop-free Aeneas image (a single concat rather
     /// than a per-element push loop, which keeps the `infer_square` transport
     /// proof to a `Slice.clone` spec instead of a loop invariant).

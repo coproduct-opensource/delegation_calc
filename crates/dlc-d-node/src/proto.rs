@@ -83,19 +83,66 @@ fn vote_msg(slot: u32, c: &Command) -> Vec<u8> {
     m
 }
 
+/// The quorum threshold a roster enforces, and the fault model it buys.
+///
+/// The two are not interchangeable — the choice IS the fault model, and
+/// `tests/byzantine.rs` shows an equivocating leader forcing divergence under
+/// `Crash` and being defeated under `Byzantine`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Quorum {
+    /// Strict majority, `2·card > n`. Tolerates `f` **crash** faults at `n=2f+1`.
+    /// The byte-level image of `dlc_d_rsm::consensus::is_quorum`, which the
+    /// transported `rust_consensus_agreement` reasons about. Provides NO
+    /// equivocation tolerance: two `f+1` quorums can intersect only in a
+    /// Byzantine node, which may vote twice.
+    Crash,
+    /// Byzantine threshold, `3·card > 2n` (i.e. `card ≥ 2f+1` of `n=3f+1`).
+    /// Tolerates `f` **Byzantine** faults. The byte-level image of
+    /// `DLCD.ByzantineConsensus.IsByzQuorum`; its safety rests on
+    /// `byz_quorum_honest_intersect` — two `2f+1` quorums share `≥ f+1 > f`
+    /// members, so at least one is HONEST and, voting once, cannot have backed
+    /// two conflicting values. That single honest overlap is what blocks
+    /// equivocation in one round.
+    Byzantine,
+}
+
+impl Quorum {
+    /// Is `distinct` distinct signers a quorum of `n` under this threshold?
+    pub fn reached(&self, distinct: usize, n: usize) -> bool {
+        match self {
+            Quorum::Crash => 2 * distinct > n,
+            Quorum::Byzantine => 3 * distinct > 2 * n,
+        }
+    }
+}
+
 /// The committee. Membership is pinned: a signature from a key outside the
 /// roster is worth nothing, which is the implementation of the models' `roster`
-/// restriction and their `!Pk` / `honest_keys` pinning.
+/// restriction and their `!Pk` / `honest_keys` pinning. The roster also fixes
+/// the quorum threshold ([`Quorum`]) — and thus the fault model — so every
+/// certificate check downstream inherits it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Roster {
     members: Vec<PubKey>,
+    quorum: Quorum,
 }
 
 impl Roster {
-    /// Build a roster. Duplicate members are rejected — a roster listing the
-    /// same key twice would inflate the quorum threshold's denominator while
-    /// letting one signer count twice.
+    /// Build a **crash-fault** roster (strict-majority quorum). Duplicate members
+    /// are rejected — a roster listing the same key twice would inflate the
+    /// threshold's denominator while letting one signer count twice.
     pub fn new(members: Vec<PubKey>) -> Option<Roster> {
+        Roster::with_quorum(members, Quorum::Crash)
+    }
+
+    /// Build a **Byzantine-fault** roster (`3·card > 2n` quorum). For `n=3f+1`
+    /// this tolerates `f` equivocating/Byzantine replicas — see [`Quorum`].
+    pub fn new_byzantine(members: Vec<PubKey>) -> Option<Roster> {
+        Roster::with_quorum(members, Quorum::Byzantine)
+    }
+
+    /// Build a roster with an explicit quorum threshold.
+    pub fn with_quorum(members: Vec<PubKey>, quorum: Quorum) -> Option<Roster> {
         for i in 0..members.len() {
             for j in (i + 1)..members.len() {
                 if members[i] == members[j] {
@@ -103,7 +150,12 @@ impl Roster {
                 }
             }
         }
-        Some(Roster { members })
+        Some(Roster { members, quorum })
+    }
+
+    /// This roster's quorum threshold / fault model.
+    pub fn quorum(&self) -> Quorum {
+        self.quorum
     }
 
     /// Number of replicas.
@@ -133,11 +185,11 @@ impl Roster {
         self.members.iter().position(|m| m == k).map(|i| i as u32)
     }
 
-    /// Strict-majority test — the byte-level image of
-    /// `dlc_d_rsm::consensus::is_quorum` (`2 * card > n`), which is what the
-    /// transported `rust_consensus_agreement` reasons about.
+    /// Is `distinct_signers` a quorum under this roster's threshold? Dispatches
+    /// on [`Quorum`]: crash (`2·card > n`, the image of
+    /// `dlc_d_rsm::consensus::is_quorum`) or Byzantine (`3·card > 2n`).
     pub fn is_quorum(&self, distinct_signers: usize) -> bool {
-        2 * distinct_signers > self.members.len()
+        self.quorum.reached(distinct_signers, self.members.len())
     }
 }
 

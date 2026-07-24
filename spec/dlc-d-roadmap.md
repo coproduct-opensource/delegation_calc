@@ -125,10 +125,18 @@ proof-to-the-metal bridge already exists (R2), and the shell substrate is instal
     corruption rejection. `tests/networked.rs` runs the whole stack (auth +
     `decided` + codec + tokio) to convergence + crash-within-budget +
     over-budget-stall, over the byte transport.
-  - **Only remaining: literal socket carrier.** The channel carries exactly the
-    bytes a socket would, so bind/connect is a carrier swap, not a protocol
-    change. The authenticated networked node is complete over an in-process byte
-    transport.
+  - **Byzantine quorum threshold ✅** (`proto::Quorum`, `Roster::new_byzantine`):
+    the equivocation gap from §6.4 is closed with the standard BFT threshold
+    `3·card > 2n` (image of `DLCD.ByzantineConsensus.IsByzQuorum`). Single-round
+    safety via honest quorum intersection; `tests/byzantine.rs` runs the *exact*
+    §6.4 attack against the Byzantine roster and shows it defeated, plus an
+    end-to-end async convergence test. Fence: crash threshold is cross-checked vs
+    a *transported* predicate; the Byzantine one matches the Lean *definition* by
+    inspection (`ByzantineConsensus` not yet Aeneas-translated). Byzantine
+    *agreement*, not *liveness* (no view change).
+  - **Only remaining for R6.1b: literal socket carrier.** The channel carries
+    exactly the bytes a socket would, so bind/connect is a carrier swap, not a
+    protocol change.
 - **R6.2 — the surface + compile-time rejections.** `lark` grammar → AST bridge (or
   a Rust macro front-end); the checker accepts the good program and rejects the
   three violation variants with human errors.
@@ -166,8 +174,11 @@ proof-to-the-metal bridge already exists (R2), and the shell substrate is instal
 
 - **CDerivS seal judgment (2.c)** — linear commit-I; validated design, unimplemented.
 - **Full `Deriv → CDeriv` swap** — re-prove Decidability / NI / Progress under CARVe.
-- **Leader election; BFT liveness** — Byzantine *agreement* exists
-  (`DLCD_byz_agreement`); election + BFT liveness (Bythos / TetraBFT lineage) don't.
+- **Leader election; BFT liveness** — Byzantine *agreement* now exists both in
+  Lean (`DLCD_byz_agreement`) AND at the runtime (`proto::Quorum::Byzantine`,
+  R6.1b §6.5); election + BFT liveness / view change (Bythos / TetraBFT lineage)
+  don't. Also: Aeneas-translate `ByzantineConsensus` so the runtime Byzantine
+  threshold rides a *transported* theorem, not just the Lean definition.
 - **Proof fences** — store-type change (partly R1's `replicated φ`); live-log
   scheduling closure.
 

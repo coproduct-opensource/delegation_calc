@@ -128,3 +128,33 @@ async fn over_budget_stalls_over_the_wire() {
     assert_eq!(v.replicas[0].store, init());
     assert_eq!(v.replicas[0].applied, 0);
 }
+
+/// A Byzantine-quorum roster (n=4, `3·card > 2n`) runs to convergence over the
+/// async byte transport with an HONEST leader — so the stronger threshold works
+/// end-to-end through the real node, not just in the direct-handler tests. Its
+/// equivocation defence is proven in `byzantine.rs`; this shows the happy path
+/// is intact when the node actually drives it.
+#[tokio::test]
+async fn byzantine_roster_converges_over_the_wire() {
+    let seeds: Vec<[u8; 32]> = (1u8..=4).map(seed).collect();
+    let roster =
+        Roster::new_byzantine(seeds.iter().map(ed25519::public_key).collect()).unwrap();
+    let workload = vec![dup_cmd(), fst_cmd()];
+
+    let o = run_auth_cluster(AuthClusterConfig {
+        seeds,
+        roster,
+        leader: 0,
+        init: init(),
+        workload: with_caps(workload.clone()),
+        crashed: vec![],
+        budget: FailureBudget::zero(1),
+        settle: Duration::from_millis(3_000),
+    })
+    .await;
+
+    assert!(o.complete, "honest Byzantine-roster cluster completes");
+    assert_eq!(o.views.len(), 4);
+    assert!(o.converged());
+    assert_eq!(o.stores()[0], apply_prefix(&init(), &workload));
+}

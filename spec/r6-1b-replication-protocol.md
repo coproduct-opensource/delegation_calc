@@ -266,6 +266,36 @@ produced the same store and the "divergence" was invisible. Operationally-distin
 "a failing test must fail for the right reason" trap, here "a succeeding attack must succeed
 *visibly*".
 
+### 6.5 The fix — a Byzantine quorum threshold (`Quorum::Byzantine`, n≥3f+1)
+
+The divergence closes with the standard BFT threshold, realized on the wire. `Roster` now
+carries a `Quorum` mode; `Roster::new` is crash (`2·card > n`, the image of
+`dlc_d_rsm::consensus::is_quorum`), `Roster::new_byzantine` is `3·card > 2n` — the byte-level
+image of `DLCD.ByzantineConsensus.IsByzQuorum`. Everything downstream (`verify_qc`,
+`verify_commit`, `AuthNode`) inherits the mode, so a Byzantine node is just a Byzantine roster.
+
+The single-round safety argument (`byz_quorum_honest_intersect`, and the prior art): a
+certificate needs `2f+1` of `3f+1` distinct signers, so two conflicting certificates would need
+`2(2f+1) − (3f+1) = f+1 ≥ 1` **honest** overlap — an honest replica that voted once cannot have
+backed both. At n=4/f=1 concretely: each certificate needs 3 signers, the Byzantine leader
+supplies at most its own 1, so each conflicting side needs ≥ 2 of the 3 honest votes, and
+`2 + 2 > 3` is impossible — at most one side reaches quorum.
+
+`tests/byzantine.rs::byzantine_quorum_defeats_equivocation` runs the *exact* attack from §6.4
+against `Roster::new_byzantine` and shows the equivocating side never reaches quorum, so no
+honest replica diverges; `two_byzantine_quorums_cannot_both_form` and
+`byzantine_threshold_is_strictly_stronger` isolate why; `byzantine_honest_cluster_still_converges`
++ `tests/networked.rs::byzantine_roster_converges_over_the_wire` keep the happy path (the latter
+over the real async node, so the mode is reachable, not a self-tested branch).
+
+**Fence:** the crash threshold is cross-checked against a *transported* Lean predicate
+(`rust_consensus_agreement`); the Byzantine threshold's Lean side (`byz_agreement`) is
+**model-level only** — `DLCD.ByzantineConsensus` is not Aeneas-translated to a Rust predicate,
+so `Quorum::Byzantine` matches the Lean *definition* (`3·card > 2n`) by inspection, not by a
+transported theorem. Wiring `ByzantineConsensus` through Aeneas is backlog. Also still single-
+decree and single-round: this gives Byzantine *agreement* (safety), not Byzantine *liveness*
+(no view change / leader election — roadmap §5).
+
 ## 7. Fences — what this model does not say
 
 - **Fixed roster of 3, quorum 2.** Bounding participants is standard for quorum models in

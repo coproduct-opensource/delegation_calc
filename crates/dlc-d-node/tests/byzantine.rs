@@ -31,7 +31,7 @@ use dlc_core::rsm::{Command, FailureBudget};
 use dlc_core::syntax::{Prop, Term};
 use dlc_crypto::ed25519;
 use dlc_d_node::auth::{AuthMsg, AuthNode};
-use dlc_d_node::proto::{vote, Commit, QuorumCert, Roster, Vote};
+use dlc_d_node::proto::{vote, Commit, Quorum, QuorumCert, Roster, Vote};
 
 fn seed(n: u8) -> [u8; 32] {
     [n; 32]
@@ -218,4 +218,161 @@ fn honest_key_cluster_agrees() {
     assert_eq!(f1.applied(), 1);
     assert_eq!(f2.applied(), 1);
     assert_eq!(f1.store(), f2.store(), "honest-key cluster converges");
+}
+
+// ===========================================================================
+// The FIX: a Byzantine quorum threshold (n≥3f+1, `3·card > 2n`) defeats the
+// same equivocation attack — realizing `DLCD.ByzantineConsensus.byz_agreement`
+// at the runtime. `Roster::new_byzantine` selects it.
+// ===========================================================================
+
+fn seed_n(n: u8) -> [u8; 32] {
+    [n; 32]
+}
+
+/// A 4-member Byzantine roster (n=4, f=1): quorum needs `3·card > 8`, i.e. ≥ 3
+/// distinct signers.
+fn byz_roster4() -> Roster {
+    Roster::new_byzantine((1u8..=4).map(|i| ed25519::public_key(&seed_n(i))).collect()).unwrap()
+}
+
+fn byz_follower(idx: u32) -> AuthNode {
+    AuthNode::new(
+        seed_n((idx + 1) as u8),
+        byz_roster4(),
+        idx,
+        0,
+        init(),
+        FailureBudget::zero(1),
+    )
+    .unwrap()
+}
+
+/// ★ THE FIX. The exact equivocation from `equivocating_leader_can_force_
+/// divergence`, run against a Byzantine roster, is DEFEATED: the leader cannot
+/// assemble two valid certificates, so no honest replica diverges.
+///
+/// Why (the honest-intersection argument, `byz_quorum_honest_intersect`): a
+/// certificate now needs 3 of 4 distinct signers. The Byzantine leader supplies
+/// at most its own 1 signature to each side, so each conflicting certificate
+/// needs ≥ 2 HONEST signers. There are only 3 honest replicas and each votes
+/// once, so 2 + 2 = 4 distinct honest votes are impossible — at most one side
+/// reaches quorum. Equivocation is blocked in a single round.
+#[test]
+fn byzantine_quorum_defeats_equivocation() {
+    let (c1, c2) = (cmd(1), cmd(2));
+
+    // The adversary splits the 3 honest replicas as favourably as it can: two
+    // toward c1 (idx 1, 2), one toward c2 (idx 3), plus its own equivocating
+    // votes. This is the best case for the attacker.
+    let qc1 = QuorumCert {
+        votes: vec![
+            vote(&seed_n(1), 0, &c1), // Byzantine leader
+            vote(&seed_n(2), 0, &c1),
+            vote(&seed_n(3), 0, &c1),
+        ],
+    };
+    let qc2 = QuorumCert {
+        votes: vec![
+            vote(&seed_n(1), 0, &c2), // Byzantine leader equivocates
+            vote(&seed_n(4), 0, &c2),
+        ],
+    };
+
+    // c1 reaches the Byzantine quorum (3 distinct); c2 cannot (only 2).
+    assert!(dlc_d_node::proto::verify_qc(&qc1, 0, &c1, &byz_roster4()));
+    assert!(
+        !dlc_d_node::proto::verify_qc(&qc2, 0, &c2, &byz_roster4()),
+        "c2 has only 2 of the required 3 distinct signers — no second certificate"
+    );
+
+    // Deliver both commits to two honest followers; only the c1 side applies.
+    let mut fa = byz_follower(1);
+    let mut fb = byz_follower(3);
+    fa.handle(AuthMsg::Commit(Commit {
+        slot: 0,
+        cmd: c1.clone(),
+        qc: qc1,
+    }));
+    fb.handle(AuthMsg::Commit(Commit {
+        slot: 0,
+        cmd: c2,
+        qc: qc2,
+    }));
+
+    // fb REJECTED the forged c2 commit (no quorum) → it applied nothing → NO
+    // divergence. fa applied c1.
+    assert_eq!(fa.applied(), 1);
+    assert_eq!(
+        fb.applied(),
+        0,
+        "the equivocating side never reached quorum"
+    );
+    assert_ne!(fa.store(), &init());
+    assert_eq!(
+        fb.store(),
+        &init(),
+        "the honest replica did not diverge onto c2"
+    );
+}
+
+/// The reason it works, isolated: two `2f+1` quorums out of `3f+1` cannot BOTH
+/// be filled without reusing an honest signer. Even the adversary's most even
+/// split (2 vs 1 of the 3 honest, at n=4) leaves the minority side one short.
+#[test]
+fn two_byzantine_quorums_cannot_both_form() {
+    let r = byz_roster4();
+    // Best case for the attacker: honest votes split as evenly as possible.
+    // With 3 honest, that is 2 and 1 — and 1 (+ the 1 Byzantine) = 2 < 3.
+    assert!(r.is_quorum(3), "3 distinct is a Byzantine quorum of 4");
+    assert!(!r.is_quorum(2), "2 distinct is not");
+    // So the side with only 1 honest voter can never reach 3, whatever the
+    // Byzantine leader signs (it is one identity, one distinct signer).
+}
+
+/// The threshold boundary, and that it is strictly stronger than crash. Crash
+/// would have accepted the 2-signer c2 certificate (2·2 > 4 is false — actually
+/// tie); the Byzantine threshold rejects it. Pins `Quorum::reached`.
+#[test]
+fn byzantine_threshold_is_strictly_stronger() {
+    // n = 4.
+    assert!(Quorum::Crash.reached(3, 4)); // 6 > 4
+    assert!(Quorum::Byzantine.reached(3, 4)); // 9 > 8
+                                              // The separating case: 3-of-4 distinct.
+                                              // A 2-of-4 that crash *almost* accepts but byzantine firmly rejects:
+    assert!(!Quorum::Crash.reached(2, 4)); // 4 > 4 is false (tie is not a majority)
+    assert!(!Quorum::Byzantine.reached(2, 4)); // 6 > 8 is false
+                                               // n = 3 (crash territory): crash accepts 2, byzantine demands 3.
+    assert!(Quorum::Crash.reached(2, 3)); // 4 > 3
+    assert!(!Quorum::Byzantine.reached(2, 3)); // 6 > 6 is false
+    assert!(Quorum::Byzantine.reached(3, 3)); // 9 > 6
+}
+
+/// An honest Byzantine-roster cluster still converges — the stronger threshold
+/// does not break the happy path (anti-vacuity for the fix).
+#[test]
+fn byzantine_honest_cluster_still_converges() {
+    let c = cmd(1);
+    let qc = QuorumCert {
+        votes: vec![
+            vote(&seed_n(1), 0, &c),
+            vote(&seed_n(2), 0, &c),
+            vote(&seed_n(3), 0, &c),
+        ],
+    };
+    let mut fa = byz_follower(1);
+    let mut fb = byz_follower(2);
+    fa.handle(AuthMsg::Commit(Commit {
+        slot: 0,
+        cmd: c.clone(),
+        qc: qc.clone(),
+    }));
+    fb.handle(AuthMsg::Commit(Commit {
+        slot: 0,
+        cmd: c,
+        qc,
+    }));
+    assert_eq!(fa.applied(), 1);
+    assert_eq!(fb.applied(), 1);
+    assert_eq!(fa.store(), fb.store());
 }

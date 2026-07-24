@@ -125,8 +125,12 @@ proving a gate is exercised. That method is directly transferable to an ACP-styl
 
 ## 5. Honest gap list (what this kernel is *not*, yet)
 
-- **Single-decree, single-round.** The runtime governs one decision stream at a time; multi-slot
-  log-matching (`log_agreement`) is model-level only, with no runtime multi-slot decision function.
+- **Single-decree at the RUNTIME.** The deployed engine governs one decision stream at a time; multi-slot
+  log-matching is model-level, with no runtime multi-slot decision function. At the MODEL level it holds
+  for BOTH fault models: crash-fault (`MultiDecree.log_agreement`) and now **Byzantine**
+  (`ByzantineMultiDecree.byz_log_agreement` / `byz_log_agreement_eq`, `⊆ [propext, Classical.choice,
+  Quot.sound]`) — per-slot `byz_agreement` folded over the log, non-vacuous through a concrete
+  equivocating-node witness.
 - **Liveness is DESIGNED + BOUNDED, not a full temporal proof.** `rust_byz_agreement` remains
   agreement (safety). A view-change *design* (`spec/bft-liveness-design.md`) + a *bounded* Tamarin
   artifacts now exist for BOTH a crash/silent leader (`dlcd-viewchange.spthy`) and a **Byzantine
@@ -137,8 +141,9 @@ proving a gate is exercised. That method is directly transferable to an ACP-styl
   assumption-free TLA+ check). **The temporal ◇ is now also LANDED** as a bounded TLC model-check
   (`models/tla/DlcdViewChange.tla`, CI-gated): `Liveness == <>decided` verified under `WF` fairness at
   n=4/f=1, with the partial-synchrony `ASSUME` shown load-bearing (an all-faulty config trips it).
-  Remaining: the tight f=1 Byzantine safety bound (f+1 reveals, fenced — a Tamarin disequality limit);
-  multi-decree Byzantine lift.
+  Remaining: the tight f=1 Byzantine safety bound (f+1 reveals, fenced — a Tamarin disequality limit).
+  The multi-decree Byzantine lift (`ByzantineMultiDecree`) is now LANDED (model-level log-matching under
+  a Byzantine minority).
 - **`attenuate` converse — CLOSED.** `attenuate_only_narrows` proves a typed attenuation *carries* the
   narrowing witness; the converse (a genuine *widening* is *underivable*) is now proved too
   (`lean/DLC/DerivSound.lean`, `[propext]`): a boolean valuation model + full soundness `deriv_sound`

@@ -1,0 +1,143 @@
+// =========================================================================
+// dlcd-interop.spthy — the says-credential ↔ Biscuit/RFC-8707 interop protocol
+// =========================================================================
+//
+// Phase 2 of the agent-governance program (spec/interop-says-biscuit.md). A
+// DLC-D `says`-credential (`Term::Sign : Says(p, φ)`, realized by Ed25519 in
+// `dlc-crypto::signed_term`) is the same object a Biscuit root block encodes:
+// an issuer vouches, under its key, for a capability bound to a resource
+// AUDIENCE (RFC 8707 `resource`/`aud`, mirrored by commit-I's sink/label `ℓ`).
+// This theory models minting + audience-bound verification and proves the two
+// safety properties an interop bridge must preserve, plus a non-vacuity witness.
+//
+// MODEL-FIRST (CLAUDE.md): no `dlc-interop` wire code exists until this model
+// does. Mirrors the house style of `dlcd-replication.spthy` (builtins: signing;
+// the Equality restriction discharges signature checks; long-term-key reveal
+// conditions every all-traces lemma; an exists-trace witness rules out vacuity).
+//
+// SCOPE OF THIS INCREMENT: root issuance + audience binding. Offline ATTENUATION
+// (Biscuit's append-a-narrowing-block delegation) and its monotonicity lemma
+// (`attenuation never widens`) + the differential BITE are the next increment —
+// stated as fences below, not yet modelled.
+//
+// Modelling choices:
+//   1. A credential is `<'cred', I, aud, scope, sign(<'cred', I, aud, scope>, skI)>`
+//      — issuer `I`, audience `aud`, a fresh `scope` (the granted right), signed
+//      by `I`. This is the wire form of `Says(I, cap@aud)`.
+//   2. `scope` is `Fr(~scope)` — fresh per issuance — so a scope value names
+//      exactly one issuance. That is what makes `no_cross_audience_replay`
+//      provable without modelling scope contents.
+//   3. Verification is audience-bound: a resource server for `$srvAud` accepts a
+//      credential only if the signature verifies AND `credAud = $srvAud`.
+
+theory DLCD_Interop
+begin
+
+builtins: signing
+
+// =========================================================================
+// Restrictions
+// =========================================================================
+
+// Signature verification, the derivable way: the Verify rule emits the check as
+// an action and this restriction discharges it (same idiom as the replication
+// model's `Equality`).
+restriction Equality:
+  "All x y #i. Eq(x, y) @ #i ==> x = y"
+
+// One keypair per principal — otherwise "its" signature is not well defined.
+restriction unique_key:
+  "All A #i #j.
+      KeyRegistered(A) @ #i & KeyRegistered(A) @ #j ==> #i = #j"
+
+// =========================================================================
+// Keys and compromise
+// =========================================================================
+
+rule Register_key:
+    [ Fr(~sk) ]
+  --[ HonestKey($A, ~sk), KeyRegistered($A) ]->
+    [ !Ltk($A, ~sk), !Pk($A, pk(~sk)), Out(pk(~sk)) ]
+
+// Static long-term-key reveal — the adversary learns a principal's secret.
+// Every all-traces lemma below is conditioned on this not having happened for
+// the issuer it names.
+rule Reveal_ltk:
+    [ !Ltk($A, sk) ]
+  --[ Reveal($A) ]->
+    [ Out(sk) ]
+
+// =========================================================================
+// The protocol
+// =========================================================================
+
+// An issuer mints a says-credential for a capability bound to an audience: the
+// Biscuit root block / RFC-8707-audience-bound token. `scope` is the granted
+// right (fresh; contents abstracted).
+rule Issue_cred:
+    [ Fr(~scope), !Ltk($I, skI) ]
+  --[ CredIssued($I, $aud, ~scope) ]->
+    [ Out(<'cred', $I, $aud, ~scope, sign(<'cred', $I, $aud, ~scope>, skI)>) ]
+
+// A resource server bound to audience `$srvAud` verifies and accepts a
+// credential. It checks (a) the issuer's signature over the exact credential
+// body, and (b) that the credential's audience equals its own — the RFC-8707
+// audience binding that defeats cross-resource replay.
+rule Verify_at_audience:
+    [ In(<'cred', I, credAud, scope, sig>), !Pk(I, pkI) ]
+  --[ Eq(verify(sig, <'cred', I, credAud, scope>, pkI), true)
+    , Eq(credAud, $srvAud)
+    , Accepted(I, $srvAud, scope) ]->
+    [ ]
+
+// =========================================================================
+// Security lemmas (all-traces) + non-vacuity witness (exists-trace)
+// =========================================================================
+
+// FORGERY-RESISTANCE. An accepted credential was really issued by the issuer it
+// names — unless that issuer's key was revealed (Dolev–Yao). This is the wire
+// form of what `dlc-crypto::signed_term::verify_in_keyring` buys: acceptance
+// implies a genuine `Says(I, …)` by `I`.
+lemma cred_binds_issuer:
+  all-traces
+  "All I aud sc #i.
+       Accepted(I, aud, sc) @ #i
+    ==>
+       (Ex #j. CredIssued(I, aud, sc) @ #j)
+     | (Ex #r. Reveal(I) @ #r)"
+
+// AUDIENCE-BINDING (RFC 8707). A credential issued for one audience is never
+// accepted at a different one: no cross-audience / cross-resource replay. (A
+// fresh `scope` names one issuance, so equal scope forces equal audience.)
+lemma no_cross_audience_replay:
+  all-traces
+  "All I aud1 aud2 sc #i #j.
+       CredIssued(I, aud1, sc) @ #j & Accepted(I, aud2, sc) @ #i
+    ==>
+       aud1 = aud2
+     | (Ex #r. Reveal(I) @ #r)"
+
+// NON-VACUITY (anti-vacuity witness). The safety lemmas above are not vacuously
+// true: there is a trace where an honest credential is issued and accepted at
+// its audience with no key ever revealed. Without this, `cred_binds_issuer`
+// could hold simply because nothing is ever accepted.
+lemma exec_accept:
+  exists-trace
+  "Ex I aud sc #i #j.
+       CredIssued(I, aud, sc) @ #j
+     & Accepted(I, aud, sc) @ #i
+     & not (Ex X #r. Reveal(X) @ #r)"
+
+// =========================================================================
+// Fences (next increments — NOT yet modelled)
+// =========================================================================
+//   * ATTENUATION-MONOTONE: an `Attenuate` rule appends a narrowing block
+//     (Biscuit offline attenuation), and a lemma that an accepted attenuated
+//     token never grants MORE than its root — the attenuate-only invariant that
+//     `Delegate`/`Attenuate`/`SpeaksFor` (RFC 8693) must preserve.
+//   * The differential BITE (`dlcd-interop-bite.spthy` + check-tamarin-bite):
+//     removing the audience-equality check must make `no_cross_audience_replay`
+//     FALSIFIABLE — the machine-checked statement that the check is load-bearing.
+//   * ProVerif cross-check (`models/proverif/dlcd-interop.pv`).
+
+end

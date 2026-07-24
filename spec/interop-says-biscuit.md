@@ -68,11 +68,16 @@ encode/decode** between the two representations of one credential, not a re-deri
 
 1. **This spec** — the correspondence + fences. ✅
 2. **`models/tamarin/dlcd-interop.spthy`** (+ ProVerif cross-check) — the interop protocol is a *new*
-   protocol (a `says`-credential minted, attenuated, exchanged, and verified as a Biscuit token), so it
-   needs its own model with the same **anti-vacuity witness + differential-bite** discipline as
-   `models/tamarin/dlcd-replication.spthy` (`scripts/check-tamarin-bite.sh` pattern). Prove: an
-   attenuated token never widens rights; a cross-audience replay fails; forgery without the issuer key
-   fails (Dolev–Yao).
+   protocol, so it gets its own model with the same **anti-vacuity witness + differential-bite**
+   discipline as `dlcd-replication.spthy`. 🔨 **STARTED** — root issuance + audience-bound verification
+   proved (tamarin-prover 1.12.0, CI-gated in `tamarin.yml`): `cred_binds_issuer` (forgery-resistance:
+   acceptance ⟹ genuine issuance, unless the issuer key is revealed), `no_cross_audience_replay`
+   (RFC 8707: a credential issued for `aud1` is never accepted at `aud2 ≠ aud1`), `exec_accept`
+   (non-vacuity witness) — **all `verified`**. Next: an `Attenuate` rule (offline narrowing) + the
+   monotonicity lemma (an attenuated token never widens rights) + the differential BITE
+   (`dlcd-interop-bite.spthy`: remove the audience check ⟹ `no_cross_audience_replay` FALSIFIABLE) +
+   the ProVerif cross-check. Forgery without the issuer key already fails (Dolev–Yao) via
+   `cred_binds_issuer`.
 3. **`dlc-interop` bridge crate** — `encode`/`decode` a `says`-credential (`Term::Sign` + Ed25519)
    to/from a Biscuit token, reusing `dlc-protocol::wire::{encode, decode}` **verbatim** for the embedded
    term (the `codec.rs` discipline), with a **round-trip-preserves-verification** test: a credential that

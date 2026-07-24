@@ -155,7 +155,7 @@ jobs:
         run: |
           set -o pipefail
           cd models/tamarin
-          for f in dlcd-replication.spthy dlcd-replication-bite.spthy; do
+          for f in dlcd-replication.spthy dlcd-replication-bite.spthy dlcd-interop.spthy; do
             tamarin-prover "$f" 2>&1 | tee "wf-${f%.spthy}.log"
             if ! grep -q "All wellformedness checks were successful" "wf-${f%.spthy}.log"; then
               echo "::error::${f} has wellformedness warnings — Tamarin's analysis may be unsound"
@@ -206,6 +206,30 @@ jobs:
       # guard is what makes agreement true — see the script's header.
       - name: Bite is a controlled experiment (differential gate)
         run: bash scripts/check-tamarin-bite.sh
+
+      # Phase 2 interop model (spec/interop-says-biscuit.md): the says-credential ↔
+      # Biscuit/RFC-8707 protocol — forgery-resistance, audience-binding, non-vacuity.
+      - name: Prove the interop lemmas
+        run: |
+          set -o pipefail
+          cd models/tamarin
+          tamarin-prover --prove dlcd-interop.spthy 2>&1 | tee prove-interop.log
+          if grep -E "^.*: (falsified|incomplete)" prove-interop.log; then
+            echo "::error::Tamarin reported falsified or incomplete lemmas in dlcd-interop.spthy"
+            exit 1
+          fi
+          if ! grep -q "summary of summaries" prove-interop.log; then
+            echo "::error::dlcd-interop.spthy: Tamarin did not reach 'summary of summaries' — run truncated"
+            exit 1
+          fi
+          ok=1
+          for lem in cred_binds_issuer no_cross_audience_replay exec_accept; do
+            if ! grep -qE "\b${lem}\b.*: +verified" prove-interop.log; then
+              echo "::error::lemma '${lem}' did not verify in dlcd-interop.spthy"
+              ok=0
+            fi
+          done
+          if [ "$ok" -ne 1 ]; then exit 1; fi
 
       - name: Upload Tamarin output
         if: always()

@@ -94,11 +94,134 @@ theorem satisfies_linear_append {Γₐ Γ₁ Γ₂ : List Prop'} {v : Nat → Bo
   · intro φ hφ; exact hl φ (List.mem_append.2 (Or.inl hφ))
   · intro φ hφ; exact hl φ (List.mem_append.2 (Or.inr hφ))
 
+/-- Extend the ADDITIVE part of an (explicit-record) satisfied context by a true prop. -/
+theorem satisfies_consA_ctx {Γₐ Γₗ : List Prop'} {v : Nat → Bool} {φ : Prop'}
+    (hφ : evalProp φ v = true)
+    (h : satisfies { additive := Γₐ, linear := Γₗ } v) :
+    satisfies { additive := φ :: Γₐ, linear := Γₗ } v := by
+  obtain ⟨ha, hl⟩ := h
+  exact ⟨fun x hx => (List.mem_cons.1 hx).elim (fun e => e ▸ hφ) (ha x), hl⟩
+
+/-- Extend the LINEAR part of an (explicit-record) satisfied context by a true prop. -/
+theorem satisfies_consL_ctx {Γₐ Γₗ : List Prop'} {v : Nat → Bool} {φ : Prop'}
+    (hφ : evalProp φ v = true)
+    (h : satisfies { additive := Γₐ, linear := Γₗ } v) :
+    satisfies { additive := Γₐ, linear := φ :: Γₗ } v := by
+  obtain ⟨ha, hl⟩ := h
+  exact ⟨ha, fun x hx => (List.mem_cons.1 hx).elim (fun e => e ▸ hφ) (hl x)⟩
+
 /-- Anti-vacuity: `evalProp` genuinely discriminates — `atom 0` is true under a
 valuation setting it true and false under one setting it false. -/
 theorem evalProp_discriminates :
     evalProp (Prop'.atom 0) (fun _ => true) = true ∧
     evalProp (Prop'.atom 0) (fun _ => false) = false :=
   ⟨rfl, rfl⟩
+
+/-- **`Deriv` is sound for the boolean model.** Every derivable proposition is true under any
+valuation satisfying its context. This is the NEGATIVE-direction engine: a valuation making the
+hypotheses true and the conclusion false witnesses underivability (`attenuate` converse, revocation,
+consistency). Sound for the WHOLE calculus — linear/modal rules are restrictions of classical ones,
+so reading the linear context additively still yields a true conclusion; even `commit-I` (concludes
+`replicated (φ ⊃ φ)`, a tautology) and `runCmd` (`φ` from its store premise) go through. -/
+theorem deriv_sound {Γ : Ctx} {M : Term} {φ : Prop'} (v : Nat → Bool) :
+    Deriv Γ M φ → satisfies Γ v → evalProp φ v = true := by
+  intro d
+  induction d with
+  | varA Γ i φ hlook =>
+    intro h; exact satisfies_additive h φ (List.mem_of_getElem? hlook)
+  | varL Γₐ φ =>
+    intro h; exact satisfies_linear h φ (List.mem_cons_self ..)
+  | weakenA Γ φ' φ M _ ih =>
+    intro h; exact ih (satisfies_consA.1 h).2
+  | impI Γ φ ψ M _ ih =>
+    intro h
+    simp only [evalProp]
+    cases hφ : evalProp φ v with
+    | false => simp
+    | true => have := ih (satisfies_consA.2 ⟨hφ, h⟩); simp [this]
+  | impE Γₐ Γ₁ Γ₂ φ ψ M N _ _ ihM ihN =>
+    intro h
+    obtain ⟨h1, h2⟩ := satisfies_linear_append h
+    have hM := ihM h1; have hN := ihN h2
+    simp only [evalProp, hN, Bool.not_true, Bool.false_or] at hM
+    exact hM
+  | saysI Γ p φ M sig _ ih => intro h; simpa only [evalProp] using ih h
+  | verifyE Γ p φ M sig _ ih => intro h; simpa only [evalProp] using ih h
+  | saysE Γₐ Γ₁ Γ₂ p φ ψ M N _ _ ihM ihN =>
+    intro h
+    obtain ⟨h1, h2⟩ := satisfies_linear_append h
+    have hM := ihM h1
+    simp only [evalProp] at hM ⊢
+    exact ihN (satisfies_consA_ctx hM h2)
+  | delegate Γₐ Γ₁ Γ₂ p q φ M N _ _ _ ihN =>
+    intro h
+    obtain ⟨_, h2⟩ := satisfies_linear_append h
+    have hN := ihN h2
+    simpa only [evalProp] using hN
+  | attenuate Γ p φ ψ M N _ _ ihd ihimpl =>
+    intro h
+    have hd := ihd h
+    simp only [evalProp] at hd ⊢
+    exact ihimpl (satisfies_consA.2 ⟨hd, satisfies_empty v⟩)
+  | boxI Γ O φ M N _ _ ihM _ => intro h; simpa only [evalProp] using ihM h
+  | discharge Γₐ Γ₁ Γ₂ O φ M N _ _ ihM _ =>
+    intro h
+    obtain ⟨h1, _⟩ := satisfies_linear_append h
+    have hM := ihM h1
+    simpa only [evalProp] using hM
+  | now Γₐ τ => intro _; rfl
+  | withinI Γ τ φ M _ ih => intro h; simpa only [evalProp] using ih h
+  | withinE Γ τ φ M _ ih => intro h; simpa only [evalProp] using ih h
+  | liftLabel Γ φ ℓ M _ ih => intro h; simpa only [evalProp] using ih h
+  | declassify Γ φ ℓ ℓ' M π _ _ ihd _ =>
+    intro h; simpa only [evalProp] using ihd h
+  | andI Γₐ φ ψ M N _ _ ihM ihN =>
+    intro h; simp only [evalProp, ihM h, ihN h, Bool.and_self]
+  | andEL Γ φ ψ M _ ih =>
+    intro h; have := ih h; simp only [evalProp, Bool.and_eq_true] at this; exact this.1
+  | andER Γ φ ψ M _ ih =>
+    intro h; have := ih h; simp only [evalProp, Bool.and_eq_true] at this; exact this.2
+  | orI_L Γ φ ψ M _ ih =>
+    intro h; simp only [evalProp, ih h, Bool.true_or]
+  | orI_R Γ φ ψ M _ ih =>
+    intro h; simp only [evalProp, ih h, Bool.or_true]
+  | orE Γₐ φ ψ χ S L R _ _ _ ihS ihL ihR =>
+    intro h
+    have hS := ihS h; simp only [evalProp, Bool.or_eq_true] at hS
+    rcases hS with hφ | hψ
+    · exact ihL (satisfies_consA_ctx hφ h)
+    · exact ihR (satisfies_consA_ctx hψ h)
+  | tensorI Γₐ Γ₁ Γ₂ φ ψ M N _ _ ihM ihN =>
+    intro h
+    obtain ⟨h1, h2⟩ := satisfies_linear_append h
+    simp only [evalProp, ihM h1, ihN h2, Bool.and_self]
+  | tensorE Γₐ Γ₁ Γ₂ φ ψ χ S B _ _ ihS ihB =>
+    intro h
+    obtain ⟨h1, h2⟩ := satisfies_linear_append h
+    have hS := ihS h1; simp only [evalProp, Bool.and_eq_true] at hS
+    exact ihB (satisfies_consL_ctx hS.2 (satisfies_consL_ctx hS.1 h2))
+  | letTensorA Γₐ φ ψ χ S B _ _ ihS ihB =>
+    intro h
+    have hS := ihS h; simp only [evalProp, Bool.and_eq_true] at hS
+    exact ihB (satisfies_consA_ctx hS.1 (satisfies_consA_ctx hS.2 h))
+  | letSaysE Γₐ Γ₁ Γ₂ p φ ψ S B _ _ ihS ihB =>
+    intro h
+    obtain ⟨h1, h2⟩ := satisfies_linear_append h
+    have hS := ihS h1; simp only [evalProp] at hS
+    exact ihB (satisfies_consA_ctx hS h2)
+  | sfExtractE Γ p q M _ _ => intro _; rfl
+  | commitI Γₐ issuer capProp φ ℓ M c _ _ _ _ =>
+    intro _; simp only [evalProp]; cases hb : evalProp φ v <;> simp
+  | runCmd Γₐ φ ℓ V s _ _ _ ihs =>
+    intro h; simpa only [evalProp] using ihs h
+
+/-- Non-vacuity: a real derivation whose `evalProp` conclusion soundness fires — the identity
+`a ⊃ a` in the empty context is derivable and evaluates to `true` under every valuation. -/
+theorem deriv_sound_witness (v : Nat → Bool) :
+    evalProp (Prop'.imp (Prop'.atom 0) (Prop'.atom 0)) v = true :=
+  deriv_sound v
+    (Deriv.impI Ctx.empty (Prop'.atom 0) (Prop'.atom 0) (Term.var 0)
+      (Deriv.varA _ 0 _ rfl))
+    (satisfies_empty v)
 
 end DLC

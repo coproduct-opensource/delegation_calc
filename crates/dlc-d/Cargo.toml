@@ -13,3 +13,6 @@ path = "src/lib.rs"
 [dependencies]
 dlc-d-macro = { path = "../dlc-d-macro", version = "1.5.0" }
 dlc-core = { path = "../dlc-core", version = "1.5.0" }
+
+[dev-dependencies]
+trybuild = "1"

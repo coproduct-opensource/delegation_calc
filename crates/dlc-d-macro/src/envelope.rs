@@ -5,7 +5,8 @@
 //! over the raw `ParseStream` rather than reusing `syn::Meta`. Each axis records its spans so the
 //! later Tier-1/Tier-2 lowering can point diagnostics at the offending source.
 
-use proc_macro2::Span;
+use proc_macro2::{Span, TokenStream};
+use quote::quote;
 use syn::parse::{Parse, ParseStream};
 use syn::{Ident, LitInt, Token};
 
@@ -123,6 +124,45 @@ impl Parse for Envelope {
         }
         Ok(env)
     }
+}
+
+/// Lower a parsed [`Envelope`] onto its governed `fn` as sibling anonymous `const _` obligations
+/// referencing the `dlc_d` Tier-1 vocabulary. Only present axes emit anything, so a bare
+/// `#[agent_service]` lowers to nothing. Emitted at the service's span so violations are
+/// source-located `rustc` errors.
+pub fn lower(env: &Envelope) -> TokenStream {
+    let mut out = TokenStream::new();
+
+    if let Some(cap) = &env.cap {
+        let (tool, issuer) = (&cap.tool, &cap.issuer);
+        // Tier-1 admission: anchor the capability types `Invoke<Tool> @ Issuer`. An undefined
+        // `Tool`/`Issuer` type is a compile error here. (Presence-of-witness enforcement — a
+        // missing `Cap` value at the write site — is a later increment; this pins the types.)
+        out.extend(quote! {
+            const _: ::core::marker::PhantomData<
+                ::dlc_d::Cap<::dlc_d::Invoke<#tool>, #issuer>,
+            > = ::core::marker::PhantomData;
+        });
+    }
+
+    if let Some(flow) = &env.flow {
+        let (source, sink) = (&flow.source, &flow.sink);
+        // Tier-1 isolation: `source ⊑ sink` in the label lattice; an illegal flow is a
+        // trait-bound error (`Source: FlowsInto<Sink>` unsatisfied).
+        out.extend(quote! {
+            const _: () = ::dlc_d::assert_flows_into::<#source, #sink>();
+        });
+    }
+
+    if let Some(budget) = &env.budget {
+        let faults = &budget.faults;
+        // Tier-1 budget: anchor the fault envelope as a type.
+        out.extend(quote! {
+            const _: ::dlc_d::Faults<#faults> = ::dlc_d::Faults;
+        });
+    }
+
+    out
 }
 
 #[cfg(test)]

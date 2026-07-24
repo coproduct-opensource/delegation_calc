@@ -1,0 +1,15 @@
+error[E0277]: the trait bound `Secret: FlowsInto<Public>` is not satisfied
+ --> tests/ui/illegal_flow.rs:7:24
+  |
+7 | #[agent_service(flow = Secret <= Public)]
+  |                        ^^^^^^ the trait `FlowsInto<Public>` is not implemented for `Secret`
+  |
+  = help: the trait `FlowsInto<Secret>` is implemented for `Public`
+note: required by a bound in `assert_flows_into`
+ --> src/lib.rs
+  |
+  | pub const fn assert_flows_into<Src, Dst>()
+  |              ----------------- required by a bound in this function
+  | where
+  |     Src: FlowsInto<Dst>,
+  |          ^^^^^^^^^^^^^^ required by this bound in `assert_flows_into`

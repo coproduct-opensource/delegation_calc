@@ -55,9 +55,11 @@ pub trait FlowsInto<L> {}
 /// Reflexivity: every label flows into itself.
 impl<L> FlowsInto<L> for L {}
 
-/// Compiles **only** when `Src: FlowsInto<Dst>` — the macro emits a call to this at each
-/// cross-agent assignment, so an illegal flow becomes a source-located trait-bound error.
-pub fn assert_flows_into<Src, Dst>()
+/// Compiles **only** when `Src: FlowsInto<Dst>`. The macro emits `const _: () =
+/// assert_flows_into::<Src, Dst>();` for each `flow` axis, so an illegal flow becomes a
+/// source-located trait-bound error checked at compile time. `const fn` so it can be the
+/// initializer of an anonymous `const` item (no runtime cost, no user-body pollution).
+pub const fn assert_flows_into<Src, Dst>()
 where
     Src: FlowsInto<Dst>,
 {

@@ -145,6 +145,13 @@ proof-to-the-metal bridge already exists (R2), and the shell substrate is instal
     disjoint-supermajority proof as crash at the 2n/3 threshold. The Byzantine
     threshold now rides a transported theorem, as crash does. Remaining: Byzantine
     *agreement* (safety), not *liveness* (no view change).
+  - **Runnable demo ✅** (`cargo run -p dlc-d-node`, `src/authdemo.rs` + `main.rs`):
+    the binary now runs the AUTHENTICATED node (was the R6.1a unauthenticated one),
+    and makes the safety property VISIBLE — a side-by-side where the same
+    equivocating-leader attack DIVERGES under a crash roster (n=3) and is DEFEATED
+    under a Byzantine roster (n=4). The headline is a checked test
+    (`authdemo::tests::demo_equivocation_diverges_only_under_crash`), not just
+    console output; `authdemo.rs` is under the purity tripwire.
   - **Only remaining for R6.1b: literal socket carrier.** The channel carries
     exactly the bytes a socket would, so bind/connect is a carrier swap, not a
     protocol change.

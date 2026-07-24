@@ -1,51 +1,87 @@
-//! `cargo run -p dlc-d-node` — a DLC-D cluster, running.
+//! `cargo run -p dlc-d-node` — the AUTHENTICATED DLC-D node, running.
 //!
-//! Three scenarios, in order: healthy convergence, a crash inside the declared
-//! failure budget, and a crash outside it. The third is the important one: over
-//! budget the cluster must **stall with its safety intact**, not diverge. That is
-//! the runtime shadow of `DLCD.budgeted_guarantee_voids_over_budget` — behaviour
-//! is void exactly over budget.
+//! What this demonstrates, in order:
+//!   1. an authenticated cluster converging over the async byte transport;
+//!   2. a crash within budget still committing; over budget stalling (safety);
+//!   3. THE SAFETY PROPERTY, made visible: the same equivocating-leader attack
+//!      DIVERGES under a crash roster and is DEFEATED under a Byzantine roster.
 //!
-//! Nothing printed here is a proof. What the run demonstrates is that the
-//! deployed transitions are the verified ones (`spec/r6-1-node-design.md` §0) and
-//! that the failure envelope behaves as declared.
+//! Nothing printed here is a proof — the proofs are in Lean (`rust_byz_agreement`
+//! et al.) and the symbolic models. What the run shows is that the deployed node
+//! is the authenticated one, that every state transition goes through the
+//! R2-corresponded `commit`/`world_step`, and that the Byzantine threshold
+//! behaves as the theorem says.
 
 use std::time::Duration;
 
 use dlc_core::rsm::{apply_prefix, FailureBudget};
-use dlc_d_node::demo;
-use dlc_d_node::net::{run_cluster, ClusterConfig, ClusterOutcome};
+use dlc_core::syntax::Term;
+use dlc_d_node::authdemo;
+use dlc_d_node::netauth::{run_auth_cluster, AuthClusterConfig, AuthOutcome};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    println!("DLC-D node — trusted shell over the verified RSM transition core");
-    println!("  transitions: dlc_core::rsm::{{commit, world_step}} (R2-corresponded)");
-    println!("  decisions:   dlc_d_rsm::consensus::decided");
-    println!("  transport:   in-process channels (TRUSTED — see spec/r6-1-node-design.md §5)\n");
+    println!("DLC-D — the authenticated node, over the verified RSM transition core");
+    println!("  transitions: dlc_core::rsm::{{commit, world_step}}   (R2-corresponded)");
+    println!("  decision:    dlc_d_rsm::consensus::{{decided, byz_decided}}  (transported)");
+    println!("  wire:        Ed25519 proposals / votes / quorum certificates (Tamarin+ProVerif)");
+    println!("  transport:   in-process byte channels (TRUSTED — spec/r6-1-node-design.md §5)\n");
 
-    // ---------------------------------------------------------------- healthy
-    let outcome = run(3, vec![], FailureBudget::zero(1)).await;
-    report("3 replicas, no faults, budget f=1", &outcome);
+    // 1 ─ authenticated convergence (crash roster, n=3).
+    let o = run(authdemo::crash_roster(3), 3, vec![], FailureBudget::zero(1)).await;
+    report("crash roster n=3, no faults", &o);
 
-    // ------------------------------------------------- one crash, IN budget
-    let mut budget = FailureBudget::zero(1);
-    budget.consumed = 1;
-    let outcome = run(3, vec![2], budget).await;
-    report("3 replicas, 1 crashed (consumed 1 ≤ f=1)", &outcome);
+    // 2 ─ crash within budget still commits; over budget stalls.
+    let mut b = FailureBudget::zero(1);
+    b.consumed = 1;
+    let o = run(authdemo::crash_roster(3), 3, vec![2], b).await;
+    report("crash roster n=3, 1 crashed (within budget)", &o);
 
-    // ---------------------------------------------- three crashes, OVER budget
-    let mut budget = FailureBudget::zero(2);
-    budget.consumed = 3;
-    let outcome = run(5, vec![2, 3, 4], budget).await;
-    report("5 replicas, 3 crashed (consumed 3 > f=2)", &outcome);
+    let mut b = FailureBudget::zero(1);
+    b.consumed = 2;
+    let o = run(authdemo::crash_roster(3), 3, vec![1, 2], b).await;
+    report("crash roster n=3, 2 crashed (over budget → stall)", &o);
+
+    // 3 ─ Byzantine roster (n=4) converges when honest.
+    let o = run(authdemo::byz_roster(4), 4, vec![], FailureBudget::zero(1)).await;
+    report("Byzantine roster n=4, no faults", &o);
+
+    // 4 ─ THE SAFETY PROPERTY, side by side.
+    println!("── equivocating leader: crash roster vs Byzantine roster");
+    println!("   (leader seat 0 signs conflicting votes for two distinct commands)\n");
+
+    // Crash n=3: leader pairs its equivocating vote with f1 (→c_a) and f2 (→c_b).
+    // Both {leader,f1} and {leader,f2} are a crash quorum of 2 → both commit.
+    let crash = authdemo::equivocation(authdemo::crash_roster(3), &[1], &[2]);
+    print_equiv("crash roster n=3 (quorum 2)", &crash);
+
+    // Byzantine n=4: leader shows c_a to {1,2} and c_b to {3}. {leader,1,2}=3 is a
+    // Byzantine quorum; {leader,3}=2 is NOT → only the c_a side commits.
+    let byz = authdemo::equivocation(authdemo::byz_roster(4), &[1, 2], &[3]);
+    print_equiv("Byzantine roster n=4 (quorum 3)", &byz);
+
+    println!(
+        "   verdict: crash roster DIVERGED = {}; Byzantine roster DIVERGED = {}",
+        crash.diverged, byz.diverged
+    );
+    println!("   → the Byzantine quorum threshold is what defeats equivocation");
+    println!("     (rust_byz_agreement, spec/r6-1b-replication-protocol.md §6.5)");
 }
 
-async fn run(size: u32, crashed: Vec<u32>, budget: FailureBudget) -> ClusterOutcome {
-    run_cluster(ClusterConfig {
-        size,
+async fn run(
+    roster: dlc_d_node::proto::Roster,
+    n: u32,
+    crashed: Vec<u32>,
+    budget: FailureBudget,
+) -> AuthOutcome {
+    let workload = vec![(authdemo::cmd(true), authdemo::cap_for(&authdemo::cmd(true)))];
+    let seeds: Vec<[u8; 32]> = (0..n).map(|i| authdemo::seed(i as u8)).collect();
+    run_auth_cluster(AuthClusterConfig {
+        seeds,
+        roster,
         leader: 0,
-        init: demo::init(),
-        workload: demo::workload(),
+        init: authdemo::init(),
+        workload,
         crashed,
         budget,
         settle: Duration::from_millis(500),
@@ -53,42 +89,46 @@ async fn run(size: u32, crashed: Vec<u32>, budget: FailureBudget) -> ClusterOutc
     .await
 }
 
-fn report(title: &str, o: &ClusterOutcome) {
-    let expected = demo::workload().len();
-    let model = apply_prefix(&demo::init(), &demo::workload());
-
+fn report(title: &str, o: &AuthOutcome) {
+    let model = apply_prefix(&authdemo::init(), &[authdemo::cmd(true)]);
     println!("── {title}");
-    println!("   within contract : {}", contract(o));
     println!(
-        "   live replicas   : {:?}",
+        "   live replicas : {:?}",
         o.views.keys().collect::<Vec<_>>()
     );
-    println!("   committed slots : {} of {expected}", o.committed());
-    println!("   converged       : {}", o.converged());
-    println!("   complete        : {}", o.complete);
-
-    let stores = o.stores();
-    match stores.first() {
-        None => println!("   store           : (no live replica)\n"),
+    println!("   committed     : {} slot(s)", o.committed());
+    println!("   converged     : {}", o.converged());
+    println!("   complete      : {}", o.complete);
+    match o.stores().first() {
+        None => println!("   store         : (no live replica)\n"),
         Some(s) => {
-            println!("   store           : {}", render(s));
-            println!("   == model prefix : {}", *s == model);
-            println!("   != initial store: {}\n", *s != demo::init());
+            println!("   store         : {}", render(s));
+            println!("   == model      : {}\n", *s == model);
         }
     }
 }
 
-fn contract(o: &ClusterOutcome) -> bool {
-    o.views
-        .values()
-        .next()
-        .map(|v| v.budget.within_contract())
-        .unwrap_or(false)
+fn print_equiv(title: &str, o: &authdemo::EquivOutcome) {
+    println!("   {title}:");
+    for (i, s) in &o.applied {
+        println!("       replica {i} applied {}", render(s));
+    }
+    if o.applied.is_empty() {
+        println!("       (no replica applied)");
+    }
+    println!(
+        "       diverged: {}  ({})\n",
+        o.diverged,
+        if o.diverged {
+            "SAFETY VIOLATED — two honest replicas disagree"
+        } else {
+            "safe — no two honest replicas disagree"
+        }
+    );
 }
 
 /// A compact rendering of a store term — enough to see convergence at a glance.
-fn render(t: &dlc_core::syntax::Term) -> String {
-    use dlc_core::syntax::Term;
+fn render(t: &Term) -> String {
     match t {
         Term::Var(i) => format!("x{i}"),
         Term::Lam(_, b) => format!("λ.{}", render(b)),

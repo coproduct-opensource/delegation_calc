@@ -45,6 +45,7 @@
 #![deny(missing_docs)]
 
 pub mod auth;
+pub mod authdemo;
 pub mod codec;
 pub mod demo;
 pub mod net;

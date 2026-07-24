@@ -18,8 +18,9 @@ const MAIN: &str = include_str!("../src/main.rs");
 const DEMO: &str = include_str!("../src/demo.rs");
 const AUTH: &str = include_str!("../src/auth.rs");
 const NETAUTH: &str = include_str!("../src/netauth.rs");
+const AUTHDEMO: &str = include_str!("../src/authdemo.rs");
 
-fn sources() -> [(&'static str, &'static str); 6] {
+fn sources() -> [(&'static str, &'static str); 7] {
     [
         ("src/lib.rs", LIB),
         ("src/net.rs", NET),
@@ -31,6 +32,9 @@ fn sources() -> [(&'static str, &'static str); 6] {
         // The async authenticated transport: must carry bytes via `codec`, never
         // grow its own encoder.
         ("src/netauth.rs", NETAUTH),
+        // The demo scenario builder drives AuthNodes; it must not compute state
+        // itself either.
+        ("src/authdemo.rs", AUTHDEMO),
     ]
 }
 

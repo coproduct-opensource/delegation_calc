@@ -349,4 +349,53 @@ theorem fwd_lam (phi : syntax.Prop) (body : syntax.Term) (ih : FwdAgree body) :
     rw [decCtx_cons_a_ok ctx phi extended hext] at key
     simp only [decTerm, decProp, decideLean, key]
 
+/-- `var i` — reuse the full-equality `infer_square_var` (the base case). -/
+theorem fwd_var (i : Std.U32) : FwdAgree (syntax.Term.Var i) := by
+  intro ctx inferred h
+  have hsq := infer_square_var ctx i
+  rw [h] at hsq
+  simp only [decOptProp_map_ok, decOptProp, Option.map_some] at hsq
+  injection hsq with hsq
+  simp only [decTerm]
+  exact hsq.symm
+
+/-! ## The agreeing fragment and its assembled `infer_square`
+
+`PropFrag` carves the currently-verified agreeing fragment of `F` — the constructors whose
+`fwd_*` arm lemma is proven. It EXCLUDES the five disagreeing arms
+(`boxed/saysBind/attenuate/declassify/letTensor`) AND, for now, the arms still awaiting their
+`eq`-soundness lemmas (`app/verify/command/runCmd/case/letSays/delegate/sfExtract`) — those grow
+`PropFrag` as they land. Assembling now locks the end-to-end result and de-risks the induction. -/
+inductive PropFrag : syntax.Term → Prop where
+  | var (i) : PropFrag (syntax.Term.Var i)
+  | now (t) : PropFrag (syntax.Term.Now t)
+  | sign (p m sig) : PropFrag m → PropFrag (syntax.Term.Sign p m sig)
+  | inl (o m) : PropFrag m → PropFrag (syntax.Term.Inl o m)
+  | inr (o m) : PropFrag m → PropFrag (syntax.Term.Inr o m)
+  | withinIntro (t m) : PropFrag m → PropFrag (syntax.Term.WithinIntro t m)
+  | liftLabel (l m) : PropFrag m → PropFrag (syntax.Term.LiftLabel l m)
+  | pair (a b) : PropFrag a → PropFrag b → PropFrag (syntax.Term.Pair a b)
+  | tensorIntro (a b) : PropFrag a → PropFrag b → PropFrag (syntax.Term.TensorIntro a b)
+  | fst (m) : PropFrag m → PropFrag (syntax.Term.Fst m)
+  | snd (m) : PropFrag m → PropFrag (syntax.Term.Snd m)
+  | lam (phi body) : PropFrag body → PropFrag (syntax.Term.Lam phi body)
+
+/-- **★ Assembled forward `infer_square` on the fragment.** For every `PropFrag` term, the shipped
+Rust checker's positive verdicts are backed by the verified `decideLean`. Inducts on the `PropFrag`
+derivation, discharging each case by its `fwd_*` arm lemma (the sub-term IHs are `FwdAgree`). -/
+theorem infer_square_frag (term : syntax.Term) (hpf : PropFrag term) : FwdAgree term := by
+  induction hpf with
+  | var i => exact fwd_var i
+  | now t => exact fwd_now t
+  | sign p m sig _ ih => exact fwd_sign p m sig ih
+  | inl o m _ ih => exact fwd_inl o m ih
+  | inr o m _ ih => exact fwd_inr o m ih
+  | withinIntro t m _ ih => exact fwd_withinIntro t m ih
+  | liftLabel l m _ ih => exact fwd_liftLabel l m ih
+  | pair a b _ _ iha ihb => exact fwd_pair a b iha ihb
+  | tensorIntro a b _ _ iha ihb => exact fwd_tensorIntro a b iha ihb
+  | fst m _ ih => exact fwd_fst m ih
+  | snd m _ ih => exact fwd_snd m ih
+  | lam phi body _ ih => exact fwd_lam phi body ih
+
 end DLC.DecideSquare

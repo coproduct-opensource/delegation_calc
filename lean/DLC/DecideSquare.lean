@@ -297,4 +297,56 @@ theorem fwd_tensorIntro (a b : syntax.Term) (iha : FwdAgree a) (ihb : FwdAgree b
       injection h with h; injection h with h; subst h
       simp only [decTerm, decProp, decideLean, iha ctx val ho, ihb ctx val1 ho1]
 
+/-- `fst m` — `M : φ ∧ ψ ⟹ φ`. The inferred sub-type is matched: only `And` types. -/
+theorem fwd_fst (m : syntax.Term) (ih : FwdAgree m) : FwdAgree (syntax.Term.Fst m) := by
+  intro ctx inferred h
+  rw [decide.infer] at h
+  obtain ⟨o, ho, h⟩ := bind_ok_inv h
+  cases o with
+  | none => simp [branch_none, bind_tc_ok,
+      core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual] at h
+  | some val =>
+    simp only [branch_some, bind_tc_ok] at h
+    cases val with
+    | And phi psi =>
+      dsimp only at h; injection h with h; injection h with h; subst h
+      simp only [decTerm, decProp, decideLean, ih ctx (syntax.Prop.And phi psi) ho]
+    | _ => simp at h
+
+/-- `snd m` — `M : φ ∧ ψ ⟹ ψ`. -/
+theorem fwd_snd (m : syntax.Term) (ih : FwdAgree m) : FwdAgree (syntax.Term.Snd m) := by
+  intro ctx inferred h
+  rw [decide.infer] at h
+  obtain ⟨o, ho, h⟩ := bind_ok_inv h
+  cases o with
+  | none => simp [branch_none, bind_tc_ok,
+      core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual] at h
+  | some val =>
+    simp only [branch_some, bind_tc_ok] at h
+    cases val with
+    | And phi psi =>
+      dsimp only at h; injection h with h; injection h with h; subst h
+      simp only [decTerm, decProp, decideLean, ih ctx (syntax.Prop.And phi psi) ho]
+    | _ => simp at h
+
+/-- `lam φ body` — `body : ψ in (φ :: Γ) ⟹ φ ⊃ ψ`. The first BINDER arm: `decide.infer`
+clones the context and `φ`, extends via the faithful `cons_a`, and recurses; the decoded
+extension is `consA (decProp φ) (decCtx ctx)` by `decCtx_cons_a_ok` (success path). -/
+theorem fwd_lam (phi : syntax.Prop) (body : syntax.Term) (ih : FwdAgree body) :
+    FwdAgree (syntax.Term.Lam phi body) := by
+  intro ctx inferred h
+  rw [decide.infer] at h
+  simp only [CloneId.ctxClone_id, CloneId.propClone_id, bind_tc_ok] at h
+  obtain ⟨extended, hext, h⟩ := bind_ok_inv h
+  obtain ⟨o, ho, h⟩ := bind_ok_inv h
+  cases o with
+  | none => simp [branch_none, bind_tc_ok,
+      core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual] at h
+  | some val =>
+    simp only [branch_some, bind_tc_ok] at h
+    injection h with h; injection h with h; subst h
+    have key := ih extended val ho
+    rw [decCtx_cons_a_ok ctx phi extended hext] at key
+    simp only [decTerm, decProp, decideLean, key]
+
 end DLC.DecideSquare

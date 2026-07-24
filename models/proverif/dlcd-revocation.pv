@@ -1,0 +1,114 @@
+(* =========================================================================
+ * DLC-D — verified revocation, ProVerif cross-check.
+ * =========================================================================
+ *
+ * Phase 4 (spec/revocation-design.md §5). Companion to
+ * models/tamarin/dlcd-revocation.spthy, which carries the full rationale. Per
+ * CLAUDE.md the discipline is Tamarin first, then this ProVerif cross-check.
+ * Independent in two senses (as with dlc.pv / dlcd-interop.pv): a different
+ * intermediate representation (applied-pi / Horn clauses vs multiset rewriting)
+ * and a different proof engine (resolution-based saturation vs constraint
+ * solving), so a model bug invisible to one tool's heuristics can surface in the
+ * other. It must AGREE with the Tamarin model on the properties it can express.
+ *
+ * =========================================================================
+ * DIVISION OF LABOUR — read before adding a query
+ * =========================================================================
+ * ProVerif cross-checks the two properties in its expressive reach:
+ *   accept_binds_issuer  — FORGERY-RESISTANCE: an accepted credential in an
+ *                          HONEST issuer's name was issued by that issuer (unless
+ *                          the key leaked). Cross-checks the Tamarin lemma of the
+ *                          same name.
+ *   exec_accept          — REACHABILITY / non-vacuity: acceptance is reachable.
+ *
+ * ProVerif CANNOT express the TEMPORAL revocation core — `accept_not_revoked`
+ * (an accepted credential was NOT revoked BEFORE the acceptance) and
+ * `revoke_is_permanent` (acceptance strictly precedes revocation). These are a
+ * NEGATION over event ORDERING ("no `Revoked(I,cid)` precedes `Accepted(I,cid)`"):
+ * ProVerif's monotonic Horn-clause translation has no timepoint ordering usable
+ * this way, and injective correspondence expresses "there IS an earlier matching
+ * event", not "there is NO earlier event". So the temporal revocation-soundness
+ * ordering stays TAMARIN-ONLY — the same kind of honest projection as
+ * dlcd-interop.pv (the disequality `no_cross_audience_replay` is Tamarin-only) and
+ * dlcd-replication.pv (slot agreement is Tamarin-only).
+ *
+ *   accept_binds_issuer (forgery-resistance)  — CROSS-CHECKED: Tamarin AND ProVerif
+ *   exec_accept (reachability)                — CROSS-CHECKED
+ *   accept_not_revoked / revoke_is_permanent  — TAMARIN ONLY (temporal ordering)
+ * ========================================================================= *)
+
+free c: channel.
+free cred_tag: bitstring.
+free revoke_tag: bitstring.
+
+(* Ed25519-style signatures. *)
+type skey.
+type pkey.
+fun pk(skey): pkey.
+fun sign(bitstring, skey): bitstring.
+reduc forall m: bitstring, k: skey;
+  checksign(sign(m, k), pk(k)) = m.
+
+(* Events. *)
+event HonestSk(skey).
+event HonestIssuer(pkey).   (* fired when an honest issuer's public key is set up *)
+event Compromised(pkey).
+event CredIssued(pkey, bitstring).   (* issuer, cid *)
+event Revoked(pkey, bitstring).      (* issuer, cid  (present for faithfulness; the
+                                        temporal property over it is Tamarin-only) *)
+event Accepted(pkey, bitstring).     (* issuer, cid *)
+
+(* ---- Correspondence query (forgery-resistance) ----
+ * A credential accepted in an HONEST issuer's name was issued by that issuer,
+ * unless the key leaked. The `HonestIssuer(I)` premise is load-bearing: `sign`
+ * is a PUBLIC function, so the adversary can self-issue credentials under its OWN
+ * key — those accepts are benign (anyone may issue for themselves) but are not
+ * forgeries of an honest issuer. Same encoding finding as dlcd-interop.pv. *)
+query I: pkey, cid: bitstring;
+  event(Accepted(I, cid)) && event(HonestIssuer(I)) ==>
+    event(CredIssued(I, cid)) || event(Compromised(I)).
+
+(* ---- Reachability / non-vacuity ----
+ * A bare event query is a reachability check: ProVerif reports `is false` for
+ * (the negation of) a reachable event, so `is false` is the PASS condition. It
+ * guards the correspondence above against vacuity. *)
+query I: pkey, cid: bitstring;
+  event(Accepted(I, cid)).
+
+(* ---- Processes ---- *)
+
+(* An issuer mints a says-credential with a fresh id `cid`. *)
+let issuer(skI: skey) =
+  new cid: bitstring;
+  event CredIssued(pk(skI), cid);
+  out(c, (cred_tag, pk(skI), cid, sign((cred_tag, pk(skI), cid), skI))).
+
+(* The issuer revokes a credential it sees on the network (present for model
+ * faithfulness; no query constrains ordering — that is Tamarin's job). *)
+let revoker(skI: skey) =
+  in(c, (=cred_tag, I: pkey, cid: bitstring, sig: bitstring));
+  event Revoked(pk(skI), cid);
+  out(c, (revoke_tag, pk(skI), cid, sign((revoke_tag, pk(skI), cid), skI))).
+
+(* A verifier accepts a credential: verify the issuer's signature over the exact
+ * body. (The revocation-list lookup — accept only if not revoked before — is the
+ * Tamarin `RevocationCheck` restriction; ProVerif cannot express its ordering.) *)
+let verifier() =
+  in(c, (=cred_tag, I: pkey, cid: bitstring, sig: bitstring));
+  let (=cred_tag, =I, =cid) = checksign(sig, I) in
+  event Accepted(I, cid).
+
+(* Static long-term-key reveal — Dolev-Yao compromise. *)
+let reveal(skX: skey) =
+  event Compromised(pk(skX));
+  out(c, skX).
+
+process
+  ! ( new skI: skey;
+      event HonestSk(skI);
+      event HonestIssuer(pk(skI));
+      out(c, pk(skI));
+      ( ! issuer(skI)
+      | ! revoker(skI)
+      | ! verifier()
+      | reveal(skI) ) )

@@ -222,6 +222,32 @@ jobs:
           if [ "$ok" -ne 1 ]; then exit 1; fi
           echo "dlcd-interop.pv: all queries as expected."
 
+      # =====================================================================
+      # Phase 4 revocation cross-check (spec/revocation-design.md §5). Companion to
+      # models/tamarin/dlcd-revocation.spthy — must AGREE on the properties ProVerif
+      # can express (the temporal revocation-ordering is Tamarin-only; see the .pv).
+      # =====================================================================
+      - name: Run ProVerif on dlcd-revocation.pv
+        run: |
+          eval $(opam env)
+          cd models/proverif
+          proverif dlcd-revocation.pv 2>&1 | tee prove-revocation.log
+
+          ok=1
+          # Correspondence (require `is true`): forgery-resistance, scoped to honest issuers.
+          if ! grep -qE "^RESULT event\(Accepted.*HonestIssuer.*CredIssued.*is true" prove-revocation.log; then
+            echo "::error::revocation accept_binds_issuer (forgery-resistance) did not prove"; ok=0
+          fi
+          # Reachability (anti-vacuity): `is false` for the negation IS the pass.
+          if ! grep -qE "^RESULT not event\(Accepted.*is false" prove-revocation.log; then
+            echo "::error::revocation Accepted is unreachable — the correspondence is VACUOUS"; ok=0
+          fi
+          if grep -E "^RESULT.*cannot be proved" prove-revocation.log; then
+            echo "::error::a revocation query could not be proved"; ok=0
+          fi
+          if [ "$ok" -ne 1 ]; then exit 1; fi
+          echo "dlcd-revocation.pv: all queries as expected."
+
       - name: Upload ProVerif output
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

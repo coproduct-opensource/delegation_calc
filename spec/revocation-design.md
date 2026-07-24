@@ -116,4 +116,14 @@ no key revealed is reachable). The differential **BITE** (`dlcd-revocation-bite.
 `scripts/check-tamarin-revocation-bite.sh`, CI-gated): with `RevocationCheck` removed,
 `revoked_replay_reachable` (post-revocation replay) is VERIFIED (reachable), while the same lemma is
 FALSIFIED in the guarded model — the machine-checked statement that the revocation check is
-load-bearing. ProVerif cross-check (`dlcd-revocation.pv`) is the next increment.
+load-bearing.
+
+**ProVerif cross-check LANDED** (`models/proverif/dlcd-revocation.pv`, CI-gated in `proverif.yml`):
+an independent applied-pi/Horn-clause engine AGREES on the two properties in its reach —
+`accept_binds_issuer` (forgery-resistance correspondence, `is true`, scoped to honest issuers) and
+reachability (`Accepted` reachable, anti-vacuity). Honest division of labour, stated in the `.pv`
+header: the TEMPORAL revocation core (`accept_not_revoked` / `revoke_is_permanent` — a negation over
+event ordering) is **Tamarin-only**, since ProVerif's monotonic Horn translation cannot express "no
+`Revoked` precedes `Accepted`" (injective correspondence gives "there IS an earlier event", not "there
+is NONE") — the same honest projection as the interop disequality and replication slot-agreement
+fences. Revocation is now verified across four layers: Lean model + `Deriv` judgment + Tamarin + ProVerif.

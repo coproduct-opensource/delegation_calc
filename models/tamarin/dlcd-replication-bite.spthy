@@ -1,0 +1,191 @@
+/*
+ * DLC-D -- THE BITE for the replication model. R6.1b step 1.
+ *
+ * This theory is `dlcd-replication.spthy` WITH EXACTLY ONE THING REMOVED: the
+ * `unique_slot_open` restriction, i.e. the guarantee that a replica votes at
+ * most once per slot. Everything else -- rules, roster, quorum size, signature
+ * discipline, adversary -- is byte-for-byte the same.
+ *
+ * Its single lemma is an EXISTS-TRACE, and CI requires it to be VERIFIED. A
+ * verified exists-trace here means: the attack is REACHABLE. Two honest
+ * replicas apply DIFFERENT commands at the SAME slot, with NO key compromise
+ * anywhere in the trace -- pure protocol failure, not a crypto failure.
+ *
+ * Why it is written this way. The discipline this repo follows is that a guard
+ * is only known to be load-bearing if its removal is shown to break something,
+ * and that the breakage must be observed for the RIGHT REASON. A commented-out
+ * restriction with a note claiming "this would fail" is an assertion; a machine
+ * -checked reachable counter-trace is a fact. Stating it as an exists-trace
+ * (rather than letting `slot_agreement` be falsified) also keeps the CI gate
+ * uniform: every lemma in every model file must come back `verified`, so a
+ * silently-deleted bite cannot pass as green.
+ *
+ * Read together: `dlcd-replication.spthy` proves agreement holds, this file
+ * proves agreement is not free. The pair is the claim.
+ *
+ * The mechanism, for the reader who wants to see it without running Tamarin:
+ * without the restriction, `Open_slot` can mint a second `VoteToken` for the
+ * same (replica, slot), so r2 can vote for c1 AND for c2 at slot s. Then
+ * {r1,r2} certifies c1 and {r2,r3} certifies c2 -- two valid quorum
+ * certificates for the same slot. Quorum intersection still holds; what fails
+ * is that the shared member spoke twice, which is precisely the property the
+ * linear token buys.
+ */
+
+theory DLCD_Replication_Bite
+begin
+
+builtins: signing
+
+// =========================================================================
+// Restrictions
+// =========================================================================
+
+// Signature verification, the derivable way: the rule emits the check as an
+// action and this restriction discharges it. See modelling choice 3.
+restriction Equality:
+  "All x y #i. Eq(x, y) @ #i ==> x = y"
+
+restriction Inequality:
+  "All x y #i. Neq(x, y) @ #i ==> not(x = y)"
+
+// One keypair per principal. Without this a principal could hold two keys and
+// "its" signature would not be a well-defined notion.
+restriction unique_key:
+  "All A #i #j. KeyRegistered(A) @ #i & KeyRegistered(A) @ #j ==> #i = #j"
+
+// NOTE: `unique_slot_open` -- the one-vote-per-(replica,slot) restriction --
+// IS DELIBERATELY ABSENT HERE. That single removal is the whole difference
+// from `dlcd-replication.spthy`, and the lemma below is what it costs.
+
+// The fixed roster. Only these three can hold a vote token, so only these
+// three can vote -- quorum intersection at n=3 is what `slot_agreement`
+// spends. See modelling choice 1.
+restriction roster:
+  "All R s #i. SlotOpened(R, s) @ #i
+     ==> (R = 'r1') | (R = 'r2') | (R = 'r3')"
+
+// =========================================================================
+// Keys and compromise
+// =========================================================================
+
+rule Register_key:
+    [ Fr(~sk) ]
+  --[ HonestKey($A, ~sk), KeyRegistered($A) ]->
+    [ !Ltk($A, ~sk), !Pk($A, pk(~sk)), Out(pk(~sk)) ]
+
+// Static long-term-key reveal -- the adversary learns a principal's secret.
+// Every all-traces lemma below is conditioned on this not having happened.
+rule Reveal_ltk:
+    [ !Ltk($A, sk) ]
+  --[ Reveal($A) ]->
+    [ Out(sk) ]
+
+// A replica's vote token for a slot. In the real model this is minted at most
+// once per (R, slot); HERE it can be minted repeatedly, because
+// `unique_slot_open` has been removed. Roster membership is still enforced.
+rule Open_slot:
+    [ ]
+  --[ SlotOpened($R, $slot) ]->
+    [ VoteToken($R, $slot) ]
+
+// =========================================================================
+// The protocol
+// =========================================================================
+
+// An issuer grants a capability for a command: the wire form of the
+// `says`-credential that `commit-I` demands as a subterm and that
+// `DLCD.Authorized` quantifies over.
+rule Issue_cap:
+    [ Fr(~cmd), !Ltk($I, skI) ]
+  --[ CapIssued($I, ~cmd) ]->
+    [ Out(<'cmd', ~cmd, $I, sign(<'cap', ~cmd>, skI)>) ]
+
+// The leader proposes a capability-carrying command for a slot. It verifies
+// the capability before proposing -- not load-bearing for the lemmas (the
+// voters check it too, and the leader is not trusted), but it is what the
+// implementation does and modelling it keeps the shapes aligned.
+rule Propose:
+    [ In(<'cmd', cmd, $I, capsig>)
+    , !Ltk($L, skL)
+    , !Pk($I, pkI)
+    ]
+  --[ Eq(verify(capsig, <'cap', cmd>, pkI), true)
+    , Proposed($L, $slot, cmd)
+    ]->
+    [ Out(<'propose', $L, $slot, cmd, $I, capsig,
+           sign(<'propose', $slot, cmd>, skL)>) ]
+
+// A replica votes. It spends its ONE token for the slot, and it verifies BOTH
+// the leader's signature AND the capability. The capability check here is what
+// makes `applied_implies_capability` provable: it is the wire-level enforcement
+// of the gate that `crates/dlc-d-node` carries but does not check (R6.1a's
+// disclosed fence -- `cap` is transported, not verified). This model says
+// plainly what the networked node must add.
+rule Vote:
+    [ VoteToken($R, $slot)
+    , In(<'propose', $L, $slot, cmd, $I, capsig, psig>)
+    , !Ltk($R, skR)
+    , !Pk($L, pkL)
+    , !Pk($I, pkI)
+    ]
+  --[ Eq(verify(psig, <'propose', $slot, cmd>, pkL), true)
+    , Eq(verify(capsig, <'cap', cmd>, pkI), true)
+    , Voted($R, $slot, cmd)
+    , CapCheckedBy($R, $I, cmd)
+    ]->
+    [ Out(<'vote', $R, $slot, cmd, sign(<'vote', $slot, cmd>, skR)>) ]
+
+// The leader bundles two distinct votes into a QUORUM CERTIFICATE and
+// broadcasts it. Note what is NOT here: no authority. Anyone -- including the
+// adversary -- can assemble a QC from votes it observed; that is harmless
+// precisely because `Apply` checks the certificate rather than the sender.
+rule Commit_broadcast:
+    [ In(<'vote', $R1, $slot, cmd, s1>)
+    , In(<'vote', $R2, $slot, cmd, s2>)
+    , !Ltk($L, skL)
+    ]
+  --[ Neq($R1, $R2)
+    , CommitBroadcast($L, $slot, cmd)
+    ]->
+    [ Out(<'commit', $slot, cmd, <'qc', $R1, s1, $R2, s2>,
+           sign(<'commit', $slot, cmd>, skL)>) ]
+
+// A replica applies a committed command -- after verifying THE CERTIFICATE,
+// not the sender. The commit's own signature `csig` is bound and then
+// deliberately ignored: `Apply` never checks it, and every lemma below still
+// holds. That is the machine-checked content of "the leader is not trusted".
+rule Apply:
+    [ In(<'commit', $slot, cmd, <'qc', $R1, s1, $R2, s2>, csig>)
+    , !Pk($R1, pk1)
+    , !Pk($R2, pk2)
+    ]
+  --[ Eq(verify(s1, <'vote', $slot, cmd>, pk1), true)
+    , Eq(verify(s2, <'vote', $slot, cmd>, pk2), true)
+    , Neq($R1, $R2)
+    , Applied($A, $slot, cmd)
+    ]->
+    [ ]
+
+// =========================================================================
+// Lemmas -- each one is a requirement on the R6.1b wire format
+// =========================================================================
+
+// THE BITE. Disagreement is REACHABLE once a replica may vote twice per slot.
+//
+// Two replicas apply different commands at the same slot, and the trace
+// contains NO key reveal -- so this is not the adversary breaking signatures,
+// it is the protocol lacking a guard. In `dlcd-replication.spthy`, where the
+// restriction is present, `slot_agreement` proves this cannot happen.
+//
+// CI requires this lemma to be VERIFIED: a verified exists-trace IS the
+// counterexample.
+lemma disagreement_reachable:
+  exists-trace
+  "Ex A1 A2 s c1 c2 #i #j.
+       Applied(A1, s, c1) @ #i
+     & Applied(A2, s, c2) @ #j
+     & not(c1 = c2)
+     & not (Ex X #r. Reveal(X) @ #r)"
+
+end

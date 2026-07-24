@@ -85,6 +85,17 @@ proof-to-the-metal bridge already exists (R2), and the shell substrate is instal
   `dlc_protocol::wire` verbatim. Deliberately staged this way: `CLAUDE.md` bans
   wire-format changes that outrun the models, so R6.1a introduces no encoding at
   all.
+  - **Tamarin model ✅** (`models/tamarin/dlcd-replication.spthy`,
+    `spec/r6-1b-replication-protocol.md`): 5 lemmas verified — quorum backing,
+    **capability provenance across the wire** (the route to discharging Lean's
+    assumed `Authorized` premise), **slot agreement against a Byzantine leader**
+    (`Apply` checks the quorum certificate, not the sender), plus executability
+    lemmas. Right-reason bite in a separate theory: removing the one-vote-per-slot
+    guard makes disagreement **reachable with no key compromise**, and
+    `scripts/check-tamarin-bite.sh` gates the *differential* (identical rules;
+    the attack falsified in the guarded model) so two independently-green files
+    can't pass as evidence. CI job added; Tamarin pinned 1.10.0 → 1.12.0.
+  - **ProVerif cross-check — NEXT.** The wire waits on it.
 - **R6.2 — the surface + compile-time rejections.** `lark` grammar → AST bridge (or
   a Rust macro front-end); the checker accepts the good program and rejects the
   three violation variants with human errors.
@@ -144,6 +155,16 @@ proof-to-the-metal bridge already exists (R2), and the shell substrate is instal
   opaque axioms and break the R2 correspondence at that leaf. Aeneas trees
   regenerated (the added doc lines shifted embedded source-location comments;
   diff is comment-only, drift gate clean, 77 snapshots byte-unchanged).
+
+- **`dlc.spthy` may be unsound — NEXT INCREMENT.** Under Tamarin 1.12.0 the
+  delegation model reports a failed message-derivation check ("Failed to derive
+  Variable(s): skP, skQ" in `Delegate_Accept` / `Discharge_Accept`) and Tamarin
+  appends *"The analysis results might be wrong!"*. All 7 lemmas still verify,
+  but the caveat is the tool's own. Cause: signature checks by pattern-matching
+  `sign(msg, skP)` against `!Pk(P, pk(skP))`. Fix: the derivation-clean
+  `verify(sig, msg, pk) = true` idiom (as in the replication models), then
+  re-prove all 7 lemmas and make its wellformedness gate strict too. This is a
+  caveat on EXISTING claims, which is why it outranks the ProVerif cross-check.
 
 ## 7. Recommended next thrust
 

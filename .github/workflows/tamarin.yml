@@ -31,7 +31,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
-      TAMARIN_VERSION: "1.10.0"
+      # Bumped 1.10.0 -> 1.12.0 (2026-07-24) when the replication models landed:
+      # all three theories were verified locally under 1.12.0, so CI runs the
+      # version the models were actually proved against rather than an older one
+      # nobody re-checked. dlc.spthy's 7 lemmas still verify under 1.12.0.
+      TAMARIN_VERSION: "1.12.0"
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
@@ -98,5 +102,108 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: tamarin-output
+          path: models/tamarin/*.log
+          if-no-files-found: warn
+
+  # ===========================================================================
+  # The DLC-D REPLICATION models (R6.1b step 1). Separate job so a failure here
+  # names the replication protocol rather than the delegation protocol.
+  # ===========================================================================
+  replication:
+    name: tamarin-prover on the replication models
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      TAMARIN_VERSION: "1.12.0"
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+
+      - name: Install Maude and GraphViz
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y maude graphviz
+          maude --version || true
+
+      - name: Install Tamarin binary
+        run: |
+          curl -L -o tamarin.tar.gz \
+            "https://github.com/tamarin-prover/tamarin-prover/releases/download/${TAMARIN_VERSION}/tamarin-prover-${TAMARIN_VERSION}-linux64-ubuntu.tar.gz"
+          tar -xzf tamarin.tar.gz
+          sudo mv tamarin-prover /usr/local/bin/
+          tamarin-prover --version
+
+      # STRICTER than the dlc.spthy job: these models must have ZERO
+      # wellformedness warnings, asserted POSITIVELY (the success sentinel must
+      # be present), not by grepping for known-bad strings.
+      #
+      # Why the asymmetry: dlc.spthy verifies its lemmas but reports "Failed to
+      # derive Variable(s): skP, skQ" from the message-derivation check, and
+      # Tamarin appends "The analysis results might be wrong!" to that run. That
+      # is a real caveat on an existing model (its signature checks use the
+      # pattern-match idiom); fixing it means re-proving all 7 of its lemmas
+      # under the `verify(...)` idiom and is tracked separately. The replication
+      # models are written derivation-clean from the start, and this gate keeps
+      # them that way.
+      - name: Well-formedness (strict — zero warnings required)
+        run: |
+          set -o pipefail
+          cd models/tamarin
+          for f in dlcd-replication.spthy dlcd-replication-bite.spthy; do
+            tamarin-prover "$f" 2>&1 | tee "wf-${f%.spthy}.log"
+            if ! grep -q "All wellformedness checks were successful" "wf-${f%.spthy}.log"; then
+              echo "::error::${f} has wellformedness warnings — Tamarin's analysis may be unsound"
+              exit 1
+            fi
+          done
+
+      - name: Prove the replication lemmas
+        run: |
+          set -o pipefail
+          cd models/tamarin
+          tamarin-prover --prove dlcd-replication.spthy 2>&1 | tee prove-replication.log
+          tamarin-prover --prove dlcd-replication-bite.spthy 2>&1 | tee prove-bite.log
+
+          for log in prove-replication.log prove-bite.log; do
+            if grep -E "^.*: (falsified|incomplete)" "$log"; then
+              echo "::error::Tamarin reported falsified or incomplete lemmas in ${log}"
+              exit 1
+            fi
+            if ! grep -q "summary of summaries" "$log"; then
+              echo "::error::${log}: Tamarin did not reach 'summary of summaries' — run truncated"
+              exit 1
+            fi
+          done
+
+          # Positively assert EACH lemma verified, so a deleted or renamed lemma
+          # fails loudly instead of passing by proving nothing. Keep in sync with
+          # the `lemma` declarations in both theories.
+          ok=1
+          for lem in applied_implies_quorum applied_implies_capability \
+                     slot_agreement exec_apply exec_cap_checked; do
+            if ! grep -qE "\b${lem}\b.*: +verified" prove-replication.log; then
+              echo "::error::lemma '${lem}' did not verify in dlcd-replication.spthy"
+              ok=0
+            fi
+          done
+          # The BITE: a VERIFIED exists-trace here means the attack is reachable
+          # once the one-vote guard is gone. If this stops verifying, the bite has
+          # gone vacuous and is no longer evidence for anything.
+          if ! grep -qE "\bdisagreement_reachable\b.*: +verified" prove-bite.log; then
+            echo "::error::the bite lemma 'disagreement_reachable' did not verify — the bite is vacuous"
+            ok=0
+          fi
+          if [ "$ok" -ne 1 ]; then exit 1; fi
+
+      # The differential. Both theories passing INDEPENDENTLY does not show the
+      # guard is what makes agreement true — see the script's header.
+      - name: Bite is a controlled experiment (differential gate)
+        run: bash scripts/check-tamarin-bite.sh
+
+      - name: Upload Tamarin output
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tamarin-replication-output
           path: models/tamarin/*.log
           if-no-files-found: warn

@@ -1,0 +1,312 @@
+/*
+ * DLC-D -- symbolic model of the REPLICATION protocol (Propose / Vote / Commit).
+ *
+ * R6.1b step 1. Design: spec/r6-1-node-design.md sec 4; roadmap: spec/dlc-d-roadmap.md sec 2.
+ * Companion ProVerif cross-check: models/proverif/dlcd-replication.pv.
+ * Right-reason bite (a SEPARATE theory): dlcd-replication-bite.spthy.
+ *
+ * =========================================================================
+ * WHAT THIS MODEL IS FOR -- and what it is NOT for
+ * =========================================================================
+ *
+ * DLC-D's agreement, convergence, linearizability and liveness are already
+ * MACHINE-CHECKED IN LEAN over the abstract model (DLCD.agreement,
+ * replicas_converge_via_consensus, single_linearization, weakfair_terminates)
+ * and transported to the deployed Rust core (DLCD.Transport.rust_*). Tamarin
+ * does not re-prove any of that, and could not: it is a Dolev-Yao protocol
+ * prover, not a consensus-safety prover.
+ *
+ * What Tamarin is for here is the question Lean CANNOT answer, and which
+ * `crates/dlc-d-node` must answer before it may speak over a network:
+ *
+ *     the Lean guarantees assume a well-formed, authorized log
+ *     (`WellFormedLog`, `Authorized` -- the premises of
+ *     `rust_capability_safety`). Over a trusted in-process channel those
+ *     premises are free. Over a network they are NOT. What cryptographic
+ *     structure must the wire have so that an active attacker cannot make
+ *     an honest replica apply a command whose premises fail?
+ *
+ * So this model is a DESIGN-OBLIGATION GENERATOR for the R6.1b wire format:
+ * every lemma below is a requirement the socket implementation must satisfy,
+ * and the model fixes the message shapes that discharge them.
+ *
+ * =========================================================================
+ * THE PROTOCOL, AND THE ONE DESIGN DECISION THAT MATTERS
+ * =========================================================================
+ *
+ *   Issue_cap    issuer I signs a capability for a command
+ *   Propose      leader L signs (slot, cmd) and forwards the capability
+ *   Vote         replica R verifies BOTH signatures, spends its ONE vote for
+ *                that slot, and signs (slot, cmd)
+ *   Commit       a QUORUM CERTIFICATE -- two distinct votes -- is broadcast
+ *   Apply        a replica verifies THE QUORUM CERTIFICATE ITSELF and applies
+ *
+ * The decision: `Apply` does NOT trust the leader. The commit message carries
+ * the two vote signatures and the applying replica checks them; the leader's
+ * own signature on the commit is deliberately NOT load-bearing (the rule does
+ * not even look at it). The weaker alternative -- trust a leader-signed commit
+ * -- would make `slot_agreement` conditional on the leader not equivocating,
+ * i.e. it would hold only for a crash-fault leader. Checking the certificate
+ * makes agreement survive a BYZANTINE leader, and that is what the lemma
+ * proves. This is the property the socket implementation MUST preserve: if
+ * R6.1b ever "optimizes" Apply into trusting the commit signature, this model
+ * stops proving what its name says.
+ *
+ * =========================================================================
+ * MODELLING CHOICES, STATED HONESTLY
+ * =========================================================================
+ *
+ * 1. FIXED ROSTER of three replicas ('r1','r2','r3'), quorum = 2. Bounding
+ *    the participant set is standard practice for quorum/voting models in
+ *    Tamarin (the literature's e-voting models are likewise fixed at two
+ *    voters), and it is REQUIRED here: quorum intersection is what makes
+ *    `slot_agreement` true, and with an unbounded replica set two 2-element
+ *    quorums need not intersect. The Lean side carries the general statement
+ *    (`quorum_intersect` over `Finset (Fin n)`); Tamarin carries the wire
+ *    structure at n=3. Neither subsumes the other -- that split is the point.
+ *
+ * 2. ONE VOTE PER (replica, slot) is enforced structurally: `Open_slot` mints
+ *    a LINEAR `VoteToken` and `Vote` consumes it, with `unique_slot_open`
+ *    forbidding a second mint. This is the wire counterpart of the node's
+ *    `slot == next_slot()` guard. It is load-bearing for `slot_agreement`,
+ *    and that is not an assertion of taste: `dlcd-replication-bite.spthy` is
+ *    this same theory with that restriction removed, where Tamarin PROVES
+ *    (as an exists-trace) that two honest replicas apply DIFFERENT commands
+ *    at the same slot with no key compromise at all.
+ *
+ * 3. Signature checks use the derivation-clean `verify(sig, msg, pk) = true`
+ *    idiom rather than pattern-matching `sign(msg, sk)` against `!Pk(P,
+ *    pk(sk))`. The older idiom is what `dlc.spthy` uses and it is why that
+ *    file reports "Failed to derive Variable(s): skP, skQ" under Tamarin's
+ *    message-derivation wellformedness check -- a warning class that the CI
+ *    gate does not currently fail on. This file is written to have ZERO
+ *    wellformedness warnings, and its CI step fails if any appear.
+ *
+ * 4. LIVENESS IS NOT MODELLED, by construction. A Dolev-Yao adversary may
+ *    drop every message, so no progress property can hold here. Liveness is
+ *    Lean's (`weakfair_terminates` under `WeakFair`) and the failure budget
+ *    is the contract; the runtime shadow is the over-budget STALL exercised
+ *    in `crates/dlc-d-node/tests/cluster.rs`.
+ *
+ * 5. What the adversary CAN do: read, drop, reorder, replay and inject any
+ *    message; register keys; and reveal any long-term key (static
+ *    compromise). Every all-traces lemma below carries an explicit reveal
+ *    escape clause, so the lemmas say exactly "unless a key leaked".
+ */
+
+theory DLCD_Replication
+begin
+
+builtins: signing
+
+// =========================================================================
+// Restrictions
+// =========================================================================
+
+// Signature verification, the derivable way: the rule emits the check as an
+// action and this restriction discharges it. See modelling choice 3.
+restriction Equality:
+  "All x y #i. Eq(x, y) @ #i ==> x = y"
+
+restriction Inequality:
+  "All x y #i. Neq(x, y) @ #i ==> not(x = y)"
+
+// One keypair per principal. Without this a principal could hold two keys and
+// "its" signature would not be a well-defined notion.
+restriction unique_key:
+  "All A #i #j. KeyRegistered(A) @ #i & KeyRegistered(A) @ #j ==> #i = #j"
+
+// THE structural heart of agreement: a replica gets exactly ONE vote per slot.
+// Removing this is the bite (see dlcd-replication-bite.spthy).
+restriction unique_slot_open:
+  "All R s #i #j. SlotOpened(R, s) @ #i & SlotOpened(R, s) @ #j ==> #i = #j"
+
+// The fixed roster. Only these three can hold a vote token, so only these
+// three can vote -- quorum intersection at n=3 is what `slot_agreement`
+// spends. See modelling choice 1.
+restriction roster:
+  "All R s #i. SlotOpened(R, s) @ #i
+     ==> (R = 'r1') | (R = 'r2') | (R = 'r3')"
+
+// =========================================================================
+// Keys and compromise
+// =========================================================================
+
+rule Register_key:
+    [ Fr(~sk) ]
+  --[ HonestKey($A, ~sk), KeyRegistered($A) ]->
+    [ !Ltk($A, ~sk), !Pk($A, pk(~sk)), Out(pk(~sk)) ]
+
+// Static long-term-key reveal -- the adversary learns a principal's secret.
+// Every all-traces lemma below is conditioned on this not having happened.
+rule Reveal_ltk:
+    [ !Ltk($A, sk) ]
+  --[ Reveal($A) ]->
+    [ Out(sk) ]
+
+// A replica's single vote for one slot. Minted at most once per (R, slot) by
+// `unique_slot_open`, and only for roster members by `roster`.
+rule Open_slot:
+    [ ]
+  --[ SlotOpened($R, $slot) ]->
+    [ VoteToken($R, $slot) ]
+
+// =========================================================================
+// The protocol
+// =========================================================================
+
+// An issuer grants a capability for a command: the wire form of the
+// `says`-credential that `commit-I` demands as a subterm and that
+// `DLCD.Authorized` quantifies over.
+rule Issue_cap:
+    [ Fr(~cmd), !Ltk($I, skI) ]
+  --[ CapIssued($I, ~cmd) ]->
+    [ Out(<'cmd', ~cmd, $I, sign(<'cap', ~cmd>, skI)>) ]
+
+// The leader proposes a capability-carrying command for a slot. It verifies
+// the capability before proposing -- not load-bearing for the lemmas (the
+// voters check it too, and the leader is not trusted), but it is what the
+// implementation does and modelling it keeps the shapes aligned.
+rule Propose:
+    [ In(<'cmd', cmd, $I, capsig>)
+    , !Ltk($L, skL)
+    , !Pk($I, pkI)
+    ]
+  --[ Eq(verify(capsig, <'cap', cmd>, pkI), true)
+    , Proposed($L, $slot, cmd)
+    ]->
+    [ Out(<'propose', $L, $slot, cmd, $I, capsig,
+           sign(<'propose', $slot, cmd>, skL)>) ]
+
+// A replica votes. It spends its ONE token for the slot, and it verifies BOTH
+// the leader's signature AND the capability. The capability check here is what
+// makes `applied_implies_capability` provable: it is the wire-level enforcement
+// of the gate that `crates/dlc-d-node` carries but does not check (R6.1a's
+// disclosed fence -- `cap` is transported, not verified). This model says
+// plainly what the networked node must add.
+rule Vote:
+    [ VoteToken($R, $slot)
+    , In(<'propose', $L, $slot, cmd, $I, capsig, psig>)
+    , !Ltk($R, skR)
+    , !Pk($L, pkL)
+    , !Pk($I, pkI)
+    ]
+  --[ Eq(verify(psig, <'propose', $slot, cmd>, pkL), true)
+    , Eq(verify(capsig, <'cap', cmd>, pkI), true)
+    , Voted($R, $slot, cmd)
+    , CapCheckedBy($R, $I, cmd)
+    ]->
+    [ Out(<'vote', $R, $slot, cmd, sign(<'vote', $slot, cmd>, skR)>) ]
+
+// The leader bundles two distinct votes into a QUORUM CERTIFICATE and
+// broadcasts it. Note what is NOT here: no authority. Anyone -- including the
+// adversary -- can assemble a QC from votes it observed; that is harmless
+// precisely because `Apply` checks the certificate rather than the sender.
+rule Commit_broadcast:
+    [ In(<'vote', $R1, $slot, cmd, s1>)
+    , In(<'vote', $R2, $slot, cmd, s2>)
+    , !Ltk($L, skL)
+    ]
+  --[ Neq($R1, $R2)
+    , CommitBroadcast($L, $slot, cmd)
+    ]->
+    [ Out(<'commit', $slot, cmd, <'qc', $R1, s1, $R2, s2>,
+           sign(<'commit', $slot, cmd>, skL)>) ]
+
+// A replica applies a committed command -- after verifying THE CERTIFICATE,
+// not the sender. The commit's own signature `csig` is bound and then
+// deliberately ignored: `Apply` never checks it, and every lemma below still
+// holds. That is the machine-checked content of "the leader is not trusted".
+rule Apply:
+    [ In(<'commit', $slot, cmd, <'qc', $R1, s1, $R2, s2>, csig>)
+    , !Pk($R1, pk1)
+    , !Pk($R2, pk2)
+    ]
+  --[ Eq(verify(s1, <'vote', $slot, cmd>, pk1), true)
+    , Eq(verify(s2, <'vote', $slot, cmd>, pk2), true)
+    , Neq($R1, $R2)
+    , Applied($A, $slot, cmd)
+    ]->
+    [ ]
+
+// =========================================================================
+// Lemmas -- each one is a requirement on the R6.1b wire format
+// =========================================================================
+
+// Lemma 1 -- QUORUM BACKING. Nothing is applied that a quorum did not vote
+// for. This is the wire-level shadow of the premise `DLCD.agreement` reasons
+// from, and it is what stops an attacker from installing a command into an
+// honest replica's log by fabricating a commit message.
+lemma applied_implies_quorum:
+  all-traces
+  "All A s c #i.
+       Applied(A, s, c) @ #i
+    ==>
+       ( Ex R1 R2 #j #k.
+             Voted(R1, s, c) @ #j & Voted(R2, s, c) @ #k
+           & not(R1 = R2) & #j < #i & #k < #i )
+     | (Ex X #r. Reveal(X) @ #r)"
+
+// Lemma 2 -- CAPABILITY PROVENANCE SURVIVES THE WIRE. If an honest replica
+// applied a command, that command's capability really was issued by the
+// principal named in it.
+//
+// This is the lemma that matters most for the overall program: Lean's
+// `rust_capability_safety` is CONDITIONED on `DLCD.Authorized` of the decoded
+// command. In-process that premise is assumed. This lemma is what will let the
+// networked node DISCHARGE it -- the wire structure (capability signature
+// checked by every voter, votes checked by the applier) carries authorization
+// end-to-end, under an active attacker.
+lemma applied_implies_capability:
+  all-traces
+  "All A s c #i.
+       Applied(A, s, c) @ #i
+    ==>
+       (Ex I #j. CapIssued(I, c) @ #j & #j < #i)
+     | (Ex X #r. Reveal(X) @ #r)"
+
+// Lemma 3 -- SLOT AGREEMENT (the crux). Two replicas that apply at the same
+// slot apply the SAME command -- even though `Apply` never authenticates the
+// sender of the commit, i.e. EVEN IF THE LEADER IS BYZANTINE.
+//
+// It is true because of exactly two facts, and it is worth naming them since
+// the implementation must preserve both: (a) each roster member votes at most
+// once per slot (`unique_slot_open` + the linear token), and (b) two quorums
+// of 2 out of the 3 roster members must share a member. Quorum intersection --
+// `DLCD.quorum_intersect` in Lean -- realized on the wire.
+lemma slot_agreement:
+  all-traces
+  "All A1 A2 s c1 c2 #i #j.
+       Applied(A1, s, c1) @ #i & Applied(A2, s, c2) @ #j
+    ==>
+       c1 = c2
+     | (Ex X #r. Reveal(X) @ #r)"
+
+// Lemma 4 -- EXECUTABILITY (anti-vacuity for lemmas 1-3).
+//
+// The three all-traces lemmas above are implications; if `Applied` could never
+// fire they would all hold for the empty set of traces and Tamarin would
+// happily report `verified`. That is not hypothetical here: `dlc.spthy`
+// carried exactly that defect in `secrecy_ltk` until 2026-07-20 (see its
+// comments), and the missing paired exists-trace lemma is why it survived.
+// This lemma demands a real run: a capability issued, a proposal, two votes,
+// a certificate, an application -- with NO key compromise anywhere.
+lemma exec_apply:
+  exists-trace
+  "Ex A s c #i.
+       Applied(A, s, c) @ #i
+     & (Ex I #j. CapIssued(I, c) @ #j)
+     & not (Ex X #r. Reveal(X) @ #r)"
+
+// Lemma 5 -- the capability check is REACHED, not merely present.
+//
+// `applied_implies_capability` would also hold if no replica ever checked a
+// capability but nothing was ever applied. This pins that the checking path
+// itself executes on an honest trace.
+lemma exec_cap_checked:
+  exists-trace
+  "Ex R I c s #i #j.
+       CapCheckedBy(R, I, c) @ #i & Voted(R, s, c) @ #j
+     & not (Ex X #r. Reveal(X) @ #r)"
+
+end

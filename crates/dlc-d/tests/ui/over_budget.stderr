@@ -1,0 +1,25 @@
+error[E0080]: evaluation panicked: fault-budget breach: this service tolerates fewer faults than the required envelope
+ --> src/lib.rs
+  |
+  | /         assert!(
+  | |             F >= G,
+  | |             "fault-budget breach: this service tolerates fewer faults than the required envelope"
+  | |         )
+  | |_________^ evaluation of `dlc_d::assert_tolerates::<1, 2>::{constant#0}` failed here
+
+note: erroneous constant encountered
+ --> src/lib.rs
+  |
+  | /     const {
+  | |         assert!(
+  | |             F >= G,
+  | |             "fault-budget breach: this service tolerates fewer faults than the required envelope"
+  | |         )
+  | |     }
+  | |_____^
+
+note: the above error was encountered while instantiating `fn dlc_d::assert_tolerates::<1, 2>`
+ --> tests/ui/over_budget.rs:5:5
+  |
+5 |     dlc_d::assert_tolerates::<1, 2>();
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

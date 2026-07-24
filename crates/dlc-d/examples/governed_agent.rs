@@ -62,6 +62,12 @@ fn main() {
     );
     println!("  • isolation   — an illegal flow is a type error (E0277:");
     println!("                  `AuditLog: FlowsInto<UserData>` unsatisfied). [tests/ui/illegal_flow.rs]");
+    println!(
+        "  • budget      — composing this Faults<1> service where more tolerance is required is"
+    );
+    println!(
+        "                  a compile error (E0080 const-eval).           [tests/ui/over_budget.rs]"
+    );
     println!("  • admission   — `cargo test` validates an auto-emitted certificate with the");
     println!("    proof         VERIFIED checker (decide_pure → rust_infer_sound); the macro is");
     println!("                  out of the TCB — a bogus certificate is rejected.");

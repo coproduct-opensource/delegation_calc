@@ -70,6 +70,21 @@ where
 /// voids over budget (the `budgeted_guarantee_voids_over_budget` metatheorem).
 pub struct Faults<const F: usize>;
 
+/// Compile-time fault-budget check. `assert_tolerates::<F, G>()` compiles **only** when a service
+/// that tolerates `F` faults is composed into a context requiring at least `G` (`F >= G`). An
+/// over-budget composition — `F < G` — is a **compile error** (const-eval failure at
+/// monomorphization). This makes budget-breach the third violation class (alongside admission and
+/// isolation) checkable by `rustc`. Uses an inline `const` block (stable since 1.79) so the
+/// comparison can reference the const-generic parameters.
+pub const fn assert_tolerates<const F: usize, const G: usize>() {
+    const {
+        assert!(
+            F >= G,
+            "fault-budget breach: this service tolerates fewer faults than the required envelope"
+        )
+    }
+}
+
 /// Private runtime support for `#[dlc_d::agent_service]`-generated code. Re-exports exactly the
 /// `dlc_core` items the macro's emitted admission certificate references, so a user crate needs
 /// only depend on `dlc-d` (not on `dlc-core` directly). Not a stable API — do not use it.
@@ -114,5 +129,14 @@ mod tests {
     #[test]
     fn fault_budget_is_a_type() {
         let _b: Faults<3> = Faults;
+    }
+
+    #[test]
+    fn budget_tolerance_within_envelope_typechecks() {
+        // A service tolerating F faults may serve a context requiring G ≤ F.
+        assert_tolerates::<2, 1>();
+        assert_tolerates::<1, 1>();
+        assert_tolerates::<5, 0>();
+        // (`assert_tolerates::<1, 2>()` would be a compile error — see tests/ui/over_budget.rs.)
     }
 }

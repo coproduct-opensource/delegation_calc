@@ -70,6 +70,16 @@ where
 /// voids over budget (the `budgeted_guarantee_voids_over_budget` metatheorem).
 pub struct Faults<const F: usize>;
 
+/// Private runtime support for `#[dlc_d::agent_service]`-generated code. Re-exports exactly the
+/// `dlc_core` items the macro's emitted admission certificate references, so a user crate needs
+/// only depend on `dlc-d` (not on `dlc-core` directly). Not a stable API — do not use it.
+#[doc(hidden)]
+pub mod __rt {
+    pub use dlc_core::decide::decide_pure;
+    pub use dlc_core::judgment::{Ctx, TypingProblem};
+    pub use dlc_core::syntax::{Prop, Term};
+}
+
 /// Example security labels for docs, tests, and the killer demo. Real services declare their own
 /// labels and lattice edges; these ship a minimal two-point lattice (`Public ⊑ Secret`).
 pub mod labels {

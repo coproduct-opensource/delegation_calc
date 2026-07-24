@@ -165,6 +165,62 @@ pub fn lower(env: &Envelope) -> TokenStream {
     out
 }
 
+/// A deterministic capability atom id from the tool name (FNV-1a over its bytes), computed at
+/// macro time so the emitted certificate references a stable `Prop::Atom(_)`.
+fn atom_hash(s: &str) -> u32 {
+    let mut h: u32 = 0x811c_9dc5;
+    for b in s.bytes() {
+        h ^= u32::from(b);
+        h = h.wrapping_mul(0x0100_0193);
+    }
+    h
+}
+
+/// If the envelope carries a `cap` axis, emit a hidden `#[test]` that constructs the admission
+/// certificate — the commit-I store-transformer `λx:atom_cap. x : atom_cap ⊃ atom_cap` (in the
+/// verified fragment F) — and asserts the VERIFIED checker (`dlc_core::decide::decide_pure`)
+/// accepts it. A green `cargo test` therefore means, by the machine-checked `rust_infer_sound`, a
+/// real `Deriv` exists: the admission obligation is checked by the verified kernel, not the macro,
+/// which is thereby out of the TCB. Emitted `dlc_core` items are reached via `::dlc_d::__rt::…` so
+/// the user crate depends only on `dlc-d`.
+///
+/// (Fence: the emitted certificate is currently the always-typeable identity store-transformer —
+/// it wires the macro to the verified checker; richer obligations that can *fail* on
+/// misconfiguration are a follow-up. Validated at `cargo test` time; a build-time gate is §4.)
+pub fn certificate_test(env: &Envelope, fn_ident: &Ident) -> TokenStream {
+    let Some(cap) = &env.cap else {
+        return TokenStream::new();
+    };
+    let atom = atom_hash(&cap.tool.to_string());
+    let tool_name = cap.tool.to_string();
+    let test_name = quote::format_ident!("__dlc_d_cert_{}", fn_ident);
+    quote! {
+        #[test]
+        #[allow(non_snake_case)]
+        fn #test_name() {
+            let __problem = ::dlc_d::__rt::TypingProblem {
+                ctx: ::dlc_d::__rt::Ctx::empty(),
+                term: ::dlc_d::__rt::Term::Lam(
+                    ::std::boxed::Box::new(::dlc_d::__rt::Prop::Atom(#atom)),
+                    ::std::boxed::Box::new(::dlc_d::__rt::Term::Var(0)),
+                ),
+                prop: ::dlc_d::__rt::Prop::Imp(
+                    ::std::boxed::Box::new(::dlc_d::__rt::Prop::Atom(#atom)),
+                    ::std::boxed::Box::new(::dlc_d::__rt::Prop::Atom(#atom)),
+                ),
+            };
+            assert!(
+                ::dlc_d::__rt::decide_pure(&__problem),
+                concat!(
+                    "dlc_d::agent_service: admission certificate for capability `",
+                    #tool_name,
+                    "` was rejected by the verified checker",
+                ),
+            );
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

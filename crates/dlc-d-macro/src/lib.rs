@@ -42,8 +42,12 @@ pub fn agent_service(attr: TokenStream, item: TokenStream) -> TokenStream {
     // The governed unit is a `fn`; a non-`fn` item is a clear parse error.
     let func = parse_macro_input!(item as ItemFn);
     let obligations = envelope::lower(&env);
+    // If a `cap` axis is present, emit a hidden `#[test]` whose green run means the verified
+    // checker accepted the admission certificate (macro out of the TCB — see `certificate_test`).
+    let certificate = envelope::certificate_test(&env, &func.sig.ident);
     quote! {
         #obligations
+        #certificate
         #func
     }
     .into()

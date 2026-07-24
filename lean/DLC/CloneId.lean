@@ -99,4 +99,13 @@ theorem termClone_id (t : syntax.Term) :
       signatureClone_id, obligationClone_id, labelClone_id, timeBoundClone_id,
       core.clone.impls.CloneU32.clone, lift, bind_tc_ok, *]
 
+/-- The typing context clones to itself (both `Vec`s of props clone pointwise). Needed by the
+`Lam`/`Case` arms of `infer_square`, which `clone ctx` before extending it. -/
+theorem ctxClone_id (c : judgment.Ctx) :
+    judgment.Ctx.Insts.CoreCloneClone.clone c = ok c := by
+  simp only [judgment.Ctx.Insts.CoreCloneClone.clone,
+    vecClone_id syntax.Prop.Insts.CoreCloneClone c.additive (fun x _ => propClone_id x),
+    vecClone_id syntax.Prop.Insts.CoreCloneClone c.linear (fun x _ => propClone_id x),
+    bind_tc_ok]
+
 end DLC.CloneId

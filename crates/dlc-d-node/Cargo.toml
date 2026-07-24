@@ -30,5 +30,9 @@ path = "src/main.rs"
 dlc-core = { path = "../dlc-core", version = "1.5.0" }
 # The verified decision predicates (is_quorum / decided).
 dlc-d-rsm = { path = "../dlc-d-rsm", version = "1.5.0" }
+# Ed25519 for the authenticated wire (proto.rs) + the SAME term encoder that
+# `says`-credentials are signed under (no second canonical form).
+dlc-crypto = { path = "../dlc-crypto", version = "1.5.0" }
+dlc-protocol = { path = "../dlc-protocol", version = "1.5.0" }
 # The async shell — in the TCB, by design.
 tokio = { workspace = true, features = ["sync", "time"] }

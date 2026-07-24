@@ -317,7 +317,9 @@ name = "dlc-d-node"
 version = "1.5.0"
 dependencies = [
  "dlc-core",
+ "dlc-crypto",
  "dlc-d-rsm",
+ "dlc-protocol",
  "tokio",
 ]
 

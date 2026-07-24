@@ -95,7 +95,23 @@ proof-to-the-metal bridge already exists (R2), and the shell substrate is instal
     `scripts/check-tamarin-bite.sh` gates the *differential* (identical rules;
     the attack falsified in the guarded model) so two independently-green files
     can't pass as evidence. CI job added; Tamarin pinned 1.10.0 → 1.12.0.
-  - **ProVerif cross-check — NEXT.** The wire waits on it.
+  - **ProVerif cross-check ✅** (`models/proverif/dlcd-replication.pv`): the two
+    origin properties re-proved under a different prover; it also *found a bug in
+    my Tamarin claim* (capability enforcement is redundant leader+voter, so
+    `applied_implies_capability` didn't isolate the voter's check — repaired by
+    `cap_check_binds_issuer`, added to both models). `slot_agreement` is
+    Tamarin-only by a structural limit (linear vote token vs ProVerif's monotonic
+    Horn translation).
+  - **Authenticated protocol layer ✅** (`crates/dlc-d-node/src/proto.rs`): the
+    checks the models demand, implemented — `verify_commit` with no sender
+    (Byzantine-leader-tolerant), voter-side capability checking, `verify_qc`
+    counting **distinct signers** (guards the Nethermind XDC duplicate-signature
+    bypass), domain-separated signing, duplicate-member roster rejection. 13 tests
+    incl. `tests/authenticated.rs` composing the chain into the verified core.
+  - **Live event loop keying — NEXT.** The async node still runs on `u32` ids +
+    unsigned in-process messages; thread `proto` through it (identities become
+    pubkeys, messages carry signatures), then a socket carrier. This is where the
+    R6.1a purity property and the authenticated layer meet.
 - **R6.2 — the surface + compile-time rejections.** `lark` grammar → AST bridge (or
   a Rust macro front-end); the checker accepts the good program and rejects the
   three violation variants with human errors.

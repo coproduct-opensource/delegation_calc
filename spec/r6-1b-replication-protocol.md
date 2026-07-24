@@ -9,8 +9,12 @@ no wire encoding at all, because `CLAUDE.md` requires the Tamarin model before t
 This document is that model's output: the message shapes, the properties proved about
 them, and the obligations the socket implementation inherits.
 
-**Status: model done and proved; wire NOT implemented.** Nothing in `crates/` speaks
-this protocol yet.
+**Status:** models done and proved (Tamarin + ProVerif); the authenticated protocol layer
+implemented and unit-proved against the model obligations (`crates/dlc-d-node/src/proto.rs`),
+composed end-to-end with the verified core in `tests/authenticated.rs`. **Not yet done:** the
+live event loop still runs on `u32` identities and unsigned in-process messages (R6.1a); keying
+it onto `proto` is the next increment. So the cryptographic content of the wire exists and is
+exercised; the async plumbing that carries it does not yet.
 
 ---
 
@@ -146,6 +150,29 @@ the guarded model, 8 identical rules. The gate was itself perturbation-tested: d
    not a quorum.
 5. Payload encoding reuses `dlc_protocol::wire` verbatim; this protocol adds a framing
    layer, not a second term encoding.
+
+### 6.1 What `proto.rs` implements (done)
+
+`crates/dlc-d-node/src/proto.rs` is the authenticated layer, each function mapped to a
+model premise:
+
+- `verify_commit` takes **no sender argument** — it checks the certificate, the Byzantine-
+  leader-tolerant `slot_agreement` obligation (§3).
+- `verify_proposal` checks the capability before a vote — `cap_check_binds_issuer` (§4.0).
+- `verify_qc` counts **distinct signers**, not signatures. This is the [Nethermind XDC
+  duplicate-signature quorum bypass](https://github.com/NethermindEth/nethermind/issues/11026):
+  counting raw votes lets one validator satisfy quorum alone with several valid signatures
+  over the same message (Ed25519 determinism is *not* a defence — a key-holder can produce
+  many valid byte-different signatures). It is the code image of the model's `Neq($R1,$R2)`.
+- Domain-separated signing prefixes (`cap`/`propose`/`vote`) so a signature can't be
+  repurposed across message kinds — the byte-level image of the models' tag-in-signed-tuple.
+- `Roster::new` rejects duplicate members (one key, two seats).
+
+Negative tests pin each: single-signer forgery rejected, non-member votes ignored, cross-slot
+and cross-command certificate replay rejected, mismatched capability rejected at the proposal.
+`tests/authenticated.rs` composes the whole chain and shows the certified command is exactly
+what the verified `commit`/`world_step` then applies — so `proto` is reachable from the
+verified core, not just from its own tests.
 
 ## 7. Fences — what this model does not say
 

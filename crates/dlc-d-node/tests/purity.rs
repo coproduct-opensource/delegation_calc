@@ -122,12 +122,20 @@ fn view_is_only_replaced_by_verified_transitions() {
     );
 }
 
-/// The crate introduces no wire encoding (`spec/r6-1-node-design.md` §4): the
-/// replication protocol is not Tamarin-modelled yet, and `CLAUDE.md` bans
-/// wire-format changes that outrun the models. R6.1b lifts this by modelling the
-/// protocol first, then reusing `dlc_protocol::wire` verbatim.
+/// The SHELL introduces no term encoding of its own.
+///
+/// Scope note (updated for R6.1b): this scans the shell files only —
+/// `lib`/`net`/`main`/`demo`, via `sources()`. It deliberately does NOT scan
+/// `proto.rs`, which is the authenticated protocol layer: `proto` legitimately
+/// adds a signed *framing* layer (domain-prefixed signing messages) now that the
+/// Tamarin + ProVerif models exist (`models/tamarin/dlcd-replication.spthy`), and
+/// it encodes terms by REUSING `dlc_protocol::wire::canonical_bytes` — the same
+/// encoder `says`-credentials are signed under — rather than inventing a second
+/// canonical form. What must stay true, and is what this test guards, is that the
+/// event loop itself never grows an ad-hoc encoder: framing lives in `proto`
+/// behind the model, not scattered through the scheduler.
 #[test]
-fn no_wire_encoding_is_introduced() {
+fn shell_introduces_no_term_encoding() {
     let forbidden = ["serde", "ciborium", "to_bytes", "from_bytes", "serialize"];
     for (name, src) in sources() {
         for (n, line) in src.lines().enumerate() {

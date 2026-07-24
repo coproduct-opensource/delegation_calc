@@ -46,6 +46,7 @@
 
 pub mod demo;
 pub mod net;
+pub mod proto;
 
 use dlc_core::rsm::{commit, world_step, Command, FailureBudget, GlobalConfig, Replica};
 use dlc_core::syntax::Term;

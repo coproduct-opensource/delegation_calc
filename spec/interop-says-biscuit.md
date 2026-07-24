@@ -73,8 +73,9 @@ encode/decode** between the two representations of one credential, not a re-deri
    proved (tamarin-prover 1.12.0, CI-gated in `tamarin.yml`): `cred_binds_issuer` (forgery-resistance:
    acceptance ⟹ genuine issuance, unless the issuer key is revealed), `no_cross_audience_replay`
    (RFC 8707: a credential issued for `aud1` is never accepted at `aud2 ≠ aud1`), `exec_accept`
-   (non-vacuity witness) — **all `verified`**. Next: an `Attenuate` rule (offline narrowing) + the
-   monotonicity lemma (an attenuated token never widens rights) + the differential BITE
+   (non-vacuity), `attenuation_roots_in_issuance` (offline attenuation never fabricates a root the
+   issuer never signed — Biscuit/DCC "authority monotonic narrowing"), `exec_attenuate` (attenuation
+   non-vacuity) — **all 5 `verified`**. Next: the differential BITE
    (`dlcd-interop-bite.spthy`: remove the audience check ⟹ `no_cross_audience_replay` FALSIFIABLE) +
    the ProVerif cross-check. Forgery without the issuer key already fails (Dolev–Yao) via
    `cred_binds_issuer`.

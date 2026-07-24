@@ -223,7 +223,8 @@ jobs:
             exit 1
           fi
           ok=1
-          for lem in cred_binds_issuer no_cross_audience_replay exec_accept; do
+          for lem in cred_binds_issuer no_cross_audience_replay exec_accept \
+                     attenuation_roots_in_issuance exec_attenuate; do
             if ! grep -qE "\b${lem}\b.*: +verified" prove-interop.log; then
               echo "::error::lemma '${lem}' did not verify in dlcd-interop.spthy"
               ok=0

@@ -436,4 +436,17 @@ theorem rust_infer_sound (ctx : judgment.Ctx) (term : syntax.Term) (inferred : s
   exact t1_propositional_soundness (decTerm term) (ctx.additive.val.map decProp)
     (decProp inferred) hprop hagree
 
+/-- The empty typing context (both zones empty). -/
+abbrev emptyCtx : judgment.Ctx :=
+  ⟨alloc.vec.Vec.new syntax.Prop, alloc.vec.Vec.new syntax.Prop⟩
+
+/-- **Anti-vacuity witness (leaf).** `decide.infer` really accepts `now τ` at `Top`, and
+`rust_infer_sound` really hands back a `Deriv` — the milestone theorem's hypotheses are
+satisfiable by a concrete term, so it is NOT vacuously true. -/
+theorem rust_infer_sound_witness_now :
+    Nonempty (DLC.Deriv (decCtx emptyCtx) (decTerm (syntax.Term.Now ⟨0#u64⟩))
+      (decProp syntax.Prop.Top)) :=
+  rust_infer_sound emptyCtx (syntax.Term.Now ⟨0#u64⟩) syntax.Prop.Top
+    (PropFrag.now _) rfl (by simp only [decide.infer])
+
 end DLC.DecideSquare

@@ -78,7 +78,8 @@ jobs:
           LIBS="Decidability CtxWellFormed Correspondence NonInterference \
                 ObligationSoundness ProtocolCorrespondence Progress Witness \
                 CoproductAlgebra GradedBridge GradedDistributiveLaw GradedBridgeGeneric \
-                CarveProto DerivClosed CarveCtx CarveJudgment DecideDecode DLCD \
+                CarveProto DerivClosed CarveCtx CarveJudgment DecideDecode \
+                CloneId DecideSquare DLCD \
                 DLCAeneas DLCDRsmAeneas DLCDCorrespondence DLCDTransport \
                 DLCDTransportNI DLCDTransportConsensus"
           # DLC: built by the lean-mathlib-cache action above (build-target: DLC).

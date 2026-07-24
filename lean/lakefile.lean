@@ -56,6 +56,9 @@ lean_lib «Decidability» where
 lean_lib «DecideDecode» where
   roots := #[`DLC.DecideDecode]
 
+lean_lib «DecideSquare» where
+  roots := #[`DLC.DecideSquare]
+
 -- L1 (linear-lever campaign): the `CtxWellFormed` disambiguation invariant
 -- and its equivalence to the shipped checker. Depends on Judgment + Decidability.
 lean_lib «CtxWellFormed» where

@@ -145,18 +145,12 @@ jobs:
           sudo mv tamarin-prover /usr/local/bin/
           tamarin-prover --version
 
-      # STRICTER than the dlc.spthy job: these models must have ZERO
-      # wellformedness warnings, asserted POSITIVELY (the success sentinel must
-      # be present), not by grepping for known-bad strings.
-      #
-      # Why the asymmetry: dlc.spthy verifies its lemmas but reports "Failed to
-      # derive Variable(s): skP, skQ" from the message-derivation check, and
-      # Tamarin appends "The analysis results might be wrong!" to that run. That
-      # is a real caveat on an existing model (its signature checks use the
-      # pattern-match idiom); fixing it means re-proving all 7 of its lemmas
-      # under the `verify(...)` idiom and is tracked separately. The replication
-      # models are written derivation-clean from the start, and this gate keeps
-      # them that way.
+      # ZERO wellformedness warnings, asserted POSITIVELY (the success sentinel
+      # must be present), not by grepping for known-bad strings. Same standard
+      # as the dlc.spthy job — both files use the derivation-clean `verify(...)`
+      # idiom, so neither has anything to suppress. (Until 2026-07-24 dlc.spthy
+      # did report a message-derivation failure and only this job was strict;
+      # that model has since been converted and re-proved.)
       - name: Well-formedness (strict — zero warnings required)
         run: |
           set -o pipefail
@@ -192,7 +186,8 @@ jobs:
           # the `lemma` declarations in both theories.
           ok=1
           for lem in applied_implies_quorum applied_implies_capability \
-                     slot_agreement exec_apply exec_cap_checked; do
+                     slot_agreement cap_check_binds_issuer \
+                     exec_apply exec_cap_checked; do
             if ! grep -qE "\b${lem}\b.*: +verified" prove-replication.log; then
               echo "::error::lemma '${lem}' did not verify in dlcd-replication.spthy"
               ok=0

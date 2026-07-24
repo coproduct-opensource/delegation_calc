@@ -63,10 +63,29 @@ commit signature, `slot_agreement` stops being a statement about the deployed pr
 | Lemma | Statement | Steps |
 |---|---|---|
 | `applied_implies_quorum` | nothing is applied that two *distinct* replicas did not vote for | 19 |
-| `applied_implies_capability` | an applied command's capability really was issued by the principal named in it | 46 |
+| `applied_implies_capability` | an applied command's capability really was issued | 46 |
 | `slot_agreement` | two replicas applying at the same slot apply the **same** command — even with an unauthenticated commit sender | 102 |
-| `exec_apply` | a full honest run exists (anti-vacuity for the three above) | 16 |
+| `cap_check_binds_issuer` | an honest replica accepts a capability only if the **issuer it names** signed it — no escape via a compromised leader | 24 |
+| `exec_apply` | a full honest run exists (anti-vacuity for the above) | 16 |
 | `exec_cap_checked` | the capability-checking path is actually reached | 18 |
+
+### 4.0 Which check carries the capability property — a correction
+
+`applied_implies_capability` is enforced **redundantly**: both the leader (before
+proposing) and every voter (before voting) verify the capability. Perturbation runs in the
+ProVerif cross-check measured it: remove the voter's check → still provable; remove the
+leader's → still provable; remove **both** → false.
+
+So that lemma does not say which participant carries the property, and the first draft of
+this document and of both models claimed the voter's check was what made it provable.
+That was wrong. It matters because the design stance is that **the leader is not trusted**
+— a capability property a compromised leader can void is not the property we want.
+
+`cap_check_binds_issuer` is the repair: it binds the issuer in the *premise* (universally
+quantified) and names *that issuer's* key in the escape clause, rather than "some key
+somewhere". Deleting the voter's check falsifies it — Tamarin `falsified — found trace
+(10 steps)`, ProVerif `is false` — which is what makes it, not `applied_implies_capability`,
+the lemma the implementation must preserve.
 
 Each all-traces lemma carries an explicit reveal escape clause, so it says exactly
 "unless a long-term key leaked".
@@ -115,9 +134,11 @@ the guarded model, 8 identical rules. The gate was itself perturbation-tested: d
 ## 6. Obligations on the R6.1b implementation
 
 1. **`Apply` verifies the quorum certificate**, not the commit's sender (§3).
-2. **Every voter verifies the capability signature** before voting. This is what R6.1a
-   does *not* do — its disclosed fence is that `cap` is carried, not checked. The
-   networked node must check it, or `applied_implies_capability` says nothing about it.
+2. **Every voter verifies the capability signature** before voting — not merely the
+   leader. This is what R6.1a does *not* do (its disclosed fence: `cap` is carried, not
+   checked). Voter-side checking is what `cap_check_binds_issuer` needs; leader-side
+   checking alone would leave the property voidable by a compromised leader, which the
+   design explicitly refuses to trust (§4.0).
 3. **One vote per (replica, slot)**, enforced structurally. The node's `slot ==
    next_slot()` guard is the current realization; whatever replaces it must be equally
    unforgeable locally (§5).

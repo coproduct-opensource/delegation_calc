@@ -1,0 +1,280 @@
+(*
+ * DLC-D -- replication protocol, ProVerif cross-check.
+ *
+ * R6.1b step 2. Companion to models/tamarin/dlcd-replication.spthy (step 1),
+ * whose header carries the full rationale. Spec: spec/r6-1b-replication-protocol.md.
+ *
+ * CLAUDE.md's discipline is Tamarin first, then ProVerif cross-check, then the
+ * wire format. This is that cross-check. Independent in two senses, as with
+ * dlc.pv: a different intermediate representation (applied-pi / Horn clauses vs
+ * multiset rewriting) and a different proof engine (resolution-based saturation
+ * vs constraint-solving backward search), so a model bug invisible to one
+ * tool's heuristics has a chance to surface in the other.
+ *
+ * =========================================================================
+ * THE DIVISION OF LABOUR -- read this before adding a query
+ * =========================================================================
+ *
+ * ProVerif can cross-check the two ORIGIN properties:
+ *
+ *   applied_implies_capability -- an applied command's capability really was
+ *                                 issued. THE property this whole exercise is
+ *                                 for: it is how the networked node will
+ *                                 discharge the `DLCD.Authorized` premise that
+ *                                 Lean's `rust_capability_safety` assumes.
+ *   applied_implies_vote       -- nothing is applied that no honest replica
+ *                                 voted for (no fabricated commits).
+ *
+ * ProVerif CANNOT cross-check `slot_agreement`, and the obstacle is structural
+ * rather than a matter of encoding effort. Agreement rests on TWO facts: quorum
+ * intersection, and each replica voting AT MOST ONCE per slot. The second is a
+ * LINEAR-RESOURCE property -- Tamarin gets it by consuming a linear `VoteToken`
+ * fact. ProVerif's Horn-clause translation is MONOTONIC: a derivable fact stays
+ * derivable, and consumption is not tracked. There is no encoding of "spent its
+ * one vote" available here, private channels included.
+ *
+ * This repo already learned that lesson the expensive way in dlc.pv, where an
+ * earlier revision claimed a private channel made discharge injective and CI
+ * answered `cannot be proved`. See that file's "WHY ONE-SHOT DISCHARGE IS NOT
+ * CROSS-CHECKED HERE" note. The same reasoning applies verbatim here, and it is
+ * worth stating what it means for the protocol: the property that makes
+ * replication SAFE is exactly the one that needs linear resources, so it lands
+ * in the same Tamarin-only bucket as obligation one-shot-ness. Two different
+ * DLC guarantees, one shared structural reason.
+ *
+ * Nor can ProVerif express the DISTINCTNESS of the two voters in a quorum
+ * certificate (no disequality over query variables), so `applied_implies_vote`
+ * is the honest projection of Tamarin's `applied_implies_quorum` onto its
+ * one-honest-voter half.
+ *
+ *   applied_implies_capability -- CROSS-CHECKED: Tamarin AND ProVerif
+ *   applied_implies_quorum     -- projection cross-checked (single voter);
+ *                                 the two-distinct-voters form is Tamarin-only
+ *   slot_agreement             -- TAMARIN ONLY (linear vote token)
+ *
+ * Do not re-add a slot-agreement query expecting a different answer. If it
+ * needs a second independent check, it needs a tool with linear resources.
+ *)
+
+free c: channel.
+
+free cap_tag: bitstring.
+free propose_tag: bitstring.
+free vote_tag: bitstring.
+free commit_tag: bitstring.
+
+(* ========================================================================= *)
+(* Signature equational theory -- identical to dlc.pv                         *)
+(* ========================================================================= *)
+
+type skey.
+type pkey.
+
+fun pk(skey): pkey.
+fun sign(bitstring, skey): bitstring.
+reduc forall m: bitstring, k: skey;
+  checksign(sign(m, k), pk(k)) = m.
+
+(* The pinned keyring. Mirrors Tamarin's `!Pk($P, pk(sk))` persistent facts:
+   only registration populates it, so an attacker cannot present a
+   self-generated public key as a roster member. Without this guard the
+   attacker forges its own "votes" and every origin property collapses. *)
+table honest_keys(pkey).
+
+(* ========================================================================= *)
+(* Events -- mirror models/tamarin/dlcd-replication.spthy                     *)
+(* ========================================================================= *)
+
+event HonestSk(skey).
+event LtkReveal(pkey).
+
+event CapIssued(pkey, bitstring).                  (* issuer, cmd *)
+event Proposed(pkey, bitstring, bitstring).        (* leader, slot, cmd *)
+event Voted(pkey, bitstring, bitstring).           (* replica, slot, cmd *)
+event CapCheckedBy(pkey, pkey, bitstring).         (* replica, issuer, cmd *)
+event Applied(pkey, bitstring, bitstring).         (* replica, slot, cmd *)
+
+(* ========================================================================= *)
+(* Queries                                                                    *)
+(* ========================================================================= *)
+
+(* secrecy_ltk: an honest replica's key never leaks unless revealed. Same form
+   as dlc.pv -- the `HonestSk` antecedent scopes the quantifier to honestly
+   created keys, since the attacker may freely generate its own. *)
+query sk: skey;
+  event(HonestSk(sk)) && attacker(sk)
+    ==> event(LtkReveal(pk(sk))).
+
+(* applied_implies_capability (correspondence) -- THE cross-check.
+ *
+ * If a replica applied a command, some principal really did issue that
+ * command's capability. Cross-checks Tamarin's lemma of the same name.
+ *
+ * `I` and `R` occur only in the conclusion and are therefore existentially
+ * quantified: "some issuer issued it, or some key was revealed" -- the same
+ * shape as Tamarin's reveal escape clause. *)
+query A: pkey, I: pkey, R: pkey, s: bitstring, cmd: bitstring;
+  event(Applied(A, s, cmd)) ==>
+    event(CapIssued(I, cmd))
+    || event(LtkReveal(R)).
+
+(* applied_implies_vote (correspondence) -- the projection of Tamarin's
+ * applied_implies_quorum onto its single-honest-voter half. Distinctness of
+ * the two certificate voters is not expressible here (see the header). What
+ * this DOES establish independently: no command is applied that no registered
+ * replica ever voted for -- i.e. commits cannot be fabricated. *)
+query A: pkey, V: pkey, R: pkey, s: bitstring, cmd: bitstring;
+  event(Applied(A, s, cmd)) ==>
+    event(Voted(V, s, cmd))
+    || event(LtkReveal(R)).
+
+(* applied_implies_proposal (correspondence): an applied command traces back to
+ * a leader proposal. Distinct from the two above -- it is the leader half of
+ * the chain, and it fails if a replica can be made to vote on something no
+ * leader proposed. *)
+query A: pkey, L: pkey, R: pkey, s: bitstring, cmd: bitstring;
+  event(Applied(A, s, cmd)) ==>
+    event(Proposed(L, s, cmd))
+    || event(LtkReveal(R)).
+
+(* cap_check_binds_issuer (correspondence) -- the query that ISOLATES the
+ * voter's capability check, and the reason it exists.
+ *
+ * `applied_implies_capability` above is enforced REDUNDANTLY: both the leader
+ * and the voting replica verify the capability, and measurement shows either
+ * one alone suffices for it (remove the voter's check: still true; remove the
+ * leader's: still true; remove BOTH: false). So that query does not tell us
+ * which participant is carrying the property -- and an earlier draft of this
+ * model, and of the Tamarin one, claimed the voter's check was what made it
+ * provable. That claim was wrong, and the perturbation is what showed it.
+ *
+ * It matters which participant carries it, because the design stance is that
+ * THE LEADER IS NOT TRUSTED (the applier verifies the quorum certificate, not
+ * the commit's sender). A property that a compromised leader can void is not
+ * the property this protocol wants.
+ *
+ * So: the premise binds the issuer `I` that the replica CHECKED against, which
+ * makes `I` universally quantified, and the escape clause names THAT issuer's
+ * key -- not "some key somewhere". A compromised leader therefore does not
+ * excuse it: an honest replica accepts a capability only if the issuer it
+ * names really signed it. Removing the voter's check falsifies this query,
+ * which is what makes it the load-bearing one. *)
+query R: pkey, I: pkey, cmd: bitstring;
+  event(CapCheckedBy(R, I, cmd)) ==>
+    event(CapIssued(I, cmd))
+    || event(LtkReveal(I)).
+
+(* applied_reachable (reachability / anti-vacuity).
+ *
+ * The three correspondences above are implications: if `Applied` could never
+ * fire they hold vacuously and ProVerif reports `is true` while checking
+ * nothing. That is not hypothetical in this repo -- dlc.pv shipped a
+ * `says_authentication` query of the tautological form `A ==> A || B` that
+ * reported true for months without ever appealing to unforgeability. ProVerif
+ * reports `is false` for the negation of a reachable event, so `is false` here
+ * is the PASS condition. *)
+query A: pkey, s: bitstring, cmd: bitstring;
+  event(Applied(A, s, cmd)).
+
+(* cap_checked_reachable (reachability): the capability-checking path is
+ * actually executed, not merely present in the source. Guards
+ * applied_implies_capability the same way. `is false` is the pass. *)
+query R: pkey, I: pkey, cmd: bitstring;
+  event(CapCheckedBy(R, I, cmd)).
+
+(* ========================================================================= *)
+(* Processes                                                                  *)
+(* ========================================================================= *)
+
+(* One honest principal, able to act in every role -- issuer, leader, voting
+   replica, commit relay, applying replica -- mirroring the Tamarin model,
+   where $I, $L, $R and the applier are all free public variables rather than
+   fixed roles. Role separation is not a security assumption here. *)
+let principal(skP: skey) =
+  let pkP = pk(skP) in
+  (
+    (* ISSUER: grant a capability for a fresh command. *)
+    ! ( new cmd: bitstring;
+        event CapIssued(pkP, cmd);
+        out(c, (cap_tag, cmd, pkP, sign((cap_tag, cmd), skP)))
+      )
+  )
+  | (
+    (* LEADER: propose a capability-carrying command for an
+       adversary-chosen slot. The leader verifies the capability first --
+       not load-bearing (voters check it too, and the leader is untrusted),
+       but it is what the implementation does. *)
+    ! ( in(c, (=cap_tag, cmd: bitstring, pkI: pkey, capsig: bitstring));
+        in(c, slot: bitstring);
+        get honest_keys(=pkI) in
+        let mc = checksign(capsig, pkI) in
+        if mc = (cap_tag, cmd) then
+          ( event Proposed(pkP, slot, cmd);
+            out(c, (propose_tag, pkP, slot, cmd, pkI, capsig,
+                    sign((propose_tag, slot, cmd), skP)))
+          )
+      )
+  )
+  | (
+    (* VOTING REPLICA: verify the leader's signature AND the capability,
+       then vote. The capability check is what makes
+       applied_implies_capability provable, and it is precisely what
+       crates/dlc-d-node does NOT yet do (R6.1a carries `cap` without
+       checking it -- its disclosed fence). *)
+    ! ( in(c, (=propose_tag, pkL: pkey, slot: bitstring, cmd: bitstring,
+               pkI: pkey, capsig: bitstring, psig: bitstring));
+        get honest_keys(=pkL) in
+        get honest_keys(=pkI) in
+        let mp = checksign(psig, pkL) in
+        let mc = checksign(capsig, pkI) in
+        if mp = (propose_tag, slot, cmd) then
+          if mc = (cap_tag, cmd) then
+            ( event CapCheckedBy(pkP, pkI, cmd);
+              event Voted(pkP, slot, cmd);
+              out(c, (vote_tag, pkP, slot, cmd, sign((vote_tag, slot, cmd), skP)))
+            )
+      )
+  )
+  | (
+    (* COMMIT RELAY: bundle two votes into a quorum certificate and
+       broadcast. Carries NO authority -- the attacker can assemble the same
+       message from votes it observed, which is harmless precisely because
+       the applier checks the certificate rather than the sender. Present for
+       shape-fidelity with the Tamarin model; no query depends on it. *)
+    ! ( in(c, (=vote_tag, pkR1: pkey, slot: bitstring, cmd: bitstring, s1: bitstring));
+        in(c, (=vote_tag, pkR2: pkey, =slot, =cmd, s2: bitstring));
+        out(c, (commit_tag, slot, cmd, pkR1, s1, pkR2, s2))
+      )
+  )
+  | (
+    (* APPLYING REPLICA: verify THE QUORUM CERTIFICATE, not the sender. The
+       commit message carries no signature of its own in this model, which is
+       the point made structurally: nothing about the commit's origin is
+       trusted or even consulted. *)
+    ! ( in(c, (=commit_tag, slot: bitstring, cmd: bitstring,
+               pkR1: pkey, s1: bitstring, pkR2: pkey, s2: bitstring));
+        get honest_keys(=pkR1) in
+        get honest_keys(=pkR2) in
+        let m1 = checksign(s1, pkR1) in
+        let m2 = checksign(s2, pkR2) in
+        if m1 = (vote_tag, slot, cmd) then
+          if m2 = (vote_tag, slot, cmd) then
+            event Applied(pkP, slot, cmd)
+      )
+  )
+  | (
+    (* Static reveal: this principal optionally leaks its secret key once. *)
+    ( event LtkReveal(pkP);
+      out(c, skP)
+    )
+  ).
+
+(* Arbitrarily many honest principals in parallel, each registered in the
+   pinned keyring and publishing its public key. *)
+process
+  ! new skP: skey;
+    let pkP = pk(skP) in
+    event HonestSk(skP);
+    insert honest_keys(pkP);
+    out(c, pkP);
+    principal(skP)

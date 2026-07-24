@@ -143,6 +143,53 @@ jobs:
           fi
           echo "dlc-equiv.pv: observational equivalence holds."
 
+      # =====================================================================
+      # The DLC-D REPLICATION cross-check (R6.1b step 2). Companion to the
+      # Tamarin theory of the same name; see spec/r6-1b-replication-protocol.md
+      # for the division of labour (slot agreement is Tamarin-only — it needs
+      # linear resources, which ProVerif's monotonic Horn translation cannot
+      # express).
+      # =====================================================================
+      - name: Run ProVerif on dlcd-replication.pv
+        run: |
+          eval $(opam env)
+          cd models/proverif
+          proverif dlcd-replication.pv 2>&1 | tee prove-replication.log
+
+          ok=1
+          # Correspondences: require `is true`.
+          if ! grep -qE "^RESULT event\(HonestSk.*attacker.*is true" prove-replication.log; then
+            echo "::error::replication secrecy_ltk did not prove"; ok=0
+          fi
+          if ! grep -qE "^RESULT event\(Applied.*CapIssued.*is true" prove-replication.log; then
+            echo "::error::applied_implies_capability did not prove"; ok=0
+          fi
+          if ! grep -qE "^RESULT event\(Applied.*Voted.*is true" prove-replication.log; then
+            echo "::error::applied_implies_vote did not prove"; ok=0
+          fi
+          if ! grep -qE "^RESULT event\(Applied.*Proposed.*is true" prove-replication.log; then
+            echo "::error::applied_implies_proposal did not prove"; ok=0
+          fi
+          # The load-bearing one: the voter's own capability check, with the
+          # escape bound to the NAMED issuer so a compromised leader cannot
+          # void it. Deleting that check falsifies this query.
+          if ! grep -qE "^RESULT event\(CapCheckedBy.*CapIssued.*is true" prove-replication.log; then
+            echo "::error::cap_check_binds_issuer did not prove"; ok=0
+          fi
+          # Reachability (anti-vacuity): `is false` for the negation IS the pass.
+          if ! grep -qE "^RESULT not event\(Applied.*is false" prove-replication.log; then
+            echo "::error::applied_reachable: Applied is unreachable — the correspondences above are VACUOUS"; ok=0
+          fi
+          if ! grep -qE "^RESULT not event\(CapCheckedBy.*is false" prove-replication.log; then
+            echo "::error::cap_checked_reachable: the capability-check path never executes"; ok=0
+          fi
+          # No query may come back unproved.
+          if grep -E "^RESULT.*cannot be proved" prove-replication.log; then
+            echo "::error::a replication query could not be proved"; ok=0
+          fi
+          if [ "$ok" -ne 1 ]; then exit 1; fi
+          echo "dlcd-replication.pv: all queries as expected."
+
       - name: Upload ProVerif output
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

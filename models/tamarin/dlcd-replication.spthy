@@ -180,11 +180,20 @@ rule Propose:
            sign(<'propose', $slot, cmd>, skL)>) ]
 
 // A replica votes. It spends its ONE token for the slot, and it verifies BOTH
-// the leader's signature AND the capability. The capability check here is what
-// makes `applied_implies_capability` provable: it is the wire-level enforcement
-// of the gate that `crates/dlc-d-node` carries but does not check (R6.1a's
-// disclosed fence -- `cap` is transported, not verified). This model says
-// plainly what the networked node must add.
+// the leader's signature AND the capability.
+//
+// The capability check here is the wire-level enforcement of the gate that
+// `crates/dlc-d-node` carries but does not check (R6.1a's disclosed fence --
+// `cap` is transported, not verified). What it buys, precisely: it is what
+// makes `cap_check_binds_issuer` (lemma 3b) provable -- an honest replica
+// accepts a capability only if the ISSUER IT NAMES really signed it, with no
+// escape via a compromised leader.
+//
+// It is NOT what makes `applied_implies_capability` (lemma 2) provable: that
+// one is enforced redundantly, and the leader's own check alone suffices for
+// it. An earlier version of this comment claimed otherwise; the ProVerif
+// cross-check's perturbation runs disproved it. Since the leader is not
+// trusted here, lemma 3b is the one the implementation must preserve.
 rule Vote:
     [ VoteToken($R, $slot)
     , In(<'propose', $L, $slot, cmd, $I, capsig, psig>)
@@ -282,6 +291,35 @@ lemma slot_agreement:
     ==>
        c1 = c2
      | (Ex X #r. Reveal(X) @ #r)"
+
+// Lemma 3b -- THE VOTER'S CAPABILITY CHECK, ISOLATED.
+//
+// `applied_implies_capability` is enforced REDUNDANTLY: the leader verifies the
+// capability before proposing AND every voter verifies it before voting, and
+// measurement (in the ProVerif cross-check, models/proverif/dlcd-replication.pv)
+// shows either one ALONE suffices for it -- remove the voter's check, still
+// provable; remove the leader's, still provable; remove both, false.
+//
+// So that lemma does not tell us WHICH participant carries the property. An
+// earlier draft of this file asserted, in the `Vote` rule's comment, that the
+// voter's check was what made it provable. That was wrong, and a perturbation
+// test is what showed it.
+//
+// It matters, because the design stance here is that THE LEADER IS NOT TRUSTED.
+// A capability property that a compromised leader can void is not the property
+// this protocol wants. This lemma binds the issuer `I` in the PREMISE (so it is
+// universally quantified) and names THAT issuer's key in the escape clause --
+// not "some key somewhere". A leader compromise therefore does not excuse it:
+// an honest replica accepts a capability only if the issuer it names really
+// signed it. Deleting the `capsig` check in `Vote` falsifies this lemma; that
+// is what makes it, and not lemma 2, the load-bearing one for the voter.
+lemma cap_check_binds_issuer:
+  all-traces
+  "All R I c #i.
+       CapCheckedBy(R, I, c) @ #i
+    ==>
+       (Ex #j. CapIssued(I, c) @ #j & #j < #i)
+     | (Ex #r. Reveal(I) @ #r)"
 
 // Lemma 4 -- EXECUTABILITY (anti-vacuity for lemmas 1-3).
 //

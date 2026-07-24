@@ -12,7 +12,7 @@
 //! Biscuit's own chain provides the append-only / offline-attenuation structure the Tamarin model
 //! proves; the embedded DLC credential provides the machine-checked `says` typing + `verify_in_keyring`.
 
-use biscuit_auth::{Biscuit, KeyPair, PublicKey};
+use biscuit_auth::{AuthorizerBuilder, Biscuit, KeyPair, PublicKey};
 
 /// Errors from the Biscuit bridge.
 #[derive(Debug, thiserror::Error)]
@@ -62,6 +62,56 @@ pub fn to_biscuit(credential_cbor: &[u8], root: &KeyPair) -> Result<Vec<u8>, Bis
     biscuit
         .to_vec()
         .map_err(|e| BiscuitError::Biscuit(e.to_string()))
+}
+
+/// Embed a DLC-D `says`-credential into a Biscuit that ALSO carries an EXPIRY, the wire realization
+/// of DLC's revocable credential `within validUntil (p says φ)` (`spec/revocation-design.md`; the Lean
+/// `acceptableAt`/`AcceptsRevocable` gate and the Tamarin `RevocationCheck` restriction). The authority
+/// block gets a datalog check `check if dlc_now($t), $t <= validUntil`, so [`authorize_at`] rejects the
+/// token once the clock passes `valid_until` (an integer epoch — seconds since the UNIX epoch).
+///
+/// # Errors
+/// Propagates `biscuit-auth` build/serialize failures.
+pub fn to_biscuit_with_expiry(
+    credential_cbor: &[u8],
+    valid_until: i64,
+    root: &KeyPair,
+) -> Result<Vec<u8>, BiscuitError> {
+    let fact = format!("dlc_says_credential(\"{}\")", to_hex(credential_cbor));
+    let check = format!("check if dlc_now($t), $t <= {valid_until}");
+    let biscuit = Biscuit::builder()
+        .fact(fact.as_str())
+        .map_err(|e| BiscuitError::Biscuit(e.to_string()))?
+        .check(check.as_str())
+        .map_err(|e| BiscuitError::Biscuit(e.to_string()))?
+        .build(root)
+        .map_err(|e| BiscuitError::Biscuit(e.to_string()))?;
+    biscuit
+        .to_vec()
+        .map_err(|e| BiscuitError::Biscuit(e.to_string()))
+}
+
+/// Authorize an (expiring) Biscuit at wall-clock epoch `now`: parse + verify against `root`, then run
+/// the Biscuit authorizer with the fact `dlc_now(now)` and an `allow if true` policy. Returns `Ok(())`
+/// iff every block check passes — in particular the expiry check `dlc_now($t), $t <= validUntil`, so an
+/// EXPIRED token (`now > validUntil`) is rejected. This is DLC's `acceptableAt validUntil now` decided
+/// on the real Biscuit wire.
+///
+/// # Errors
+/// [`BiscuitError::Biscuit`] if the token does not parse/verify or authorization fails (expired, or no
+/// matching allow policy).
+pub fn authorize_at(biscuit_bytes: &[u8], root: PublicKey, now: i64) -> Result<(), BiscuitError> {
+    let biscuit =
+        Biscuit::from(biscuit_bytes, root).map_err(|e| BiscuitError::Biscuit(e.to_string()))?;
+    let mut authorizer = AuthorizerBuilder::new()
+        .code(format!("dlc_now({now});\nallow if true;"))
+        .map_err(|e| BiscuitError::Biscuit(e.to_string()))?
+        .build(&biscuit)
+        .map_err(|e| BiscuitError::Biscuit(e.to_string()))?;
+    authorizer
+        .authorize()
+        .map_err(|e| BiscuitError::Biscuit(e.to_string()))?;
+    Ok(())
 }
 
 /// Parse + verify a Biscuit token (against the root public key) and extract the embedded DLC-D
@@ -128,6 +178,33 @@ mod tests {
         assert_eq!(recovered, cbor);
 
         // And the embedded says-credential still verifies with the DLC checker.
+        let (issuer2, _aud, term2, sig2) = decode_credential(&recovered).expect("decode");
+        assert_eq!(issuer2, issuer);
+        assert_eq!(term2, term);
+        assert_eq!(sig2, sig);
+        assert!(verify_credential(&keyring, &issuer2, &term2, &sig2).is_ok());
+    }
+
+    #[test]
+    fn expiring_biscuit_authorizes_before_and_fails_after() {
+        let (keyring, issuer, term, sig, cbor) = signed_credential_cbor();
+        let root = KeyPair::new();
+        let valid_until = 1000i64;
+        let bytes =
+            to_biscuit_with_expiry(&cbor, valid_until, &root).expect("to_biscuit_with_expiry");
+
+        // Before / at the bound: authorization succeeds.
+        assert!(authorize_at(&bytes, root.public(), 500).is_ok());
+        assert!(authorize_at(&bytes, root.public(), valid_until).is_ok());
+
+        // After the bound: EXPIRED — authorization must fail (the wire realization of
+        // `¬ acceptableAt validUntil now`).
+        assert!(authorize_at(&bytes, root.public(), valid_until + 1).is_err());
+
+        // The embedded DLC credential still round-trips and still verifies — expiry gates
+        // acceptance without disturbing the carried says-credential.
+        let recovered = from_biscuit(&bytes, root.public()).expect("from_biscuit");
+        assert_eq!(recovered, cbor);
         let (issuer2, _aud, term2, sig2) = decode_credential(&recovered).expect("decode");
         assert_eq!(issuer2, issuer);
         assert_eq!(term2, term);

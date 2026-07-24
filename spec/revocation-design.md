@@ -127,3 +127,18 @@ event ordering) is **Tamarin-only**, since ProVerif's monotonic Horn translation
 `Revoked` precedes `Accepted`" (injective correspondence gives "there IS an earlier event", not "there
 is NONE") — the same honest projection as the interop disequality and replication slot-agreement
 fences. Revocation is now verified across four layers: Lean model + `Deriv` judgment + Tamarin + ProVerif.
+
+## 6. Wire realization — an expiring Biscuit (LANDED)
+
+The revocation gate is realized on the actual wire in `crates/dlc-interop/src/biscuit.rs`
+(`biscuit-auth` confined there — the Aeneas fence; `dlc-core` untouched). `to_biscuit_with_expiry`
+embeds the DLC says-credential AND a datalog check `check if dlc_now($t), $t <= validUntil` in the
+Biscuit authority block; `authorize_at(bytes, root_pk, now)` runs the Biscuit authorizer with the fact
+`dlc_now(now)` + `allow if true` and returns `Ok` iff the check passes. This is DLC's
+`acceptableAt validUntil now` (§2) / the Tamarin `RevocationCheck` (§5) **decided on a real Biscuit
+token**: the test `expiring_biscuit_authorizes_before_and_fails_after` shows the SAME token authorizes
+at `now ≤ validUntil` and is REJECTED at `now > validUntil` (the before/after differential on one token
+confirms it is the expiry check firing), while the embedded says-credential still round-trips and
+`verify_credential`-verifies. The revocation stack now spans **Lean model → `Deriv` judgment → Tamarin
+→ ProVerif → real Biscuit wire**. Fence: this is short-TTL/expiry revocation (bring the horizon
+forward); a per-credential blocklist and wall-clock-vs-abstract-epoch remain as noted in §4.

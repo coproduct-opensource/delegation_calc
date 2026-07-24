@@ -54,9 +54,19 @@ encode/decode** between the two representations of one credential, not a re-deri
 - **Compile-time ↔ runtime gap.** DLC-D's Tier-2 certificate proves *typeability* (`rust_infer_sound`);
   the Ed25519 realization of the `says`-credential is the separate `dlc-crypto` layer. The bridge joins
   a *typed* credential to a *signed* token; it does not collapse the two guarantees into one.
-- **Attenuate-only soundness is a Phase-4 gap.** The `Attenuate`/`Delegate` terms exist and Biscuit's
-  attenuation is offline-narrowing by construction, but "`Attenuate` only narrows" as a metatheorem
-  over `Deriv` is unproven (the terms are in `dlc-core`; the metatheorem is not).
+- **Attenuate-only soundness — generation lemma LANDED (Phase 4).** "`Attenuate` only narrows" is now
+  a machine-checked metatheorem over `Deriv`: `lean/DLC/AttenuateNarrows.lean`,
+  `attenuate_only_narrows` — from any well-typed `Γ ⊢ attenuate M ψ : p says ψ` we recover the parent
+  authority `Γ ⊢ M : p says φ` (same subject) AND a derivation `φ ⊢ ψ` (the narrowing witness;
+  entailment IS the narrowing order). Axiom-clean (`[propext]` only, no `sorry`). The induction handles
+  the two subject-preserving rules (`weakenA` re-weakens the parent; `withinE` is impossible by an
+  IH `within`≠`says` clash). Non-vacuity witness `attenuate_narrows_genuinely`: a genuine *non-identity*
+  narrowing `p says (a ∧ b) ↝ p says a` (so the recovered `φ ≠ ψ` — the statement is not the trivial
+  `φ := ψ`). Checker-level right-reason bite `decideLean_refuses_nonidentity_attenuation` (the shipped
+  checker returns `none` on a non-narrowing attenuation). **Remaining fence:** the *converse*
+  (Deriv-consistency: a genuine widening `ψ` is NOT derivable from `φ`) needs a semantic model of
+  `Deriv` — the next increment. This lemma is what the Tamarin `attenuation_roots_in_issuance` lemma
+  assumed structurally; the interop story no longer rests on that assumption.
 - **Runtime IFC stays type-level.** The `ℓ`/audience axis is a build-time claim (a faithful label decode
   is provably impossible — R2); RFC 8707 audience binding is enforced at the token layer, not by
   DLC-D's decode.

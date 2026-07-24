@@ -62,6 +62,13 @@ lean_lib «DecideDecode» where
 lean_lib «DecideSquare» where
   roots := #[`DLC.DecideSquare]
 
+-- Phase 4 (agent-governance gaps): `attenuate` only narrows — the
+-- offline-attenuation soundness metatheorem the Tamarin interop model assumes
+-- structurally (spec/interop-says-biscuit.md §2/§7). Generation lemma on Deriv +
+-- genuine-narrowing witness + checker-level right-reason bite.
+lean_lib «AttenuateNarrows» where
+  roots := #[`DLC.AttenuateNarrows]
+
 -- L1 (linear-lever campaign): the `CtxWellFormed` disambiguation invariant
 -- and its equivalence to the shipped checker. Depends on Judgment + Decidability.
 lean_lib «CtxWellFormed» where

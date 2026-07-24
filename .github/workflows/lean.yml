@@ -79,7 +79,7 @@ jobs:
                 ObligationSoundness ProtocolCorrespondence Progress Witness \
                 CoproductAlgebra GradedBridge GradedDistributiveLaw GradedBridgeGeneric \
                 CarveProto DerivClosed CarveCtx CarveJudgment DecideDecode \
-                CloneId DecideSquare DLCD \
+                CloneId DecideSquare AttenuateNarrows DLCD \
                 DLCAeneas DLCDRsmAeneas DLCDCorrespondence DLCDTransport \
                 DLCDTransportNI DLCDTransportConsensus"
           # DLC: built by the lean-mathlib-cache action above (build-target: DLC).

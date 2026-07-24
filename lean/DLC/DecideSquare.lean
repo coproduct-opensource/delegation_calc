@@ -200,4 +200,101 @@ theorem fwd_sign (p : principal.Principal) (m : syntax.Term) (sig : syntax.Signa
     injection h with h; injection h with h; subst h
     simp only [decTerm, decProp, decideLean, ih ctx val ho]
 
+/-- `inl ψ m` — `M : φ ⟹ φ ∨ ψ`; agrees given `m` agrees (clones the injected `other`). -/
+theorem fwd_inl (other : syntax.Prop) (m : syntax.Term) (ih : FwdAgree m) :
+    FwdAgree (syntax.Term.Inl other m) := by
+  intro ctx inferred h
+  rw [decide.infer] at h
+  obtain ⟨o, ho, h⟩ := bind_ok_inv h
+  cases o with
+  | none => simp [branch_none, bind_tc_ok,
+      core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual] at h
+  | some val =>
+    simp only [branch_some, CloneId.propClone_id, bind_tc_ok] at h
+    injection h with h; injection h with h; subst h
+    simp only [decTerm, decProp, decideLean, ih ctx val ho]
+
+/-- `inr φ m` — `M : ψ ⟹ φ ∨ ψ`. -/
+theorem fwd_inr (other : syntax.Prop) (m : syntax.Term) (ih : FwdAgree m) :
+    FwdAgree (syntax.Term.Inr other m) := by
+  intro ctx inferred h
+  rw [decide.infer] at h
+  obtain ⟨o, ho, h⟩ := bind_ok_inv h
+  cases o with
+  | none => simp [branch_none, bind_tc_ok,
+      core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual] at h
+  | some val =>
+    simp only [branch_some, CloneId.propClone_id, bind_tc_ok] at h
+    injection h with h; injection h with h; subst h
+    simp only [decTerm, decProp, decideLean, ih ctx val ho]
+
+/-- `within_intro τ m` — `M : φ ⟹ within τ φ` (clones the time bound). -/
+theorem fwd_withinIntro (tau : time.TimeBound) (m : syntax.Term) (ih : FwdAgree m) :
+    FwdAgree (syntax.Term.WithinIntro tau m) := by
+  intro ctx inferred h
+  rw [decide.infer] at h
+  obtain ⟨o, ho, h⟩ := bind_ok_inv h
+  cases o with
+  | none => simp [branch_none, bind_tc_ok,
+      core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual] at h
+  | some val =>
+    simp only [branch_some, CloneId.timeBoundClone_id, bind_tc_ok] at h
+    injection h with h; injection h with h; subst h
+    simp only [decTerm, decProp, decideLean, ih ctx val ho]
+
+/-- `lift_ℓ m` — introduces the IFC `at` modality; BOTH checkers agree (`decideLean`
+produces `at φ ℓ`, contrary to the retracted "label-free" invariant). Clones the label. -/
+theorem fwd_liftLabel (label : ifc.Label) (m : syntax.Term) (ih : FwdAgree m) :
+    FwdAgree (syntax.Term.LiftLabel label m) := by
+  intro ctx inferred h
+  rw [decide.infer] at h
+  obtain ⟨o, ho, h⟩ := bind_ok_inv h
+  cases o with
+  | none => simp [branch_none, bind_tc_ok,
+      core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual] at h
+  | some val =>
+    simp only [branch_some, CloneId.labelClone_id, bind_tc_ok] at h
+    injection h with h; injection h with h; subst h
+    simp only [decTerm, decProp, decideLean, ih ctx val ho]
+
+/-- `pair a b` — `A : φ, B : ψ ⟹ φ ∧ ψ`; agrees given both sub-terms agree. -/
+theorem fwd_pair (a b : syntax.Term) (iha : FwdAgree a) (ihb : FwdAgree b) :
+    FwdAgree (syntax.Term.Pair a b) := by
+  intro ctx inferred h
+  rw [decide.infer] at h
+  obtain ⟨o, ho, h⟩ := bind_ok_inv h
+  cases o with
+  | none => simp [branch_none, bind_tc_ok,
+      core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual] at h
+  | some val =>
+    simp only [branch_some, bind_tc_ok] at h
+    obtain ⟨o1, ho1, h⟩ := bind_ok_inv h
+    cases o1 with
+    | none => simp [branch_none, bind_tc_ok,
+        core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual] at h
+    | some val1 =>
+      simp only [branch_some, bind_tc_ok] at h
+      injection h with h; injection h with h; subst h
+      simp only [decTerm, decProp, decideLean, iha ctx val ho, ihb ctx val1 ho1]
+
+/-- `tensor_intro a b` — `A : φ, B : ψ ⟹ φ ⊗ ψ`. -/
+theorem fwd_tensorIntro (a b : syntax.Term) (iha : FwdAgree a) (ihb : FwdAgree b) :
+    FwdAgree (syntax.Term.TensorIntro a b) := by
+  intro ctx inferred h
+  rw [decide.infer] at h
+  obtain ⟨o, ho, h⟩ := bind_ok_inv h
+  cases o with
+  | none => simp [branch_none, bind_tc_ok,
+      core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual] at h
+  | some val =>
+    simp only [branch_some, bind_tc_ok] at h
+    obtain ⟨o1, ho1, h⟩ := bind_ok_inv h
+    cases o1 with
+    | none => simp [branch_none, bind_tc_ok,
+        core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual] at h
+    | some val1 =>
+      simp only [branch_some, bind_tc_ok] at h
+      injection h with h; injection h with h; subst h
+      simp only [decTerm, decProp, decideLean, iha ctx val ho, ihb ctx val1 ho1]
+
 end DLC.DecideSquare

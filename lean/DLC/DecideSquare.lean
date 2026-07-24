@@ -398,4 +398,42 @@ theorem infer_square_frag (term : syntax.Term) (hpf : PropFrag term) : FwdAgree 
   | snd m _ ih => exact fwd_snd m ih
   | lam phi body _ ih => exact fwd_lam phi body ih
 
+/-- Every `PropFrag` term decodes to a `Term.isPropositional` term — so T1
+(`t1_propositional_soundness`, which needs `isPropositional`) applies to the whole fragment
+(`isPropositional` = every constructor except the distributed `command`/`runCmd`). -/
+theorem propFrag_isPropositional (term : syntax.Term) (hpf : PropFrag term) :
+    (decTerm term).isPropositional = true := by
+  induction hpf with
+  | var i => rfl
+  | now t => rfl
+  | sign p m sig _ ih => simpa only [decTerm, DLC.Term.isPropositional] using ih
+  | inl o m _ ih => simpa only [decTerm, DLC.Term.isPropositional] using ih
+  | inr o m _ ih => simpa only [decTerm, DLC.Term.isPropositional] using ih
+  | withinIntro t m _ ih => simpa only [decTerm, DLC.Term.isPropositional] using ih
+  | liftLabel l m _ ih => simpa only [decTerm, DLC.Term.isPropositional] using ih
+  | pair a b _ _ iha ihb =>
+    simp only [decTerm, DLC.Term.isPropositional, iha, ihb, Bool.and_self]
+  | tensorIntro a b _ _ iha ihb =>
+    simp only [decTerm, DLC.Term.isPropositional, iha, ihb, Bool.and_self]
+  | fst m _ ih => simpa only [decTerm, DLC.Term.isPropositional] using ih
+  | snd m _ ih => simpa only [decTerm, DLC.Term.isPropositional] using ih
+  | lam phi body _ ih => simpa only [decTerm, DLC.Term.isPropositional] using ih
+
+/-- **★ Verified inference soundness.** If the shipped Rust checker `decide.infer` INFERS a type
+for a fragment term in an empty-linear context, that type is genuinely derivable — a real `Deriv`.
+Chains the assembled `infer_square_frag` (checker ≡ verified `decideLean`) with T1 soundness
+(`decideLean = some ⟹ Nonempty Deriv`). This is the "a green build carries a proof" guarantee for
+the agreeing fragment, stated for the inferred type (no `eq`-soundness lemma needed). -/
+theorem rust_infer_sound (ctx : judgment.Ctx) (term : syntax.Term) (inferred : syntax.Prop)
+    (hpf : PropFrag term) (hlin : ctx.linear.val = [])
+    (h : decide.infer ctx term = ok (some inferred)) :
+    Nonempty (DLC.Deriv (decCtx ctx) (decTerm term) (decProp inferred)) := by
+  have hagree := infer_square_frag term hpf ctx inferred h
+  have hprop := propFrag_isPropositional term hpf
+  have hctx : decCtx ctx = { additive := ctx.additive.val.map decProp, linear := [] } := by
+    simp only [decCtx, hlin, List.map_nil]
+  rw [hctx] at hagree ⊢
+  exact t1_propositional_soundness (decTerm term) (ctx.additive.val.map decProp)
+    (decProp inferred) hprop hagree
+
 end DLC.DecideSquare

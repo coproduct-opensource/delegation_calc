@@ -393,22 +393,31 @@ below `2^31` (the decidable no-overflow content). -/
 def WellScopedTm (t : syntax.Term) : Prop :=
   DLC.ClosedAbove (decTermC t) 0 ∧ heightB t < 2147483648
 
-/-! ## 4. `AppCommandRefines` — THE ONE REMAINING OBLIGATION.
+/-- The **closedness** fence that the *partial-correctness* transport actually needs.
+`reduce_with_fuel_corr` carries value-correctness on CLOSEDNESS ALONE; the `heightB` half of
+`WellScopedTm` was only load-bearing for the (false) unconditional-no-fail claim, and is dropped
+once no-fail is a *hypothesis* (`… = ok t'`) rather than a *conclusion*. This closedness predicate
+is the invariant the reducer-routed squares carry and thread through the `apply_prefix` fold (via
+`ApplyPreservesWS_holds`, which — unlike the old `WellScopedTm`-preserving claim — is TRUE: β
+preserves closedness even as it blows up `heightB`). -/
+def ClosedTm (t : syntax.Term) : Prop := DLC.ClosedAbove (decTermC t) 0
+
+/-! ## 4. The per-command reducer correspondence — DISCHARGED (R2.3d).
 
 The generated per-command engine `rsm.apply_command` refines the hand-written
-`DLCD.applyCommand` under the (abstract) payload decode, on well-scoped inputs —
-and never fails/diverges (folded into the `= .ok` equation via `Result.map`).
+`DLCD.applyCommand` under the concrete payload decode `decTermC`/`decPropC`. R2.2b
+ASSUMED this as a `def : Prop` hypothesis (`AppCommandRefines`) on every reducer-routed
+square; R2.3 built `reduce_with_fuel_corr`; R2.3d (this increment) DISCHARGES it as the
+proven theorem `AppCommandRefines_holds` — **in partial-correctness form**.
 
-R2.2b ASSUMES this (as a hypothesis on every structural square that routes
-through the reducer). R2.3 (the deferred `dlc-core` reducer correspondence)
-DISCHARGES it. It is **NOT** an `axiom` and **NOT** a `sorry`: it is a named
-`Prop` a later increment inhabits, and whose *consequent* the anti-vacuity
-witness (§7) already discharges on a concrete state-changing input. -/
-def AppCommandRefines (decTm : DecTm) (decPr : DecPr) : Prop :=
-  ∀ (c : rsm.Command) (s : syntax.Term),
-    WellScopedTm s → WellScopedTm c.payload →
-    (decTm <$> rsm.apply_command c s)
-      = Result.ok (DLCD.applyCommand (decCmd decTm decPr c) (decTm s))
+The old `= .ok` shape (`decTm <$> apply_command c s = ok …`) *encoded unconditional no-fail*
+over the whole 1024-step fuel loop, and that is FALSE (`spec/r2-inc3c-fuelloop-analysis.md`):
+β-reduction at-most-doubles binder depth per step, so an adversarial ≥2³¹-node closed payload
+drives the `U32` depth counter past `2³²` and the reducer genuinely `.fail`s. The honest form
+CONDITIONS on the reducer returning `ok` and asserts value-correctness only then; it is provable
+from CLOSEDNESS alone (no height fence). See `AppCommandRefines_holds`/`ApplyPreservesWS_holds`
+at the end of the module (they need `reduce_with_fuel_corr`, defined below). The anti-vacuity
+witnesses show the conditioned premise IS satisfiable on a concrete state-changing input. -/
 
 /-! ## 6. The generated-side `dup`/`init`, mirroring `DLCD.RsmAntiVacuity`.
 
@@ -505,37 +514,39 @@ private theorem apply_command_dup :
 
 /-! ## 7. ★ THE ANTI-VACUITY WITNESS — the closed satisfiability witness.
 
-`AppCommandRefines`'s consequent (the refinement equation) holds on the concrete
-state-changing `dup` input, and the decoded result is the **changed** store
-`⟨var0,var0⟩ ≠ var0`. This is the closed, `sorry`-free, `native_decide`-free
-satisfiability witness that the conditional squares are not vacuous: the equation
-they depend on is achievable on a real input (not free-because-`False`). Its
+The partial-correctness obligation `AppCommandRefines_holds` is CONDITIONED on the reducer
+returning `ok`. This witness inhabits that obligation on the concrete state-changing `dup` input:
+(1) the conditioned PREMISE is satisfiable — `rsm.apply_command dupGenW initGenW = ok pair00W`
+(the loop really returns `ok`, machine-computed through the real reducer, no `native_decide`);
+(2) the CONCLUSION then holds — the decoded reduct equals the hand `applyCommand`; and (3) it is
+STATE-CHANGING — `⟨now 0,now 0⟩ ≠ now 0`. So the obligation is not vacuously conditioned (the
+premise is not free-because-unsatisfiable) and not trivial (the transition changes state). Its
 axiom footprint is exactly `[propext, Classical.choice, Quot.sound]`. -/
 theorem appCommandRefines_witness :
-    (decTermC <$> rsm.apply_command dupGenW initGenW)
-        = Result.ok (DLCD.applyCommand (decCmd decTermC decPropC dupGenW) (decTermC initGenW))
+    rsm.apply_command dupGenW initGenW = ok pair00W
+      ∧ decTermC pair00W
+          = DLCD.applyCommand (decCmd decTermC decPropC dupGenW) (decTermC initGenW)
       ∧ decTermC pair00W ≠ decTermC initGenW := by
-  refine ⟨?_, ?_⟩
-  · rw [apply_command_dup]
-    -- LHS: decTermC <$> ok ⟨now 0,now 0⟩ = ok ⟨now 0,now 0⟩; RHS: hand applyCommand reduces likewise.
-    show Result.ok (decTermC pair00W) = _
+  refine ⟨apply_command_dup, ?_, ?_⟩
+  · -- the decoded reduct equals the hand `applyCommand` (both compute `⟨now 0,now 0⟩`).
     rfl
   · intro h
     simp only [decTermC, initGenW, pair00W] at h
     exact DLC.Term.noConfusion h
 
-/-! ## 8. ★ THE STRUCTURAL CORRESPONDENCE SQUARES.
+/-! ## 8. ★ THE STRUCTURAL CORRESPONDENCE SQUARES (helpers + the total `commit_square`).
 
-Each square proves `decode <$> (generated transition) = ok (hand transition of the
-decoded input)`. The reducer-routed squares (`deliver`, `world_step`,
-`apply_prefix`) carry `(hcmd : AppCommandRefines decTm decPr)` and route every
-`apply_command` step through it; `commit` routes through no reducer. All rest on
-the AST-wide clone-identity lemma (§2c) to discharge the `clone`-before-decode step.
-Honest `U32`/`Usize` no-overflow fences are stated hypotheses (benign for RSM
-inputs), never hand-waved. -/
+The TOTAL square `commit_square` (no reducer) lives here. The three REDUCER-ROUTED squares
+(`deliver_square`, `world_step_square`, `apply_prefix_square`) are stated in *partial-correctness*
+form and proved at the END of the module — they route the `apply_command` step through the
+DISCHARGED theorem `AppCommandRefines_holds`, which needs `reduce_with_fuel_corr` (defined below).
+Each square proves `decode <$> (generated transition) = ok (hand transition of the decoded input)`,
+either unconditionally (`commit`, pure arith) or CONDITIONED on the generated RSM op returning `ok`
+(the reducer-routed three). All rest on the AST-wide clone-identity lemma (§2c) to discharge the
+`clone`-before-decode step. The `map_ok_inv`/`next_*_usize` helpers below are shared. -/
 
 /-- Invert a decode-map equation: `f <$> m = ok y` forces `m` to succeed and its
-value to decode to `y`. The bridge from `hcmd`'s `.map` form to the raw
+value to decode to `y`. The bridge from the reducer-routed squares' `.map` conclusions to the raw
 `apply_command` result the generated `deliver`/`apply_prefix` bodies bind. -/
 private theorem map_ok_inv {α β} {f : α → β} {m : Result α} {y : β}
     (h : f <$> m = ok y) : ∃ x, m = ok x ∧ f x = y := by
@@ -543,38 +554,6 @@ private theorem map_ok_inv {α β} {f : α → β} {m : Result α} {y : β}
   | ok x => exact ⟨x, rfl, Result.ok.inj (by rw [show f <$> (ok x : Result α) = ok (f x) from rfl] at h; exact h)⟩
   | fail e => rw [show f <$> (fail e : Result α) = fail e from rfl] at h; simp at h
   | div => rw [show f <$> (div : Result α) = div from rfl] at h; simp at h
-
-/-- **`deliver_square`** (uses `hcmd`). Delivering the next committed slot to a
-replica decodes to `DLCD.deliver` of the decoded log and replica. Routes the
-`apply_command` step through `hcmd`; the out-of-bounds branch is clone-identity. -/
-theorem deliver_square (decTm : DecTm) (decPr : DecPr)
-    (hcmd : AppCommandRefines decTm decPr)
-    (log : alloc.vec.Vec rsm.Command) (r : rsm.Replica)
-    (hr : WellScopedTm r.store)
-    (hlog : ∀ c ∈ log.val, WellScopedTm c.payload)
-    (happ : r.applied.val + 1 ≤ Std.U32.max) :
-    (decRep decTm <$> rsm.deliver log r)
-      = ok (DLCD.deliver (decLog decTm decPr log) (decRep decTm r)) := by
-  have hidx : (UScalar.cast .Usize r.applied).val = r.applied.val := by
-    simp only [UScalar.cast_val_eq]; apply Nat.mod_eq_of_lt; scalar_tac
-  unfold rsm.deliver DLCD.deliver
-  simp only [alloc.vec.Vec.deref, core.slice.Slice.get, core.slice.index.SliceIndexUsizeSlice,
-    core.slice.index.Usize.get, lift, bind_tc_ok, Slice.getElem?_Usize_eq, hidx,
-    decRep, decLog, List.getElem?_map]
-  cases hc : log.val[r.applied.val]? with
-  | none =>
-    simp only [Option.map_none, replicaClone_id, decRep]
-    rfl
-  | some c =>
-    have hcmem : c ∈ log.val := List.mem_of_getElem? hc
-    have happly := hcmd c r.store hr (hlog c hcmem)
-    obtain ⟨t, ht, htd⟩ := map_ok_inv happly
-    obtain ⟨i1, hi1, hi1v⟩ :=
-      WP.spec_imp_exists (U32.add_spec (x := r.applied) (y := 1#u32) (by scalar_tac))
-    have hi1v' : i1.val = r.applied.val + 1 := by rw [hi1v]; rfl
-    simp only [Option.map_some, ht, hi1, bind_tc_ok]
-    show ok (decRep decTm { id := r.id, store := t, applied := i1 }) = _
-    simp only [decRep, htd, hi1v']
 
 /-- One `Usize` range advance `[a,b)` with `a < b`: yields `some a`, `start := a+1`. -/
 private theorem next_succ_usize {a b : Std.Usize} (hlt : a.val < b.val)
@@ -595,207 +574,6 @@ private theorem next_done_usize {a b : Std.Usize} (hge : b.val ≤ a.val) :
     core.iter.range.UScalarStep, core.cmp.impls.PartialOrdUsize.lt,
     core.clone.impls.CloneUsize.clone, lift, bind_ok, bind_tc_ok]
   rw [if_neg (by simp; omega)]
-
-/-- The generalized `world_step` loop spec: from an accumulator `acc` holding the
-first `k` already-delivered replicas, the loop over `[k, n)` decodes to
-`acc` (decoded) appended with `DLCD.deliver` applied to each remaining replica.
-Induction on the remaining count; each iteration invokes `deliver_square`. -/
-private theorem world_step_loop_spec (decTm : DecTm) (decPr : DecPr)
-    (hcmd : AppCommandRefines decTm decPr)
-    (reps : alloc.vec.Vec rsm.Replica) (logv : alloc.vec.Vec rsm.Command)
-    (hstores : ∀ rep ∈ reps.val, WellScopedTm rep.store)
-    (hlog : ∀ c ∈ logv.val, WellScopedTm c.payload)
-    (happ : ∀ rep ∈ reps.val, rep.applied.val + 1 ≤ Std.U32.max)
-    (n : Std.Usize) (hn : n.val = reps.val.length) :
-    ∀ (rem : Nat) (k : Std.Usize) (acc : alloc.vec.Vec rsm.Replica),
-      n.val = k.val + rem → k.val ≤ n.val → acc.val.length = k.val →
-      ((fun v => v.val.map (decRep decTm)) <$>
-          rsm.world_step_loop { start := k, «end» := n } reps logv acc)
-        = ok (acc.val.map (decRep decTm)
-              ++ (reps.val.drop k.val).map
-                  (fun rep => DLCD.deliver (decLog decTm decPr logv) (decRep decTm rep))) := by
-  intro rem
-  induction rem with
-  | zero =>
-    intro k acc hrem hkn hacclen
-    have hke : k.val = n.val := by omega
-    have hbody : rsm.world_step_loop.body reps logv { start := k, «end» := n } acc
-        = ok (ControlFlow.done acc) := by
-      unfold rsm.world_step_loop.body
-      rw [next_done_usize (a := k) (b := n) (by omega)]
-      simp
-    rw [show rsm.world_step_loop { start := k, «end» := n } reps logv acc
-          = loop (fun p => rsm.world_step_loop.body reps logv p.1 p.2)
-              ({ start := k, «end» := n }, acc) from rfl,
-        loop_fin _ _ acc hbody]
-    have hde : reps.val.drop k.val = [] := by rw [hke, hn]; exact List.drop_length
-    simp only [hde, List.map_nil, List.append_nil]
-    rfl
-  | succ m ih =>
-    intro k acc hrem hkn hacclen
-    have hk_lt : k.val < n.val := by omega
-    have hk_len : k.val < reps.val.length := by rw [← hn]; exact hk_lt
-    have hle := alloc.vec.Vec.len_ineq reps
-    have hsucc : k.val + 1 ≤ Std.Usize.max := by omega
-    have hmem : reps.val[k.val]'hk_len ∈ reps.val := List.getElem_mem hk_len
-    have hdsq := deliver_square decTm decPr hcmd logv (reps.val[k.val]'hk_len)
-      (hstores _ hmem) hlog (happ _ hmem)
-    obtain ⟨rep', hrep', hrepd⟩ := map_ok_inv hdsq
-    have hpushfence : acc.val.length < Std.Usize.max := by rw [hacclen]; omega
-    obtain ⟨acc', hpush, haccval⟩ := WP.spec_imp_exists (alloc.vec.Vec.push_spec acc rep' hpushfence)
-    set k1 : Std.Usize := UScalar.ofNatCore (k.val + 1) (by scalar_tac) with hk1_def
-    have hk1v : k1.val = k.val + 1 := by rw [hk1_def]; exact UScalar.ofNatCore_val_eq _
-    have hbody : rsm.world_step_loop.body reps logv { start := k, «end» := n } acc
-        = ok (ControlFlow.cont ({ start := k1, «end» := n }, acc')) := by
-      unfold rsm.world_step_loop.body
-      rw [next_succ_usize hk_lt hsucc]
-      simp [alloc.vec.Vec.index_slice_index, alloc.vec.Vec.index_usize,
-        List.getElem?_eq_getElem hk_len, hrep', hpush, hk1_def]
-    rw [show rsm.world_step_loop { start := k, «end» := n } reps logv acc
-          = loop (fun p => rsm.world_step_loop.body reps logv p.1 p.2)
-              ({ start := k, «end» := n }, acc) from rfl,
-        loop_cont _ _ ({ start := k1, «end» := n }, acc') hbody,
-        show loop (fun p => rsm.world_step_loop.body reps logv p.1 p.2)
-              ({ start := k1, «end» := n }, acc')
-          = rsm.world_step_loop { start := k1, «end» := n } reps logv acc' from rfl]
-    rw [ih k1 acc' (by omega) (by omega) (by rw [haccval, List.length_append, hacclen, hk1v]; rfl)]
-    have hdrop : reps.val.drop k.val = reps.val[k.val]'hk_len :: reps.val.drop k1.val := by
-      rw [hk1v]; exact List.drop_eq_getElem_cons hk_len
-    simp only [haccval, hdrop, List.map_append, List.map_cons, List.map_nil, List.append_assoc,
-      List.cons_append, List.nil_append, hrepd]
-
-/-- **★ `world_step_square`** (the headline square; uses `hcmd`). One synchronous
-world step — every replica delivers its next committed slot — decodes to
-`DLCD.worldStep`. Built from the push-accumulator `world_step_loop_spec`, which
-invokes `deliver_square` per replica. This is what R2.4 pulls G1–G4 back through. -/
-theorem world_step_square (decTm : DecTm) (decPr : DecPr)
-    (hcmd : AppCommandRefines decTm decPr) (g : rsm.GlobalConfig)
-    (hstores : ∀ rep ∈ g.replicas.val, WellScopedTm rep.store)
-    (hlog : ∀ c ∈ g.log.val, WellScopedTm c.payload)
-    (happ : ∀ rep ∈ g.replicas.val, rep.applied.val + 1 ≤ Std.U32.max) :
-    (decGC decTm decPr <$> rsm.world_step g)
-      = ok (DLCD.worldStep (decGC decTm decPr g)) := by
-  have hn : (alloc.vec.Vec.len g.replicas).val = g.replicas.val.length := alloc.vec.Vec.len_val _
-  have hloop := world_step_loop_spec decTm decPr hcmd g.replicas g.log hstores hlog happ
-    (alloc.vec.Vec.len g.replicas) hn (alloc.vec.Vec.len g.replicas).val 0#usize
-    (alloc.vec.Vec.new rsm.Replica) (by simp) (by simp) (by simp)
-  obtain ⟨stepped, hstepped, hsteppedval⟩ := map_ok_inv hloop
-  unfold rsm.world_step
-  simp only [hstepped, vecCommandClone_id, fbClone_id, bind_tc_ok]
-  show ok (decGC decTm decPr { replicas := stepped, log := g.log, budget := g.budget }) = _
-  unfold DLCD.worldStep
-  simp only [decGC, decLog, hsteppedval]
-  simp [List.map_map, Function.comp_def]
-
-/-- **Second deferred obligation** (a `def : Prop`, never an `axiom`, never a
-`sorry`). The generated `apply_command` preserves the `WellScopedTm` fence: the
-reduct of a well-scoped store under a well-scoped command is itself well-scoped.
-This threads the fence through the `apply_prefix` *fold* — each intermediate
-accumulator that the next `hcmd` step consumes stays in-scope. R2.3 discharges it
-(the reducer preserves the variable-index bound); `applyPreservesWS_witness` shows
-it is non-vacuously satisfiable on a concrete state-changing input. -/
-def ApplyPreservesWS : Prop :=
-  ∀ (c : rsm.Command) (s t : syntax.Term),
-    WellScopedTm s → WellScopedTm c.payload → rsm.apply_command c s = ok t → WellScopedTm t
-
-/-- Anti-vacuity for `ApplyPreservesWS` (same standard as `appCommandRefines_witness`):
-on the concrete state-CHANGING `dup` input, the reduct `⟨var0,var0⟩` of the
-well-scoped store `var0` under the well-scoped `dup` command is itself well-scoped —
-premises and conclusion of the preservation predicate are jointly achievable on a
-real transition, so `ApplyPreservesWS` is not `False`. -/
-theorem applyPreservesWS_witness :
-    WellScopedTm initGenW ∧ WellScopedTm dupGenW.payload
-      ∧ rsm.apply_command dupGenW initGenW = ok pair00W
-      ∧ WellScopedTm pair00W ∧ pair00W ≠ initGenW := by
-  refine ⟨?_, ?_, apply_command_dup, ?_, ?_⟩
-  · -- store `now 0`: decodes to `now 0`, closed (no vars); height 0.
-    exact ⟨by intro i _; rfl, by decide⟩
-  · -- payload `λ_. ⟨var0,var0⟩`: decodes to `lam _ ⟨var0,var0⟩`, closed; height 2.
-    refine ⟨?_, by decide⟩
-    intro i _
-    have h0 : ((0#u32 : Std.U32).val) = 0 := rfl
-    simp only [dupGenW, decTermC, decPropC, DLC.usesVar, h0, Bool.or_eq_false_iff,
-      beq_eq_false_iff_ne, ne_eq]
-    omega
-  · -- reduct `⟨now 0, now 0⟩`: closed; height 1.
-    exact ⟨by intro i _; rfl, by decide⟩
-  · simp [pair00W, initGenW]
-
-/-- The generalized `apply_prefix` fold-loop spec: from a well-scoped accumulator
-`acc` after `k` commands, the loop over `[k, n)` decodes to `List.foldl applyCommand`
-over the decoded remaining commands. Induction on the remaining count; each step
-routes `apply_command` through `hcmd` and threads well-scopedness via `hpres`. -/
-private theorem apply_prefix_loop_spec (decTm : DecTm) (decPr : DecPr)
-    (hcmd : AppCommandRefines decTm decPr) (hpres : ApplyPreservesWS)
-    (cmds : Slice rsm.Command) (hcmds : ∀ c ∈ cmds.val, WellScopedTm c.payload)
-    (n : Std.Usize) (hn : n.val = cmds.val.length) :
-    ∀ (rem : Nat) (k : Std.Usize) (acc : syntax.Term),
-      n.val = k.val + rem → k.val ≤ n.val → WellScopedTm acc →
-      (decTm <$> rsm.apply_prefix_loop { start := k, «end» := n } cmds acc)
-        = ok (((cmds.val.drop k.val).map (decCmd decTm decPr)).foldl
-                (fun s c => DLCD.applyCommand c s) (decTm acc)) := by
-  intro rem
-  induction rem with
-  | zero =>
-    intro k acc hrem hkn hacc
-    have hke : k.val = n.val := by omega
-    have hbody : rsm.apply_prefix_loop.body cmds { start := k, «end» := n } acc
-        = ok (ControlFlow.done acc) := by
-      unfold rsm.apply_prefix_loop.body
-      rw [next_done_usize (a := k) (b := n) (by omega)]
-      simp
-    rw [show rsm.apply_prefix_loop { start := k, «end» := n } cmds acc
-          = loop (fun p => rsm.apply_prefix_loop.body cmds p.1 p.2)
-              ({ start := k, «end» := n }, acc) from rfl,
-        loop_fin _ _ acc hbody]
-    have hde : cmds.val.drop k.val = [] := by rw [hke, hn]; exact List.drop_length
-    simp only [hde, List.map_nil, List.foldl_nil]
-    rfl
-  | succ m ih =>
-    intro k acc hrem hkn hacc
-    have hk_lt : k.val < n.val := by omega
-    have hk_len : k.val < cmds.val.length := by rw [← hn]; exact hk_lt
-    have hle := Slice.length_ineq cmds
-    have hsucc : k.val + 1 ≤ Std.Usize.max := by omega
-    have hmem : cmds.val[k.val]'hk_len ∈ cmds.val := List.getElem_mem hk_len
-    have happly := hcmd (cmds.val[k.val]'hk_len) acc hacc (hcmds _ hmem)
-    obtain ⟨t, ht, htd⟩ := map_ok_inv happly
-    have hacc' : WellScopedTm t := hpres (cmds.val[k.val]'hk_len) acc t hacc (hcmds _ hmem) ht
-    set k1 : Std.Usize := UScalar.ofNatCore (k.val + 1) (by scalar_tac) with hk1_def
-    have hk1v : k1.val = k.val + 1 := by rw [hk1_def]; exact UScalar.ofNatCore_val_eq _
-    have hbody : rsm.apply_prefix_loop.body cmds { start := k, «end» := n } acc
-        = ok (ControlFlow.cont ({ start := k1, «end» := n }, t)) := by
-      unfold rsm.apply_prefix_loop.body
-      rw [next_succ_usize hk_lt hsucc]
-      simp [Slice.index_usize, List.getElem?_eq_getElem hk_len, ht, hk1_def]
-    rw [show rsm.apply_prefix_loop { start := k, «end» := n } cmds acc
-          = loop (fun p => rsm.apply_prefix_loop.body cmds p.1 p.2)
-              ({ start := k, «end» := n }, acc) from rfl,
-        loop_cont _ _ ({ start := k1, «end» := n }, t) hbody,
-        show loop (fun p => rsm.apply_prefix_loop.body cmds p.1 p.2)
-              ({ start := k1, «end» := n }, t)
-          = rsm.apply_prefix_loop { start := k1, «end» := n } cmds t from rfl]
-    rw [ih k1 t (by omega) (by omega) hacc']
-    have hdrop : cmds.val.drop k.val = cmds.val[k.val]'hk_len :: cmds.val.drop k1.val := by
-      rw [hk1v]; exact List.drop_eq_getElem_cons hk_len
-    simp only [hdrop, List.map_cons, List.foldl_cons, htd]
-
-/-- **`apply_prefix_square`** (uses `hcmd` and `hpres`). Folding a committed
-command prefix onto an initial store decodes to `DLCD.applyPrefix`
-(`List.foldl applyCommand`). Each fold step routes through `hcmd`; `hpres` keeps
-the running accumulator in the well-scoped fence. -/
-theorem apply_prefix_square (decTm : DecTm) (decPr : DecPr)
-    (hcmd : AppCommandRefines decTm decPr) (hpres : ApplyPreservesWS)
-    (init : syntax.Term) (cmds : Slice rsm.Command)
-    (hinit : WellScopedTm init) (hcmds : ∀ c ∈ cmds.val, WellScopedTm c.payload) :
-    (decTm <$> rsm.apply_prefix init cmds)
-      = ok (DLCD.applyPrefix (decTm init) (cmds.val.map (decCmd decTm decPr))) := by
-  have hn : (Slice.len cmds).val = cmds.val.length := Slice.len_val _
-  unfold rsm.apply_prefix
-  simp only [termClone_id, bind_tc_ok]
-  rw [apply_prefix_loop_spec decTm decPr hcmd hpres cmds hcmds (Slice.len cmds) hn
-    (Slice.len cmds).val 0#usize init (by simp) (by simp) hinit]
-  simp [DLCD.applyPrefix]
 
 /-- **`commit_square`** (no `hcmd`). Appending a command to the committed log
 (`clone` the log, `push c`) decodes to `List.append` of the decoded command. There
@@ -4270,5 +4048,333 @@ theorem reduce_with_fuel_corr (t t' : syntax.Term) (fuel k : Std.U32)
   rw [termClone_id] at hok
   simp only [bind_tc_ok] at hok
   exact reduce_loop_spec fuel fuel.val 0#u32 t (t', k) hcl (by simp) hok
+
+/-! ## 10. ★ R2.3d — DISCHARGING the two obligations + the reducer-routed squares.
+
+`reduce_with_fuel_corr` (above) is the partial-correctness leaf. This section spends it:
+it DISCHARGES `AppCommandRefines`/`ApplyPreservesWS` as PROVEN theorems (no longer stated
+`def : Prop` obligations) and re-proves the three reducer-routed squares in partial-correctness
+form, routing every `apply_command` step through the now-proven `AppCommandRefines_holds`
+(they carry no `hcmd`/`hpres` hypothesis — those facts are theorems). The fence is CLOSEDNESS
+(`ClosedTm`); the `heightB` half of `WellScopedTm` is unnecessary (it was only load-bearing for
+the false no-fail claim) and is not preserved by β regardless. -/
+
+/-- `app` of two closed terms is closed. -/
+private theorem closedAbove_appC {a b : DLC.Term}
+    (ha : DLC.ClosedAbove a 0) (hb : DLC.ClosedAbove b 0) :
+    DLC.ClosedAbove (DLC.Term.app a b) 0 := by
+  intro i hi
+  simp only [DLC.usesVar, Bool.or_eq_false_iff]
+  exact ⟨ha i hi, hb i hi⟩
+
+/-- **Hand-side closedness preservation across the fuel loop.** `DLC.reduceWithFuel` iterates
+`DLC.step`, and `step_preserves_closed` is the per-step fact; so the final term of any run from a
+CLOSED seed is closed. Pure statement about the hand model (no generated code touched). -/
+private theorem reduceWithFuel_preserves_closed :
+    ∀ (n : Nat) (M : DLC.Term), DLC.ClosedAbove M 0 →
+      DLC.ClosedAbove (DLC.reduceWithFuel M n).1 0 := by
+  intro n
+  induction n with
+  | zero => intro M hcl; simpa only [DLC.reduceWithFuel] using hcl
+  | succ m ih =>
+      intro M hcl
+      simp only [DLC.reduceWithFuel]
+      cases hstep : DLC.step M with
+      | none => simpa using hcl
+      | some M' =>
+          have hcl' := step_preserves_closed M hcl M' hstep
+          simpa using ih M' hcl'
+
+/-- **★ Deliverable 1a — `AppCommandRefines` DISCHARGED (partial correctness).** On a CLOSED store
+and CLOSED payload, IF the generated `rsm.apply_command` returns `ok t'`, then `t'` decodes to the
+hand `DLCD.applyCommand`. PROVEN (no longer a `def : Prop`) via `reduce_with_fuel_corr` and the
+decode homomorphism `decTermC (App a b) = .app (decTermC a) (decTermC b)`. No-fail is NOT claimed
+(it is the `= ok t'` hypothesis, not a conclusion). -/
+theorem AppCommandRefines_holds (c : rsm.Command) (s t' : syntax.Term)
+    (hs : ClosedTm s) (hpay : ClosedTm c.payload)
+    (hok : rsm.apply_command c s = ok t') :
+    decTermC t' = DLCD.applyCommand (decCmd decTermC decPropC c) (decTermC s) := by
+  have hclApp : DLC.ClosedAbove (decTermC (syntax.Term.App c.payload s)) 0 :=
+    closedAbove_appC hpay hs
+  rw [rsm.apply_command] at hok
+  rw [termClone_id, termClone_id] at hok
+  simp only [bind_tc_ok] at hok
+  obtain ⟨⟨t2, k⟩, hred, he⟩ := bind_ok_inv hok
+  obtain rfl : t2 = t' := Result.ok.inj he
+  have hcorr := reduce_with_fuel_corr (syntax.Term.App c.payload s) t2 rsm.APPLY_FUEL k hclApp hred
+  have hfuel : (rsm.APPLY_FUEL).val = DLCD.applyFuel := by
+    simp only [rsm.APPLY_FUEL, DLCD.applyFuel]; rfl
+  rw [hcorr]
+  simp only [decTermC, decCmd, DLCD.applyCommand, hfuel]
+
+/-- **★ Deliverable 1b — `ApplyPreservesWS` DISCHARGED (closedness preservation).** IF the generated
+`rsm.apply_command` returns `ok t` on a closed store + payload, the result is CLOSED. This is the
+TRUE preservation fact (unlike the old `WellScopedTm`-preserving claim: β preserves closedness even
+as it blows up `heightB`). It threads the fold in `apply_prefix_square`. Proved by transporting the
+value through `AppCommandRefines_holds` and the hand-side `reduceWithFuel_preserves_closed`. -/
+theorem ApplyPreservesWS_holds (c : rsm.Command) (s t : syntax.Term)
+    (hs : ClosedTm s) (hpay : ClosedTm c.payload)
+    (hok : rsm.apply_command c s = ok t) :
+    ClosedTm t := by
+  have hval := AppCommandRefines_holds c s t hs hpay hok
+  show DLC.ClosedAbove (decTermC t) 0
+  rw [hval]
+  unfold DLCD.applyCommand
+  apply reduceWithFuel_preserves_closed
+  simp only [decCmd]
+  exact closedAbove_appC hpay hs
+
+/-! ### The relocated anti-vacuity witness for the (now discharged) preservation fact. -/
+
+/-- Anti-vacuity for `ApplyPreservesWS_holds`: on the concrete state-CHANGING `dup` input, the store
+`now 0` and payload `λ_.⟨var0,var0⟩` are closed, `apply_command` returns `ok ⟨now 0,now 0⟩`, and the
+reduct is closed and `≠ now 0`. So the discharged preservation fact's premises and conclusion are
+jointly achievable on a real transition — not vacuously conditioned, and state-changing. -/
+theorem applyPreservesWS_witness :
+    ClosedTm initGenW ∧ ClosedTm dupGenW.payload
+      ∧ rsm.apply_command dupGenW initGenW = ok pair00W
+      ∧ ClosedTm pair00W ∧ pair00W ≠ initGenW := by
+  refine ⟨?_, ?_, apply_command_dup, ?_, ?_⟩
+  · intro i _; rfl
+  · intro i _
+    have h0 : ((0#u32 : Std.U32).val) = 0 := rfl
+    simp only [dupGenW, decTermC, decPropC, DLC.usesVar, h0, Bool.or_eq_false_iff,
+      beq_eq_false_iff_ne, ne_eq]
+    omega
+  · intro i _; rfl
+  · simp [pair00W, initGenW]
+
+/-! ### The three reducer-routed squares — partial-correctness, unconditional-modulo-ok. -/
+
+/-- **`deliver_square`** (partial correctness; no `hcmd`). IF the generated `rsm.deliver` returns
+`ok r'`, the delivered replica decodes to `DLCD.deliver` of the decoded log and replica. The
+`apply_command` step is routed through the DISCHARGED `AppCommandRefines_holds`; the no-op
+(out-of-bounds) branch is clone-identity. -/
+theorem deliver_square
+    (log : alloc.vec.Vec rsm.Command) (r r' : rsm.Replica)
+    (hr : ClosedTm r.store)
+    (hlog : ∀ c ∈ log.val, ClosedTm c.payload)
+    (hok : rsm.deliver log r = ok r') :
+    decRep decTermC r' = DLCD.deliver (decLog decTermC decPropC log) (decRep decTermC r) := by
+  have hidx : (UScalar.cast .Usize r.applied).val = r.applied.val := by
+    simp only [UScalar.cast_val_eq]; apply Nat.mod_eq_of_lt; scalar_tac
+  rw [rsm.deliver] at hok
+  simp only [alloc.vec.Vec.deref, core.slice.Slice.get,
+    core.slice.index.Usize.get, lift, bind_tc_ok, Slice.getElem?_Usize_eq, hidx] at hok
+  unfold DLCD.deliver
+  simp only [decRep, decLog, List.getElem?_map]
+  split at hok
+  next hc =>
+    rw [replicaClone_id] at hok
+    obtain rfl := (Result.ok.inj hok).symm
+    simp only [hc, Option.map_none]
+  next c hc =>
+    have hcmem : c ∈ log.val := List.mem_of_getElem? hc
+    obtain ⟨t, happly, hok2⟩ := bind_ok_inv hok
+    obtain ⟨i1, hi1, hok3⟩ := bind_ok_inv hok2
+    obtain rfl := (Result.ok.inj hok3).symm
+    have hdt := AppCommandRefines_holds c r.store t hr (hlog c hcmem) happly
+    have hi1v : i1.val = r.applied.val + 1 := u32_add_one_inv hi1
+    simp only [hc, Option.map_some, hdt, hi1v]
+
+/-- The generalized `world_step` loop spec (partial correctness): IF the generated push-accumulator
+loop over `[k, n)` returns `ok stepped`, the decoded `stepped` is the `k`-prefix (decoded) appended
+with `DLCD.deliver` applied to each remaining replica. Induction on the remaining count; each
+successful iteration inverts the loop body (deliver must have returned `ok`) and invokes
+`deliver_square`. (Inversion idiom shared with `reduce_loop_spec`.) -/
+private theorem world_step_loop_spec
+    (reps : alloc.vec.Vec rsm.Replica) (logv : alloc.vec.Vec rsm.Command)
+    (hstores : ∀ rep ∈ reps.val, ClosedTm rep.store)
+    (hlog : ∀ c ∈ logv.val, ClosedTm c.payload)
+    (n : Std.Usize) (hn : n.val = reps.val.length) :
+    ∀ (rem : Nat) (k : Std.Usize) (acc stepped : alloc.vec.Vec rsm.Replica),
+      n.val = k.val + rem → k.val ≤ n.val → acc.val.length = k.val →
+      rsm.world_step_loop { start := k, «end» := n } reps logv acc = ok stepped →
+      stepped.val.map (decRep decTermC)
+        = acc.val.map (decRep decTermC)
+          ++ (reps.val.drop k.val).map
+              (fun rep => DLCD.deliver (decLog decTermC decPropC logv) (decRep decTermC rep)) := by
+  intro rem
+  induction rem with
+  | zero =>
+      intro k acc stepped hrem hkn hacclen hloop
+      have hke : k.val = n.val := by omega
+      have hbody : rsm.world_step_loop.body reps logv { start := k, «end» := n } acc
+          = ok (ControlFlow.done acc) := by
+        unfold rsm.world_step_loop.body
+        rw [next_done_usize (a := k) (b := n) (by omega)]; simp
+      rw [show rsm.world_step_loop { start := k, «end» := n } reps logv acc
+            = loop (fun p => rsm.world_step_loop.body reps logv p.1 p.2)
+                ({ start := k, «end» := n }, acc) from rfl,
+          loop_fin _ _ acc hbody] at hloop
+      obtain rfl := (Result.ok.inj hloop).symm
+      have hde : reps.val.drop k.val = [] := by rw [hke, hn]; exact List.drop_length
+      simp only [hde, List.map_nil, List.append_nil]
+  | succ m ih =>
+      intro k acc stepped hrem hkn hacclen hloop
+      have hk_lt : k.val < n.val := by omega
+      have hk_len : k.val < reps.val.length := by rw [← hn]; exact hk_lt
+      have hle := alloc.vec.Vec.len_ineq reps
+      have hsucc : k.val + 1 ≤ Std.Usize.max := by omega
+      have hmem : reps.val[k.val]'hk_len ∈ reps.val := List.getElem_mem hk_len
+      set k1 : Std.Usize := UScalar.ofNatCore (k.val + 1) (by scalar_tac) with hk1_def
+      have hk1v : k1.val = k.val + 1 := by rw [hk1_def]; exact UScalar.ofNatCore_val_eq _
+      rw [show rsm.world_step_loop { start := k, «end» := n } reps logv acc
+            = loop (fun p => rsm.world_step_loop.body reps logv p.1 p.2)
+                ({ start := k, «end» := n }, acc) from rfl] at hloop
+      cases hdel : rsm.deliver logv (reps.val[k.val]'hk_len) with
+      | fail e =>
+          have hbody : rsm.world_step_loop.body reps logv { start := k, «end» := n } acc = fail e := by
+            unfold rsm.world_step_loop.body
+            rw [next_succ_usize hk_lt hsucc]
+            simp [alloc.vec.Vec.index_slice_index, alloc.vec.Vec.index_usize,
+              List.getElem?_eq_getElem hk_len, hdel]
+          rw [loop.eq_1] at hloop; simp [hbody] at hloop
+      | div =>
+          have hbody : rsm.world_step_loop.body reps logv { start := k, «end» := n } acc = .div := by
+            unfold rsm.world_step_loop.body
+            rw [next_succ_usize hk_lt hsucc]
+            simp [alloc.vec.Vec.index_slice_index, alloc.vec.Vec.index_usize,
+              List.getElem?_eq_getElem hk_len, hdel]
+          rw [loop.eq_1] at hloop; simp [hbody] at hloop
+      | ok r1 =>
+          have hpushfence : acc.val.length < Std.Usize.max := by rw [hacclen]; omega
+          obtain ⟨acc', hpush, haccval⟩ :=
+            WP.spec_imp_exists (alloc.vec.Vec.push_spec acc r1 hpushfence)
+          have hbody : rsm.world_step_loop.body reps logv { start := k, «end» := n } acc
+              = ok (ControlFlow.cont ({ start := k1, «end» := n }, acc')) := by
+            unfold rsm.world_step_loop.body
+            rw [next_succ_usize hk_lt hsucc]
+            simp [alloc.vec.Vec.index_slice_index, alloc.vec.Vec.index_usize,
+              List.getElem?_eq_getElem hk_len, hdel, hpush, hk1_def]
+          rw [loop_cont _ _ ({ start := k1, «end» := n }, acc') hbody,
+              show loop (fun p => rsm.world_step_loop.body reps logv p.1 p.2)
+                    ({ start := k1, «end» := n }, acc')
+                = rsm.world_step_loop { start := k1, «end» := n } reps logv acc' from rfl] at hloop
+          have hdsq := deliver_square logv (reps.val[k.val]'hk_len) r1
+            (hstores _ hmem) hlog hdel
+          have hih := ih k1 acc' stepped (by omega) (by omega)
+            (by rw [haccval, List.length_append, hacclen, hk1v]; rfl) hloop
+          have hdrop : reps.val.drop k.val = reps.val[k.val]'hk_len :: reps.val.drop k1.val := by
+            rw [hk1v]; exact List.drop_eq_getElem_cons hk_len
+          rw [hih, haccval, hdrop]
+          simp only [List.map_append, List.map_cons, List.map_nil, List.append_assoc,
+            List.cons_append, List.nil_append, hdsq]
+
+/-- **★ `world_step_square`** (the headline square; partial correctness, no `hcmd`). IF one
+synchronous world step returns `ok g'`, then `g'` decodes to `DLCD.worldStep`. Built from the
+push-accumulator `world_step_loop_spec`, invoking `deliver_square` per replica. This is what R2.4
+pulls G1–G4 back through — for non-overflowing (ok) executions. -/
+theorem world_step_square (g g' : rsm.GlobalConfig)
+    (hstores : ∀ rep ∈ g.replicas.val, ClosedTm rep.store)
+    (hlog : ∀ c ∈ g.log.val, ClosedTm c.payload)
+    (hok : rsm.world_step g = ok g') :
+    decGC decTermC decPropC g' = DLCD.worldStep (decGC decTermC decPropC g) := by
+  have hn : (alloc.vec.Vec.len g.replicas).val = g.replicas.val.length := alloc.vec.Vec.len_val _
+  simp only [rsm.world_step] at hok
+  obtain ⟨stepped, hstepped, hok2⟩ := bind_ok_inv hok
+  rw [vecCommandClone_id] at hok2
+  simp only [bind_tc_ok] at hok2
+  rw [fbClone_id] at hok2
+  simp only [bind_tc_ok] at hok2
+  obtain rfl := (Result.ok.inj hok2).symm
+  have hloop := world_step_loop_spec g.replicas g.log hstores hlog
+    (alloc.vec.Vec.len g.replicas) hn (alloc.vec.Vec.len g.replicas).val 0#usize
+    (alloc.vec.Vec.new rsm.Replica) stepped (by simp) (by simp) (by simp) hstepped
+  unfold DLCD.worldStep
+  simp only [decGC, decLog]
+  rw [hloop]
+  simp [decLog, List.map_map, Function.comp_def]
+
+/-- The generalized `apply_prefix` fold-loop spec (partial correctness): IF the generated fold over
+`[k, n)` returns `ok res`, the decoded `res` is `List.foldl applyCommand` over the decoded remaining
+commands. Induction on the remaining count; each successful iteration inverts the body (the
+`apply_command` step must have returned `ok`), routes value-correctness through
+`AppCommandRefines_holds`, and threads CLOSEDNESS of the accumulator via `ApplyPreservesWS_holds`. -/
+private theorem apply_prefix_loop_spec
+    (cmds : Slice rsm.Command) (hcmds : ∀ c ∈ cmds.val, ClosedTm c.payload)
+    (n : Std.Usize) (hn : n.val = cmds.val.length) :
+    ∀ (rem : Nat) (k : Std.Usize) (acc res : syntax.Term),
+      n.val = k.val + rem → k.val ≤ n.val → ClosedTm acc →
+      rsm.apply_prefix_loop { start := k, «end» := n } cmds acc = ok res →
+      decTermC res
+        = ((cmds.val.drop k.val).map (decCmd decTermC decPropC)).foldl
+            (fun s c => DLCD.applyCommand c s) (decTermC acc) := by
+  intro rem
+  induction rem with
+  | zero =>
+      intro k acc res hrem hkn hacc hloop
+      have hke : k.val = n.val := by omega
+      have hbody : rsm.apply_prefix_loop.body cmds { start := k, «end» := n } acc
+          = ok (ControlFlow.done acc) := by
+        unfold rsm.apply_prefix_loop.body
+        rw [next_done_usize (a := k) (b := n) (by omega)]; simp
+      rw [show rsm.apply_prefix_loop { start := k, «end» := n } cmds acc
+            = loop (fun p => rsm.apply_prefix_loop.body cmds p.1 p.2)
+                ({ start := k, «end» := n }, acc) from rfl,
+          loop_fin _ _ acc hbody] at hloop
+      obtain rfl := (Result.ok.inj hloop).symm
+      have hde : cmds.val.drop k.val = [] := by rw [hke, hn]; exact List.drop_length
+      simp only [hde, List.map_nil, List.foldl_nil]
+  | succ m ih =>
+      intro k acc res hrem hkn hacc hloop
+      have hk_lt : k.val < n.val := by omega
+      have hk_len : k.val < cmds.val.length := by rw [← hn]; exact hk_lt
+      have hle := Slice.length_ineq cmds
+      have hsucc : k.val + 1 ≤ Std.Usize.max := by omega
+      have hmem : cmds.val[k.val]'hk_len ∈ cmds.val := List.getElem_mem hk_len
+      set k1 : Std.Usize := UScalar.ofNatCore (k.val + 1) (by scalar_tac) with hk1_def
+      have hk1v : k1.val = k.val + 1 := by rw [hk1_def]; exact UScalar.ofNatCore_val_eq _
+      rw [show rsm.apply_prefix_loop { start := k, «end» := n } cmds acc
+            = loop (fun p => rsm.apply_prefix_loop.body cmds p.1 p.2)
+                ({ start := k, «end» := n }, acc) from rfl] at hloop
+      cases happ : rsm.apply_command (cmds.val[k.val]'hk_len) acc with
+      | fail e =>
+          have hbody : rsm.apply_prefix_loop.body cmds { start := k, «end» := n } acc = fail e := by
+            unfold rsm.apply_prefix_loop.body
+            rw [next_succ_usize hk_lt hsucc]
+            simp [Slice.index_usize, List.getElem?_eq_getElem hk_len, happ]
+          rw [loop.eq_1] at hloop; simp [hbody] at hloop
+      | div =>
+          have hbody : rsm.apply_prefix_loop.body cmds { start := k, «end» := n } acc = .div := by
+            unfold rsm.apply_prefix_loop.body
+            rw [next_succ_usize hk_lt hsucc]
+            simp [Slice.index_usize, List.getElem?_eq_getElem hk_len, happ]
+          rw [loop.eq_1] at hloop; simp [hbody] at hloop
+      | ok t =>
+          have hbody : rsm.apply_prefix_loop.body cmds { start := k, «end» := n } acc
+              = ok (ControlFlow.cont ({ start := k1, «end» := n }, t)) := by
+            unfold rsm.apply_prefix_loop.body
+            rw [next_succ_usize hk_lt hsucc]
+            simp [Slice.index_usize, List.getElem?_eq_getElem hk_len, happ, hk1_def]
+          rw [loop_cont _ _ ({ start := k1, «end» := n }, t) hbody,
+              show loop (fun p => rsm.apply_prefix_loop.body cmds p.1 p.2)
+                    ({ start := k1, «end» := n }, t)
+                = rsm.apply_prefix_loop { start := k1, «end» := n } cmds t from rfl] at hloop
+          have hdt := AppCommandRefines_holds (cmds.val[k.val]'hk_len) acc t hacc (hcmds _ hmem) happ
+          have hacc' : ClosedTm t :=
+            ApplyPreservesWS_holds (cmds.val[k.val]'hk_len) acc t hacc (hcmds _ hmem) happ
+          have hih := ih k1 t res (by omega) (by omega) hacc' hloop
+          have hdrop : cmds.val.drop k.val = cmds.val[k.val]'hk_len :: cmds.val.drop k1.val := by
+            rw [hk1v]; exact List.drop_eq_getElem_cons hk_len
+          rw [hih, hdrop]
+          simp only [List.map_cons, List.foldl_cons, hdt]
+
+/-- **`apply_prefix_square`** (partial correctness; no `hcmd`/`hpres`). IF folding a committed
+command prefix onto an initial store returns `ok res`, then `res` decodes to `DLCD.applyPrefix`.
+Each fold step routes through `AppCommandRefines_holds`; `ApplyPreservesWS_holds` keeps the running
+accumulator CLOSED. -/
+theorem apply_prefix_square (init res : syntax.Term) (cmds : Slice rsm.Command)
+    (hinit : ClosedTm init) (hcmds : ∀ c ∈ cmds.val, ClosedTm c.payload)
+    (hok : rsm.apply_prefix init cmds = ok res) :
+    decTermC res = DLCD.applyPrefix (decTermC init) (cmds.val.map (decCmd decTermC decPropC)) := by
+  have hn : (Slice.len cmds).val = cmds.val.length := Slice.len_val _
+  rw [rsm.apply_prefix] at hok
+  rw [termClone_id] at hok
+  simp only [bind_tc_ok] at hok
+  have hloop := apply_prefix_loop_spec cmds hcmds (Slice.len cmds) hn
+    (Slice.len cmds).val 0#usize init res (by simp) (by simp) hinit hok
+  rw [DLCD.applyPrefix, hloop]
+  simp
 
 end DLCD.Correspondence

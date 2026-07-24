@@ -44,13 +44,23 @@
  * The decision: `Apply` does NOT trust the leader. The commit message carries
  * the two vote signatures and the applying replica checks them; the leader's
  * own signature on the commit is deliberately NOT load-bearing (the rule does
- * not even look at it). The weaker alternative -- trust a leader-signed commit
- * -- would make `slot_agreement` conditional on the leader not equivocating,
- * i.e. it would hold only for a crash-fault leader. Checking the certificate
- * makes agreement survive a BYZANTINE leader, and that is what the lemma
- * proves. This is the property the socket implementation MUST preserve: if
- * R6.1b ever "optimizes" Apply into trusting the commit signature, this model
- * stops proving what its name says.
+ * not even look at it). What this buys is FORGERY RESISTANCE: a leader cannot
+ * make an honest replica apply a command it never actually collected a quorum
+ * for. The weaker alternative -- trust a leader-signed commit -- would let a
+ * leader announce a decision no quorum reached.
+ *
+ * SCOPE, stated precisely (an earlier comment here overreached and claimed this
+ * "survives a Byzantine leader" -- it does not): `slot_agreement` holds UNLESS A
+ * KEY IS REVEALED (see the lemma's own escape clause). A Byzantine leader that
+ * signs two conflicting votes with its OWN key is exactly that excluded case --
+ * in this crash-fault model (n=2f+1) it can pair each equivocating vote with a
+ * different honest follower's genuine vote and produce two valid certificates.
+ * The Rust `tests/byzantine.rs::equivocating_leader_can_force_divergence`
+ * exhibits that divergence. Real Byzantine agreement needs n>=3f+1
+ * (`DLCD.ByzantineConsensus`), which this single-round protocol does not
+ * provide. The certificate check defeats FORGERY, not EQUIVOCATION. The socket
+ * implementation MUST preserve the certificate check (else it loses even forgery
+ * resistance); it does not, and cannot here, claim Byzantine tolerance.
  *
  * =========================================================================
  * MODELLING CHOICES, STATED HONESTLY
@@ -277,13 +287,20 @@ lemma applied_implies_capability:
 
 // Lemma 3 -- SLOT AGREEMENT (the crux). Two replicas that apply at the same
 // slot apply the SAME command -- even though `Apply` never authenticates the
-// sender of the commit, i.e. EVEN IF THE LEADER IS BYZANTINE.
+// sender of the commit -- UNLESS A KEY WAS REVEALED (the escape clause below).
 //
 // It is true because of exactly two facts, and it is worth naming them since
 // the implementation must preserve both: (a) each roster member votes at most
 // once per slot (`unique_slot_open` + the linear token), and (b) two quorums
 // of 2 out of the 3 roster members must share a member. Quorum intersection --
 // `DLCD.quorum_intersect` in Lean -- realized on the wire.
+//
+// The reveal clause is LOAD-BEARING and marks the fault-model boundary: fact (a)
+// binds only HONEST replicas. A Byzantine leader that signs two conflicting
+// votes with its own (revealed) key defeats (a) and can pair each with a
+// different honest vote, so agreement is NOT claimed under key compromise. This
+// is crash-fault agreement (n=2f+1), not Byzantine (n>=3f+1, `ByzantineConsensus`).
+// The Rust `tests/byzantine.rs` exhibits the equivocation divergence explicitly.
 lemma slot_agreement:
   all-traces
   "All A1 A2 s c1 c2 #i #j.

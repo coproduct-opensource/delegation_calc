@@ -298,10 +298,22 @@ pub fn verify_qc(qc: &QuorumCert, slot: u32, cmd: &Command, roster: &Roster) -> 
 /// it.
 ///
 /// There is deliberately no `sender` parameter and no sender signature in
-/// [`Commit`]. The models prove `slot_agreement` while `Apply` never
-/// authenticates the commit's sender, which is what makes agreement survive a
-/// **Byzantine leader**: anyone, including the adversary, may relay a
-/// certificate, and it is worthless unless the votes inside it check out.
+/// [`Commit`]. What that buys, precisely: **forgery resistance**. A leader (or
+/// any relay) cannot make an honest replica apply a command it never actually
+/// collected a quorum for — the announcement is worthless unless the votes
+/// inside it check out. That is the class of the Nethermind XDC bug, and it is
+/// exercised by `tests/byzantine.rs::leader_cannot_fabricate_a_commit`.
+///
+/// What it does NOT buy — and an earlier version of this comment wrongly claimed
+/// it did — is tolerance of a **Byzantine leader that equivocates**. In this
+/// crash-fault protocol (n = 2f+1, quorum = f+1) a leader holding its own key can
+/// sign two conflicting votes for one slot and pair each with a different honest
+/// follower's genuine vote, producing two valid certificates and forcing
+/// divergence (`tests/byzantine.rs::equivocating_leader_can_force_divergence`).
+/// That is exactly the "unless a key was revealed" case the Tamarin
+/// `slot_agreement` lemma excludes; real Byzantine agreement needs n ≥ 3f+1
+/// (`DLCD.ByzantineConsensus`), which this single-round protocol does not
+/// provide.
 ///
 /// If a future change adds sender authentication and starts relying on it, the
 /// proof stops describing this code.

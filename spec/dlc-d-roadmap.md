@@ -88,9 +88,9 @@ proof-to-the-metal bridge already exists (R2), and the shell substrate is instal
   - **Tamarin model ✅** (`models/tamarin/dlcd-replication.spthy`,
     `spec/r6-1b-replication-protocol.md`): 5 lemmas verified — quorum backing,
     **capability provenance across the wire** (the route to discharging Lean's
-    assumed `Authorized` premise), **slot agreement against a Byzantine leader**
-    (`Apply` checks the quorum certificate, not the sender), plus executability
-    lemmas. Right-reason bite in a separate theory: removing the one-vote-per-slot
+    assumed `Authorized` premise), **slot agreement** (`Apply` checks the quorum
+    certificate, not the sender — crash-fault, *unless a key is revealed*; NOT
+    Byzantine-leader-tolerant, corrected §6.4), plus executability lemmas. Right-reason bite in a separate theory: removing the one-vote-per-slot
     guard makes disagreement **reachable with no key compromise**, and
     `scripts/check-tamarin-bite.sh` gates the *differential* (identical rules;
     the attack falsified in the guarded model) so two independently-green files
@@ -104,7 +104,7 @@ proof-to-the-metal bridge already exists (R2), and the shell substrate is instal
     Horn translation).
   - **Authenticated protocol layer ✅** (`crates/dlc-d-node/src/proto.rs`): the
     checks the models demand, implemented — `verify_commit` with no sender
-    (Byzantine-leader-tolerant), voter-side capability checking, `verify_qc`
+    (forgery-resistant, not Byzantine-tolerant — §6.4), voter-side capability checking, `verify_qc`
     counting **distinct signers** (guards the Nethermind XDC duplicate-signature
     bypass), domain-separated signing, duplicate-member roster rejection. 13 tests
     incl. `tests/authenticated.rs` composing the chain into the verified core.

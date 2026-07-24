@@ -55,13 +55,22 @@ The applying replica verifies **the certificate**, not the sender. The commit's 
 signature is bound by the rule and then deliberately ignored — and every lemma still
 holds. That is the machine-checked content of "the leader is not trusted".
 
-The weaker alternative — accept a leader-signed commit — would make agreement conditional
-on the leader not equivocating, i.e. true only for a *crash-fault* leader. Certificate
-checking makes agreement survive a **Byzantine** leader. Cost: commit messages carry two
+What this buys is **forgery resistance**: a leader (or relay) cannot make an honest replica
+apply a command it never actually collected a quorum for. Cost: commit messages carry two
 signatures instead of none.
 
+**Scope — an earlier version of this document overreached and said certificate checking makes
+agreement "survive a Byzantine leader". It does not.** This is a crash-fault protocol
+(n = 2f+1, quorum = f+1); `slot_agreement` holds *unless a key is revealed*, and a Byzantine
+leader that signs two conflicting votes with its own key is exactly that excluded case — in the
+n=3 setting it pairs each equivocating vote with a different honest follower's genuine vote,
+yielding two valid certificates and divergence. `crates/dlc-d-node/tests/byzantine.rs` exhibits
+this. Real Byzantine agreement needs n ≥ 3f+1 (`DLCD.ByzantineConsensus`), which this
+single-round protocol does not provide. The certificate check defeats *forgery*, not
+*equivocation* — see §6.4.
+
 **Obligation:** if the socket implementation ever "optimizes" `Apply` into trusting the
-commit signature, `slot_agreement` stops being a statement about the deployed protocol.
+commit signature, it loses even forgery resistance and `slot_agreement` stops describing it.
 
 ## 4. What is proved (all verified, Tamarin 1.12.0)
 
@@ -157,8 +166,8 @@ the guarded model, 8 identical rules. The gate was itself perturbation-tested: d
 `crates/dlc-d-node/src/proto.rs` is the authenticated layer, each function mapped to a
 model premise:
 
-- `verify_commit` takes **no sender argument** — it checks the certificate, the Byzantine-
-  leader-tolerant `slot_agreement` obligation (§3).
+- `verify_commit` takes **no sender argument** — it checks the certificate, giving *forgery
+  resistance* (not Byzantine-leader tolerance — §3, §6.4).
 - `verify_proposal` checks the capability before a vote — `cap_check_binds_issuer` (§4.0).
 - `verify_qc` counts **distinct signers**, not signatures. This is the [Nethermind XDC
   duplicate-signature quorum bypass](https://github.com/NethermindEth/nethermind/issues/11026):
@@ -222,6 +231,40 @@ tests (`tests/networked.rs`) run the whole stack — `proto` auth + Lean-transpo
 codec + tokio — to convergence, plus crash-within-budget and the over-budget stall, all over
 the byte transport. The channel carries exactly the bytes a socket would, so the only remaining
 piece is the literal bind/connect carrier — a swap, not a protocol change.
+
+## 6.4 What the certificate check does NOT buy — a correction (`tests/byzantine.rs`)
+
+Writing the adversary down corrected a claim this document, the models, and the code all made:
+that checking the certificate rather than the sender makes agreement *survive a Byzantine
+leader*. It does not. Same discipline as the ProVerif cross-check that corrected the capability
+claim — a property is only as strong as the attack it withstands, so the attack has to be
+written.
+
+**The protocol is crash-fault** (n = 2f+1, quorum = f+1; `DLCD.Consensus`), not Byzantine
+(`DLCD.ByzantineConsensus`, n ≥ 3f+1). Its safety rests on each replica voting at most once per
+slot — which the honest node enforces with its ballot, but which does not bind an adversary
+holding a key.
+
+- **The attack (`equivocating_leader_can_force_divergence`).** A leader signs two conflicting
+  votes for one slot with its own key and pairs each with a different honest follower's genuine
+  vote: `{leader:c1, f1:c1}` and `{leader:c2, f2:c2}` are each two distinct valid signers, so
+  both certificates pass `verify_qc` — they are *collected*, not *forged*. Two honest followers
+  apply different commands. This is precisely the "unless a key was revealed" case the Tamarin
+  `slot_agreement` lemma excludes, so the lemma is correct; the prose interpreting it was not.
+- **What the check DOES buy — forgery resistance (`leader_cannot_fabricate_a_commit`,
+  `outsider_cannot_manufacture_a_certificate`).** A leader that never gathered a genuine quorum,
+  or an outsider with no member key, cannot make an honest replica apply anything — repeating
+  one vote or signing as a non-member never reaches quorum. Real value, and the class of the XDC
+  bug.
+- **Baseline (`honest_key_cluster_agrees`).** Honest-key clusters still converge — the protocol
+  is crash-fault-*correct*; only a compromised leader breaks agreement.
+
+A bug the test caught in itself, worth recording: the first version used two commands differing
+only in a `Prop` annotation *inside* the lambda, which does not affect reduction, so both
+produced the same store and the "divergence" was invisible. Operationally-distinct payloads
+(`dup` vs `id`) were needed for the equivocation to be observable — the same
+"a failing test must fail for the right reason" trap, here "a succeeding attack must succeed
+*visibly*".
 
 ## 7. Fences — what this model does not say
 

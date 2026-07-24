@@ -240,6 +240,44 @@ theorem rust_consensus_agreement
   have hle := countP_add_le_length votes.val _ _ hdis
   omega
 
+/-- ★★ **`rust_byz_agreement` — BYZANTINE consensus agreement, transported.** When
+the deployed Rust `consensus.byz_decided` engine certifies BOTH `v₁` and `v₂` over
+the same ballot at the `3·card > 2n` threshold (each `ok true`), the two decided
+commands are EQUAL. The runtime image of `DLCD.ByzantineConsensus.byz_agreement`.
+
+The honest-set `B` of the hand theorem does NOT appear here, and that is faithful,
+not a shortcut: the runtime ballot is a `List (Option Command)` — one entry per
+roster position — so "an honest replica votes at most once" is STRUCTURAL (each
+slot holds one value). Two `> 2n/3` supermajorities for distinct values would have
+to be disjoint (no slot holds both), and `2·(2n/3) > n`, so they cannot fit — the
+same `byz_quorum_honest_intersect` pigeonhole, realized at the list level where the
+one-vote invariant is free. Conditioned on `ok true` (partial-correctness) with the
+`U32` no-overflow fences of `byz_decided_square`. -/
+theorem rust_byz_agreement
+    (votes : Slice (Option dlc_core.rsm.Command)) (v₁ v₂ : dlc_core.rsm.Command)
+    (hlen : votes.val.length < 2 ^ 32)
+    (hq2 : 2 * votes.val.length < 2 ^ 32)
+    (hc1 : 3 * (votes.val.countP (fun o => o == some v₁)) < 2 ^ 32)
+    (hc2 : 3 * (votes.val.countP (fun o => o == some v₂)) < 2 ^ 32)
+    (hd1 : consensus.byz_decided votes v₁ = ok true)
+    (hd2 : consensus.byz_decided votes v₂ = ok true) :
+    v₁ = v₂ := by
+  -- Spend `byz_decided_square`: each `ok true` decodes to a Byzantine supermajority.
+  have hm1 : 2 * votes.val.length < 3 * votes.val.countP (fun o => o == some v₁) :=
+    of_decide_eq_true (Result.ok.inj
+      ((CorrespondenceConsensus.byz_decided_square votes v₁ hlen hc1 hq2).symm.trans hd1))
+  have hm2 : 2 * votes.val.length < 3 * votes.val.countP (fun o => o == some v₂) :=
+    of_decide_eq_true (Result.ok.inj
+      ((CorrespondenceConsensus.byz_decided_square votes v₂ hlen hc2 hq2).symm.trans hd2))
+  -- Byzantine quorum intersection at the list level: two `> 2n/3` supermajorities for
+  -- distinct values are disjoint, and `2·(2n/3) > n` cannot fit — contradiction.
+  by_contra hne
+  have hdis : ∀ o ∈ votes.val, ¬(((o == some v₁) = true) ∧ ((o == some v₂) = true)) := by
+    rintro o _ ⟨ha, hb⟩
+    exact hne (Option.some.inj ((eq_of_beq ha).symm.trans (eq_of_beq hb)))
+  have hle := countP_add_le_length votes.val _ _ hdis
+  omega
+
 /-! ## Non-vacuity: a concrete ballot on which the runtime engine decides. -/
 
 namespace ConsensusTransportWitness
@@ -264,6 +302,23 @@ theorem decided_witness : consensus.decided votes c = ok true := by
   rw [CorrespondenceConsensus.decided_square votes c hlen hq]
   show ok (decide (List.length [some c, some c, some c]
       < 2 * List.countP (fun o => o == some c) [some c, some c, some c])) = ok true
+  simp only [List.countP_cons, List.countP_nil, List.length_cons, List.length_nil,
+    beq_self_eq_true, if_true]
+  rfl
+
+private theorem hq2 : 2 * votes.val.length < 2 ^ 32 := by simp [votes]
+
+private theorem hc3 : 3 * (votes.val.countP (fun o => o == some c)) < 2 ^ 32 := by
+  show 3 * (List.countP (fun o => o == some c) [some c, some c, some c]) < 2 ^ 32
+  simp only [List.countP_cons, List.countP_nil, beq_self_eq_true, if_true]; decide
+
+/-- **The runtime engine genuinely BYZANTINE-decides `c`.** All three vote for `c`,
+and `2·3 < 3·3` (`6 < 9`) is a Byzantine supermajority — so `consensus.byz_decided`
+returns `ok true`, inhabiting the operational premise of `rust_byz_agreement`. -/
+theorem byz_decided_witness : consensus.byz_decided votes c = ok true := by
+  rw [CorrespondenceConsensus.byz_decided_square votes c hlen hc3 hq2]
+  show ok (decide (2 * List.length [some c, some c, some c]
+      < 3 * List.countP (fun o => o == some c) [some c, some c, some c])) = ok true
   simp only [List.countP_cons, List.countP_nil, List.length_cons, List.length_nil,
     beq_self_eq_true, if_true]
   rfl

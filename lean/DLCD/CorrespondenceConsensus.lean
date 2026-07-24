@@ -199,4 +199,85 @@ theorem decided_square (votes : Slice (Option dlc_core.rsm.Command))
     (by rw [hcntv]; simpa using hquorum), hi2, hcntv]
   simp
 
+/-! ## The BYZANTINE quorum squares (`3·card > 2n`).
+
+`is_byz_quorum` and `byz_decided` are the byte-for-byte Byzantine analogues of
+`is_quorum` / `decided` (threshold `3·card > 2n` instead of `2·card > n`). The
+counting loop is IDENTICAL — `byz_decided_loop.body` is generated with the same
+body as `decided_loop.body` — so the hard `countP` induction (`decided_loop_spec`)
+is reused verbatim after bridging the two loop constants. -/
+
+/-- **`is_byz_quorum_square`.** The generated `consensus.is_byz_quorum card n`
+decides the operational Byzantine threshold `3·card > 2·n`, provided neither
+`3·card` nor `2·n` overflows `U32` (the honest fences for the two multiplies). -/
+theorem is_byz_quorum_square (card n : Std.U32)
+    (hnc : 3 * card.val < 2 ^ 32) (hnn : 2 * n.val < 2 ^ 32) :
+    consensus.is_byz_quorum card n = ok (decide (2 * n.val < 3 * card.val)) := by
+  simp only [consensus.is_byz_quorum]
+  have h3 := UScalar.mul_equiv 3#u32 card
+  have h2 := UScalar.mul_equiv 2#u32 n
+  rw [show (3#u32 * card) = UScalar.mul 3#u32 card from rfl,
+      show (2#u32 * n) = UScalar.mul 2#u32 n from rfl]
+  cases hmc : UScalar.mul 3#u32 card with
+  | ok zc =>
+    cases hmn : UScalar.mul 2#u32 n with
+    | ok zn =>
+      rw [hmc] at h3; rw [hmn] at h2
+      obtain ⟨_, hzc, _⟩ := h3
+      obtain ⟨_, hzn, _⟩ := h2
+      have hzcv : zc.val = 3 * card.val := by simpa using hzc
+      have hznv : zn.val = 2 * n.val := by simpa using hzn
+      simp only [bind_tc_ok]
+      congr 1
+      rw [decide_eq_decide]
+      simp only [GT.gt]
+      scalar_tac
+    | fail e => exfalso; rw [hmn] at h2; simp only [UScalar.max] at h2; scalar_tac
+    | div => rw [hmn] at h2; exact h2.elim
+  | fail e => exfalso; rw [hmc] at h3; simp only [UScalar.max] at h3; scalar_tac
+  | div => rw [hmc] at h3; exact h3.elim
+
+/-- The Byzantine counting loop IS the crash counting loop — the generated bodies
+are identical, so the two `def`s unfold to the same term. This bridge lets
+`byz_decided_square` reuse `decided_loop_spec` rather than re-run the induction. -/
+private theorem byz_decided_loop_eq (iter : core.ops.range.Range Std.Usize)
+    (votes : Slice (Option dlc_core.rsm.Command)) (v : dlc_core.rsm.Command)
+    (count : Std.U32) :
+    consensus.byz_decided_loop iter votes v count
+      = consensus.decided_loop iter votes v count := by
+  unfold consensus.byz_decided_loop consensus.decided_loop
+  rfl
+
+/-- **`byz_decided_square`.** The generated `consensus.byz_decided` decides the
+operational Byzantine threshold over the count of votes equal to `v`. Fences: the
+vote total and `3·count` / `2·length` fit `U32`. -/
+theorem byz_decided_square (votes : Slice (Option dlc_core.rsm.Command))
+    (v : dlc_core.rsm.Command) (hlen : votes.val.length < 2 ^ 32)
+    (hq3 : 3 * (votes.val.countP (fun o => o == some v)) < 2 ^ 32)
+    (hq2 : 2 * votes.val.length < 2 ^ 32) :
+    consensus.byz_decided votes v
+      = ok (decide (2 * votes.val.length
+              < 3 * (votes.val.countP (fun o => o == some v)))) := by
+  have hn : (Slice.len votes).val = votes.val.length := Slice.len_val _
+  have hle := Slice.length_ineq votes
+  have hcple := List.countP_le_length (l := votes.val) (p := fun o => o == some v)
+  have h0u : ((0#usize : Std.Usize)).val = 0 := rfl
+  have h0v : ((0#u32 : Std.U32)).val = 0 := rfl
+  have hlU : votes.val.length ≤ Std.U32.max := by scalar_tac
+  obtain ⟨cnt, hloop, hcntv⟩ := decided_loop_spec votes v (Slice.len votes) hn
+    (Slice.len votes).val 0#usize 0#u32 (by rw [h0u]; omega) (by rw [h0u]; omega)
+    (by rw [h0u, h0v, List.drop_zero]; omega)
+  have hi2 : (UScalar.cast .U32 (Slice.len votes)).val = votes.val.length := by
+    simp only [UScalar.cast_val_eq]; rw [hn]; apply Nat.mod_eq_of_lt; omega
+  have hdec : consensus.byz_decided votes v
+      = consensus.is_byz_quorum cnt (UScalar.cast .U32 (Slice.len votes)) := by
+    show (do let count ← consensus.byz_decided_loop
+                          { start := 0#usize, «end» := Slice.len votes } votes v 0#u32
+             consensus.is_byz_quorum count (UScalar.cast .U32 (Slice.len votes)))
+         = consensus.is_byz_quorum cnt (UScalar.cast .U32 (Slice.len votes))
+    rw [byz_decided_loop_eq, hloop, bind_tc_ok]
+  rw [hdec, is_byz_quorum_square cnt (UScalar.cast .U32 (Slice.len votes))
+    (by rw [hcntv]; simpa using hq3) (by rw [hi2]; simpa using hq2), hi2, hcntv]
+  simp
+
 end DLCD.CorrespondenceConsensus

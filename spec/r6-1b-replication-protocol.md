@@ -307,12 +307,21 @@ its followers verify. Regression: `tests/byzantine.rs::byzantine_leader_needs_by
 (n=7, end-to-end async: 7 honest commit, 4 survivors stall cleanly), and it fails against the
 reverted fix.
 
-**Fence that remains:** the crash threshold rides a transported *agreement theorem*
-(`rust_consensus_agreement`); the Byzantine side has the translated *predicate* but not yet a
-transported *theorem* — `DLCD.ByzantineConsensus.byz_agreement` is proven in Lean but a
-`rust_byz_agreement` correspondence (which needs the honest set `B` as a parameter, unlike the
-all-honest crash case) is backlog. Also still single-decree, single-round: Byzantine *agreement*
-(safety), not *liveness* (no view change / leader election — roadmap §5).
+**The Byzantine agreement THEOREM is now transported too** (`rust_byz_agreement`,
+`lean/DLCD/TransportConsensus.lean`): when the deployed `consensus.byz_decided` certifies two
+values over the same ballot at the `3·card > 2n` threshold, they are equal — the runtime image
+of `DLCD.ByzantineConsensus.byz_agreement`, via `byz_decided_square` + `is_byz_quorum_square`,
+footprint `[propext, Classical.choice, Quot.sound]`, governed (78 axiom snapshots), non-vacuous
+witness `byz_decided_witness`. A pleasant simplification the runtime afforded: the hand theorem
+threads an honest set `B` (a replica may equivocate), but the runtime ballot is a
+`List (Option Command)` — one slot per position — so one-vote-per-position is *structural* and
+`B` never appears; the proof is the same list-level disjoint-supermajority argument as the crash
+`rust_consensus_agreement`, at the 2n/3 threshold. So the Byzantine threshold now rides a
+transported theorem, exactly as the crash one does. Conditioned on `ok true`
+(partial-correctness), as all the `rust_*` transports are.
+
+**Fence that remains:** still single-decree, single-round — Byzantine *agreement* (safety), not
+*liveness* (no view change / leader election — roadmap §5).
 
 ## 7. Fences — what this model does not say
 

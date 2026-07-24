@@ -136,10 +136,15 @@ proof-to-the-metal bridge already exists (R2), and the shell substrate is instal
     the translated predicate, as crash is against `is_quorum`. Closed a latent bug
     — the leader tallied crash-quorum regardless of mode (coincides at n=4, wrong
     at n≥7 where it would commit-then-stall); it now dispatches on `roster.quorum()`
-    (`byz_decided` for Byzantine). Regression at n=7, end-to-end. Fence that
-    remains: the *theorem* transport (`rust_byz_agreement`, needs the honest set as
-    a parameter) is backlog; crash has `rust_consensus_agreement`. Byzantine
-    *agreement*, not *liveness* (no view change).
+    (`byz_decided` for Byzantine). Regression at n=7, end-to-end.
+  - **Byzantine agreement THEOREM transported ✅** (`rust_byz_agreement`,
+    `lean/DLCD/TransportConsensus.lean`): the runtime image of `byz_agreement` via
+    `byz_decided_square` + `is_byz_quorum_square`, governed (78 snapshots, footprint
+    clean), non-vacuous witness. The honest set `B` drops out — the runtime ballot's
+    one-slot-per-position makes one-vote-per-position structural, so it's the same
+    disjoint-supermajority proof as crash at the 2n/3 threshold. The Byzantine
+    threshold now rides a transported theorem, as crash does. Remaining: Byzantine
+    *agreement* (safety), not *liveness* (no view change).
   - **Only remaining for R6.1b: literal socket carrier.** The channel carries
     exactly the bytes a socket would, so bind/connect is a carrier swap, not a
     protocol change.
@@ -180,11 +185,10 @@ proof-to-the-metal bridge already exists (R2), and the shell substrate is instal
 
 - **CDerivS seal judgment (2.c)** — linear commit-I; validated design, unimplemented.
 - **Full `Deriv → CDeriv` swap** — re-prove Decidability / NI / Progress under CARVe.
-- **Leader election; BFT liveness** — Byzantine *agreement* now exists both in
-  Lean (`DLCD_byz_agreement`) AND at the runtime (`proto::Quorum::Byzantine`,
-  R6.1b §6.5); election + BFT liveness / view change (Bythos / TetraBFT lineage)
-  don't. Also: Aeneas-translate `ByzantineConsensus` so the runtime Byzantine
-  threshold rides a *transported* theorem, not just the Lean definition.
+- **Leader election; BFT liveness** — Byzantine *agreement* now exists in Lean
+  (`DLCD_byz_agreement`), at the runtime as a predicate (`proto::Quorum::Byzantine`,
+  R6.1b §6.5), AND as a *transported theorem* (`rust_byz_agreement`, §6.5). Missing:
+  election + BFT liveness / view change (Bythos / TetraBFT lineage).
 - **Proof fences** — store-type change (partly R1's `replicated φ`); live-log
   scheduling closure.
 

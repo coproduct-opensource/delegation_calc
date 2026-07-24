@@ -97,4 +97,61 @@ theorem infer_square_var (ctx : judgment.Ctx) (i : Std.U32) :
       · -- ≥2 elements: len ≠ 1
         simp [hl, alloc.vec.Vec.len, decOptProp]
 
+/-- The additive/linear context slices clone to themselves (props are clone-identity),
+as a rewrite the `cons_a`/`cons_l` reductions can fire. -/
+@[simp] theorem sliceClone_id_prop (s : Slice syntax.Prop) :
+    Slice.clone syntax.Prop.Insts.CoreCloneClone.clone s = ok s :=
+  CloneId.sliceClone_id syntax.Prop.Insts.CoreCloneClone s (fun x _ => CloneId.propClone_id x)
+
+/-- Invert an `ok`-terminating monadic bind: if `(do let x ← m; f x) = ok y`, then `m`
+succeeded and its continuation on that value also reached `ok y`. (The `Result` twin of
+`map_ok_inv`; used to peel `cons_a`'s two binds without `split` reaching under the `let`.) -/
+private theorem bind_ok_inv {α β} {m : Result α} {f : α → Result β} {y : β}
+    (h : (do let x ← m; f x) = ok y) : ∃ x, m = ok x ∧ f x = ok y := by
+  cases m with
+  | ok x => exact ⟨x, rfl, by simpa using h⟩
+  | fail e => simp at h
+  | div => simp at h
+
+/-- Success spec for the additive/linear `extend_from_slice`: since every `Prop` clones to
+itself, a successful append yields exactly `v ++ s`. The dependent `Slice.clone` match sits
+at head position here (`extend_from_slice`'s body is `if … then match … else …`), so `split`
+can reduce it — unlike inside `cons_a`'s bind chain. -/
+theorem extend_from_slice_prop_ok (v : alloc.vec.Vec syntax.Prop) (s : Slice syntax.Prop)
+    (v1 : alloc.vec.Vec syntax.Prop)
+    (h : alloc.vec.Vec.extend_from_slice syntax.Prop.Insts.CoreCloneClone v s = ok v1) :
+    v1.val = v.val ++ s.val := by
+  rw [alloc.vec.Vec.extend_from_slice] at h
+  split at h
+  · split at h
+    · rename_i s' hcl
+      rw [sliceClone_id_prop] at hcl; injection hcl with hcl; subst hcl
+      injection h with h; subst h; rfl
+    · rename_i e hcl; rw [sliceClone_id_prop] at hcl; exact absurd hcl (by simp)
+    · rename_i hcl; rw [sliceClone_id_prop] at hcl; exact absurd hcl (by simp)
+  · exact absurd h (by simp)
+
+/-- **★ Success-path `cons_a` spec.** If the faithful `cons_a` (`push` +
+`extend_from_slice`, the Aeneas-faithful prepend) *succeeds*, its decoded result is the
+hand `consA` prepend. Crucially there is **no `Usize.max` overflow hypothesis**: a
+successful `cons_a` already witnesses that the `extend_from_slice` length guard passed
+(the `else fail` branch contradicts `= ok ext`). This is exactly what the forward
+`infer_square`'s `Lam`/`Case` arms need — they only fire on the success path of
+`decide.infer`, where `cons_a` provably succeeded. -/
+theorem decCtx_cons_a_ok (c : judgment.Ctx) (phi : syntax.Prop) (ext : judgment.Ctx)
+    (h : judgment.Ctx.cons_a c phi = ok ext) :
+    decCtx ext = DLC.Ctx.consA (decProp phi) (decCtx c) := by
+  rw [judgment.Ctx.cons_a] at h
+  obtain ⟨v, hv, h⟩ := bind_ok_inv h
+  obtain ⟨v1, hv1, h⟩ := bind_ok_inv h
+  injection h with h; subst h
+  have hval : v1.val = v.val ++ c.additive.val :=
+    extend_from_slice_prop_ok _ _ _ hv1
+  have hvval : v.val = [phi] := by
+    rw [alloc.vec.Vec.push, alloc.vec.Vec.new] at hv
+    split at hv
+    · injection hv with hv; subst hv; simp [List.concat_eq_append]
+    · exact absurd hv (by simp)
+  simp [decCtx, DLC.Ctx.consA, hval, hvval]
+
 end DLC.DecideSquare

@@ -29,6 +29,21 @@ theorem vecClone_id {T} (cl : core.clone.Clone T) (v : alloc.vec.Vec T)
   · rename_i e heq; rw [hm] at heq; exact absurd heq (by simp)
   · rename_i heq; rw [hm] at heq; exact absurd heq (by simp)
 
+/-- A `Slice` whose elements each clone to themselves clones to itself. Needed by the
+`Lam`/`Case` arms of `infer_square`: the faithful `cons_a` (`push` + `extend_from_slice`)
+clones the additive-context slice, and `extend_from_slice` reduces to `v ++ s'.val` with
+`s' = Slice.clone … s`. -/
+theorem sliceClone_id {T} (cl : core.clone.Clone T) (s : Slice T)
+    (h : ∀ x ∈ s.val, cl.clone x = ok x) :
+    Slice.clone cl.clone s = ok s := by
+  have hm := List.mapM_clone_eq h
+  simp only [Slice.clone, List.clone]
+  split
+  · rename_i v1 heq; rw [hm] at heq; injection heq with heq; subst heq
+    simp only [bind_tc_ok]; rfl
+  · rename_i e heq; rw [hm] at heq; exact absurd heq (by simp)
+  · rename_i heq; rw [hm] at heq; exact absurd heq (by simp)
+
 theorem u8I_clone (x : Std.U8) : core.clone.CloneU8.clone x = ok x := rfl
 theorem u32I_clone (x : Std.U32) : core.clone.CloneU32.clone x = ok x := rfl
 

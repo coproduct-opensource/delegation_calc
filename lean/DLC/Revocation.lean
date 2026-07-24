@@ -84,4 +84,76 @@ theorem current_withinE_ignores_time {Γ : Ctx} {M : Term} {τ : TimeBound} {φ 
     (_now : TimeBound) (d : Deriv Γ M (Prop'.within τ φ)) : Nonempty (Deriv Γ M φ) :=
   ⟨Deriv.withinE Γ τ φ M d⟩
 
+/-!
+## `Deriv`-level revocation via a LAYERED acceptance judgment.
+
+Rather than add a premise-carrying `within-E` constructor to `Deriv` (which would force every
+function and proof over `Deriv` — `decideLean`, `reduce`, the correspondence/NI metatheory — to
+handle the new case, with `sorryAx` risk on any missed match), we layer a **time-indexed acceptance
+judgment ON TOP of `Deriv`**. This mirrors the trace-indexed `Auth(c, τ)` of DEKL 2.0
+([arXiv 2604.22530]) and Etas's monitor-checked effect judgments ([arXiv 2607.17780]): the base
+typing derivation is unchanged; acceptance is an outer relation indexed by the current time. It turns
+the time-bound model above into a guarantee about *actual `Deriv`-typed credentials* without the
+blast radius.
+-/
+
+/-- **Revocation-aware acceptance.** A credential `M` is ACCEPTED at time `now` iff it is a well-typed
+`◇_τ`-bounded credential (`Γ ⊢ M : within τ φ`) AND `now` precedes its validity bound `τ`. The
+`Deriv` component is the admission proof; `acceptableAt` is the revocation gate the current `within-E`
+omits. (`φ` is the inner authority — for a says-credential, `Prop'.says p ψ`.) -/
+def AcceptsRevocable (now : TimeBound) (Γ : Ctx) (M : Term) (τ : TimeBound) (φ : Prop') : Prop :=
+  acceptableAt τ now ∧ Nonempty (Deriv Γ M (Prop'.within τ φ))
+
+/-- **Revocation soundness (revoked ⟹ not accepted).** A credential whose bound has passed
+(`¬ acceptableAt τ now`) is NOT accepted at `now`, no matter how well-typed it is — being a valid
+`Deriv` is not enough once the horizon is crossed. This is the guarantee
+`current_withinE_ignores_time` shows the bare calculus lacks. -/
+theorem revoked_credential_not_accepted {Γ : Ctx} {M : Term} {τ : TimeBound} {φ : Prop'}
+    (now : TimeBound) (hna : ¬ acceptableAt τ now) :
+    ¬ AcceptsRevocable now Γ M τ φ := by
+  intro h
+  exact hna h.1
+
+/-- After **revoking at epoch `r`**, the credential is not accepted at any `now ≥ r` — the model's
+`revoke_bounds_acceptance` lifted to the `Deriv`-level acceptance judgment. -/
+theorem revoked_at_not_accepted {Γ : Ctx} {M : Term} {v r : TimeBound} {φ : Prop'}
+    (now : TimeBound) (h : r.epochMs ≤ now.epochMs) :
+    ¬ AcceptsRevocable now Γ M (revoke v r) φ :=
+  revoked_credential_not_accepted now (revoke_bounds_acceptance v r now h)
+
+/-- **Acceptance is downward-closed in time.** If accepted at `now`, then accepted at any earlier
+`now' ≤ now` — the same admission proof, still within the bound. (Together with
+`revoked_credential_not_accepted`, acceptance is a single crossing at `τ`.) -/
+theorem accepts_monotone_earlier {Γ : Ctx} {M : Term} {τ : TimeBound} {φ : Prop'}
+    (now now' : TimeBound) (h : AcceptsRevocable now Γ M τ φ) (hle : now'.epochMs ≤ now.epochMs) :
+    AcceptsRevocable now' Γ M τ φ := by
+  obtain ⟨hacc, hd⟩ := h
+  refine ⟨?_, hd⟩
+  simp only [acceptableAt] at *; omega
+
+/-- A concrete revocable credential term: a `◇_τ`-bounded says-affirmation
+`withinIntro τ (sign p (now 0) sig)`. -/
+def revocableCredential (p : Principal) (τ : TimeBound) : Term :=
+  Term.withinIntro τ (Term.sign p (Term.now ⟨0⟩) ⟨0, []⟩)
+
+/-- The real `Deriv` for the credential: `⊢ revocableCredential p τ : within τ (p says ⊤)`. -/
+def revocableCredential_deriv (p : Principal) (τ : TimeBound) :
+    Deriv Ctx.empty (revocableCredential p τ) (Prop'.within τ (Prop'.says p Prop'.top)) :=
+  Deriv.withinI Ctx.empty τ (Prop'.says p Prop'.top)
+    (Term.sign p (Term.now ⟨0⟩) ⟨0, []⟩)
+    (Deriv.saysI Ctx.empty p Prop'.top (Term.now ⟨0⟩) ⟨0, []⟩ (Deriv.now [] ⟨0⟩))
+
+/-- **Anti-vacuity (two-sided, over real `Deriv` terms).** The same well-typed credential (bound
+`τ = 10`) IS accepted at `now = 5` (before the bound)… -/
+theorem revocable_accepted_before_bound (p : Principal) :
+    AcceptsRevocable ⟨5⟩ Ctx.empty (revocableCredential p ⟨10⟩) ⟨10⟩ (Prop'.says p Prop'.top) :=
+  ⟨by decide, ⟨revocableCredential_deriv p ⟨10⟩⟩⟩
+
+/-- …and is NOT accepted at `now = 10` (at/after the bound), even though the SAME `Deriv` exists — so
+`AcceptsRevocable` is genuinely two-sided (a real credential rejected purely by the time gate), and
+`revoked_credential_not_accepted` is not vacuous. -/
+theorem revocable_not_accepted_at_bound (p : Principal) :
+    ¬ AcceptsRevocable ⟨10⟩ Ctx.empty (revocableCredential p ⟨10⟩) ⟨10⟩ (Prop'.says p Prop'.top) :=
+  revoked_credential_not_accepted ⟨10⟩ (by decide)
+
 end DLC

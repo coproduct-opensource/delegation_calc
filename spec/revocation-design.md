@@ -1,7 +1,8 @@
 # Phase 4 — verified revocation: time-bounded `says` (design)
 
-Status: **design + time-bound model landed** (`lean/DLC/Revocation.lean`); the `Deriv`-level
-enforcement (a premise-carrying `within-E`) is the next increment. Design-first per repo discipline.
+Status: **design + time-bound model + layered `Deriv`-level acceptance judgment landed**
+(`lean/DLC/Revocation.lean`, §3). The deeper premise-carrying `within-E` constructor (making an expired
+credential underivable in `Deriv` itself) is the later alternative. Design-first per repo discipline.
 
 ## 0. The gap (why this is a headline agent-governance need)
 
@@ -54,21 +55,38 @@ The **revocation semantics**, as the temporal analogue of the attenuation-narrow
 - `acceptableAt_witness_valid` / `_expired` — anti-vacuity: the predicate genuinely discriminates
   (acceptable at 5, not at 10, for bound 10).
 
-## 3. The metatheorem to prove NEXT (the `Deriv`-level enforcement)
+## 3. `Deriv`-level enforcement — a LAYERED acceptance judgment (LANDED)
 
 `Revocation.lean`'s `current_withinE_ignores_time` records the **honest gap**: the CURRENT `within-E`
 strips `◇_τ` **unconditionally** — acceptance of `within τ φ` does not depend on `now` vs `τ`. So at
-the calculus level the time bound is decorative; the `now < τ` check lives only in `dlc-crypto`.
+the bare-calculus level the time bound is decorative; the `now < τ` check lives only in `dlc-crypto`.
 
-Next increment: add a premise-carrying elimination
+Rather than add a premise-carrying `within-E` **constructor** to `Deriv` — which would force every
+function/proof over `Deriv` (`decideLean`, `reduce`, the correspondence/NI metatheory) to handle the
+new case, with `sorryAx` risk on any missed match — we layer a **time-indexed acceptance judgment ON
+TOP of `Deriv`** (the trace-indexed `Auth(c,τ)` of DEKL 2.0 `arxiv.org/pdf/2604.22530`; Etas's
+monitor-checked effect judgments `arxiv.org/html/2607.17780`). The base typing is unchanged;
+acceptance is an outer relation indexed by the current time:
 
-    within-E-anchored  (d : Deriv Γ M (within τ φ)) (anchor : acceptableAt τ now)  :  Deriv Γ M φ
+    AcceptsRevocable now Γ M τ φ  :=  acceptableAt τ now  ∧  Nonempty (Deriv Γ M (within τ φ))
 
-and prove **revocation soundness**: a revoked/expired credential (`now ≥ revoke validUntil r`, hence
-no `acceptableAt` witness by `revoke_bounds_acceptance`) is **not eliminable** — no acceptance
-derivation exists. This turns the model theorems above into a guarantee about `Deriv` itself, and is
-the DLC analogue of the arXiv 2605.20704 revocation protocol, carried to the typed calculus. Then a
-Tamarin/ProVerif model (the field's open item) mirrors it at the protocol layer.
+Proven (`Revocation.lean`, axioms ⊆ `[propext, Quot.sound]`):
+
+- `revoked_credential_not_accepted` — **revocation soundness**: `¬ acceptableAt τ now →
+  ¬ AcceptsRevocable now Γ M τ φ`; a credential past its bound is not accepted however well-typed.
+- `revoked_at_not_accepted` — after revoking at `r`, not accepted at any `now ≥ r` (the model's
+  `revoke_bounds_acceptance` lifted to the `Deriv` judgment).
+- `accepts_monotone_earlier` — acceptance is downward-closed in time (a single crossing at `τ`).
+- `revocableCredential_deriv` + `revocable_accepted_before_bound` / `revocable_not_accepted_at_bound`
+  — a REAL `Deriv` credential `⊢ withinIntro τ (sign p (now 0) σ) : within τ (p says ⊤)`, accepted at
+  `now=5` and rejected at `now=10` (bound 10): two-sided over an actual derivation, so the judgment is
+  inhabited and the soundness theorem non-vacuous.
+
+**Deeper alternative (later):** the premise-carrying `within-E` constructor makes an expired credential
+*underivable* in `Deriv` itself (not merely un-accepted by the outer judgment) — stronger, but requires
+the full metatheory sweep (every `Deriv` consumer updated). The layered judgment delivers the guarantee
+now without that blast radius. A Tamarin/ProVerif revocation model (the arXiv 2605.20704 open item)
+mirrors it at the protocol layer.
 
 ## 4. Honest fences
 

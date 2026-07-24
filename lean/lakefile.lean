@@ -53,6 +53,9 @@ lean_lib «DLC» where
 lean_lib «Decidability» where
   roots := #[`DLC.Decidability]
 
+lean_lib «CloneId» where
+  roots := #[`DLC.CloneId]
+
 lean_lib «DecideDecode» where
   roots := #[`DLC.DecideDecode]
 

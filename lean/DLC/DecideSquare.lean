@@ -154,4 +154,50 @@ theorem decCtx_cons_a_ok (c : judgment.Ctx) (phi : syntax.Prop) (ext : judgment.
     · exact absurd hv (by simp)
   simp [decCtx, DLC.Ctx.consA, hval, hvval]
 
+/-! ## Forward per-arm agreement (the `infer_square` capstone, fragment-scoped)
+
+Each lemma below shows: whenever the shipped Rust checker `decide.infer` types an arm (in ANY
+context), the verified `decideLean` types the decoded term at the decoded type. Stated as
+`FwdAgree`, ∀-over-context so binder arms can instantiate a sub-term's IH at an extended context.
+Assembled by induction (with a `PropFrag` predicate excluding the four arms where `decide.infer`
+is deliberately more permissive — see `spec/r6.2-inc1-infer-square-design.md` §6). -/
+
+/-- `?`-operator `branch` on `Option` (both reductions are `rfl`) — as simp lemmas so a
+`decide.infer` arm's `let cf ← branch o; match cf …` peels once `o` is `some`/`none`. -/
+@[simp] theorem branch_some {T} (v : T) :
+    core.option.Option.Insts.CoreOpsTry_traitTry.branch (some v)
+      = ok (core.ops.control_flow.ControlFlow.Continue v) := rfl
+
+@[simp] theorem branch_none {T} :
+    core.option.Option.Insts.CoreOpsTry_traitTry.branch (none : Option T)
+      = ok (core.ops.control_flow.ControlFlow.Break none) := rfl
+
+/-- Forward per-arm agreement for a single term (∀ context / inferred type). -/
+abbrev FwdAgree (term : syntax.Term) : Prop :=
+  ∀ (ctx : judgment.Ctx) (inferred : syntax.Prop),
+    decide.infer ctx term = ok (some inferred) →
+    decideLean (decCtx ctx) (decTerm term) = some (decProp inferred)
+
+/-- `now τ` — introduces `Top` in any context; both checkers agree. -/
+theorem fwd_now (t : time.TimeBound) : FwdAgree (syntax.Term.Now t) := by
+  intro ctx inferred h
+  rw [decide.infer] at h
+  injection h with h; injection h with h; subst h
+  rfl
+
+/-- `sign p m _` — `M : φ ⟹ p says φ`; agrees given the sub-term `m` agrees. -/
+theorem fwd_sign (p : principal.Principal) (m : syntax.Term) (sig : syntax.Signature)
+    (ih : FwdAgree m) : FwdAgree (syntax.Term.Sign p m sig) := by
+  intro ctx inferred h
+  rw [decide.infer] at h
+  obtain ⟨o, ho, h⟩ := bind_ok_inv h
+  cases o with
+  | none =>
+    simp [branch_none, bind_tc_ok,
+      core.option.Option.Insts.CoreOpsTry_traitFromResidualOptionInfallible.from_residual] at h
+  | some val =>
+    simp only [branch_some, CloneId.principalClone_id, bind_tc_ok] at h
+    injection h with h; injection h with h; subst h
+    simp only [decTerm, decProp, decideLean, ih ctx val ho]
+
 end DLC.DecideSquare

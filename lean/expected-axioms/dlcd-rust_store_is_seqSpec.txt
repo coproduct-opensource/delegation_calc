@@ -1,0 +1,1 @@
+'DLCD.Transport.rust_store_is_seqSpec' depends on axioms: [propext, Classical.choice, Quot.sound]

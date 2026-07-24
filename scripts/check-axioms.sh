@@ -79,6 +79,10 @@ SCRIPT_FILE="$SCRIPT_DIR/PrintAll.lean"
   # (imports the DlcCore Aeneas tree). NOT DLCD.CorrespondenceConsensus — the
   # two generated trees cannot co-elaborate in one module.
   echo "import DLCD.Correspondence"
+  # R2.4a: the transport capstone `rust_*` corollaries. Imports DLCD.Correspondence
+  # (the dlc_core tree) only — NOT DLCD.CorrespondenceConsensus — so it co-elaborates
+  # with the block above.
+  echo "import DLCD.Transport"
   echo ""
   for fqn in "${SNAP_FQNS[@]}"; do
     echo "#print axioms $fqn"

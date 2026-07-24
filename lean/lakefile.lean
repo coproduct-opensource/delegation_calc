@@ -104,6 +104,14 @@ lean_lib «Correspondence» where
 lean_lib «DLCDCorrespondence» where
   roots := #[`DLCD.Correspondence, `DLCD.CorrespondenceConsensus]
 
+-- DLC-D Phase R2.4a: the TRANSPORT capstone. Spends the R2.3 partial-correctness
+-- squares (DLCD.Correspondence) to pull the hand guarantees (G1-cap, G2, G4, G1-NI)
+-- back to the deployed Rust runtime as `rust_*` corollaries conditioned on the Rust
+-- op returning `ok`. Single generated tree (dlc_core only, via DLCD.Correspondence);
+-- does NOT import DLCD.CorrespondenceConsensus (the dlc_d_rsm tree would collide).
+lean_lib «DLCDTransport» where
+  roots := #[`DLCD.Transport]
+
 lean_lib «NonInterference» where
   roots := #[`DLC.NonInterference, `DLC.NonInterferenceTwoRun, `DLC.NonInterferenceLR, `DLC.NonInterferenceEnv, `DLC.NonInterferenceFundamental]
 

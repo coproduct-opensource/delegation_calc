@@ -68,7 +68,7 @@ Two observations set up the entire positioning:
 | Multi-hop delegation with attenuation (narrows only) | `attenuate_only_narrows` (a well-typed attenuation carries its parent authority + the narrowing witness `φ ⊢ ψ`) + `attenuate_chain_narrows` (leaf authority entailed by the root over a chain) | `lean/DLC/AttenuateNarrows.lean` | **proved** (`[propext]`; the Tamarin `attenuation_roots_in_issuance` structural assumption discharged) |
 | Enforcement is actually exercised (no deviation collapse) | anti-vacuity witnesses + right-reason bites + the differential bite gate | throughout `lean/DLCD/*`, `models/tamarin/*`, `scripts/check-tamarin-bite.sh` | **methodology, applied** (§4) |
 | Revocation faster than agent execution | time-bounded `says` (`within validUntil (p says φ)`): `revoke_bounds_acceptance` / `revoked_credential_not_accepted` (revoked ⟹ not accepted) + Tamarin `accept_not_revoked` + real expiring Biscuit (`authorize_at`) | `lean/DLC/Revocation.lean`, `models/tamarin/dlcd-revocation.spthy`, `models/proverif/dlcd-revocation.pv`, `crates/dlc-interop/src/biscuit.rs` | **proved + verified across 5 layers** (Lean + Deriv judgment + Tamarin + ProVerif + Biscuit wire; the arXiv 2605.20704 open item) |
-| Progress under a faulty leader (BFT liveness) | view-change bounded-liveness: `progress_after_viewchange_reachable` (a decision is reachable past a silent leader via rotation) + `no_two_decisions` (rotation preserves agreement) | `spec/bft-liveness-design.md`, `models/tamarin/dlcd-viewchange.spthy` | **designed + BOUNDED** (Tamarin exists-trace; full temporal ◇ needs TLA+, §5) |
+| Progress under a faulty leader (BFT liveness) | view-change bounded-liveness: progress reachable past a silent leader (`dlcd-viewchange.spthy`) AND past a **Byzantine equivocating** leader (`dlcd-viewchange-byz.spthy`, n=4 quorum 3) + `no_two_decisions` / `double_vote_needs_reveal` (agreement + anti-equivocation survive) | `spec/bft-liveness-design.md`, `models/tamarin/dlcd-viewchange{,-byz}.spthy` | **designed + BOUNDED** (Tamarin exists-trace, crash & Byzantine leader; full temporal ◇ needs TLA+, §5) |
 
 "Proved" here means: a Lean theorem with a `[propext, Classical.choice, Quot.sound]` axiom
 footprint (no `sorry`/`native_decide`), governed by a pinned `expected-axioms` snapshot, with a
@@ -129,12 +129,13 @@ proving a gate is exercised. That method is directly transferable to an ACP-styl
   log-matching (`log_agreement`) is model-level only, with no runtime multi-slot decision function.
 - **Liveness is DESIGNED + BOUNDED, not a full temporal proof.** `rust_byz_agreement` remains
   agreement (safety). A view-change *design* (`spec/bft-liveness-design.md`) + a *bounded* Tamarin
-  artifact (`dlcd-viewchange.spthy`: progress is *reachable* past a silent leader via rotation, and
-  rotation preserves agreement) now exist. The full temporal ◇ ("always eventually decides") needs a
-  fair-scheduling model-checker (TLA+/TLC) this no-Mathlib Lean toolchain lacks — FLP forces the
-  synchrony assumption, which DLC-D states explicitly (unlike ACP's assumption-free TLA+ check).
-  Remaining: TLA+/TLC ◇ liveness; Byzantine-leader (equivocating) liveness (the artifact models a
-  *crash*/silent leader); multi-decree Byzantine lift.
+  artifacts now exist for BOTH a crash/silent leader (`dlcd-viewchange.spthy`) and a **Byzantine
+  equivocating** leader (`dlcd-viewchange-byz.spthy`, n=4 quorum 3): progress is *reachable* past the
+  faulty leader via rotation, agreement + anti-equivocation survive. The full temporal ◇ ("always
+  eventually decides") needs a fair-scheduling model-checker (TLA+/TLC) this no-Mathlib Lean toolchain
+  lacks — FLP forces the synchrony assumption, which DLC-D states explicitly (unlike ACP's
+  assumption-free TLA+ check). Remaining: TLA+/TLC ◇ liveness; the tight f=1 Byzantine safety bound
+  (f+1 reveals, fenced — a Tamarin disequality limit); multi-decree Byzantine lift.
 - **`attenuate` converse — CLOSED.** `attenuate_only_narrows` proves a typed attenuation *carries* the
   narrowing witness; the converse (a genuine *widening* is *underivable*) is now proved too
   (`lean/DLC/DerivSound.lean`, `[propext]`): a boolean valuation model + full soundness `deriv_sound`

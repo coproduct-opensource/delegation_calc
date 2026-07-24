@@ -353,6 +353,50 @@ jobs:
           fi
           if [ "$ok" -ne 1 ]; then exit 1; fi
 
+      # =====================================================================
+      # Phase 4 BFT liveness — BYZANTINE leader (n=4, quorum 3). Strengthens the
+      # crash-fault view-change model to an EQUIVOCATING leader replaced by a
+      # quorum view-change (spec/bft-liveness-design.md §5).
+      # =====================================================================
+      - name: Byzantine view-change wellformedness (strict — zero warnings)
+        run: |
+          set -o pipefail
+          cd models/tamarin
+          tamarin-prover dlcd-viewchange-byz.spthy 2>&1 | tee wf-dlcd-viewchange-byz.log
+          if ! grep -q "All wellformedness checks were successful" wf-dlcd-viewchange-byz.log; then
+            echo "::error::dlcd-viewchange-byz.spthy has wellformedness warnings — analysis may be unsound"
+            exit 1
+          fi
+
+      - name: Prove the Byzantine view-change lemmas
+        run: |
+          set -o pipefail
+          cd models/tamarin
+          tamarin-prover --prove dlcd-viewchange-byz.spthy 2>&1 | tee prove-viewchange-byz.log
+          if grep -E "^.*: (falsified|incomplete)" prove-viewchange-byz.log; then
+            echo "::error::Tamarin reported falsified or incomplete lemmas in prove-viewchange-byz.log"
+            exit 1
+          fi
+          if ! grep -q "summary of summaries" prove-viewchange-byz.log; then
+            echo "::error::prove-viewchange-byz.log: Tamarin did not reach 'summary of summaries' — run truncated"
+            exit 1
+          fi
+          ok=1
+          # Byzantine liveness: progress reachable past an EQUIVOCATING leader (non-vacuous).
+          if ! grep -qE "\bprogress_after_byzantine_viewchange_reachable\b.*: +verified" prove-viewchange-byz.log; then
+            echo "::error::progress_after_byzantine_viewchange_reachable did not verify — the Byzantine liveness artifact is broken"
+            ok=0
+          fi
+          if ! grep -qE "\bno_two_decisions\b.*: +verified" prove-viewchange-byz.log; then
+            echo "::error::byz no_two_decisions did not verify — agreement broke under the equivocating leader"
+            ok=0
+          fi
+          if ! grep -qE "\bdouble_vote_needs_reveal\b.*: +verified" prove-viewchange-byz.log; then
+            echo "::error::double_vote_needs_reveal did not verify — the anti-equivocation vote-token is broken"
+            ok=0
+          fi
+          if [ "$ok" -ne 1 ]; then exit 1; fi
+
       - name: Upload Tamarin output
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

@@ -101,8 +101,19 @@ actually mechanizes it:
   leader NEVER proposed (non-vacuous: the `not Proposed(L0,'v0',…)` clause forces a genuinely silent
   initial leader, so progress *required* the rotation), no key revealed; plus `no_two_decisions`
   (all-traces, VERIFIED) — rotation preserves single-view agreement (quorum intersection survives leader
-  change). Honest fence in the `.spthy`: this is REACHABILITY (progress is *possible*), NOT the temporal
-  ◇; and it models a *silent* (crash) initial leader — Byzantine-leader liveness is stronger and fenced.
+  change). Honest fence in the `.spthy`: this is REACHABILITY (progress is *possible*), NOT the temporal ◇.
+- **BYZANTINE-leader liveness — LANDED** (`models/tamarin/dlcd-viewchange-byz.spthy`, CI-gated,
+  wellformedness clean). Strengthens the above from a *crash* (silent) leader to a **Byzantine
+  (equivocating)** one: `n = 4`, quorum `3` (2f+1, f=1). `progress_after_byzantine_viewchange_reachable`
+  (exists-trace, VERIFIED) — a decision is reachable in `v1` after a quorum view-change abandons `v0`, in
+  a run where `v0`'s leader **equivocated** (proposed two different values `a ≠ b`), no key revealed
+  (non-vacuous: the equivocation clause forces the Byzantine behaviour). `no_two_decisions` (VERIFIED) —
+  agreement survives the equivocating leader (no conflicting decision without a compromise), and
+  `double_vote_needs_reveal` (VERIFIED) — the linear vote-token defeats an equivocating leader's attempt
+  to split an honest replica's vote. Fence: still REACHABILITY not ◇; and the *tight* f=1 bound (that
+  **two** distinct keys, f+1, must leak) is true by quorum intersection but not machine-proved — it needs
+  a two-distinct (`X ≠ Y`) counting argument Tamarin's heuristics don't complete (a known disequality
+  limitation); the proven safety escape is "unless a key leaked" (≥1 reveal).
 - **Agda/Coq reference** — Jolteon's Agda formalization (IOG) and Bythos (CCS'24, compositional
   mechanized BFT safety+liveness in Coq) are the SOTA full-liveness mechanizations; porting is a large
   separate effort, cited as the reference standard, not this increment.

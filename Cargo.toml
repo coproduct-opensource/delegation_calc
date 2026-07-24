@@ -3,6 +3,7 @@ members = [
     "crates/dlc-core",
     "crates/dlc-d-rsm",
     "crates/dlc-d-node",
+    "crates/dlc-d-macro",
     "crates/dlc-crypto",
     "crates/dlc-protocol",
     "crates/dlc-verifier",
@@ -37,6 +38,11 @@ coset = "0.3"
 # Diagnostics
 thiserror = "2"
 anyhow = "1"
+
+# Proc-macro toolkit (dlc-d-macro only — NOT dlc-core, whose Aeneas fence bans deps)
+syn = { version = "2", features = ["full"] }
+quote = "1"
+proc-macro2 = "1"
 
 # Async / runtime (only for non-core crates)
 tokio = { version = "1.52", features = ["rt", "rt-multi-thread", "macros"] }

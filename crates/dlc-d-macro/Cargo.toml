@@ -1,0 +1,19 @@
+[package]
+name = "dlc-d-macro"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The #[dlc_d::agent_service] authority-envelope macro (R6.2). Untrusted token manipulation: soundness rides on the verified certificate checker (dlc-core::decide + rust_infer_sound), not on this crate."
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { workspace = true }
+quote = { workspace = true }
+proc-macro2 = { workspace = true }
+
+[dev-dependencies]
+trybuild = "1"

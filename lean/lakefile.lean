@@ -69,6 +69,12 @@ lean_lib «DecideSquare» where
 lean_lib «AttenuateNarrows» where
   roots := #[`DLC.AttenuateNarrows]
 
+-- Phase 4 (agent-governance gaps): revocation as a monotone time bound — the
+-- model (revocation narrows/permanent/effective) + the `within-E`
+-- unconditional-strip gap it exposes (spec/revocation-design.md).
+lean_lib «Revocation» where
+  roots := #[`DLC.Revocation]
+
 -- L1 (linear-lever campaign): the `CtxWellFormed` disambiguation invariant
 -- and its equivalence to the shipped checker. Depends on Judgment + Decidability.
 lean_lib «CtxWellFormed» where

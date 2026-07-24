@@ -76,11 +76,12 @@
  *
  * 3. Signature checks use the derivation-clean `verify(sig, msg, pk) = true`
  *    idiom rather than pattern-matching `sign(msg, sk)` against `!Pk(P,
- *    pk(sk))`. The older idiom is what `dlc.spthy` uses and it is why that
- *    file reports "Failed to derive Variable(s): skP, skQ" under Tamarin's
- *    message-derivation wellformedness check -- a warning class that the CI
- *    gate does not currently fail on. This file is written to have ZERO
- *    wellformedness warnings, and its CI step fails if any appear.
+ *    pk(sk))`. The older idiom is what `dlc.spthy` used until 2026-07-24, and
+ *    it is why that file reported "Failed to derive Variable(s): skP, skQ"
+ *    under Tamarin's message-derivation check -- with Tamarin appending "The
+ *    analysis results might be wrong!" to a run CI called green. `dlc.spthy`
+ *    has since been converted to this same idiom and re-proved, and BOTH files
+ *    are now gated on zero wellformedness warnings.
  *
  * 4. LIVENESS IS NOT MODELLED, by construction. A Dolev-Yao adversary may
  *    drop every message, so no progress property can hold here. Liveness is

@@ -33,6 +33,37 @@ begin
 builtins: signing
 
 // =========================================================================
+// Signature verification -- the DERIVATION-CLEAN idiom
+// =========================================================================
+//
+// Verifying rules emit `Eq(verify(sig, msg, pk), true)` and this restriction
+// discharges it. They do NOT pattern-match `sign(msg, sk)` against
+// `!Pk(P, pk(sk))`.
+//
+// CHANGED 2026-07-24, and the reason matters. The old idiom bound the signing
+// key `sk` by matching inside an adversary-supplied term, which Tamarin's
+// message-derivation wellformedness check cannot justify:
+//
+//     Rule Delegate_Accept: Failed to derive Variable(s): skP, skQ
+//     Rule Discharge_Accept: Failed to derive Variable(s): skP, skQ
+//     WARNING: 1 wellformedness check failed!
+//              The analysis results might be wrong!
+//
+// All seven lemmas verified under that idiom, but that caveat is Tamarin's own
+// and it applied to every one of them: a rule whose variables are not derivable
+// may fire less often than reality permits, and lemmas can pass because attacks
+// were unreachable IN THE MODEL rather than in the protocol. The CI gate greps
+// for `falsified|incomplete` only, so it never failed on this.
+//
+// The manual offers two ways out: annotate the rules `[no_derivcheck]`, or make
+// the variables derivable. `[no_derivcheck]` silences the checker without
+// changing what is modelled -- it converts a known caveat into an unknown one.
+// This file takes the second route, which is also what the replication models
+// (dlcd-replication.spthy) were written with from the start.
+restriction Equality:
+  "All x y #i. Eq(x, y) @ #i ==> x = y"
+
+// =========================================================================
 // Key registration -- each principal P has a long-term Ed25519 keypair
 // =========================================================================
 
@@ -99,15 +130,20 @@ rule SpeaksFor_Issue:
 rule Delegate_Accept:
     [
       // SpeaksFor token by P naming Q
-      In(<'speaks_for', $P, $Q, sign(<'speaks_for', $P, $Q>, skP)>)
+      In(<'speaks_for', $P, $Q, sfsig>)
     , // Says token by Q over the proposition prop
-      In(<prop, sign(prop, skQ)>)
-    , // The public keys must match the signing keys.
-      !Pk($P, pk(skP))
-    , !Pk($Q, pk(skQ))
+      In(<prop, sayssig>)
+    , // The pinned public keys of the two principals.
+      !Pk($P, pkP)
+    , !Pk($Q, pkQ)
     ]
   --[
-      DelegateAccept($P, $Q, prop)
+      // Both signatures must verify against those pinned keys. Same-$P/$Q in
+      // the two checks is what enforces no-chain-splicing; the verification is
+      // now semantic (`verify`) rather than syntactic pattern-matching.
+      Eq(verify(sfsig, <'speaks_for', $P, $Q>, pkP), true)
+    , Eq(verify(sayssig, prop, pkQ), true)
+    , DelegateAccept($P, $Q, prop)
     , UsedSpeaksFor($P, $Q)
     , UsedSays($Q, prop)
     ]->
@@ -184,13 +220,15 @@ rule Evidence_Issue:
 // below checks.
 rule Discharge_Accept:
     [ Obligation($P, ~o, prop)
-    , In(<'box', $P, ~o, prop, sign(<'box', ~o, prop>, skP)>)
-    , In(<'evidence', $Q, ~o, sign(<'evidence', ~o>, skQ)>)
-    , !Pk($P, pk(skP))
-    , !Pk($Q, pk(skQ))
+    , In(<'box', $P, ~o, prop, boxsig>)
+    , In(<'evidence', $Q, ~o, evsig>)
+    , !Pk($P, pkP)
+    , !Pk($Q, pkQ)
     ]
   --[
-      DischargeAccept($P, $Q, ~o, prop)
+      Eq(verify(boxsig, <'box', ~o, prop>, pkP), true)
+    , Eq(verify(evsig, <'evidence', ~o>, pkQ), true)
+    , DischargeAccept($P, $Q, ~o, prop)
     , UsedEvidence($Q, ~o)
     ]->
     [ ]

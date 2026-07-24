@@ -156,15 +156,24 @@ proof-to-the-metal bridge already exists (R2), and the shell substrate is instal
   regenerated (the added doc lines shifted embedded source-location comments;
   diff is comment-only, drift gate clean, 77 snapshots byte-unchanged).
 
-- **`dlc.spthy` may be unsound — NEXT INCREMENT.** Under Tamarin 1.12.0 the
-  delegation model reports a failed message-derivation check ("Failed to derive
-  Variable(s): skP, skQ" in `Delegate_Accept` / `Discharge_Accept`) and Tamarin
-  appends *"The analysis results might be wrong!"*. All 7 lemmas still verify,
-  but the caveat is the tool's own. Cause: signature checks by pattern-matching
-  `sign(msg, skP)` against `!Pk(P, pk(skP))`. Fix: the derivation-clean
-  `verify(sig, msg, pk) = true` idiom (as in the replication models), then
-  re-prove all 7 lemmas and make its wellformedness gate strict too. This is a
-  caveat on EXISTING claims, which is why it outranks the ProVerif cross-check.
+- **`dlc.spthy` soundness caveat — FOUND AND FIXED (2026-07-24).** Under Tamarin
+  1.12.0 the delegation model reported a failed message-derivation check
+  ("Failed to derive Variable(s): skP, skQ" in `Delegate_Accept` /
+  `Discharge_Accept`) with Tamarin appending *"The analysis results might be
+  wrong!"* — on a run CI called green, because the gate greps only
+  `falsified|incomplete`. Cause: signature checks by pattern-matching
+  `sign(msg, skP)` against `!Pk(P, pk(skP))`, which binds the signing key inside
+  an adversary-supplied term. Fixed by converting both rules to the
+  derivation-clean `verify(sig, msg, pk) = true` idiom (declining the manual's
+  `[no_derivcheck]` escape, which would hide the caveat rather than remove it).
+  **All 7 lemmas re-proved with identical step counts** — so the properties
+  genuinely held and the caveat was on the analysis, not the protocol. Note the
+  new idiom makes the adversary *strictly stronger* (semantic verification, not
+  syntactic shape-matching), so surviving it is a real result. Both checks
+  perturbation-tested: dropping the says-half verification falsifies
+  `non_splicing` (6 steps); dropping the evidence verification falsifies
+  `no_silent_discharge` (9 steps). CI wellformedness gate now strict for
+  `dlc.spthy` as well as the replication models.
 
 ## 7. Recommended next thrust
 

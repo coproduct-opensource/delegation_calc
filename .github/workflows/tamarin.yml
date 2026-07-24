@@ -54,10 +54,22 @@ jobs:
           sudo mv tamarin-prover /usr/local/bin/
           tamarin-prover --version
 
-      - name: Well-formedness check
+      # STRICT since 2026-07-24: the sentinel must be PRESENT, asserted
+      # positively. Before that date this step only tee'd the log, and
+      # dlc.spthy's message-derivation failure ("Failed to derive Variable(s):
+      # skP, skQ") rode along for the file's whole lifetime — Tamarin appending
+      # "The analysis results might be wrong!" to a run the gate called green.
+      # The rules now use the derivation-clean `verify(...)` idiom and the file
+      # is warning-free, so the gate can be strict.
+      - name: Well-formedness check (strict — zero warnings required)
         run: |
+          set -o pipefail
           cd models/tamarin
           tamarin-prover dlc.spthy 2>&1 | tee wellformedness.log
+          if ! grep -q "All wellformedness checks were successful" wellformedness.log; then
+            echo "::error::dlc.spthy has wellformedness warnings — Tamarin's analysis may be unsound"
+            exit 1
+          fi
 
       - name: Prove all lemmas
         run: |

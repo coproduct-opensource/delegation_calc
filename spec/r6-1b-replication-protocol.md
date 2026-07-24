@@ -143,7 +143,18 @@ the guarded model, 8 identical rules. The gate was itself perturbation-tested: d
   step and the wire must wait for it.
 - **Static key compromise only.** Adaptive corruption is out of scope, as in `dlc.spthy`.
 
-## 8. Finding recorded while building this: `dlc.spthy` may be unsound
+## 8. Finding recorded while building this: `dlc.spthy` may be unsound — NOW FIXED
+
+**Update, same day:** the fix landed. `dlc.spthy`'s two verifying rules were converted to
+the `verify(...)` idiom, all 7 lemmas re-proved (identical step counts, so the properties
+genuinely held — the caveat was on the *analysis*, not on the protocol), and its CI
+wellformedness gate is now strict. Both checks were perturbation-tested: deleting the
+says-half verification falsifies `non_splicing` (6 steps), deleting the evidence
+verification falsifies `no_silent_discharge` (9 steps). The original finding is kept below
+because the failure mode — a tool-reported soundness caveat riding under a gate that greps
+only for `falsified|incomplete` — is the reusable lesson.
+
+### 8.1 The finding as originally recorded
 
 Under Tamarin 1.12.0 the pre-existing delegation model reports:
 
@@ -161,6 +172,13 @@ which the message-derivation check cannot justify. The CI gate greps for
 own history records.
 
 The replication models avoid it by using the derivation-clean `verify(sig, msg, pk) = true`
-idiom, and their CI step asserts zero warnings positively. **Fixing `dlc.spthy` means
-re-proving all 7 of its lemmas under the new idiom and is tracked as the next increment**
-(roadmap §6b) — it is a caveat on existing claims, not on anything introduced here.
+idiom, and their CI step asserts zero warnings positively. Fixing `dlc.spthy` meant
+re-proving all 7 of its lemmas under the new idiom — done, see §8 above.
+
+Worth stating plainly, since the alternative was tempting: Tamarin's manual offers
+`[no_derivcheck]` to suppress the check on a rule the author believes is fine. That would
+have turned a *known* caveat into an *unknown* one — the warning disappears, the modelling
+gap does not. The idiom change was taken instead, which also makes the adversary strictly
+stronger (semantic verification admits any term the equational theory reduces, rather than
+only syntactic `sign(...)` shapes). That the lemmas survived that strengthening is the
+result; had one failed, the failure would have been the real finding.

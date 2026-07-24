@@ -75,6 +75,11 @@ lean_lib «AttenuateNarrows» where
 lean_lib «Revocation» where
   roots := #[`DLC.Revocation]
 
+-- FOUNDATION: a boolean valuation model of Deriv — the NEGATIVE direction
+-- (underivability), unlocking the attenuate converse + Deriv-level revocation.
+lean_lib «DerivSound» where
+  roots := #[`DLC.DerivSound]
+
 -- L1 (linear-lever campaign): the `CtxWellFormed` disambiguation invariant
 -- and its equivalence to the shipped checker. Depends on Judgment + Decidability.
 lean_lib «CtxWellFormed» where

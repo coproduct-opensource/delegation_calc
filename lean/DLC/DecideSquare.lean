@@ -48,4 +48,8 @@ theorem decCtx_linear_length (ctx : judgment.Ctx) :
   show (ctx.linear.val.map decProp).length = _
   simp
 
+/-- Decode an optional Aeneas prop to the hand world — the map used to state `infer_square`
+(mirrors `shift_corr`'s `decTermC <$> …`). -/
+abbrev decOptProp (o : Option syntax.Prop) : Option DLC.Prop' := o.map decProp
+
 end DLC.DecideSquare

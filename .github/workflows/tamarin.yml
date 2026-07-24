@@ -208,20 +208,36 @@ jobs:
         run: bash scripts/check-tamarin-bite.sh
 
       # Phase 2 interop model (spec/interop-says-biscuit.md): the says-credential ↔
-      # Biscuit/RFC-8707 protocol — forgery-resistance, audience-binding, non-vacuity.
+      # Biscuit/RFC-8707 protocol — forgery-resistance, audience-binding, offline
+      # attenuation (never widens), non-vacuity; + the differential bite.
+      - name: Interop wellformedness (strict — zero warnings)
+        run: |
+          set -o pipefail
+          cd models/tamarin
+          for f in dlcd-interop.spthy dlcd-interop-bite.spthy; do
+            tamarin-prover "$f" 2>&1 | tee "wf-${f%.spthy}.log"
+            if ! grep -q "All wellformedness checks were successful" "wf-${f%.spthy}.log"; then
+              echo "::error::${f} has wellformedness warnings — Tamarin's analysis may be unsound"
+              exit 1
+            fi
+          done
+
       - name: Prove the interop lemmas
         run: |
           set -o pipefail
           cd models/tamarin
           tamarin-prover --prove dlcd-interop.spthy 2>&1 | tee prove-interop.log
-          if grep -E "^.*: (falsified|incomplete)" prove-interop.log; then
-            echo "::error::Tamarin reported falsified or incomplete lemmas in dlcd-interop.spthy"
-            exit 1
-          fi
-          if ! grep -q "summary of summaries" prove-interop.log; then
-            echo "::error::dlcd-interop.spthy: Tamarin did not reach 'summary of summaries' — run truncated"
-            exit 1
-          fi
+          tamarin-prover --prove dlcd-interop-bite.spthy 2>&1 | tee prove-interop-bite.log
+          for log in prove-interop.log prove-interop-bite.log; do
+            if grep -E "^.*: (falsified|incomplete)" "$log"; then
+              echo "::error::Tamarin reported falsified or incomplete lemmas in ${log}"
+              exit 1
+            fi
+            if ! grep -q "summary of summaries" "$log"; then
+              echo "::error::${log}: Tamarin did not reach 'summary of summaries' — run truncated"
+              exit 1
+            fi
+          done
           ok=1
           for lem in cred_binds_issuer no_cross_audience_replay exec_accept \
                      attenuation_roots_in_issuance exec_attenuate; do
@@ -230,7 +246,18 @@ jobs:
               ok=0
             fi
           done
+          # The BITE: cross-audience replay must be REACHABLE once AudienceBinding is
+          # gone. If this stops verifying, the bite has gone vacuous.
+          if ! grep -qE "\bcross_audience_reachable\b.*: +verified" prove-interop-bite.log; then
+            echo "::error::the interop bite lemma 'cross_audience_reachable' did not verify — the bite is vacuous"
+            ok=0
+          fi
           if [ "$ok" -ne 1 ]; then exit 1; fi
+
+      # The differential: both passing independently does not show AudienceBinding
+      # is what makes audience binding true — see the script's header.
+      - name: Interop bite is a controlled experiment (differential gate)
+        run: bash scripts/check-tamarin-interop-bite.sh
 
       - name: Upload Tamarin output
         if: always()

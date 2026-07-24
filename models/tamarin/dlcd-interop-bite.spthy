@@ -50,11 +50,6 @@ restriction unique_key:
   "All A #i #j.
       KeyRegistered(A) @ #i & KeyRegistered(A) @ #j ==> #i = #j"
 
-// THE structural heart of audience binding (RFC 8707): a resource server accepts
-// a credential only if its audience equals the server's. Removing this is the
-// bite (see dlcd-interop-bite.spthy) — cross-audience replay becomes reachable.
-restriction AudienceBinding:
-  "All ca sa #i. AudienceMatch(ca, sa) @ #i ==> ca = sa"
 
 // =========================================================================
 // Keys and compromise
@@ -121,74 +116,22 @@ rule Verify_attenuated:
     [ ]
 
 // =========================================================================
-// Security lemmas (all-traces) + non-vacuity witness (exists-trace)
+// The BITE attack lemma (this file is NOT the committed protocol)
 // =========================================================================
-
-// FORGERY-RESISTANCE. An accepted credential was really issued by the issuer it
-// names — unless that issuer's key was revealed (Dolev–Yao). This is the wire
-// form of what `dlc-crypto::signed_term::verify_in_keyring` buys: acceptance
-// implies a genuine `Says(I, …)` by `I`.
-lemma cred_binds_issuer:
-  all-traces
-  "All I aud sc #i.
-       Accepted(I, aud, sc) @ #i
-    ==>
-       (Ex #j. CredIssued(I, aud, sc) @ #j)
-     | (Ex #r. Reveal(I) @ #r)"
-
-// AUDIENCE-BINDING (RFC 8707). A credential issued for one audience is never
-// accepted at a different one: no cross-audience / cross-resource replay. (A
-// fresh `scope` names one issuance, so equal scope forces equal audience.)
-lemma no_cross_audience_replay:
-  all-traces
-  "All I aud1 aud2 sc #i #j.
-       CredIssued(I, aud1, sc) @ #j & Accepted(I, aud2, sc) @ #i
-    ==>
-       aud1 = aud2
-     | (Ex #r. Reveal(I) @ #r)"
-
-// NON-VACUITY (anti-vacuity witness). The safety lemmas above are not vacuously
-// true: there is a trace where an honest credential is issued and accepted at
-// its audience with no key ever revealed. Without this, `cred_binds_issuer`
-// could hold simply because nothing is ever accepted.
-lemma exec_accept:
+//
+// dlcd-interop-bite.spthy is dlcd-interop.spthy with EXACTLY ONE restriction
+// removed — `AudienceBinding`. Everything else (every rule) is byte-identical;
+// `scripts/check-tamarin-interop-bite.sh` asserts that. With the audience check
+// gone, cross-audience replay becomes REACHABLE — a credential issued for one
+// audience is accepted at a different one, with no key ever revealed. A VERIFIED
+// (reachable) result here, together with the SAME lemma FALSIFIED in the guarded
+// model, is the machine-checked statement that `AudienceBinding` is load-bearing.
+lemma cross_audience_reachable:
   exists-trace
-  "Ex I aud sc #i #j.
-       CredIssued(I, aud, sc) @ #j
-     & Accepted(I, aud, sc) @ #i
+  "Ex I aud1 aud2 sc #i #j.
+       CredIssued(I, aud1, sc) @ #j
+     & Accepted(I, aud2, sc) @ #i
+     & not (aud1 = aud2)
      & not (Ex X #r. Reveal(X) @ #r)"
-
-// ATTENUATION-MONOTONE (no fabricated authority via delegation). An accepted
-// attenuated token's ROOT authority `sc` was genuinely issued by the issuer it
-// names — offline attenuation cannot manufacture a root the issuer never signed
-// (unless that key was revealed). Since the effective right `<sc, restr>` is a
-// structural NARROWING of `sc`, the delegate never exceeds the root grant: this
-// is Biscuit's offline attenuation / DCC's "authority monotonic narrowing" (P1),
-// the attenuate-only invariant `Delegate`/`Attenuate`/`SpeaksFor` must preserve.
-lemma attenuation_roots_in_issuance:
-  all-traces
-  "All I aud sc restr #i.
-       AcceptedAtt(I, aud, sc, restr) @ #i
-    ==>
-       (Ex #j. CredIssued(I, aud, sc) @ #j)
-     | (Ex #r. Reveal(I) @ #r)"
-
-// NON-VACUITY for the attenuation path: an honest credential is issued,
-// attenuated, and the attenuated token accepted with no key ever revealed.
-lemma exec_attenuate:
-  exists-trace
-  "Ex I aud sc restr #i #j #k.
-       CredIssued(I, aud, sc) @ #j
-     & Attenuated(I, aud, sc, restr) @ #k
-     & AcceptedAtt(I, aud, sc, restr) @ #i
-     & not (Ex X #r. Reveal(X) @ #r)"
-
-// =========================================================================
-// Fences (next increments — NOT yet modelled)
-// =========================================================================
-//   * ProVerif cross-check (`models/proverif/dlcd-interop.pv`).
-//   * Deeper attenuation chains (this models one hop; the argument is inductive
-//     — each block authenticates back to the root — but arbitrary depth is a
-//     recursive-fact refinement).
 
 end

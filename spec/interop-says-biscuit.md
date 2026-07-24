@@ -75,10 +75,7 @@ encode/decode** between the two representations of one credential, not a re-deri
    (RFC 8707: a credential issued for `aud1` is never accepted at `aud2 ≠ aud1`), `exec_accept`
    (non-vacuity), `attenuation_roots_in_issuance` (offline attenuation never fabricates a root the
    issuer never signed — Biscuit/DCC "authority monotonic narrowing"), `exec_attenuate` (attenuation
-   non-vacuity) — **all 5 `verified`**. Next: the differential BITE
-   (`dlcd-interop-bite.spthy`: remove the audience check ⟹ `no_cross_audience_replay` FALSIFIABLE) +
-   the ProVerif cross-check. Forgery without the issuer key already fails (Dolev–Yao) via
-   `cred_binds_issuer`.
+   non-vacuity) — **all 5 `verified`**. ✅ The differential BITE landed (`dlcd-interop-bite.spthy` + `scripts/check-tamarin-interop-bite.sh`, CI-gated): removing `AudienceBinding` makes `cross_audience_reachable` reachable while it is FALSIFIED in the guarded model — the audience check is machine-checked load-bearing. Next: the ProVerif cross-check.
 3. **`dlc-interop` bridge crate** — `encode`/`decode` a `says`-credential (`Term::Sign` + Ed25519)
    to/from a Biscuit token, reusing `dlc-protocol::wire::{encode, decode}` **verbatim** for the embedded
    term (the `codec.rs` discipline), with a **round-trip-preserves-verification** test: a credential that

@@ -65,9 +65,10 @@ Two observations set up the entire positioning:
 | Cross-agent / cross-tenant data isolation | `distributed_noninterference` (a low observer cannot distinguish differing high stores) | `lean/DLCD/DistributedNI.lean` | **proved at the model / decoded-type level** |
 | A total order on agent operations | `single_linearization` | `lean/DLCD/Linearizable.lean` | **proved** |
 | A declared, enforced failure envelope | `budgeted_guarantee_voids_over_budget` (behaviour is *uninhabited* over budget) | `lean/DLCD/FaultGrade.lean` | **proved (type-level)** |
-| Multi-hop delegation with attenuation (narrows only) | `Term::{SpeaksFor, Delegate, Attenuate}` | `crates/dlc-core/src/syntax.rs` | terms exist; **soundness metatheorem is a gap** (§5) |
+| Multi-hop delegation with attenuation (narrows only) | `attenuate_only_narrows` (a well-typed attenuation carries its parent authority + the narrowing witness `φ ⊢ ψ`) + `attenuate_chain_narrows` (leaf authority entailed by the root over a chain) | `lean/DLC/AttenuateNarrows.lean` | **proved** (`[propext]`; the Tamarin `attenuation_roots_in_issuance` structural assumption discharged) |
 | Enforcement is actually exercised (no deviation collapse) | anti-vacuity witnesses + right-reason bites + the differential bite gate | throughout `lean/DLCD/*`, `models/tamarin/*`, `scripts/check-tamarin-bite.sh` | **methodology, applied** (§4) |
-| Revocation faster than agent execution | — | — | **gap: not modelled** (§5) |
+| Revocation faster than agent execution | time-bounded `says` (`within validUntil (p says φ)`): `revoke_bounds_acceptance` / `revoked_credential_not_accepted` (revoked ⟹ not accepted) + Tamarin `accept_not_revoked` + real expiring Biscuit (`authorize_at`) | `lean/DLC/Revocation.lean`, `models/tamarin/dlcd-revocation.spthy`, `models/proverif/dlcd-revocation.pv`, `crates/dlc-interop/src/biscuit.rs` | **proved + verified across 5 layers** (Lean + Deriv judgment + Tamarin + ProVerif + Biscuit wire; the arXiv 2605.20704 open item) |
+| Progress under a faulty leader (BFT liveness) | view-change bounded-liveness: `progress_after_viewchange_reachable` (a decision is reachable past a silent leader via rotation) + `no_two_decisions` (rotation preserves agreement) | `spec/bft-liveness-design.md`, `models/tamarin/dlcd-viewchange.spthy` | **designed + BOUNDED** (Tamarin exists-trace; full temporal ◇ needs TLA+, §5) |
 
 "Proved" here means: a Lean theorem with a `[propext, Classical.choice, Quot.sound]` axiom
 footprint (no `sorry`/`native_decide`), governed by a pinned `expected-axioms` snapshot, with a
@@ -126,8 +127,18 @@ proving a gate is exercised. That method is directly transferable to an ACP-styl
 
 - **Single-decree, single-round.** The runtime governs one decision stream at a time; multi-slot
   log-matching (`log_agreement`) is model-level only, with no runtime multi-slot decision function.
-- **Safety, not liveness.** `rust_byz_agreement` is agreement (safety); there is no view-change /
-  leader election, so a crashed leader stalls the cluster (safety holds, progress does not).
+- **Liveness is DESIGNED + BOUNDED, not a full temporal proof.** `rust_byz_agreement` remains
+  agreement (safety). A view-change *design* (`spec/bft-liveness-design.md`) + a *bounded* Tamarin
+  artifact (`dlcd-viewchange.spthy`: progress is *reachable* past a silent leader via rotation, and
+  rotation preserves agreement) now exist. The full temporal ◇ ("always eventually decides") needs a
+  fair-scheduling model-checker (TLA+/TLC) this no-Mathlib Lean toolchain lacks — FLP forces the
+  synchrony assumption, which DLC-D states explicitly (unlike ACP's assumption-free TLA+ check).
+  Remaining: TLA+/TLC ◇ liveness; Byzantine-leader (equivocating) liveness (the artifact models a
+  *crash*/silent leader); multi-decree Byzantine lift.
+- **`attenuate` converse (Deriv-consistency) deferred.** `attenuate_only_narrows` proves a typed
+  attenuation *carries* the narrowing witness; the converse (a genuine *widening* is *underivable* in
+  `Deriv`) needs a semantic model of `Deriv` — an all-or-nothing soundness induction over ~30
+  constructors, deferred.
 - **Runtime IFC is type-level.** A faithful runtime label-decode was shown *impossible* (finite
   hand lattice vs unbounded runtime labels); the `flow` axis is a compile-time claim checked at
   build, not runtime label-byte enforcement. This is a design principle, not an apology, but it
@@ -145,7 +156,7 @@ proving a gate is exercised. That method is directly transferable to an ACP-styl
 
 ---
 
-## 6. The interop story (why the bridge is the natural next build)
+## 6. The interop story (the bridge — BUILT)
 
 The field has already picked its wire: **Biscuit** (append-only signed blocks) for multi-hop
 delegation, **RFC 8693** token exchange for delegation hops, **RFC 8707** audience binding for
@@ -158,10 +169,15 @@ scoping, under the **MCP OAuth** umbrella. DLC-D's constructs map onto these dir
 | `WellFormedLog` (append-only committed log) | IBCT's append-only token chain / audit provenance |
 | a command's sink / IFC label | MCP RFC 8707 audience binding |
 
-The bridge (`spec/interop-says-biscuit.md`, a Tamarin/ProVerif-modelled protocol, and a bridge
-crate reusing `dlc-protocol::wire` verbatim) is what lets a DLC-D-governed service *interoperate*
-with the emerging standard instead of being a parallel island — the same "reuse the encoder, add a
-framing layer, model before wire" discipline used for the replication protocol.
+The bridge is **built**: `spec/interop-says-biscuit.md`, a Tamarin/ProVerif-modelled protocol
+(`dlcd-interop.spthy` + differential bite + `dlcd-interop.pv`), and the `dlc-interop` crate — which
+now encodes a `says`-credential into a **genuine `biscuit-auth` v6 token** (`to_biscuit`/`from_biscuit`,
+the credential riding as a Datalog fact in a real Ed25519-block-chained Biscuit) reusing
+`dlc-protocol::wire` verbatim, with the revocation gate realized on the wire as a Biscuit
+`check if dlc_now($t), $t <= validUntil` expiry (`to_biscuit_with_expiry`/`authorize_at`). The
+`biscuit-auth` dependency is confined to `dlc-interop` — `dlc-core` stays Aeneas-translatable (the
+fence). A DLC-D-governed service now *interoperates* with the emerging standard instead of being a
+parallel island — the same "reuse the encoder, add a framing layer, model before wire" discipline.
 
 ---
 
@@ -171,8 +187,11 @@ framing layer, model before wire" discipline used for the replication protocol.
 > may flow, and how many faults it tolerates — as a **type**. `cargo build` green means the deployed
 > binary's admission control is **machine-checked**, honest nodes **agree even under a Byzantine
 > minority**, and the enforcement is **provably exercised**. Where the leading protocols offer a
-> bounded model-check or an attack suite, DLC-D offers a proof carried to the running code — and is
-> honest about exactly where that proof stops (single-decree, safety-not-liveness, type-level flow).
+> bounded model-check or an attack suite, DLC-D offers a proof carried to the running code — with
+> multi-hop **attenuation narrowing proved**, **revocation** mechanized across five layers (Lean →
+> Deriv → Tamarin → ProVerif → real Biscuit wire), and **BFT liveness designed + bounded-checked** —
+> and is honest about exactly where the proof stops (single-decree, liveness bounded-not-temporal,
+> type-level flow, the `attenuate` converse deferred).
 
 That envelope-as-a-type surface is R6.2, reframed as the agent authority-envelope
 (`spec/r6.2-agent-service-envelope.md`); the runnable governed service is R6.3.

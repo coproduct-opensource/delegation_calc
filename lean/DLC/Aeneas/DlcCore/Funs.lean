@@ -729,20 +729,26 @@ def syntax.Prop.Insts.CoreCloneClone : core.clone.Clone syntax.Prop := {
 }
 
 /-- [dlc_core::judgment::{dlc_core::judgment::Ctx}::cons_l]:
-    Source: 'crates/dlc-core/src/judgment.rs', lines 36:4-39:5
+    Source: 'crates/dlc-core/src/judgment.rs', lines 52:4-58:5
     Visibility: public -/
 def judgment.Ctx.cons_l
   (self : judgment.Ctx) (phi : syntax.Prop) : Result judgment.Ctx := do
-  let v ← alloc.vec.Vec.insert self.linear 0#usize phi
-  ok { self with linear := v }
+  let v ← alloc.vec.Vec.push (alloc.vec.Vec.new syntax.Prop) phi
+  let s := alloc.vec.Vec.deref self.linear
+  let v1 ←
+    alloc.vec.Vec.extend_from_slice syntax.Prop.Insts.CoreCloneClone v s
+  ok { self with linear := v1 }
 
 /-- [dlc_core::judgment::{dlc_core::judgment::Ctx}::cons_a]:
-    Source: 'crates/dlc-core/src/judgment.rs', lines 30:4-33:5
+    Source: 'crates/dlc-core/src/judgment.rs', lines 42:4-48:5
     Visibility: public -/
 def judgment.Ctx.cons_a
   (self : judgment.Ctx) (phi : syntax.Prop) : Result judgment.Ctx := do
-  let v ← alloc.vec.Vec.insert self.additive 0#usize phi
-  ok { self with additive := v }
+  let v ← alloc.vec.Vec.push (alloc.vec.Vec.new syntax.Prop) phi
+  let s := alloc.vec.Vec.deref self.additive
+  let v1 ←
+    alloc.vec.Vec.extend_from_slice syntax.Prop.Insts.CoreCloneClone v s
+  ok { self with additive := v1 }
 
 /-- [dlc_core::judgment::{impl core::clone::Clone for dlc_core::judgment::Ctx}::clone]:
     Source: 'crates/dlc-core/src/judgment.rs', lines 15:9-15:14
@@ -1830,7 +1836,7 @@ def principal.KeyRecord.Insts.CoreCloneClone : core.clone.Clone
 }
 
 /-- [dlc_core::judgment::{impl core::clone::Clone for dlc_core::judgment::KeyRing}::clone]:
-    Source: 'crates/dlc-core/src/judgment.rs', lines 43:9-43:14
+    Source: 'crates/dlc-core/src/judgment.rs', lines 62:9-62:14
     Visibility: public -/
 def judgment.KeyRing.Insts.CoreCloneClone.clone
   (self : judgment.KeyRing) : Result judgment.KeyRing := do
@@ -1840,7 +1846,7 @@ def judgment.KeyRing.Insts.CoreCloneClone.clone
   ok { entries := v }
 
 /-- Trait implementation: [dlc_core::judgment::{impl core::clone::Clone for dlc_core::judgment::KeyRing}]
-    Source: 'crates/dlc-core/src/judgment.rs', lines 43:9-43:14 -/
+    Source: 'crates/dlc-core/src/judgment.rs', lines 62:9-62:14 -/
 @[reducible]
 def judgment.KeyRing.Insts.CoreCloneClone : core.clone.Clone judgment.KeyRing
   := {
@@ -1891,7 +1897,7 @@ def principal.KeyRecord.Insts.CoreFmtDebug : core.fmt.Debug principal.KeyRecord
 }
 
 /-- [dlc_core::judgment::{impl core::fmt::Debug for dlc_core::judgment::KeyRing}::fmt]:
-    Source: 'crates/dlc-core/src/judgment.rs', lines 43:16-43:21
+    Source: 'crates/dlc-core/src/judgment.rs', lines 62:16-62:21
     Visibility: public -/
 def judgment.KeyRing.Insts.CoreFmtDebug.fmt
   (self : judgment.KeyRing) (f : core.fmt.Formatter) :
@@ -1904,14 +1910,14 @@ def judgment.KeyRing.Insts.CoreFmtDebug.fmt
     "entries") dyn
 
 /-- Trait implementation: [dlc_core::judgment::{impl core::fmt::Debug for dlc_core::judgment::KeyRing}]
-    Source: 'crates/dlc-core/src/judgment.rs', lines 43:16-43:21 -/
+    Source: 'crates/dlc-core/src/judgment.rs', lines 62:16-62:21 -/
 @[reducible]
 def judgment.KeyRing.Insts.CoreFmtDebug : core.fmt.Debug judgment.KeyRing := {
   fmt := judgment.KeyRing.Insts.CoreFmtDebug.fmt
 }
 
 /-- [dlc_core::judgment::{impl core::default::Default for dlc_core::judgment::KeyRing}::default]:
-    Source: 'crates/dlc-core/src/judgment.rs', lines 43:23-43:30
+    Source: 'crates/dlc-core/src/judgment.rs', lines 62:23-62:30
     Visibility: public -/
 def judgment.KeyRing.Insts.CoreDefaultDefault.default
   : Result judgment.KeyRing := do
@@ -1919,7 +1925,7 @@ def judgment.KeyRing.Insts.CoreDefaultDefault.default
   ok { entries := v }
 
 /-- Trait implementation: [dlc_core::judgment::{impl core::default::Default for dlc_core::judgment::KeyRing}]
-    Source: 'crates/dlc-core/src/judgment.rs', lines 43:23-43:30 -/
+    Source: 'crates/dlc-core/src/judgment.rs', lines 62:23-62:30 -/
 @[reducible]
 def judgment.KeyRing.Insts.CoreDefaultDefault : core.default.Default
   judgment.KeyRing := {
@@ -1927,7 +1933,7 @@ def judgment.KeyRing.Insts.CoreDefaultDefault : core.default.Default
 }
 
 /-- Trait implementation: [dlc_core::judgment::{impl core::marker::StructuralPartialEq for dlc_core::judgment::KeyRing}]
-    Source: 'crates/dlc-core/src/judgment.rs', lines 43:32-43:41 -/
+    Source: 'crates/dlc-core/src/judgment.rs', lines 62:32-62:41 -/
 @[reducible]
 def judgment.KeyRing.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq judgment.KeyRing := {
@@ -1963,7 +1969,7 @@ impl_def principal.KeyRecord.Insts.CoreCmpPartialEqKeyRecord :
 }
 
 /-- [dlc_core::judgment::{impl core::cmp::PartialEq<dlc_core::judgment::KeyRing> for dlc_core::judgment::KeyRing}::eq]:
-    Source: 'crates/dlc-core/src/judgment.rs', lines 43:32-43:41
+    Source: 'crates/dlc-core/src/judgment.rs', lines 62:32-62:41
     Visibility: public -/
 def judgment.KeyRing.Insts.CoreCmpPartialEqKeyRing.eq
   (self : judgment.KeyRing) (other : judgment.KeyRing) : Result Bool := do
@@ -1972,7 +1978,7 @@ def judgment.KeyRing.Insts.CoreCmpPartialEqKeyRing.eq
     other.entries
 
 /-- Trait implementation: [dlc_core::judgment::{impl core::cmp::PartialEq<dlc_core::judgment::KeyRing> for dlc_core::judgment::KeyRing}]
-    Source: 'crates/dlc-core/src/judgment.rs', lines 43:32-43:41 -/
+    Source: 'crates/dlc-core/src/judgment.rs', lines 62:32-62:41 -/
 @[reducible]
 impl_def judgment.KeyRing.Insts.CoreCmpPartialEqKeyRing : core.cmp.PartialEq
   judgment.KeyRing judgment.KeyRing := {
@@ -1982,14 +1988,14 @@ impl_def judgment.KeyRing.Insts.CoreCmpPartialEqKeyRing : core.cmp.PartialEq
 }
 
 /-- [dlc_core::judgment::{impl core::cmp::Eq for dlc_core::judgment::KeyRing}::assert_fields_are_eq]:
-    Source: 'crates/dlc-core/src/judgment.rs', lines 43:43-43:45
+    Source: 'crates/dlc-core/src/judgment.rs', lines 62:43-62:45
     Visibility: public -/
 def judgment.KeyRing.Insts.CoreCmpEq.assert_fields_are_eq
   (self : judgment.KeyRing) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [dlc_core::judgment::{impl core::cmp::Eq for dlc_core::judgment::KeyRing}]
-    Source: 'crates/dlc-core/src/judgment.rs', lines 43:43-43:45 -/
+    Source: 'crates/dlc-core/src/judgment.rs', lines 62:43-62:45 -/
 @[reducible]
 def judgment.KeyRing.Insts.CoreCmpEq : core.cmp.Eq judgment.KeyRing := {
   partialEqInst := judgment.KeyRing.Insts.CoreCmpPartialEqKeyRing
@@ -2121,7 +2127,7 @@ def syntax.Term.Insts.CoreCloneClone.clone
 partial_fixpoint
 
 /-- [dlc_core::judgment::{impl core::clone::Clone for dlc_core::judgment::TypingProblem}::clone]:
-    Source: 'crates/dlc-core/src/judgment.rs', lines 50:9-50:14
+    Source: 'crates/dlc-core/src/judgment.rs', lines 69:9-69:14
     Visibility: public -/
 def judgment.TypingProblem.Insts.CoreCloneClone.clone
   (self : judgment.TypingProblem) : Result judgment.TypingProblem := do
@@ -2131,7 +2137,7 @@ def judgment.TypingProblem.Insts.CoreCloneClone.clone
   ok { ctx := c, term := t, prop := p }
 
 /-- Trait implementation: [dlc_core::judgment::{impl core::clone::Clone for dlc_core::judgment::TypingProblem}]
-    Source: 'crates/dlc-core/src/judgment.rs', lines 50:9-50:14 -/
+    Source: 'crates/dlc-core/src/judgment.rs', lines 69:9-69:14 -/
 @[reducible]
 def judgment.TypingProblem.Insts.CoreCloneClone : core.clone.Clone
   judgment.TypingProblem := {
@@ -2146,7 +2152,7 @@ def syntax.Term.Insts.CoreFmtDebug : core.fmt.Debug syntax.Term := {
 }
 
 /-- [dlc_core::judgment::{impl core::fmt::Debug for dlc_core::judgment::TypingProblem}::fmt]:
-    Source: 'crates/dlc-core/src/judgment.rs', lines 50:16-50:21
+    Source: 'crates/dlc-core/src/judgment.rs', lines 69:16-69:21
     Visibility: public -/
 def judgment.TypingProblem.Insts.CoreFmtDebug.fmt
   (self : judgment.TypingProblem) (f : core.fmt.Formatter) :
@@ -2160,7 +2166,7 @@ def judgment.TypingProblem.Insts.CoreFmtDebug.fmt
     (toStr "ctx") dyn (toStr "term") dyn1 (toStr "prop") dyn2
 
 /-- Trait implementation: [dlc_core::judgment::{impl core::fmt::Debug for dlc_core::judgment::TypingProblem}]
-    Source: 'crates/dlc-core/src/judgment.rs', lines 50:16-50:21 -/
+    Source: 'crates/dlc-core/src/judgment.rs', lines 69:16-69:21 -/
 @[reducible]
 def judgment.TypingProblem.Insts.CoreFmtDebug : core.fmt.Debug
   judgment.TypingProblem := {
@@ -2168,14 +2174,14 @@ def judgment.TypingProblem.Insts.CoreFmtDebug : core.fmt.Debug
 }
 
 /-- [dlc_core::judgment::{impl core::clone::Clone for dlc_core::judgment::RuleName}::clone]:
-    Source: 'crates/dlc-core/src/judgment.rs', lines 64:9-64:14
+    Source: 'crates/dlc-core/src/judgment.rs', lines 83:9-83:14
     Visibility: public -/
 def judgment.RuleName.Insts.CoreCloneClone.clone
   (self : judgment.RuleName) : Result judgment.RuleName := do
   ok self
 
 /-- Trait implementation: [dlc_core::judgment::{impl core::clone::Clone for dlc_core::judgment::RuleName}]
-    Source: 'crates/dlc-core/src/judgment.rs', lines 64:9-64:14 -/
+    Source: 'crates/dlc-core/src/judgment.rs', lines 83:9-83:14 -/
 @[reducible]
 def judgment.RuleName.Insts.CoreCloneClone : core.clone.Clone judgment.RuleName
   := {
@@ -2183,7 +2189,7 @@ def judgment.RuleName.Insts.CoreCloneClone : core.clone.Clone judgment.RuleName
 }
 
 /-- Trait implementation: [dlc_core::judgment::{impl core::marker::Copy for dlc_core::judgment::RuleName}]
-    Source: 'crates/dlc-core/src/judgment.rs', lines 64:16-64:20 -/
+    Source: 'crates/dlc-core/src/judgment.rs', lines 83:16-83:20 -/
 @[reducible]
 def judgment.RuleName.Insts.CoreMarkerCopy : core.marker.Copy judgment.RuleName
   := {
@@ -2191,7 +2197,7 @@ def judgment.RuleName.Insts.CoreMarkerCopy : core.marker.Copy judgment.RuleName
 }
 
 /-- [dlc_core::judgment::{impl core::fmt::Debug for dlc_core::judgment::RuleName}::fmt]:
-    Source: 'crates/dlc-core/src/judgment.rs', lines 64:22-64:27
+    Source: 'crates/dlc-core/src/judgment.rs', lines 83:22-83:27
     Visibility: public -/
 def judgment.RuleName.Insts.CoreFmtDebug.fmt
   (self : judgment.RuleName) (f : core.fmt.Formatter) :
@@ -2245,7 +2251,7 @@ def judgment.RuleName.Insts.CoreFmtDebug.fmt
   | judgment.RuleName.RunCmd => core.fmt.Formatter.write_str f (toStr "RunCmd")
 
 /-- Trait implementation: [dlc_core::judgment::{impl core::fmt::Debug for dlc_core::judgment::RuleName}]
-    Source: 'crates/dlc-core/src/judgment.rs', lines 64:22-64:27 -/
+    Source: 'crates/dlc-core/src/judgment.rs', lines 83:22-83:27 -/
 @[reducible]
 def judgment.RuleName.Insts.CoreFmtDebug : core.fmt.Debug judgment.RuleName
   := {
@@ -2253,14 +2259,14 @@ def judgment.RuleName.Insts.CoreFmtDebug : core.fmt.Debug judgment.RuleName
 }
 
 /-- Trait implementation: [dlc_core::judgment::{impl core::marker::StructuralPartialEq for dlc_core::judgment::RuleName}]
-    Source: 'crates/dlc-core/src/judgment.rs', lines 64:29-64:38 -/
+    Source: 'crates/dlc-core/src/judgment.rs', lines 83:29-83:38 -/
 @[reducible]
 def judgment.RuleName.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq judgment.RuleName := {
 }
 
 /-- [dlc_core::judgment::{impl core::cmp::PartialEq<dlc_core::judgment::RuleName> for dlc_core::judgment::RuleName}::eq]:
-    Source: 'crates/dlc-core/src/judgment.rs', lines 64:29-64:38
+    Source: 'crates/dlc-core/src/judgment.rs', lines 83:29-83:38
     Visibility: public -/
 def judgment.RuleName.Insts.CoreCmpPartialEqRuleName.eq
   (self : judgment.RuleName) (other : judgment.RuleName) : Result Bool := do
@@ -2269,7 +2275,7 @@ def judgment.RuleName.Insts.CoreCmpPartialEqRuleName.eq
   ok (self1 = other1)
 
 /-- Trait implementation: [dlc_core::judgment::{impl core::cmp::PartialEq<dlc_core::judgment::RuleName> for dlc_core::judgment::RuleName}]
-    Source: 'crates/dlc-core/src/judgment.rs', lines 64:29-64:38 -/
+    Source: 'crates/dlc-core/src/judgment.rs', lines 83:29-83:38 -/
 @[reducible]
 impl_def judgment.RuleName.Insts.CoreCmpPartialEqRuleName : core.cmp.PartialEq
   judgment.RuleName judgment.RuleName := {
@@ -2279,14 +2285,14 @@ impl_def judgment.RuleName.Insts.CoreCmpPartialEqRuleName : core.cmp.PartialEq
 }
 
 /-- [dlc_core::judgment::{impl core::cmp::Eq for dlc_core::judgment::RuleName}::assert_fields_are_eq]:
-    Source: 'crates/dlc-core/src/judgment.rs', lines 64:40-64:42
+    Source: 'crates/dlc-core/src/judgment.rs', lines 83:40-83:42
     Visibility: public -/
 def judgment.RuleName.Insts.CoreCmpEq.assert_fields_are_eq
   (self : judgment.RuleName) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [dlc_core::judgment::{impl core::cmp::Eq for dlc_core::judgment::RuleName}]
-    Source: 'crates/dlc-core/src/judgment.rs', lines 64:40-64:42 -/
+    Source: 'crates/dlc-core/src/judgment.rs', lines 83:40-83:42 -/
 @[reducible]
 def judgment.RuleName.Insts.CoreCmpEq : core.cmp.Eq judgment.RuleName := {
   partialEqInst := judgment.RuleName.Insts.CoreCmpPartialEqRuleName
@@ -2295,7 +2301,7 @@ def judgment.RuleName.Insts.CoreCmpEq : core.cmp.Eq judgment.RuleName := {
 }
 
 /-- [dlc_core::judgment::{impl core::hash::Hash for dlc_core::judgment::RuleName}::hash]:
-    Source: 'crates/dlc-core/src/judgment.rs', lines 64:44-64:48
+    Source: 'crates/dlc-core/src/judgment.rs', lines 83:44-83:48
     Visibility: public -/
 def judgment.RuleName.Insts.CoreHashHash.hash
   {__H : Type} (corehashHasherInst : core.hash.Hasher __H)
@@ -2306,7 +2312,7 @@ def judgment.RuleName.Insts.CoreHashHash.hash
   Isize.Insts.CoreHashHash.hash corehashHasherInst self1 state
 
 /-- Trait implementation: [dlc_core::judgment::{impl core::hash::Hash for dlc_core::judgment::RuleName}]
-    Source: 'crates/dlc-core/src/judgment.rs', lines 64:44-64:48 -/
+    Source: 'crates/dlc-core/src/judgment.rs', lines 83:44-83:48 -/
 @[reducible]
 def judgment.RuleName.Insts.CoreHashHash : core.hash.Hash judgment.RuleName
   := {

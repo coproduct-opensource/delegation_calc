@@ -153,7 +153,7 @@ structure judgment.Ctx where
   linear : alloc.vec.Vec syntax.Prop
 
 /-- [dlc_core::judgment::TypingProblem]
-    Source: 'crates/dlc-core/src/judgment.rs', lines 51:0-58:1
+    Source: 'crates/dlc-core/src/judgment.rs', lines 70:0-77:1
     Visibility: public -/
 structure judgment.TypingProblem where
   ctx : judgment.Ctx
@@ -176,13 +176,13 @@ structure principal.KeyRecord where
   public_key : alloc.vec.Vec Std.U8
 
 /-- [dlc_core::judgment::KeyRing]
-    Source: 'crates/dlc-core/src/judgment.rs', lines 44:0-47:1
+    Source: 'crates/dlc-core/src/judgment.rs', lines 63:0-66:1
     Visibility: public -/
 structure judgment.KeyRing where
   entries : alloc.vec.Vec principal.KeyRecord
 
 /-- [dlc_core::judgment::RuleName]
-    Source: 'crates/dlc-core/src/judgment.rs', lines 65:0-141:1
+    Source: 'crates/dlc-core/src/judgment.rs', lines 84:0-160:1
     Visibility: public -/
 @[discriminant isize]
 inductive judgment.RuleName where

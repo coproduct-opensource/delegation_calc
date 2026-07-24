@@ -26,15 +26,34 @@ impl Ctx {
         Self::default()
     }
 
-    /// Push an additive hypothesis.
+    /// Push an additive hypothesis (PREPEND — `phi` becomes de-Bruijn index 0).
+    ///
+    /// Built with `push` in an explicit index loop, NOT `Vec::insert(0, phi)`.
+    /// Aeneas models Rust `Vec::insert` as `List.set` (REPLACE, guarded by
+    /// `i < len`), so `insert(0, ·)` translates to a function that *fails on an
+    /// empty context* and *replaces the head on a non-empty one* — an unfaithful
+    /// image that made the type-checker's Aeneas translation wrong at every
+    /// context-extending arm (see `spec/r6.2-inc1-infer-square-design.md` §4c).
+    /// `push` (append) is modeled faithfully (`v ++ [x]`) and `extend_from_slice`
+    /// as `v ++ s` — so building `[phi] ++ additive` keeps the exact prepend
+    /// semantics with a faithful, loop-free Aeneas image (a single concat rather
+    /// than a per-element push loop, which keeps the `infer_square` transport
+    /// proof to a `Slice.clone` spec instead of a loop invariant).
     pub fn cons_a(mut self, phi: Prop) -> Self {
-        self.additive.insert(0, phi);
+        let mut v: Vec<Prop> = Vec::new();
+        v.push(phi);
+        v.extend_from_slice(&self.additive);
+        self.additive = v;
         self
     }
 
-    /// Push a linear hypothesis.
+    /// Push a linear hypothesis (PREPEND). Same faithful-prepend discipline as
+    /// [`Ctx::cons_a`] (never `Vec::insert(0)`; see its docs).
     pub fn cons_l(mut self, phi: Prop) -> Self {
-        self.linear.insert(0, phi);
+        let mut v: Vec<Prop> = Vec::new();
+        v.push(phi);
+        v.extend_from_slice(&self.linear);
+        self.linear = v;
         self
     }
 }

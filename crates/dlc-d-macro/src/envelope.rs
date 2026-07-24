@@ -186,6 +186,9 @@ pub fn certificate_test(env: &Envelope, fn_ident: &Ident) -> TokenStream {
     let tool_name = cap.tool.to_string();
     let test_name = quote::format_ident!("__dlc_d_cert_{}", fn_ident);
     quote! {
+        // `#[cfg(test)]` so the certificate is validated at `cargo test` time and excluded from
+        // normal/example/release builds (no dead-code warning, not shipped).
+        #[cfg(test)]
         #[test]
         #[allow(non_snake_case)]
         fn #test_name() {

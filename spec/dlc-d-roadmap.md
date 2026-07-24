@@ -1,0 +1,132 @@
+# DLC-D Roadmap (updated 2026-07-23, post-R2)
+
+Supersedes the R0–R6 plan (`~/.claude/plans/validated-finding-stardust.md`). This
+reflects what R2 actually taught us and re-scopes the remaining phases.
+
+DLC-D is a distributed language whose four guarantee classes are enforced by
+construction — **G1** capability & information-flow, **G2** concurrency-safety /
+linearizability, **G3** liveness / progress, **G4** convergent consistency — with
+the failure model as a first-class type-level contract, carried down to a running
+Rust runtime.
+
+## 0. Status snapshot
+
+- **Branch:** `dlc-d/phase0-carve` — **not merged to main.** Latest `27168a2`.
+- **Artifact:** 24 Lean libraries, 72 governed theorems, all footprints
+  `[propext, Classical.choice, Quot.sound]`; Aeneas drift-gated; CI-gated.
+- The **verified model** (G1–G4) and the **machine-checked correspondence from the
+  deployed Rust runtime up to that model** are both done. That is the hard, novel
+  half of the program.
+
+## 1. Completed phases (condensed)
+
+- **R0 — foundations/governance.** ✅ CI, ledger, expected-axioms, distributed
+  spec docs. *Open:* identity reservation in `spec/IDENTIFIERS.md` (name punted).
+- **R1 — first-class distributed calculus.** ✅ `command`/`runCmd`/`replicated`,
+  capability-gated commit as a typing rule, `FailureBudget` as a graded contract
+  (`budgeted_guarantee_voids_over_budget`: behavior is **void exactly over-budget**
+  — the mathematical seed of "bounded failure mode"). *Polish backlog deferred —
+  see §5.*
+- **R2 — verified Rust runtime correspondence.** ✅ (this session, R2.1→R2.4b).
+  The deployed `crates/dlc-core` reducer, Aeneas-translated, is machine-checked to
+  refine the model; the guarantees transport to the runtime as `rust_*` corollaries
+  (`lean/DLCD/Transport.lean`, `TransportConsensus.lean`).
+  - **Honest scope (three load-bearing conditions, ledger `DLCD_R2_transport`):**
+    (1) **partial-correctness** — holds when the bounded reducer returns `ok`;
+    unconditional no-fail is false (an adversarial ≥2³¹-node payload overflows the
+    `U32` depth counter — physically unrealizable). (2) **G1 as NI-preservation** of
+    the *decoded typed model* (type-labels external); a faithful label decode is
+    *provably impossible* (finite hand lattice vs. unbounded runtime labels).
+    (3) fair-liveness + the abstract CALM metatheorem are **model-level** (their
+    runtime cores are `rust_deliver_correct` / `rust_replicas_converge`).
+  - **Bonus:** the correspondence *found and fixed a real deployed-vs-model bug*
+    (the reducer was freezing `SaysBind`/`Discharge`; ruled fix-Rust).
+
+## 2. ★ THE NEXT HEADLINE — Failure-modes-as-types (R4+R6 fusion)
+
+**Thesis: make the failure envelope a *type*, and make compilation the proof.**
+Turn DLC-D from a proof artifact into a buildable programming model where a
+developer writes ordinary async-Rust-looking code and declares one thing — the
+service's failure envelope as a type — and `cargo build` green ⟹ the *deployed
+binary* provably has exactly those bounded failure modes, and nothing else.
+
+```rust
+#[dlc_d::service(budget = Faults<1> & FairDelivery, cap = Write@issuer, flow = χ ⊑ ℓ_low)]
+struct Ledger { balance: Replicated<u64> }
+```
+
+The type enforces (to the metal, via the R2 correspondence + R3 for the shell):
+tolerates exactly 1 fault (over-budget behavior void by construction), every write
+capability-gated, flow respects labels, replicas converge. Violations **don't
+compile.**
+
+Why reachable *now*: the bounded-failure proof already exists (R1 stage E), the
+proof-to-the-metal bridge already exists (R2), and the shell substrate is installed
+(R3 RefinedRust).
+
+**Staging:**
+- **R6.0 — design + paper prototype (do first).** Nail the `#[dlc_d::service]`
+  surface, the three compile-time rejections (un-capability'd write / label leak /
+  budget-exceeding path), and how each obligation routes to the verified core.
+  **Error ergonomics is a first-class requirement, not polish** — obligation
+  failures must read like `rustc` errors, not Lean goals. This is where verified
+  systems usually fail the "easy" test.
+- **R6.1 — runnable node (the R4 core).** Thin trusted tokio event loop wrapping
+  the verified synchronous transition core; TCB honestly enumerated (rustc, event
+  loop, transport, clock). Two nodes converge under `cargo run`.
+- **R6.2 — the surface + compile-time rejections.** `lark` grammar → AST bridge (or
+  a Rust macro front-end); the checker accepts the good program and rejects the
+  three violation variants with human errors.
+- **R6.3 — the killer demo.** ~30-line replicated register / KV ledger: runs,
+  rejects violations at compile time, and the Lean/R2 chain certifies the running
+  node's failure envelope. This is the inflection from "proved a model" to "build
+  systems this way."
+
+## 3. Re-scoped supporting phases
+
+- **R3 — RefinedRust harness (role narrowed).** R2/Aeneas already verified the
+  *pure* transition core, so R3 is now specifically for what Aeneas cannot touch:
+  the **concurrent/async shell** (interior mutability, the event loop) refining the
+  model. Feeds R6.1. Spike done; RefinedRust ratified; opam switch installed.
+- **R5 — IFC-refinement (reshaped by an impossibility finding).** The plan's
+  "refine NI into a 1-run SMT setting" assumed a faithful runtime-label decode —
+  which R2 proved *impossible* (finite lattice vs. unbounded labels; the NI-relevant
+  label is a type-layer artifact absent from executable state). What's realized:
+  NI-*preservation* over the Aeneas core (`rust_worldStep_preserves_high`). What's
+  open and needs **re-planning, not execution**: whether stronger runtime IFC is
+  even the right target, vs. accepting preservation + a typed-label surface (R6) as
+  the honest IFC story. **Decision needed before investing.**
+
+## 4. R2 tails (opened this session)
+
+- **Public claim** — README/paper runtime-guarantee wording (you deferred it;
+  ledger-only for now).
+- **fix-iii** — restrict to a typed-payload class (`CDeriv ⊢ payload : φ⊃φ`) →
+  removes the `U32` no-overflow caveat for well-typed commands. Large; layers on
+  the partial-correctness form.
+- **`rust_log_agreement`** — multi-slot Raft log-matching at the runtime surface
+  (single-decree `rust_consensus_agreement` is the load-bearing core).
+
+## 5. Carried-forward backlog
+
+- **CDerivS seal judgment (2.c)** — linear commit-I; validated design, unimplemented.
+- **Full `Deriv → CDeriv` swap** — re-prove Decidability / NI / Progress under CARVe.
+- **Leader election; BFT liveness** — Byzantine *agreement* exists
+  (`DLCD_byz_agreement`); election + BFT liveness (Bythos / TetraBFT lineage) don't.
+- **Proof fences** — store-type change (partly R1's `replicated φ`); live-log
+  scheduling closure.
+
+## 6. Housekeeping / decisions pending
+
+- **Merge `dlc-d/phase0-carve` → main** — all R2 work is unmerged. Decide when.
+- **Identity reservation** (`spec/IDENTIFIERS.md`) — the real DLC-D name.
+- **README/paper external claim** — your wording call.
+
+## 7. Recommended next thrust
+
+**R6.0 (design + paper prototype of the failure-modes-as-types slice).** It is the
+single highest-leverage remaining move: it converts the proven artifact into
+something people can build with, it is where "easy AND rigorous" is won or lost
+(error ergonomics), and it pulls R3 (shell) and R4 (node) in behind a concrete
+goal instead of as abstract phases. R5 stays parked pending a re-plan decision;
+the R2 tails and backlog are opportunistic.

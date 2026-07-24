@@ -176,4 +176,83 @@ theorem decideLean_accepts_identity_attenuation :
         = some (Prop'.says (Principal.atom ⟨[]⟩) (Prop'.atom 0)) := by
   rfl
 
+/-!
+## Chaining — narrowing composes over a multi-hop attenuation chain.
+
+Biscuit's authority is attenuated by *appending* blocks, each strictly narrowing; the security
+property (Tamarin `attenuation_roots_in_issuance`, generalized to N blocks) is that the LEAF
+authority a chain grants is still entailed by the ROOT the issuer signed. In Garg–Pfenning
+constructive authorization logic this is the transitivity of entailment that underwrites cut
+admissibility ([csfw06]; [affknow06]). Here the narrowing order is `φ ⊢ ψ` (a `Deriv` in the
+singleton additive context), so chaining is exactly transitivity of that relation.
+-/
+
+/-- **Entailment is transitive (the singleton-context cut).** From `φ ⊢ ψ` and `ψ ⊢ χ` build
+`φ ⊢ χ`, WITHOUT a general substitution lemma: `impI` internalizes `ψ ⊢ χ` as `⊢ ψ ⊃ χ`, `weakenA`
+moves it under the `φ` hypothesis, and `impE` applies it to the `φ ⊢ ψ` derivation. The composed
+subject term is immaterial (existential), so `impE`'s argument-shift is harmless. -/
+theorem entail_trans {φ ψ χ : Prop'} {N N' : Term}
+    (d1 : Deriv (Ctx.consA φ Ctx.empty) N ψ)
+    (d2 : Deriv (Ctx.consA ψ Ctx.empty) N' χ) :
+    ∃ (Nc : Term), Nonempty (Deriv (Ctx.consA φ Ctx.empty) Nc χ) := by
+  have himp : Deriv Ctx.empty (Term.lam ψ N') (Prop'.imp ψ χ) :=
+    Deriv.impI Ctx.empty ψ χ N' d2
+  have himpW : Deriv (Ctx.consA φ Ctx.empty) (shift (Term.lam ψ N') 1 0) (Prop'.imp ψ χ) :=
+    Deriv.weakenA Ctx.empty φ (Prop'.imp ψ χ) (Term.lam ψ N') himp
+  exact ⟨_, ⟨Deriv.impE [φ] [] [] ψ χ (shift (Term.lam ψ N') 1 0) N himpW d1⟩⟩
+
+/-- **`attenuate` chaining — the leaf authority is entailed by the root.** For a two-hop chain
+`attenuate (attenuate M ψ₁) ψ₂ : p says ψ₂`, recover the ROOT authority `M : p says φ_root` and a
+derivation `φ_root ⊢ ψ₂`: the leaf `ψ₂` is a logical consequence of the root the issuer signed,
+across the whole chain (not merely of the immediately preceding hop). By induction this extends to
+N hops; the two-hop case is the inductive step (`attenuate_only_narrows` twice, then `entail_trans`).
+The inner application uses the auxiliary generation lemma to learn the middle hop's says-shape
+(`φ_a = ψ₁`) before composing. -/
+theorem attenuate_chain_narrows
+    {Γ : Ctx} {p : Principal} {ψ₁ ψ₂ : Prop'} {M : Term}
+    (d : Deriv Γ (Term.attenuate (Term.attenuate M ψ₁) ψ₂) (Prop'.says p ψ₂)) :
+    ∃ (φ_root : Prop') (N : Term),
+      Nonempty (Deriv Γ M (Prop'.says p φ_root)) ∧
+      Nonempty (Deriv (Ctx.consA φ_root Ctx.empty) N ψ₂) := by
+  obtain ⟨_φ_a, _N_a, ⟨dOuterParent⟩, ⟨dLeafNarrow⟩⟩ := attenuate_only_narrows d
+  obtain ⟨p'', φ_b, _N_b, hCeq, ⟨dRoot⟩, ⟨dMidNarrow⟩⟩ := attenuate_narrows_aux dOuterParent rfl
+  injection hCeq with hp hφa
+  subst hφa
+  subst hp
+  obtain ⟨Nc, dTrans⟩ := entail_trans dMidNarrow dLeafNarrow
+  exact ⟨φ_b, Nc, ⟨dRoot⟩, dTrans⟩
+
+/-- **Anti-vacuity witness — a genuine two-hop chain.** Root `p says (a₀ ∧ (a₁ ∧ a₂))`, narrowed to
+`p says (a₁ ∧ a₂)` (via `andER`), then to `p says a₁` (via `andEL`). Every hop is a real, non-identity
+narrowing, so `attenuate_chain_narrows` is exercised on a genuinely multi-hop chain — its recovered
+root `a₀ ∧ (a₁ ∧ a₂)` is strictly larger than both the mid `a₁ ∧ a₂` and the leaf `a₁`. -/
+def attenuate_chain_witness (p : Principal) :
+    Deriv
+      (Ctx.consA (Prop'.says p
+        (Prop'.and (Prop'.atom 0) (Prop'.and (Prop'.atom 1) (Prop'.atom 2)))) Ctx.empty)
+      (Term.attenuate
+        (Term.attenuate (Term.var 0) (Prop'.and (Prop'.atom 1) (Prop'.atom 2)))
+        (Prop'.atom 1))
+      (Prop'.says p (Prop'.atom 1)) :=
+  Deriv.attenuate _ p (Prop'.and (Prop'.atom 1) (Prop'.atom 2)) (Prop'.atom 1)
+    (Term.attenuate (Term.var 0) (Prop'.and (Prop'.atom 1) (Prop'.atom 2)))
+    (Term.fst (Term.var 0))
+    (Deriv.attenuate _ p
+      (Prop'.and (Prop'.atom 0) (Prop'.and (Prop'.atom 1) (Prop'.atom 2)))
+      (Prop'.and (Prop'.atom 1) (Prop'.atom 2)) (Term.var 0) (Term.snd (Term.var 0))
+      (Deriv.varA _ 0 _ rfl)
+      (Deriv.andER _ (Prop'.atom 0) (Prop'.and (Prop'.atom 1) (Prop'.atom 2))
+        (Term.var 0) (Deriv.varA _ 0 _ rfl)))
+    (Deriv.andEL _ (Prop'.atom 1) (Prop'.atom 2) (Term.var 0) (Deriv.varA _ 0 _ rfl))
+
+/-- The chaining theorem, applied to the genuine two-hop witness: the leaf `a₁` is recovered as
+entailed by the root `a₀ ∧ (a₁ ∧ a₂)` — non-vacuously (the recovered root ≠ the leaf). -/
+theorem attenuate_chain_narrows_witness (p : Principal) :
+    ∃ (φ_root : Prop') (N : Term),
+      Nonempty (Deriv (Ctx.consA (Prop'.says p
+          (Prop'.and (Prop'.atom 0) (Prop'.and (Prop'.atom 1) (Prop'.atom 2)))) Ctx.empty)
+        (Term.var 0) (Prop'.says p φ_root)) ∧
+      Nonempty (Deriv (Ctx.consA φ_root Ctx.empty) N (Prop'.atom 1)) :=
+  attenuate_chain_narrows (attenuate_chain_witness p)
+
 end DLC

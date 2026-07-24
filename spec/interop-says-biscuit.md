@@ -67,6 +67,14 @@ encode/decode** between the two representations of one credential, not a re-deri
   (Deriv-consistency: a genuine widening `ψ` is NOT derivable from `φ`) needs a semantic model of
   `Deriv` — the next increment. This lemma is what the Tamarin `attenuation_roots_in_issuance` lemma
   assumed structurally; the interop story no longer rests on that assumption.
+- **Attenuation CHAINING — LANDED (Phase 4).** `attenuate_chain_narrows`: for a two-hop chain
+  `attenuate (attenuate M ψ₁) ψ₂ : p says ψ₂`, the leaf authority `ψ₂` is entailed by the ROOT the
+  issuer signed (`M : p says φ_root`, `φ_root ⊢ ψ₂`) — across the whole chain, not merely the previous
+  hop. This is Biscuit's "authority monotone narrowing over a chain" (the Tamarin lemma generalized to
+  N blocks; the two-hop case is the inductive step). Built on `entail_trans` — transitivity of the
+  narrowing order `φ ⊢ ψ`, proved as the singleton-context cut via `impI`+`weakenA`+`impE` (no general
+  substitution lemma), matching Garg–Pfenning cut admissibility. Genuine two-hop witness
+  `attenuate_chain_witness` (`p says (a₀∧(a₁∧a₂)) ↝ p says (a₁∧a₂) ↝ p says a₁`). Axiom-clean (`[propext]`).
 - **Runtime IFC stays type-level.** The `ℓ`/audience axis is a build-time claim (a faithful label decode
   is provably impossible — R2); RFC 8707 audience binding is enforced at the token layer, not by
   DLC-D's decode.

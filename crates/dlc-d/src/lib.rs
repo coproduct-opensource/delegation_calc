@@ -27,6 +27,11 @@ pub use dlc_d_macro::agent_service;
 /// (real Ed25519 credential check bound to the tool). See [`runtime::admit`].
 pub mod runtime;
 
+/// The host-facing admission surface: a PEP-shaped [`Decision`](admission::Decision) over
+/// [`runtime::admit`], for embedding DLC-D admission in a host reference monitor
+/// (`nucleus`/`portcullis-core`). See `spec/nucleus-admission-integration.md`.
+pub mod admission;
+
 /// The "invoke this tool" capability kind — the `C` in `Cap<C, I>`.
 pub struct Invoke<T>(PhantomData<T>);
 

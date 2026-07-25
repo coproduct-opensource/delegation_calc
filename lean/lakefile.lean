@@ -62,6 +62,11 @@ lean_lib «DecideDecode» where
 lean_lib «DecideSquare» where
   roots := #[`DLC.DecideSquare]
 
+-- Joint-admission arc: AdmitFrag — the macro-emitted admission fragment
+-- (subset of PropFrag), foundation for the unconditional runtime=commit-I claim.
+lean_lib «AdmitFrag» where
+  roots := #[`DLC.AdmitFrag]
+
 -- Phase 4 (agent-governance gaps): `attenuate` only narrows — the
 -- offline-attenuation soundness metatheorem the Tamarin interop model assumes
 -- structurally (spec/interop-says-biscuit.md §2/§7). Generation lemma on Deriv +

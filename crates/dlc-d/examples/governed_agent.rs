@@ -50,6 +50,40 @@ fn main() {
     // program will not compile.
     let cap = Cap::<Invoke<SendEmail>, Ops>::new();
 
+    // RUNTIME validity of that capability: a genuine, issuer-signed credential, checked by the
+    // verify-then-authorize PEP (`dlc_d::runtime::admit`, real Ed25519). This is what the phantom
+    // `Cap` above stands for at run time — the compile-time envelope proves TYPEABILITY, this proves
+    // the CREDENTIAL is signed for THIS tool. Fail-closed.
+    {
+        use dlc_core::judgment::KeyRing;
+        use dlc_core::principal::{KeyRecord, Principal, PrincipalId};
+        use dlc_core::syntax::Signature;
+        use dlc_d::runtime::{admit, cap_atom};
+
+        // Ops issues a capability for the SendEmail tool (signs its cap atom).
+        let seed = [5u8; 32];
+        let pk = dlc_crypto::ed25519::public_key(&seed);
+        let ops = Principal::Atom(PrincipalId(pk));
+        let keyring = KeyRing {
+            entries: vec![KeyRecord {
+                principal: PrincipalId(pk),
+                alg: 0,
+                public_key: pk.to_vec(),
+            }],
+        };
+        let mut msg = b"dlc-d/cap-invoke:".to_vec();
+        msg.extend_from_slice(&cap_atom("SendEmail").to_le_bytes());
+        let sig = Signature {
+            alg: 0,
+            bytes: dlc_crypto::ed25519::sign(&seed, &msg).to_vec(),
+        };
+
+        // The credential admits SendEmail — and is refused for any other tool (fail-closed).
+        assert!(admit(&keyring, &ops, "SendEmail", &sig).is_ok());
+        assert!(admit(&keyring, &ops, "DeleteAll", &sig).is_err());
+        println!("runtime admission — Ops-signed credential ADMITS SendEmail, REFUSES DeleteAll (Ed25519, fail-closed)\n");
+    }
+
     let outcome = send_email_tool("alice@example.com", cap);
 
     println!("── governed agent run ──────────────────────────────────────────────");

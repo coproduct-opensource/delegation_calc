@@ -23,6 +23,10 @@ use core::marker::PhantomData;
 /// The `#[dlc_d::agent_service(...)]` authority-envelope macro (re-exported from `dlc-d-macro`).
 pub use dlc_d_macro::agent_service;
 
+/// Runtime admission — the verify-then-authorize PEP that gives a compile-time [`Cap`] its VALIDITY
+/// (real Ed25519 credential check bound to the tool). See [`runtime::admit`].
+pub mod runtime;
+
 /// The "invoke this tool" capability kind — the `C` in `Cap<C, I>`.
 pub struct Invoke<T>(PhantomData<T>);
 

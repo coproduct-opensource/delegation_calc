@@ -35,9 +35,31 @@ closes that on the **admission fragment** (`AdmitFrag` — the one term shape
 - **Fragment scope.** `AdmitFrag` is the *current* macro shape (identity store-transformer). Richer
   admission envelopes (non-trivial store transformers, multi-cap) extend `AdmitFrag` and re-run the
   same composition.
-- **Runtime credential (#18, pending).** `admit_joint` is about the type-checker path; wiring the real
-  `verify_in_keyring` signature check into the admission call path (so the equivalence is about the
-  actual deployed decision, not only typeability) is the next increment.
+## Runtime credential — the verify-then-authorize PEP (#18, LANDED)
+
+`admit_joint` is the *typeability* half. The runtime *signature* half is
+`crates/dlc-d/src/runtime.rs::admit(keyring, issuer, tool, sig)`: a real Ed25519
+`verify_in_keyring` over a domain-separated **cap message** for `tool`, fail-closed. The tool is
+bound to the grant by the signature covering `cap_atom(tool)` — FNV-1a of the tool name,
+**byte-for-byte identical** to the macro's `atom_hash` (`dlc-d-macro/envelope.rs`), so the
+compile-time `Cap<Invoke<Tool>, Issuer>` and the runtime credential name the SAME atom (the
+compile-time↔runtime binding). Tests (green): a valid credential ADMITS its tool; the same signature
+is REJECTED for a different tool, for a tampered signature, and for an unknown issuer (fail-closed,
+right-reason). The `governed_agent` example calls `admit()` on its SendEmail path with a real
+Ops-signed credential.
+
+**The two guarantees are joined at the admission entry point, not collapsed:** the Lean side
+(`admit_joint`) proves the envelope is a real `commit-I` derivation (typeability); `dlc-crypto` proves
+the credential's signature (validity); `admit()` composes them — a tool invocation is admitted iff its
+cap is typed (macro, compile time) AND the presented credential is genuinely signed for that tool
+(runtime). Prior art: the 2026 verify-then-authorize / PEP idiom (Before-the-Tool-Call, arXiv
+2603.20953; Sovereign Execution Broker, arXiv 2606.20520) — but credential-bound *and* backed by a
+machine-checked typing theorem, not policy alone.
+
+Fence: `admit()` is not yet proved EQUIVALENT to the type-checker path in Lean (that would relate the
+signed cap atom to the `Deriv`'s cap prop); it is the runtime signature check that the typed cap's
+*validity* rests on, joined at the entry point. `dlc-core`'s Aeneas fence is intact — `dlc-crypto` is a
+`dlc-d` dependency, never `dlc-core`.
 
 ## Why this matters
 

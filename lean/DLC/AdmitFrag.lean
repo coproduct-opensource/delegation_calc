@@ -21,6 +21,7 @@ namespace DLC.Admit
 open Aeneas Aeneas.Std Result
 open dlc_core
 open DLC.DecideSquare
+open DLC.DecideDecode
 
 /-- The admission fragment: exactly the macro-emitted identity store-transformer
 `Lam (Atom c) (Var 0) : Atom c ⊃ Atom c` at the tool's cap atom `c`. One shape — the runtime term the
@@ -93,5 +94,28 @@ theorem admit_store_total (E : judgment.Ctx) (c : Std.U32)
     (hadd : E.additive.val = [syntax.Prop.Atom c]) :
     decide.infer E (syntax.Term.Var 0#u32) = ok (some (syntax.Prop.Atom c)) :=
   admit_infer_var0 E c hadd
+
+/-! ## #17 — the JOINT admission = commit-I theorem (forward / safety direction, unconditional). -/
+
+/-- **★ JOINT ADMISSION SOUNDNESS (forward, unconditional).** If the DEPLOYED checker admits an
+admission term — `decide.infer` returns `ok (some inferred)`, EXACTLY the verdict the macro's Tier-2
+`decide_pure` assertion guarantees at compile time — then a real derivation exists in the verified
+calculus: `Nonempty (Deriv (decCtx emptyCtx) (decTerm t) (decProp inferred))`. The running admission
+decision IS backed by the model. This is the **security-load-bearing half — NO FALSE ADMITS**: the
+kernel never grants a tool invocation the calculus would not type. Composes `admitFrag_propFrag`
+(`AdmitFrag ⊆ PropFrag`) with `rust_infer_sound`, so it is UNCONDITIONAL in `inferred` and in the
+observed `ok` (which the deployed path always has, by the macro's `assert!(decide_pure …)`).
+
+**Honest fence (carries #16):** the CONVERSE totality half — that the checker ALWAYS admits, so the
+`ok` premise is discharged in-Lean without observation — rests on the `Lam`-wrapper totality fenced in
+`#16` (`admit_infer_var0` proves the substantive lookup; the plumbing wrapper is a deferred
+`Aeneas.step` reduction). So the *safety* direction (accept ⟹ typable) is proved unconditionally;
+the *totality* direction (always accepts) is honestly pending on that mechanical wrapper step. At the
+deployed site the `ok` premise is not an assumption but a fact the macro's compile-time assertion
+enforces. -/
+theorem admit_joint {t : syntax.Term} (h : AdmitFrag t) (inferred : syntax.Prop)
+    (hd : decide.infer emptyCtx t = ok (some inferred)) :
+    Nonempty (DLC.Deriv (decCtx emptyCtx) (decTerm t) (decProp inferred)) :=
+  rust_infer_sound emptyCtx t inferred (admitFrag_propFrag h) rfl hd
 
 end DLC.Admit

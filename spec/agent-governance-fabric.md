@@ -60,6 +60,7 @@ Two observations set up the entire positioning:
 |---|---|---|---|
 | Only an authorized principal may invoke a tool / write | `capability_safety` (every logged command was `says`-authorized) + `commit-I` typing rule (`Deriv.commitI`) + runtime forgery-resistance `verify_qc` | `lean/DLCD/CapSafety.lean`, `lean/DLC/Judgment.lean`, `crates/dlc-d-node/src/proto.rs` | **proved** |
 | …carried to the *deployed* engine | `rust_capability_safety` (the transported corollary) | `lean/DLCD/Transport.lean` | **proved (partial-correctness)** |
+| The deployed **admission check** never grants what the calculus forbids (no false admits) | `admit_joint` (deployed checker admits ⟹ a real `commit-I` `Deriv` exists) + the runtime PEP `admit()` (real Ed25519, ≈19.5 µs/call) + the `dlc_d::admission` host facade | `lean/DLC/AdmitFrag.lean`, `crates/dlc-d/src/{runtime,admission}.rs`, `spec/{joint-admission,nucleus-admission-integration}.md` | **proved — forward/safety, UNCONDITIONAL on the admission fragment** (no reducer-`ok` condition; `[propext, Classical.choice, Quot.sound]`, pinned `expected-axioms/admit_joint.txt`). Totality (*always* admits) pending a mechanical Aeneas-wrapper step; `admit()`↔checker Lean-equivalence is future metatheory (§5) |
 | Agreement on decisions under a Byzantine minority | `rust_byz_agreement` (two `2f+1`-of-`3f+1` certificates certify the same value) | `lean/DLCD/TransportConsensus.lean` | **proved (safety)** |
 | Append-only provenance / audit chain | `WellFormedLog` (inductive provenance for the committed log) | `lean/DLCD/CapSafety.lean` | **proved** |
 | Cross-agent / cross-tenant data isolation | `distributed_noninterference` (a low observer cannot distinguish differing high stores) | `lean/DLCD/DistributedNI.lean` | **proved at the model / decoded-type level** |
@@ -75,6 +76,15 @@ footprint (no `sorry`/`native_decide`), governed by a pinned `expected-axioms` s
 non-vacuous witness. The `rust_*` rows additionally carry the theorem to the Aeneas-translated Rust
 under the honest partial-correctness condition (the bounded reducer returns `ok`).
 
+**One row carries *no* partial-correctness asterisk on its forward direction:** `admit_joint`. The
+admission fragment's inference is structural (a `commit-I` intro over a one-element context lookup — no
+fuel, no bounded reducer), so *accept ⟹ typable* holds **unconditionally on the fragment**, not
+conditioned on any `ok`. Two honest fences remain, and are *not* the partial-correctness one: (i) the
+**totality** half — that the checker *always* admits — rests on a deferred mechanical Aeneas-wrapper
+step (the substantive context lookup is proved; the surrounding `clone`/`cons_a`/`branch` plumbing has
+no logical failure mode); (ii) `admit()` is joined to the theorem at the admission *entry point*
+(typeability ∧ signature validity), not yet proved Lean-*equivalent* to the checker path. See §5.
+
 ---
 
 ## 3. The benchmark — on proof strength
@@ -88,7 +98,7 @@ the behaviour space the safety argument actually covers**.
 | **IBCT** | empirical (600 attacks) | no | reference impl | no (tested attacks) |
 | **PAuth / MCP / Biscuit** | design / spec / Datalog checks | no | impl | no |
 | **Byzantine multi-agent** | — | protocol + experiments | no | no |
-| **DLC-D** | `capability_safety`, machine-checked | `rust_byz_agreement`, machine-checked | **yes** (`rust_*`, partial-correctness) | **yes** (Lean over all executions; Tamarin/ProVerif over all Dolev-Yao adversaries) |
+| **DLC-D** | `capability_safety` + `admit_joint` (accept ⟹ typable, **unconditional on the admission fragment**), machine-checked | `rust_byz_agreement`, machine-checked | **yes** (`rust_*`, partial-correctness; `admit_joint`'s forward direction with *no* asterisk) | **yes** (Lean over all executions; Tamarin/ProVerif over all Dolev-Yao adversaries) |
 
 The concrete contrast to draw in any external writeup: *ACP model-checks 3 invariants over a finite
 state space; DLC-D compiles the proof and carries it to deployed Rust. IBCT rejects 600 attacks it
@@ -97,6 +107,19 @@ ProVerif, `models/tamarin/dlcd-replication.spthy`, `models/proverif/dlcd-replica
 *with the certificate-forgery class* (the Nethermind XDC bug) *closed by construction and the
 equivocation boundary made explicit* (`rust_byz_agreement`; `spec/r6-1b-replication-protocol.md`
 §6.4–6.5).
+
+On admission specifically: `admit_joint` is the **"accepts ⟹ correct" safety direction** for the
+deployed check — the same shape Cedar proves for its validator (*if a request is allowed, some permit
+policy was satisfied*) and the lineage of proof-carrying authorization (Garg, PCA 2007) — but carried
+to the Aeneas-translatable deployed checker and, on the admission fragment, **without** a
+partial-correctness asterisk. Its runtime realization `admit()` costs **≈ 19.5 µs/call** (measured,
+aarch64 release, `ed25519-dalek`; `spec/joint-admission.md` §benchmark): one Ed25519 verify plus a
+sub-nanosecond FNV binding, because the *typing* was discharged once at compile time by the certificate
+— the runtime re-derives nothing (the reference `chain-logical-typing-only` cost, 292 ns, is a cost
+`admit()` never pays). Contrast: ACP's admission invariant is an **offline** TLA+ model-check (no
+runtime figure); IBCT's is **empirical** (0.049 ms/verify over 600 attacks). DLC-D's is a machine-
+checked theorem whose deployed check runs in tens of microseconds — orders below agent tool-call
+timescales, so the proof-carrying guarantee is not paid for in latency.
 
 ---
 

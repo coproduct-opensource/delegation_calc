@@ -307,5 +307,18 @@
    "OPTIONAL (fix iii): typed-payload class (CDeriv |- payload : phi>phi) -> unconditional no-fail, removing the U32 caveat for well-typed commands; large increment layering on the partial-correctness form",
    "rust_log_agreement (multi-slot Raft log-matching at the runtime surface) -- single-decree rust_consensus_agreement is the load-bearing core; multi-slot wrapper is extra scope"
   ]
+ },
+ "DLC_joint_admission": {
+  "status": "proven_fragment",
+  "file": "DLC/AdmitFrag.lean",
+  "witness": "DLC/AdmitFrag.lean",
+  "theorems": ["admit_joint", "admitFrag_propFrag", "admit_infer_var0", "admitFrag_witness"],
+  "fragment": "AdmitFrag -- the identity store-transformer Lam(Atom c)(Var 0) the #[dlc_d::agent_service] macro emits (a subset of DecideSquare.PropFrag). FORWARD/SAFETY direction only: accept => typable.",
+  "proven_content": "admit_joint (JOINT ADMISSION SOUNDNESS, forward/safety, UNCONDITIONAL on the fragment): if the deployed checker admits an admission term (decide.infer emptyCtx t = ok (some inferred)) then Nonempty (DLC.Deriv (decCtx emptyCtx) (decTerm t) (decProp inferred)) -- a real commit-I derivation in the verified calculus. NO FALSE ADMITS: the deployed kernel never grants a tool invocation the calculus would not type. Composes admitFrag_propFrag (AdmitFrag subset PropFrag) with rust_infer_sound. admit_infer_var0 (#16) proves the substantive lookup totality (decide.infer E (Var 0) = ok (some (Atom c)) at additive [Atom c]). admitFrag_witness is the non-vacuity inhabitant (the macro's shape at a representative cap atom is in the fragment). Axioms EXACTLY [propext, Classical.choice, Quot.sound], pinned in expected-axioms/admit_joint.txt. Runtime PEP: crates/dlc-d/src/runtime.rs::admit (real Ed25519, ~19.5us/call measured, spec/joint-admission.md benchmark) joins the signature conjunct at the entry point; the dlc_d::admission facade maps it into a host reference monitor (spec/nucleus-admission-integration.md).",
+  "note": "SCOPE FENCES (two, kept prominent): (1) TOTALITY HALF PENDING -- the converse (the checker ALWAYS admits, discharging the ok premise in-Lean without observation) rests on the Lam-wrapper Aeneas monadic plumbing fenced in #16; admit_infer_var0 proves the only substantive decision point (the context lookup), the surrounding clone/cons_a/branch has no logical failure mode but its raw ok-reduction is a deferred Aeneas.step discharge. So SAFETY (accept => typable) is UNCONDITIONAL; ALWAYS-ACCEPTS is pending. (2) admit() is NOT yet proved Lean-EQUIVALENT to the type-checker path -- admit_joint relates the CHECKER's verdict to a Deriv; relating the signed cap ATOM to that Deriv's cap prop is future metatheory. The runtime PEP is the signature-validity conjunct joined at the admission entry point (typeability AND signature validity), not collapsed into one theorem. Prior art: this is the Cedar/PCA 'if allowed, a permit derivation exists' safety direction (proof-carrying authorization, Garg 2007), carried to the Aeneas-translated deployed checker -- vs ACP's offline TLA+ model-check and IBCT's empirical 600-attack testing.",
+  "open": [
+   "TOTALITY (always-accepts): the Lam-wrapper Aeneas monadic reduction -- a deferred mechanical Aeneas.step discharge; admit_infer_var0 proves the substantive lookup",
+   "admit()<->type-checker Lean equivalence: relate the signed cap atom to the Deriv's cap prop (future metatheory); currently joined at the entry point, not one theorem"
+  ]
  }
 }

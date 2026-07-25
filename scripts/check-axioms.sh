@@ -92,6 +92,9 @@ SCRIPT_FILE="$SCRIPT_DIR/PrintAll.lean"
   echo "import DLC.NonInterferenceEnv"
   echo "import DLC.NonInterferenceFundamental"
   echo "import DLC.CtxWellFormed"
+  # Joint-admission arc: admit_joint lives here (AdmitFrag → DecideSquare, on the
+  # dlc_core tree, so it co-elaborates with the main group).
+  echo "import DLC.AdmitFrag"
   echo "import DLCD.Summary"
   # R2.2b: the anti-vacuity witness `appCommandRefines_witness` lives here
   # (imports the DlcCore Aeneas tree). NOT DLCD.CorrespondenceConsensus — the

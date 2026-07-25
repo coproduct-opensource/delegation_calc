@@ -73,8 +73,7 @@ theorem admit_infer_var0 (E : judgment.Ctx) (c : Std.U32)
     decide.infer E (syntax.Term.Var 0#u32) = ok (some (syntax.Prop.Atom c)) := by
   rw [decide.infer]
   have hidx := cast_usize_val (0#u32)
-  simp only [lift, bind_tc_ok, additive_get, hadd, hidx, List.getElem?_cons_zero,
-    CloneId.propClone_id]
+  simp only [lift, bind_tc_ok, additive_get, hadd, hidx, CloneId.propClone_id]
   rfl
 
 /-- **Totality at the store-typing step.** In the admission term's body context `[Atom c]`, the

@@ -5,8 +5,10 @@
   "iterations": 2000,
   "comparison_formats": "PENDING — DLC numbers only; JWT/Biscuit comparison requires adding those implementations",
   "results": [
-    {"name": "issued-token", "token_bytes": 117, "verify_median_ns": 27042},
-    {"name": "delegated-attenuated-chain", "token_bytes": 232, "verify_median_ns": 42875},
-    {"name": "chain-logical-typing-only", "token_bytes": 232, "verify_median_ns": 333}
+    {"name": "issued-token", "token_bytes": 117, "verify_median_ns": 26750},
+    {"name": "delegated-attenuated-chain", "token_bytes": 232, "verify_median_ns": 40000},
+    {"name": "chain-logical-typing-only", "token_bytes": 232, "verify_median_ns": 292},
+    {"name": "admission-pep-admit", "note": "dlc_d::runtime::admit — one Ed25519 verify_in_keyring + FNV-1a cap binding, fail-closed; runtime re-derives nothing (typeability proved at compile time by admit_joint)", "verify_median_ns": 19458},
+    {"name": "cap-atom-fnv1a-only", "note": "cap_atom(tool) alone — the tool->atom binding", "verify_median_ns": 0}
   ]
 }

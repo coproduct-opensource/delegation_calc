@@ -435,6 +435,7 @@ dependencies = [
  "criterion",
  "dlc-core",
  "dlc-crypto",
+ "dlc-d",
  "dlc-protocol",
  "dlc-verifier",
 ]

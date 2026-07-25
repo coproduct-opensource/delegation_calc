@@ -61,6 +61,39 @@ signed cap atom to the `Deriv`'s cap prop); it is the runtime signature check th
 *validity* rests on, joined at the entry point. `dlc-core`'s Aeneas fence is intact — `dlc-crypto` is a
 `dlc-d` dependency, never `dlc-core`.
 
+## §benchmark — admission at agent speed (measured, #19)
+
+`admit()` is the runtime fast path. The certificate proved **typeability** at compile time
+(`admit_joint`), so at runtime the checker **re-derives nothing** — the only cost is the signature
+conjunct. Measured with the existing `Instant`-median harness (`crates/dlc-bench/src/bin/bench_vectors.rs`,
+2000 iterations, median):
+
+| what | measured | method / meaning |
+|---|---|---|
+| `dlc_d::runtime::admit()` per call | **≈ 19.5 µs** (19 458 ns) | one real Ed25519 `verify_in_keyring` + FNV-1a cap binding, fail-closed |
+| `cap_atom()` alone (FNV-1a) | **< 1 ns** (below timer resolution; reads 0 ns) | the tool→atom binding — effectively free |
+| chain-logical-typing-only (reference) | 292 ns | `decide_pure` on the delegated chain — the cost admit() does **not** pay at runtime |
+
+**Hardware / backend (honest):** Apple Silicon `aarch64`, `release` profile, single thread,
+`ed25519-dalek` backend, `std::time::Instant` median of 2000 iters. Numbers are host-specific
+(the emitted `test-vectors/bench-results.json` records the arch + profile), not portable absolutes.
+
+**The fast-path = slow-path story, made concrete.** `chain-logical-typing-only` (292 ns) is what a
+*runtime type-check* would cost; `admit()` does not run it — its 19.5 µs is essentially pure Ed25519.
+The typing was discharged once, at compile time, by the cert (`admit_joint`); the deployed PEP is a
+signature check, not a re-derivation.
+
+**Comparison to the agent-speed bar — apples-to-apples caveat.** The revocation-motivation bar is
+IBCT's empirical ~0.049 ms/verify (Prakash 2026). `admit()` at ≈ 0.019 ms is well under it, but the
+two are **not the same measurement**: IBCT verifies a full invocation-bound token *chain* in its
+runtime; `admit()` checks one issuer signature over one cap atom. What is defensible without
+qualification: `admit()` is single-digit-tens-of-microseconds — three-to-five orders of magnitude
+below agent tool-call timescales (ms–s), so runtime admission is **not** the bottleneck. Prior art on
+the raw primitive: a single `ed25519-dalek` verify is ~tens of µs
+([ed25519-dalek benches](https://github.com/dalek-cryptography/ed25519-dalek/issues/87)), consistent
+with the 19.5 µs here. ACP's admission check is an **offline** TLA+ model-check (no runtime figure to
+compare). Compile-time cert path = **0 runtime cost** (not benched — it does not execute at runtime).
+
 ## Why this matters
 
 The forward half is the one that carries the security guarantee an adopter cares about: **a

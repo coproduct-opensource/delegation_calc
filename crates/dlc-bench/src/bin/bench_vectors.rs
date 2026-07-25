@@ -21,6 +21,7 @@ use dlc_core::principal::{KeyRecord, Principal, PrincipalId};
 use dlc_core::syntax::{Prop, Signature, Term};
 use dlc_core::time::TimeBound;
 use dlc_crypto::ed25519;
+use dlc_d::runtime::{admit, cap_atom};
 use dlc_protocol::wire;
 use dlc_verifier::check::{verify, verify_with_assumptions};
 use dlc_verifier::VerifyResult;
@@ -107,8 +108,44 @@ fn main() {
         assert!(dlc_core::decide::decide_pure(&problem));
     });
 
+    // ── Admission PEP latency (task #19) ─────────────────────────────────────
+    // `dlc_d::runtime::admit` is the runtime verify-then-authorize check: one
+    // real Ed25519 `verify_in_keyring` bound to the tool's FNV-1a cap atom,
+    // fail-closed. The compile-time certificate already proved TYPEABILITY
+    // (`admit_joint`, lean/DLC/AdmitFrag.lean); admit() re-derives NOTHING at
+    // runtime — its entire cost is the signature conjunct. This is the
+    // fast-path=slow-path story: the proof is not re-run per tool call.
+    let ops_seed = [5u8; 32];
+    let ops_pk = ed25519::public_key(&ops_seed);
+    let ops = Principal::Atom(PrincipalId(ops_pk));
+    let ops_keyring = KeyRing {
+        entries: vec![KeyRecord {
+            principal: PrincipalId(ops_pk),
+            alg: ed25519::ALG_ED25519,
+            public_key: ops_pk.to_vec(),
+        }],
+    };
+    // The credential Ops signs: the domain-separated cap message for the tool
+    // (identical to `runtime::cap_message`, which is private).
+    let mut cap_msg = b"dlc-d/cap-invoke:".to_vec();
+    cap_msg.extend_from_slice(&cap_atom("SendEmail").to_le_bytes());
+    let cap_sig = Signature {
+        alg: ed25519::ALG_ED25519,
+        bytes: ed25519::sign(&ops_seed, &cap_msg).to_vec(),
+    };
+    // Sanity: the credential admits its tool (else the number below is meaningless).
+    assert!(admit(&ops_keyring, &ops, "SendEmail", &cap_sig).is_ok());
+    let admit_ns = time_median(ITERS, || {
+        assert!(admit(&ops_keyring, &ops, "SendEmail", &cap_sig).is_ok());
+    });
+    // The FNV-1a tool→atom binding alone (black_box the tool name so it is not
+    // constant-folded away): the "~free" half of admit's cost.
+    let cap_atom_ns = time_median(ITERS, || {
+        let _ = std::hint::black_box(cap_atom(std::hint::black_box("SendEmail")));
+    });
+
     let json = format!(
-        "{{\n  \"generator\": \"cargo run --release -p dlc-bench --bin bench-vectors\",\n  \"host\": \"{}\",\n  \"profile\": \"{}\",\n  \"iterations\": {ITERS},\n  \"comparison_formats\": \"PENDING — DLC numbers only; JWT/Biscuit comparison requires adding those implementations\",\n  \"results\": [\n    {{\"name\": \"issued-token\", \"token_bytes\": {}, \"verify_median_ns\": {}}},\n    {{\"name\": \"delegated-attenuated-chain\", \"token_bytes\": {}, \"verify_median_ns\": {}}},\n    {{\"name\": \"chain-logical-typing-only\", \"token_bytes\": {}, \"verify_median_ns\": {}}}\n  ]\n}}\n",
+        "{{\n  \"generator\": \"cargo run --release -p dlc-bench --bin bench-vectors\",\n  \"host\": \"{}\",\n  \"profile\": \"{}\",\n  \"iterations\": {ITERS},\n  \"comparison_formats\": \"PENDING — DLC numbers only; JWT/Biscuit comparison requires adding those implementations\",\n  \"results\": [\n    {{\"name\": \"issued-token\", \"token_bytes\": {}, \"verify_median_ns\": {}}},\n    {{\"name\": \"delegated-attenuated-chain\", \"token_bytes\": {}, \"verify_median_ns\": {}}},\n    {{\"name\": \"chain-logical-typing-only\", \"token_bytes\": {}, \"verify_median_ns\": {}}},\n    {{\"name\": \"admission-pep-admit\", \"note\": \"dlc_d::runtime::admit — one Ed25519 verify_in_keyring + FNV-1a cap binding, fail-closed; runtime re-derives nothing (typeability proved at compile time by admit_joint)\", \"verify_median_ns\": {}}},\n    {{\"name\": \"cap-atom-fnv1a-only\", \"note\": \"cap_atom(tool) alone — the tool->atom binding\", \"verify_median_ns\": {}}}\n  ]\n}}\n",
         std::env::consts::ARCH,
         if cfg!(debug_assertions) { "debug" } else { "release" },
         issued_wire.len(),
@@ -117,6 +154,8 @@ fn main() {
         chain_ns,
         chain_wire.len(),
         logic_ns,
+        admit_ns,
+        cap_atom_ns,
     );
 
     let path = concat!(

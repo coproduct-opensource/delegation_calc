@@ -18,4 +18,4 @@ path = "src/lib.rs"
 [dependencies]
 # The ONLY dependency — path-dep on the calculus kernel, itself Aeneas-clean.
 # Reuses `Term`, `Prop`, and `reduce::reduce_with_fuel`.
-dlc-core = { path = "../dlc-core" }
+dlc-core = { path = "../dlc-core", version = "1.5.0" }

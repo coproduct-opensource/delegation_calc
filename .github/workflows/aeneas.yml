@@ -46,7 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
-      - uses: coproduct-opensource/aeneas-ci@v1.0.2
+      - uses: coproduct-opensource/aeneas-ci@v1.0.3
         id: aeneas
         with:
           rust-source-dir: crates/dlc-core
@@ -80,7 +80,7 @@ jobs:
       # must build against the one `require aeneas @ <rev>` in the lakefile).
       # R2.1 ships NO correspondence proof; this gate fixes the translated
       # artifact so the refinement (R2.2–R2.4) has a drift-stable target.
-      - uses: coproduct-opensource/aeneas-ci@v1.0.2
+      - uses: coproduct-opensource/aeneas-ci@v1.0.3
         id: aeneas-dlcd-rsm
         with:
           rust-source-dir: crates/dlc-d-rsm

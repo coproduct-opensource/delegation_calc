@@ -15,12 +15,22 @@ inception (Week 1 of the Phase-1 roadmap).
 | `dlc-verifier` | Reference checker (<2000 LOC budget)             |
 | `dlc-verifier-wasm` | wasm32 cdylib wrapper                       |
 | `dlc-cli`    | `dlc` binary                                       |
+| `dlc-d`      | DLC-D facade: `#[dlc_d::agent_service]` + Tier-1 vocabulary + runtime `admit` PEP |
+| `dlc-d-macro` | The `agent_service` proc-macro (out of the TCB)   |
+| `dlc-d-rsm`  | DLC-D consensus surface (Aeneas-clean; RSM core lives in `dlc_core::rsm`) |
+| `dlc-d-node` | Runnable node: tokio shell over the verified transition core |
+
+The `dlc-d*` rows were reserved 2026-07-30 (R6.2 inc4) — the `#[dlc_d::agent_service]`
+attribute path was already shipping in examples/tests, so the crate-root path `dlc_d`
+is load-bearing. Reservation here is the FILE claim only; crates.io registration is a
+separate, escalation-gated act.
 
 ## Lean namespace
 
 `DLC.*` — every Lean module under `lean/DLC/` lives in this namespace. Imports from
 nucleus's `PortcullisCore` re-export under `DLC.IFC.*` rather than reaching into the
-upstream namespace directly.
+upstream namespace directly. `DLCD.*` — every module under `lean/DLCD/` (the DLC-D
+distributed layer: RSM model, guarantees, transport) — reserved on the same terms.
 
 ## JSON-LD context URI (W3C VC integration)
 

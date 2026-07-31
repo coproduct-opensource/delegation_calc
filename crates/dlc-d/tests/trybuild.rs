@@ -6,7 +6,8 @@
 fn ui() {
     let t = trybuild::TestCases::new();
     t.pass("tests/ui/good.rs");
-    t.compile_fail("tests/ui/illegal_flow.rs"); // isolation  (E0277)
-    t.compile_fail("tests/ui/missing_cap.rs"); // admission  (E0061)
-    t.compile_fail("tests/ui/over_budget.rs"); // budget     (const-eval)
+    t.compile_fail("tests/ui/illegal_flow.rs"); // isolation           (E0277)
+    t.compile_fail("tests/ui/missing_cap.rs"); // admission: witness  (E0061)
+    t.compile_fail("tests/ui/unauthorized_tool.rs"); // admission: grant    (E0277, demanded-vs-granted)
+    t.compile_fail("tests/ui/over_budget.rs"); // budget              (const-eval)
 }

@@ -6,13 +6,17 @@
 //! rejected (see `bogus_certificate_rejected`), so a green run is sound regardless of macro
 //! correctness (spec/r6.2-agent-service-envelope.md §3.4).
 //!
-//! This file hand-writes the certificate to prove the pipeline end-to-end against the real checker;
-//! the next increment has the macro *emit* an equivalent generated check from the parsed envelope.
+//! This file hand-writes certificates to prove the pipeline end-to-end against the real checker.
+//! The macro emits the demanded-vs-granted form of the same obligation
+//! (`dlc_d::obligation::cap_problem`); the `cap_obligation` module below is the golden suite for
+//! that constructor — including the anti-vacuity witness that the obligation is a NON-CONSTANT
+//! function of the envelope and grants declarations (a one-byte perturbation of either flips the
+//! verified checker to reject).
 //!
-//! **Fence.** The certificate proves *typeability* (the commit-I store-transformer `M : φ ⊃ φ`, in the
-//! verified propositional fragment F). The signature/crypto realization of the `says`-credential is a
-//! separate layer (Phase 2). Validation runs at `cargo test` time here; a build-time gate (build.rs)
-//! is the §4 follow-up.
+//! **Fence.** The certificate proves *typeability* in the verified propositional fragment F. The
+//! signature/crypto realization of the `says`-credential is a separate layer (`runtime::admit`,
+//! tied to this obligation from U3 onward). A macro that emits NO certificate is caught only by
+//! this golden suite, not by the checker.
 
 use dlc_core::decide::decide_pure;
 use dlc_core::judgment::{Ctx, TypingProblem};
@@ -66,4 +70,59 @@ fn wrong_context_certificate_rejected() {
         !decide_pure(&problem),
         "an unbound-variable certificate must be rejected"
     );
+}
+
+/// Golden suite for the macro-emitted demanded-vs-granted obligation. Same constructor the
+/// emitted certificate test calls, so what is proven here is a fact about the REAL obligation,
+/// not a test-only twin.
+mod cap_obligation {
+    use dlc_core::decide::decide_pure;
+    use dlc_d::obligation::cap_problem;
+
+    const GRANTS: &[(&str, &str)] = &[("Ops", "SendEmail"), ("Ops", "NetRead")];
+
+    #[test]
+    fn granted_pair_accepted() {
+        assert!(
+            decide_pure(&cap_problem(GRANTS, "Ops", "SendEmail")),
+            "a declared (issuer, tool) grant must discharge the demand"
+        );
+    }
+
+    /// ★ The anti-vacuity witness: the obligation is a non-constant function of the grants
+    /// declaration. One byte of drift in the granted tool name and the VERIFIED CHECKER — not
+    /// string comparison in test code — rejects the admission.
+    #[test]
+    fn one_byte_grant_perturbation_rejected() {
+        let typo: &[(&str, &str)] = &[("Ops", "SendEmajl"), ("Ops", "NetRead")];
+        assert!(
+            !decide_pure(&cap_problem(typo, "Ops", "SendEmail")),
+            "a one-byte perturbation of the granted tool must be rejected by the checker"
+        );
+    }
+
+    /// The complementary witness: non-constant in the ENVELOPE side too.
+    #[test]
+    fn ungranted_tool_rejected() {
+        assert!(
+            !decide_pure(&cap_problem(GRANTS, "Ops", "DeleteAll")),
+            "demanding a tool the issuer never granted must be rejected"
+        );
+    }
+
+    #[test]
+    fn unknown_issuer_rejected() {
+        assert!(
+            !decide_pure(&cap_problem(GRANTS, "Admin", "SendEmail")),
+            "a demand naming an issuer with no grants must be rejected (no credential to present)"
+        );
+    }
+
+    #[test]
+    fn empty_grants_table_rejected() {
+        assert!(
+            !decide_pure(&cap_problem(&[], "Ops", "SendEmail")),
+            "an empty grants table must fail closed"
+        );
+    }
 }

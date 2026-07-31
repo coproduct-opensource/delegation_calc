@@ -17,6 +17,10 @@ use dlc_d::{agent_service, Cap, FlowsInto, Invoke};
 struct SendEmail;
 struct Ops;
 
+// The grant declaration: `Ops` grants `SendEmail` and nothing else. Demanding an ungranted tool
+// (e.g. `cap = Invoke<DeleteAll> @ Ops`) fails `cargo build` — the demanded-vs-granted gate.
+dlc_d::grants! { Ops: SendEmail }
+
 // ── Information-flow lattice ─────────────────────────────────────────────────────────────────
 // User data may be recorded into the audit log (`UserData ⊑ AuditLog`), but NOT the reverse — the
 // declared edge below is the only permitted flow.

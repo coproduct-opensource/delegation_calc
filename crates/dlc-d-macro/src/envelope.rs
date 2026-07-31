@@ -133,8 +133,21 @@ impl Parse for Envelope {
 pub fn lower(env: &Envelope) -> TokenStream {
     let mut out = TokenStream::new();
 
-    // The `cap` axis is enforced by an injected capability-witness parameter (see
-    // `agent_service`), not a `const` anchor — so a *missing* witness is a call-site error.
+    // The `cap` axis is enforced twice: an injected capability-witness parameter (see
+    // `agent_service`) makes a *missing* witness a call-site error, and the demanded-vs-granted
+    // gate below makes demanding a tool the issuer never granted a build error. Spanned at the
+    // tool ident so the E0277 caret lands on the offending tool name.
+    if let Some(cap) = &env.cap {
+        let tool = &cap.tool;
+        // Re-span the issuer ident onto the tool token: interpolated idents keep their own spans,
+        // and rustc anchors the E0277 caret on the `I` type argument — respanning lands the caret
+        // on the demanded tool name, the token the developer has to change
+        // (tests/ui/unauthorized_tool.stderr pins this).
+        let issuer = Ident::new(&cap.issuer.to_string(), tool.span());
+        out.extend(quote::quote_spanned! {tool.span()=>
+            const _: () = ::dlc_d::assert_granted::<#issuer, ::dlc_d::Invoke<#tool>>();
+        });
+    }
 
     if let Some(flow) = &env.flow {
         let (source, sink) = (&flow.source, &flow.sink);
@@ -156,34 +169,25 @@ pub fn lower(env: &Envelope) -> TokenStream {
     out
 }
 
-/// A deterministic capability atom id from the tool name (FNV-1a over its bytes), computed at
-/// macro time so the emitted certificate references a stable `Prop::Atom(_)`.
-fn atom_hash(s: &str) -> u32 {
-    let mut h: u32 = 0x811c_9dc5;
-    for b in s.bytes() {
-        h ^= u32::from(b);
-        h = h.wrapping_mul(0x0100_0193);
-    }
-    h
-}
-
-/// If the envelope carries a `cap` axis, emit a hidden `#[test]` that constructs the admission
-/// certificate — the commit-I store-transformer `λx:atom_cap. x : atom_cap ⊃ atom_cap` (in the
-/// verified fragment F) — and asserts the VERIFIED checker (`dlc_core::decide::decide_pure`)
-/// accepts it. A green `cargo test` therefore means, by the machine-checked `rust_infer_sound`, a
-/// real `Deriv` exists: the admission obligation is checked by the verified kernel, not the macro,
-/// which is thereby out of the TCB. Emitted `dlc_core` items are reached via `::dlc_d::__rt::…` so
-/// the user crate depends only on `dlc-d`.
+/// If the envelope carries a `cap` axis, emit a hidden `#[test]` that constructs the
+/// demanded-vs-granted admission obligation (`dlc_d::obligation::cap_problem`: the envelope's
+/// demanded `issuer says Atom(cap_atom(tool))` against the credential the crate's `grants!` table
+/// actually declares) and asserts the VERIFIED checker (`dlc_core::decide::decide_pure`) accepts
+/// it. The problem is a non-constant function of two independently declared facts — envelope and
+/// grant table — so a misconfigured envelope goes RED at the checker, and a green `cargo test`
+/// means, by the machine-checked `rust_infer_sound`, a real `Deriv` exists. The macro stays out of
+/// the TCB: it only *poses* the problem; the verified kernel decides it.
 ///
-/// (Fence: the emitted certificate is currently the always-typeable identity store-transformer —
-/// it wires the macro to the verified checker; richer obligations that can *fail* on
-/// misconfiguration are a follow-up. Validated at `cargo test` time; a build-time gate is §4.)
+/// (Fence: a macro that emits NOTHING is not caught by the checker — omission is guarded by the
+/// golden-obligation tests in `dlc-d/tests/certificate.rs`, not by this emission. The build-time
+/// gate for the same fact is the `assert_granted` const in `lower`; the checker-decided form runs
+/// at `cargo test` time because `decide_pure` needs heap types the const layer cannot evaluate.)
 pub fn certificate_test(env: &Envelope, fn_ident: &Ident) -> TokenStream {
     let Some(cap) = &env.cap else {
         return TokenStream::new();
     };
-    let atom = atom_hash(&cap.tool.to_string());
     let tool_name = cap.tool.to_string();
+    let issuer_name = cap.issuer.to_string();
     let test_name = quote::format_ident!("__dlc_d_cert_{}", fn_ident);
     quote! {
         // `#[cfg(test)]` so the certificate is validated at `cargo test` time and excluded from
@@ -192,23 +196,20 @@ pub fn certificate_test(env: &Envelope, fn_ident: &Ident) -> TokenStream {
         #[test]
         #[allow(non_snake_case)]
         fn #test_name() {
-            let __problem = ::dlc_d::__rt::TypingProblem {
-                ctx: ::dlc_d::__rt::Ctx::empty(),
-                term: ::dlc_d::__rt::Term::Lam(
-                    ::std::boxed::Box::new(::dlc_d::__rt::Prop::Atom(#atom)),
-                    ::std::boxed::Box::new(::dlc_d::__rt::Term::Var(0)),
-                ),
-                prop: ::dlc_d::__rt::Prop::Imp(
-                    ::std::boxed::Box::new(::dlc_d::__rt::Prop::Atom(#atom)),
-                    ::std::boxed::Box::new(::dlc_d::__rt::Prop::Atom(#atom)),
-                ),
-            };
+            let __problem = ::dlc_d::obligation::cap_problem(
+                crate::__DLC_D_GRANTS,
+                #issuer_name,
+                #tool_name,
+            );
             assert!(
                 ::dlc_d::__rt::decide_pure(&__problem),
                 concat!(
-                    "dlc_d::agent_service: admission certificate for capability `",
+                    "dlc_d::agent_service: the demanded capability `",
                     #tool_name,
-                    "` was rejected by the verified checker",
+                    "` @ `",
+                    #issuer_name,
+                    "` is not discharged by the crate's `grants!` table \
+                     (rejected by the verified checker)",
                 ),
             );
         }

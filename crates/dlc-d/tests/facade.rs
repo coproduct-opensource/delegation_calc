@@ -7,9 +7,12 @@ use dlc_d::agent_service;
 use dlc_d::labels::{Public, Secret};
 use dlc_d::{Cap, Invoke};
 
-// Capability types the `cap` axis names.
+// Capability types the `cap` axis names, and the grant that authorizes the demand below
+// (the demanded-vs-granted gate rejects an ungranted pair at build — tests/ui/unauthorized_tool.rs).
 struct FileWrite;
 struct Admin;
+
+dlc_d::grants! { Admin: FileWrite }
 
 // A fully-governed service: `Public ⊑ Secret` type-checks, and the macro appends a
 // `Cap<Invoke<FileWrite>, Admin>` parameter — callers must present the capability witness.

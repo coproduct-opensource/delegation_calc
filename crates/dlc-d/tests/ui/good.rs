@@ -7,6 +7,8 @@ use dlc_d::{Cap, Invoke};
 struct FileWrite;
 struct Admin;
 
+dlc_d::grants! { Admin: FileWrite }
+
 #[agent_service(cap = Invoke<FileWrite> @ Admin, flow = Public <= Secret, budget = Faults<1>)]
 fn governed() -> u32 {
     1

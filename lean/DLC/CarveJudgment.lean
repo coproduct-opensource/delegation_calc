@@ -293,6 +293,25 @@ has no constructor joining `one` with `one`. Sharing versus splitting is
 machine-checked, not asserted in a comment. Perturbing `andI` to take a `CJoin`
 REDs the witness at the `CDeriv.andI dv dv` application.
 
+## Increment 6 — ADDITIVE disjunction `⊕`, and the claim above, tested (2026-07-31)
+
+`orI_L` / `orI_R` / `orE` take `CDeriv` to 17 of `Deriv`'s 30 constructors.
+
+Increment 5 ended with a prediction: that the remaining constructor gap is
+extension rather than research. `⊕` was added specifically to TEST that
+prediction rather than let it stand, and it is the harder additive case — `orE`
+JOINS the scrutinee's context AND binds a LINEAR hypothesis in each branch, so
+unlike `&` it hits the two-way multiplicity split in `cderiv_substL_aux` and the
+three-way split in `cderiv_substM_aux`. All 21 cases across all seven inductions
+compiled on the first attempt. The prediction held.
+
+`⊕`-β discharges through the SAME unconditional linear cut (`cderiv_lolli_beta`)
+that `⊸`-β uses, and for the same reason: an injected value is consumed exactly
+once by whichever branch runs, so no duplicability side condition is needed. The
+two branches share one `Γ₂` additively — only one of them ever runs, so each may
+consume the same resources — which is why both recurse with the SAME `Δ` and the
+SAME reassociated leftover in the substitution lemmas.
+
 `#print axioms` on every new/changed theorem (`cderiv_subject_reduction'`,
 `cderiv_subject_reduction`, `cderiv_imp_beta`, `cderiv_lolli_beta`, `cderiv_shift`,
 `cderiv_substA/L/M`, and the `&` line) = `[propext, Classical.choice, Quot.sound]`;
@@ -456,6 +475,26 @@ inductive CDeriv : Carve.Ctx Prop' → Term → Prop' → Type where
   | andER {Γ : Carve.Ctx Prop'} {φ ψ : Prop'} {M : Term}
       (d : CDeriv Γ M (Prop'.and φ ψ)) :
       CDeriv Γ (Term.snd M) ψ
+  /-- `or-Iₗ` (`⊕`-Iₗ, ADDITIVE disjunction) — injection; context passes through. -/
+  | orI_L {Γ : Carve.Ctx Prop'} {φ ψ : Prop'} {M : Term}
+      (d : CDeriv Γ M φ) :
+      CDeriv Γ (Term.inl ψ M) (Prop'.or φ ψ)
+  /-- `or-Iᵣ` (`⊕`-Iᵣ) — dual injection. -/
+  | orI_R {Γ : Carve.Ctx Prop'} {φ ψ : Prop'} {M : Term}
+      (d : CDeriv Γ M ψ) :
+      CDeriv Γ (Term.inr φ M) (Prop'.or φ ψ)
+  /-- `or-E` (`⊕`-E, `case`) — the scrutinee's context JOINS with the branches',
+  but the two BRANCHES share one `Γ₂` additively: only one of them ever runs, so
+  each may consume the same resources. Each branch binds ONE LINEAR (`one`)
+  hypothesis, matching `shift`'s `case` clause (`cutoff + 1` on both branches),
+  which is why `⊕`-β discharges through the linear cut `cderiv_substL` exactly as
+  `⊸`-β does — an injected value is consumed exactly once by the branch. -/
+  | orE {Γ Γ₁ Γ₂ : Carve.Ctx Prop'} {φ ψ χ : Prop'} {S L R : Term}
+      (dS : CDeriv Γ₁ S (Prop'.or φ ψ))
+      (dL : CDeriv ((φ, Mult.one) :: Γ₂) L χ)
+      (dR : CDeriv ((ψ, Mult.one) :: Γ₂) R χ)
+      (hj : CJoin Γ₁ Γ₂ Γ) :
+      CDeriv Γ (Term.case S L R) χ
   /-- `tensor-I` — multiplicative conjunction; the context JOINS, no shift. -/
   | tensorI {Γ Γ₁ Γ₂ : Carve.Ctx Prop'} {φ ψ : Prop'} {M N : Term}
       (dM : CDeriv Γ₁ M φ) (dN : CDeriv Γ₂ N ψ)
@@ -713,6 +752,31 @@ noncomputable def cderiv_shift {Γfull : Carve.Ctx Prop'} {M : Term} {A : Prop'}
         (cjoin_insert hjl hjr)
       have h := ihN (_ :: Γl₂) Γm Γr₂ rfl
       simpa [hn2] using h
+  | orI_L _d ih =>
+      intro Γl Γm Γr hΓ
+      subst hΓ
+      simp only [shift]
+      exact CDeriv.orI_L (ih Γl Γm Γr rfl)
+  | orI_R _d ih =>
+      intro Γl Γm Γr hΓ
+      subst hΓ
+      simp only [shift]
+      exact CDeriv.orI_R (ih Γl Γm Γr rfl)
+  | orE _dS _dL _dR hj ihS ihL ihR =>
+      -- The scrutinee JOINS, but the two branches share ONE `Γ₂` additively —
+      -- only one of them runs. Each binds a LINEAR hypothesis, so both bodies
+      -- shift at `|Γl| + 1`, the `letSaysE` pattern applied twice.
+      intro Γl Γm Γr hΓ
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, h1, h2, hn1, hn2, hjl, hjr⟩ := cjoin_split Γl Γr hj
+      subst h1; subst h2
+      simp only [shift]
+      refine CDeriv.orE (by rw [← hn1]; exact ihS Γl₁ Γm Γr₁ rfl) ?_ ?_
+        (cjoin_insert hjl hjr)
+      · have h := ihL (_ :: Γl₂) Γm Γr₂ rfl
+        simpa [hn2] using h
+      · have h := ihR (_ :: Γl₂) Γm Γr₂ rfl
+        simpa [hn2] using h
   | andI _dM _dN ihM ihN =>
       -- ADDITIVE: one context, so NO `cjoin_split` — both premises shift at the
       -- same cutoff `|Γl|` under the same decomposition.
@@ -1044,6 +1108,32 @@ private noncomputable def cderiv_substA_aux {Γfull : Carve.Ctx Prop'} {M : Term
       subst hΓ
       unfold substAt
       exact CDeriv.andER (ih Γl Γr m rfl hm dN)
+  | orI_L _d ih =>
+      intro Γl Γr m hΓ hm dN
+      subst hΓ
+      unfold substAt
+      exact CDeriv.orI_L (ih Γl Γr m rfl hm dN)
+  | orI_R _d ih =>
+      intro Γl Γr m hΓ hm dN
+      subst hΓ
+      unfold substAt
+      exact CDeriv.orI_R (ih Γl Γr m rfl hm dN)
+  | @orE Γ Γ₁ Γ₂ φo ψo χo So Lo Ro _ _ _ hj ihS ihL ihR =>
+      intro Γl Γr m hΓ hm dN
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ := cjoin_split_cons hj
+      subst e1; subst e2
+      obtain ⟨hm1, hm2⟩ := mjoin_ne_one hmj hm
+      unfold substAt
+      have hS := ihS Γl₁ Γr₁ m₁ rfl hm1 (by rw [cjoin_zeroed_left hjr]; exact dN)
+      rw [hn1] at hS
+      have hL := ihL ((φo, Mult.one) :: Γl₂) Γr₂ m₂ rfl hm2
+        (by rw [cjoin_zeroed_right hjr]; exact dN)
+      have hR := ihR ((ψo, Mult.one) :: Γl₂) Γr₂ m₂ rfl hm2
+        (by rw [cjoin_zeroed_right hjr]; exact dN)
+      refine CDeriv.orE hS ?_ ?_ (cjoin_append hjl hjr)
+      · simpa [hn2] using hL
+      · simpa [hn2] using hR
   | @delegate Γ Γ₁ Γ₂ p q φd Md Nd _ _ hj ihM ihN =>
       intro Γl Γr m hΓ hm dN
       subst hΓ
@@ -1339,6 +1429,27 @@ private noncomputable def cderiv_dropZero_aux {Γfull : Carve.Ctx Prop'} {M : Te
       subst hΓ
       unfold substAt
       exact CDeriv.andER (ih Γl Γr rfl)
+  | orI_L _d ih =>
+      intro Γl Γr hΓ; subst hΓ
+      unfold substAt
+      exact CDeriv.orI_L (ih Γl Γr rfl)
+  | orI_R _d ih =>
+      intro Γl Γr hΓ; subst hΓ
+      unfold substAt
+      exact CDeriv.orI_R (ih Γl Γr rfl)
+  | @orE Γ Γ₁ Γ₂ φo ψo χo So Lo Ro _ _ _ hj ihS ihL ihR =>
+      intro Γl Γr hΓ; subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2
+      obtain ⟨hz1, hz2⟩ := mjoin_zero hmj; subst hz1; subst hz2
+      unfold substAt
+      have hS := ihS Γl₁ Γr₁ rfl; rw [hn1] at hS
+      have hL := ihL ((φo, Mult.one) :: Γl₂) Γr₂ rfl
+      have hR := ihR ((ψo, Mult.one) :: Γl₂) Γr₂ rfl
+      refine CDeriv.orE hS ?_ ?_ (cjoin_append hjl hjr)
+      · simpa [hn2] using hL
+      · simpa [hn2] using hR
   | @delegate Γ Γ₁ Γ₂ p q φd Md Nd _ _ hj ihM ihN =>
       intro Γl Γr hΓ; subst hΓ
       obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
@@ -1559,6 +1670,45 @@ private noncomputable def cderiv_substL_aux {Γfull : Carve.Ctx Prop'} {M : Term
       subst hΓ
       unfold substAt
       exact CDeriv.andER (ih Γl Γr Δ Γr' rfl dN hc)
+  | orI_L _d ih =>
+      intro Γl Γr Δ Γr' hΓ dN hc
+      subst hΓ
+      unfold substAt
+      exact CDeriv.orI_L (ih Γl Γr Δ Γr' rfl dN hc)
+  | orI_R _d ih =>
+      intro Γl Γr Δ Γr' hΓ dN hc
+      subst hΓ
+      unfold substAt
+      exact CDeriv.orI_R (ih Γl Γr Δ Γr' rfl dN hc)
+  | @orE Γ Γ₁ Γ₂ φo ψo χo So Lo Ro dS dL dR hj ihS ihL ihR =>
+      intro Γl Γr Δ Γr' hΓ dN hc
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2; unfold substAt
+      by_cases hone : m₁ = Mult.one
+      · subst hone
+        have hm2 := mjoin_one_left hmj; subst hm2
+        obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc hjr hc
+        have hS := ihS Γl₁ Γr₁ Δ Δr rfl dN hADr
+        rw [hn1] at hS
+        have hL := cderiv_dropZero_aux φ N dL ((φo, Mult.one) :: Γl₂) Γr₂ rfl
+        have hR := cderiv_dropZero_aux φ N dR ((ψo, Mult.one) :: Γl₂) Γr₂ rfl
+        refine CDeriv.orE hS ?_ ?_ (cjoin_append hjl hADBr)
+        · simpa [hn2] using hL
+        · simpa [hn2] using hR
+      · obtain ⟨hm1z, hm2o⟩ := mjoin_one_notleft hmj hone
+        subst hm1z; subst hm2o
+        obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc (cjoin_comm hjr) hc
+        have hS := cderiv_dropZero_aux φ N dS Γl₁ Γr₁ rfl
+        rw [hn1] at hS
+        -- BOTH branches consume the hole: they share `Γ₂`, so each recurses
+        -- with the SAME `Δ` and the SAME reassociated leftover.
+        have hL := ihL ((φo, Mult.one) :: Γl₂) Γr₂ Δ Δr rfl dN hADr
+        have hR := ihR ((ψo, Mult.one) :: Γl₂) Γr₂ Δ Δr rfl dN hADr
+        refine CDeriv.orE hS ?_ ?_ (cjoin_append hjl (cjoin_comm hADBr))
+        · simpa [hn2] using hL
+        · simpa [hn2] using hR
   | @delegate Γ Γ₁ Γ₂ p q φd Md Nd dMd dNd hj ihM ihN =>
       intro Γl Γr Δ Γr' hΓ dN hc
       subst hΓ
@@ -2047,6 +2197,54 @@ private noncomputable def cderiv_substM_aux {Γfull : Carve.Ctx Prop'} {M : Term
       subst hΓ
       unfold substAt
       exact CDeriv.andER (ih Γl Γr Δ Γr' rfl hd dN hc)
+  | orI_L _d ih =>
+      intro Γl Γr Δ Γr' hΓ hd dN hc
+      subst hΓ
+      unfold substAt
+      exact CDeriv.orI_L (ih Γl Γr Δ Γr' rfl hd dN hc)
+  | orI_R _d ih =>
+      intro Γl Γr Δ Γr' hΓ hd dN hc
+      subst hΓ
+      unfold substAt
+      exact CDeriv.orI_R (ih Γl Γr Δ Γr' rfl hd dN hc)
+  | @orE Γ Γ₁ Γ₂ φo ψo χo So Lo Ro dS dL dR hj ihS ihL ihR =>
+      intro Γl Γr Δ Γr' hΓ hd dN hc
+      subst hΓ
+      obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
+        cjoin_split_cons hj
+      subst e1; subst e2; unfold substAt
+      by_cases h1z : m₁ = Mult.zero
+      · subst h1z
+        have h2m := mjoin_zero_left hmj; subst h2m
+        obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc (cjoin_comm hjr) hc
+        have hS := cderiv_dropZero_aux φ N dS Γl₁ Γr₁ rfl
+        rw [hn1] at hS
+        have hL := ihL ((φo, Mult.one) :: Γl₂) Γr₂ Δ Δr rfl hd dN hADr
+        have hR := ihR ((ψo, Mult.one) :: Γl₂) Γr₂ Δ Δr rfl hd dN hADr
+        refine CDeriv.orE hS ?_ ?_ (cjoin_append hjl (cjoin_comm hADBr))
+        · simpa [hn2] using hL
+        · simpa [hn2] using hR
+      · by_cases h2z : m₂ = Mult.zero
+        · subst h2z
+          have h1m := mjoin_zero_right hmj; subst h1m
+          obtain ⟨Δr, hADr, hADBr⟩ := cjoin_reassoc hjr hc
+          have hS := ihS Γl₁ Γr₁ Δ Δr rfl hd dN hADr
+          rw [hn1] at hS
+          have hL := cderiv_dropZero_aux φ N dL ((φo, Mult.one) :: Γl₂) Γr₂ rfl
+          have hR := cderiv_dropZero_aux φ N dR ((ψo, Mult.one) :: Γl₂) Γr₂ rfl
+          refine CDeriv.orE hS ?_ ?_ (cjoin_append hjl hADBr)
+          · simpa [hn2] using hL
+          · simpa [hn2] using hR
+        · obtain ⟨h1m, h2m⟩ := mjoin_many_ne_zero hmj h1z h2z
+          subst h1m; subst h2m
+          obtain ⟨Δ1, Δ2, hj1, hj2, hj3⟩ := cjoin_dup_reassoc hjr hc hd
+          have hS := ihS Γl₁ Γr₁ Δ Δ1 rfl hd dN hj1
+          rw [hn1] at hS
+          have hL := ihL ((φo, Mult.one) :: Γl₂) Γr₂ Δ Δ2 rfl hd dN hj2
+          have hR := ihR ((ψo, Mult.one) :: Γl₂) Γr₂ Δ Δ2 rfl hd dN hj2
+          refine CDeriv.orE hS ?_ ?_ (cjoin_append hjl hj3)
+          · simpa [hn2] using hL
+          · simpa [hn2] using hR
   | @delegate Γ Γ₁ Γ₂ p q φd Md Nd dMd dNd hj ihM ihN =>
       intro Γl Γr Δ Γr' hΓ hd dN hc
       subst hΓ
@@ -2319,6 +2517,28 @@ noncomputable def cderiv_subject_reduction' {Γ : Carve.Ctx Prop'} {M : Term} {�
   | lolliI _ => intro M' h; simp [step] at h
   | tensorI _ _ _ => intro M' h; simp [step] at h
   | andI _ _ _ _ => intro M' h; simp [step] at h
+  | orI_L _ _ => intro M' h; simp [step] at h
+  | orI_R _ _ => intro M' h; simp [step] at h
+  | @orE Γ Γ₁ Γ₂ φo ψo χo So Lo Ro dS dL dR hj ihS ihL ihR =>
+      intro M' h
+      unfold step at h
+      split at h
+      · -- ⊕-β left: the injected value is consumed EXACTLY ONCE by the branch,
+        -- so this is the same unconditional linear cut that `⊸`-β uses.
+        simp only [Option.some.injEq] at h
+        subst h
+        cases dS with
+        | orI_L da => exact cderiv_lolli_beta dL da (cjoin_comm hj)
+      · simp only [Option.some.injEq] at h
+        subst h
+        cases dS with
+        | orI_R da => exact cderiv_lolli_beta dR da (cjoin_comm hj)
+      · cases hs : step So with
+        | none => simp [hs] at h
+        | some S' =>
+            simp [hs] at h
+            subst h
+            exact CDeriv.orE (ihS S' hs) dL dR hj
   | @andEL Γ φ ψ M d ih =>
       intro M' h
       unfold step at h
@@ -2521,6 +2741,8 @@ def CValue : Term → Prop
   | Term.lam _ _ => True
   | Term.tensorIntro _ _ => True
   | Term.pair _ _ => True
+  | Term.inl _ _ => True
+  | Term.inr _ _ => True
   | _ => False
 
 /-! ### ξ-congruence witnesses (one per `CDeriv` elimination form).
@@ -2535,6 +2757,13 @@ private theorem capp_steps {f f' : Term} (x : Term)
     first
       | (simp [step] at hf; done)
       | (refine ⟨Term.app f' x, ?_⟩; simp only [step] at hf ⊢; rw [hf])
+
+private theorem ccase_steps {s s' : Term} (l r : Term)
+    (hs : step s = some s') : ∃ t, step (Term.case s l r) = some t := by
+  cases s <;>
+    first
+      | (simp [step] at hs; done)
+      | (refine ⟨Term.case s' l r, ?_⟩; simp only [step] at hs ⊢; rw [hs])
 
 private theorem cfst_steps {m m' : Term}
     (hm : step m = some m') : ∃ r, step (Term.fst m) = some r := by
@@ -2602,6 +2831,18 @@ private theorem cprogress_aux {Γ : Carve.Ctx Prop'} {M : Term} {ψ : Prop'}
   | lolliI _ _ => intro _; exact Or.inl True.intro
   | tensorI _ _ _ _ _ => intro _; exact Or.inl True.intro
   | andI _ _ _ _ => intro _; exact Or.inl True.intro
+  | orI_L _ _ => intro _; exact Or.inl True.intro
+  | orI_R _ _ => intro _; exact Or.inl True.intro
+  | @orE Γ Γ₁ Γ₂ φo ψo χo So Lo Ro dS dL dR hj ihS ihL ihR =>
+      intro hΓ; subst hΓ
+      obtain ⟨rfl, rfl⟩ := cjoin_nil hj
+      rcases ihS rfl with hval | ⟨S', hstep⟩
+      · -- Canonical: a value of type `or φ ψ` is `inl` or `inr` — ⊕-β fires.
+        cases So with
+        | inl _ a => exact Or.inr ⟨_, rfl⟩
+        | inr _ a => exact Or.inr ⟨_, rfl⟩
+        | _ => first | exact False.elim hval | cases dS
+      · exact Or.inr (ccase_steps Lo Ro hstep)
   | @andEL Γ φ ψ M d ih =>
       intro hΓ; subst hΓ
       rcases ih rfl with hval | ⟨M', hstep⟩
@@ -2844,6 +3085,31 @@ noncomputable def subjectReduction_andBeta_example :
           · exact (hj rfl).elim
           · simp at hget)
   exact cderiv_subject_reduction' (CDeriv.andEL (CDeriv.andI dv dv)) (Term.var 0) rfl
+
+/-- **Anti-vacuity for `⊕` (additive disjunction).** A REAL, inhabited `⊕`-redex
+`case (inl x) of _ ⇒ y | _ ⇒ y` under `Γ = [(atom0, one)]` — the scrutinee
+consumes the LIVE LINEAR resource, and the branch binder is itself linear, so
+`⊕`-β discharges through the SAME unconditional linear cut `cderiv_substL` that
+`⊸`-β uses. That is the structural point: an injected value is consumed exactly
+once by whichever branch runs, so no duplicability side condition is needed. -/
+noncomputable def subjectReduction_orBeta_example :
+    CDeriv [(Prop'.atom 0, Mult.one)] (Term.var 0) (Prop'.atom 0) := by
+  have dv : CDeriv [(Prop'.atom 0, Mult.one)] (Term.var 0) (Prop'.atom 0) :=
+    CDeriv.var (i := 0) rfl (by decide)
+      (by intro j p hj hget; rcases j with _ | k
+          · exact (hj rfl).elim
+          · simp at hget)
+  have dbr : CDeriv ((Prop'.atom 0, Mult.one) :: [(Prop'.atom 0, Mult.zero)])
+      (Term.var 0) (Prop'.atom 0) :=
+    CDeriv.var (i := 0) rfl (by decide)
+      (by intro j p hj hget; rcases j with _ | _ | k
+          · exact (hj rfl).elim
+          · simp at hget; rw [← hget]
+          · simp at hget)
+  have hj : CJoin [(Prop'.atom 0, Mult.one)] [(Prop'.atom 0, Mult.zero)]
+      [(Prop'.atom 0, Mult.one)] := CJoin.cons (MJoin.zr _) CJoin.nil
+  exact cderiv_subject_reduction'
+    (CDeriv.orE (CDeriv.orI_L (ψ := Prop'.atom 0) dv) dbr dbr hj) (Term.var 0) rfl
 
 /-- **The REFUTABLE half — `&` is not `⊗`.** The witness above would be worthless
 if the additive rule were silently multiplicative: `andI` sharing one context is

@@ -263,9 +263,42 @@ sound β.
   subject-reduction structure: linear function → linear substitution; non-linear
   function → scaled/duplicable substitution) is realised by `cases dM` selecting
   `impI` (→ `cderiv_substM`) vs `lolliI` (→ `cderiv_substL`) on the arrow's `Prop'`.
+## Increment 5 — ADDITIVE conjunction `&` (2026-07-31)
+
+`andI` / `andEL` / `andER` extend `CDeriv` from 11 to 14 of `Deriv`'s 30
+constructors. `&` is the ADDITIVE conjunction: both premises are typed under the
+**same** `Γ`, with no `CJoin`, because only one component can ever be projected.
+
+Two things are worth recording.
+
+**It is strictly more general than what it replaces.** `Deriv.andI` and
+`Deriv.orE` are restricted to `linear := []` — the pre-CARVe representation could
+not state an additive rule over a context carrying live linear resources at all.
+`CDeriv.andI` states it for arbitrary `Γ`, so `⟨x, x⟩ : φ & φ` with ONE linear
+`x` is derivable here and was not expressible before.
+
+**The remaining constructor gap is extension, not research.** Every additive case
+in all five metatheorems (`cderiv_shift`, `cderiv_substA/L/M`,
+`cderiv_subject_reduction'`) plus `cprogress_aux` is a ONE-LINER that compiled on
+the first attempt — no `cjoin_split`, no multiplicity join, because there is one
+context to thread. The hard substructural content (the linear cut `cderiv_substL`)
+was already discharged; the additive constructors ride on it for free. That is
+evidence about the 16 constructors still outstanding, not just about these three.
+
+The witness pair is satisfiable AND refutable:
+`CarveJudgmentChecks.subjectReduction_andBeta_example` types `π₁⟨x, x⟩` under one
+LINEAR `x` and steps it to `x`; `tensorI_rejects_what_andI_shares` PROVES the
+same term is UNINHABITED at `atom0 ⊗ atom0` under that context, because `MJoin`
+has no constructor joining `one` with `one`. Sharing versus splitting is
+machine-checked, not asserted in a comment. Perturbing `andI` to take a `CJoin`
+REDs the witness at the `CDeriv.andI dv dv` application.
+
 `#print axioms` on every new/changed theorem (`cderiv_subject_reduction'`,
 `cderiv_subject_reduction`, `cderiv_imp_beta`, `cderiv_lolli_beta`, `cderiv_shift`,
-`cderiv_substA/L/M`) = `[propext, Classical.choice, Quot.sound]`; the `NoOne` kit
+`cderiv_substA/L/M`, and the `&` line) = `[propext, Classical.choice, Quot.sound]`;
+These are now GATED, not merely documented: `scripts/check-axioms.sh` imports this
+module and tracks 7 of them (81 → 88 snapshots). They had been described as
+axiom-checked while no snapshot covered them. the `NoOne` kit
 `[propext]`/`[propext, Quot.sound]`; no `sorryAx`, no `native_decide`.
 `CarveJudgmentChecks.subjectReduction_lolliBeta_example` is a real `⊸`-typed
 redex `(λ^one x. x) N ▷ N` preserving typing with a LIVE linear argument, the
@@ -401,6 +434,28 @@ inductive CDeriv : Carve.Ctx Prop' → Term → Prop' → Type where
       (dM : CDeriv Γ₁ M (Prop'.lolli φ ψ)) (dN : CDeriv Γ₂ N φ)
       (hj : CJoin Γ₁ Γ₂ Γ) :
       CDeriv Γ (Term.app M N) ψ
+  /-- `and-I` (`&`-I, ADDITIVE conjunction) — both premises are typed under the
+  **SAME** context `Γ`, which is what makes `&` additive rather than
+  multiplicative: no `CJoin`, so a linear resource in `Γ` is available to each
+  component, because only one of them can ever be projected out.
+
+  This is strictly MORE GENERAL than `Deriv.andI`, which the pre-CARVe
+  representation had to restrict to `linear := []` — an additive rule could not
+  be stated over a context that carried live linear resources at all. The
+  resource-vector representation removes that restriction. -/
+  | andI {Γ : Carve.Ctx Prop'} {φ ψ : Prop'} {M N : Term}
+      (dM : CDeriv Γ M φ) (dN : CDeriv Γ N ψ) :
+      CDeriv Γ (Term.pair M N) (Prop'.and φ ψ)
+  /-- `and-Eₗ` (`&`-Eₗ) — left projection. No binder, no join: the context passes
+  through, matching `shift`/`substAt`'s `fst` clauses (which recurse at the same
+  cutoff/depth). -/
+  | andEL {Γ : Carve.Ctx Prop'} {φ ψ : Prop'} {M : Term}
+      (d : CDeriv Γ M (Prop'.and φ ψ)) :
+      CDeriv Γ (Term.fst M) φ
+  /-- `and-Eᵣ` (`&`-Eᵣ) — right projection; dual to `andEL`. -/
+  | andER {Γ : Carve.Ctx Prop'} {φ ψ : Prop'} {M : Term}
+      (d : CDeriv Γ M (Prop'.and φ ψ)) :
+      CDeriv Γ (Term.snd M) ψ
   /-- `tensor-I` — multiplicative conjunction; the context JOINS, no shift. -/
   | tensorI {Γ Γ₁ Γ₂ : Carve.Ctx Prop'} {φ ψ : Prop'} {M N : Term}
       (dM : CDeriv Γ₁ M φ) (dN : CDeriv Γ₂ N ψ)
@@ -658,6 +713,23 @@ noncomputable def cderiv_shift {Γfull : Carve.Ctx Prop'} {M : Term} {A : Prop'}
         (cjoin_insert hjl hjr)
       have h := ihN (_ :: Γl₂) Γm Γr₂ rfl
       simpa [hn2] using h
+  | andI _dM _dN ihM ihN =>
+      -- ADDITIVE: one context, so NO `cjoin_split` — both premises shift at the
+      -- same cutoff `|Γl|` under the same decomposition.
+      intro Γl Γm Γr hΓ
+      subst hΓ
+      simp only [shift]
+      exact CDeriv.andI (ihM Γl Γm Γr rfl) (ihN Γl Γm Γr rfl)
+  | andEL _d ih =>
+      intro Γl Γm Γr hΓ
+      subst hΓ
+      simp only [shift]
+      exact CDeriv.andEL (ih Γl Γm Γr rfl)
+  | andER _d ih =>
+      intro Γl Γm Γr hΓ
+      subst hΓ
+      simp only [shift]
+      exact CDeriv.andER (ih Γl Γm Γr rfl)
   | delegate _dM _dN hj ihM ihN =>
       -- No binder; both premises shift at `|Γl|`, exactly the `impE` pattern.
       intro Γl Γm Γr hΓ
@@ -955,6 +1027,23 @@ private noncomputable def cderiv_substA_aux {Γfull : Carve.Ctx Prop'} {M : Term
         (by rw [cjoin_zeroed_right hjr]; exact dN)
       refine CDeriv.saysE hM ?_ (cjoin_append hjl hjr)
       simpa [hn2] using hN
+  | andI _dM _dN ihM ihN =>
+      -- ADDITIVE: one shared context, so no `cjoin_split_cons` and no
+      -- multiplicity join — each premise takes the caller's own arguments.
+      intro Γl Γr m hΓ hm dN
+      subst hΓ
+      unfold substAt
+      exact CDeriv.andI (ihM Γl Γr m rfl hm dN) (ihN Γl Γr m rfl hm dN)
+  | andEL _d ih =>
+      intro Γl Γr m hΓ hm dN
+      subst hΓ
+      unfold substAt
+      exact CDeriv.andEL (ih Γl Γr m rfl hm dN)
+  | andER _d ih =>
+      intro Γl Γr m hΓ hm dN
+      subst hΓ
+      unfold substAt
+      exact CDeriv.andER (ih Γl Γr m rfl hm dN)
   | @delegate Γ Γ₁ Γ₂ p q φd Md Nd _ _ hj ihM ihN =>
       intro Γl Γr m hΓ hm dN
       subst hΓ
@@ -1233,6 +1322,23 @@ private noncomputable def cderiv_dropZero_aux {Γfull : Carve.Ctx Prop'} {M : Te
       have hN := ihN ((φs, Mult.many) :: Γl₂) Γr₂ rfl
       refine CDeriv.saysE hM ?_ (cjoin_append hjl hjr)
       simpa [hn2] using hN
+  | andI _dM _dN ihM ihN =>
+      -- ADDITIVE: one shared context, so no `cjoin_split_cons` and no
+      -- multiplicity join — each premise takes the caller's own arguments.
+      intro Γl Γr hΓ
+      subst hΓ
+      unfold substAt
+      exact CDeriv.andI (ihM Γl Γr rfl) (ihN Γl Γr rfl)
+  | andEL _d ih =>
+      intro Γl Γr hΓ
+      subst hΓ
+      unfold substAt
+      exact CDeriv.andEL (ih Γl Γr rfl)
+  | andER _d ih =>
+      intro Γl Γr hΓ
+      subst hΓ
+      unfold substAt
+      exact CDeriv.andER (ih Γl Γr rfl)
   | @delegate Γ Γ₁ Γ₂ p q φd Md Nd _ _ hj ihM ihN =>
       intro Γl Γr hΓ; subst hΓ
       obtain ⟨Γl₁, Γr₁, Γl₂, Γr₂, m₁, m₂, e1, e2, hn1, hn2, hmj, hjl, hjr⟩ :=
@@ -1436,6 +1542,23 @@ private noncomputable def cderiv_substL_aux {Γfull : Carve.Ctx Prop'} {M : Term
           have hNb := ihN ((φs, Mult.many) :: Γl₂) Γr₂ Δ Δr rfl dN hADr
           refine CDeriv.saysE hM ?_ (cjoin_append hjl (cjoin_comm hADBr))
           simpa [hn2] using hNb
+  | andI _dM _dN ihM ihN =>
+      -- ADDITIVE: one shared context, so no `cjoin_split_cons` and no
+      -- multiplicity join — each premise takes the caller's own arguments.
+      intro Γl Γr Δ Γr' hΓ dN hc
+      subst hΓ
+      unfold substAt
+      exact CDeriv.andI (ihM Γl Γr Δ Γr' rfl dN hc) (ihN Γl Γr Δ Γr' rfl dN hc)
+  | andEL _d ih =>
+      intro Γl Γr Δ Γr' hΓ dN hc
+      subst hΓ
+      unfold substAt
+      exact CDeriv.andEL (ih Γl Γr Δ Γr' rfl dN hc)
+  | andER _d ih =>
+      intro Γl Γr Δ Γr' hΓ dN hc
+      subst hΓ
+      unfold substAt
+      exact CDeriv.andER (ih Γl Γr Δ Γr' rfl dN hc)
   | @delegate Γ Γ₁ Γ₂ p q φd Md Nd dMd dNd hj ihM ihN =>
       intro Γl Γr Δ Γr' hΓ dN hc
       subst hΓ
@@ -1907,6 +2030,23 @@ private noncomputable def cderiv_substM_aux {Γfull : Carve.Ctx Prop'} {M : Term
           have hNb := ihN ((φs, Mult.many) :: Γl₂) Γr₂ Δ Δ2 rfl hd dN hj2
           refine CDeriv.saysE hM ?_ (cjoin_append hjl hj3)
           simpa [hn2] using hNb
+  | andI _dM _dN ihM ihN =>
+      -- ADDITIVE: one shared context, so no `cjoin_split_cons` and no
+      -- multiplicity join — each premise takes the caller's own arguments.
+      intro Γl Γr Δ Γr' hΓ hd dN hc
+      subst hΓ
+      unfold substAt
+      exact CDeriv.andI (ihM Γl Γr Δ Γr' rfl hd dN hc) (ihN Γl Γr Δ Γr' rfl hd dN hc)
+  | andEL _d ih =>
+      intro Γl Γr Δ Γr' hΓ hd dN hc
+      subst hΓ
+      unfold substAt
+      exact CDeriv.andEL (ih Γl Γr Δ Γr' rfl hd dN hc)
+  | andER _d ih =>
+      intro Γl Γr Δ Γr' hΓ hd dN hc
+      subst hΓ
+      unfold substAt
+      exact CDeriv.andER (ih Γl Γr Δ Γr' rfl hd dN hc)
   | @delegate Γ Γ₁ Γ₂ p q φd Md Nd dMd dNd hj ihM ihN =>
       intro Γl Γr Δ Γr' hΓ hd dN hc
       subst hΓ
@@ -2178,6 +2318,38 @@ noncomputable def cderiv_subject_reduction' {Γ : Carve.Ctx Prop'} {M : Term} {�
   | impI _ => intro M' h; simp [step] at h
   | lolliI _ => intro M' h; simp [step] at h
   | tensorI _ _ _ => intro M' h; simp [step] at h
+  | andI _ _ _ _ => intro M' h; simp [step] at h
+  | @andEL Γ φ ψ M d ih =>
+      intro M' h
+      unfold step at h
+      split at h
+      · -- and-Eₗ-β: `π₁ ⟨a, b⟩ ▷ a`. Inversion of the scrutinee gives BOTH
+        -- components typed under the SAME `Γ`, so the projection needs no
+        -- context surgery at all — the additive rule pays for itself here.
+        simp only [Option.some.injEq] at h
+        subst h
+        cases d with
+        | andI dL _dR => exact dL
+      · cases hm : step M with
+        | none => simp [hm] at h
+        | some M'' =>
+            simp [hm] at h
+            subst h
+            exact CDeriv.andEL (ih M'' hm)
+  | @andER Γ φ ψ M d ih =>
+      intro M' h
+      unfold step at h
+      split at h
+      · simp only [Option.some.injEq] at h
+        subst h
+        cases d with
+        | andI _dL dR => exact dR
+      · cases hm : step M with
+        | none => simp [hm] at h
+        | some M'' =>
+            simp [hm] at h
+            subst h
+            exact CDeriv.andER (ih M'' hm)
   | @impE Γ Γ₁ Γ₂ φ ψ f x dM dN hj hdup ihM ihN =>
       intro M' h
       unfold step at h
@@ -2348,6 +2520,7 @@ introduce — the canonical value set for progress. -/
 def CValue : Term → Prop
   | Term.lam _ _ => True
   | Term.tensorIntro _ _ => True
+  | Term.pair _ _ => True
   | _ => False
 
 /-! ### ξ-congruence witnesses (one per `CDeriv` elimination form).
@@ -2362,6 +2535,20 @@ private theorem capp_steps {f f' : Term} (x : Term)
     first
       | (simp [step] at hf; done)
       | (refine ⟨Term.app f' x, ?_⟩; simp only [step] at hf ⊢; rw [hf])
+
+private theorem cfst_steps {m m' : Term}
+    (hm : step m = some m') : ∃ r, step (Term.fst m) = some r := by
+  cases m <;>
+    first
+      | (simp [step] at hm; done)
+      | (refine ⟨Term.fst m', ?_⟩; simp only [step] at hm ⊢; rw [hm])
+
+private theorem csnd_steps {m m' : Term}
+    (hm : step m = some m') : ∃ r, step (Term.snd m) = some r := by
+  cases m <;>
+    first
+      | (simp [step] at hm; done)
+      | (refine ⟨Term.snd m', ?_⟩; simp only [step] at hm ⊢; rw [hm])
 
 private theorem cletTensor_steps {s s' : Term} (b : Term)
     (hs : step s = some s') : ∃ t, step (Term.letTensor s b) = some t := by
@@ -2414,6 +2601,22 @@ private theorem cprogress_aux {Γ : Carve.Ctx Prop'} {M : Term} {ψ : Prop'}
   | impI _ _ => intro _; exact Or.inl True.intro
   | lolliI _ _ => intro _; exact Or.inl True.intro
   | tensorI _ _ _ _ _ => intro _; exact Or.inl True.intro
+  | andI _ _ _ _ => intro _; exact Or.inl True.intro
+  | @andEL Γ φ ψ M d ih =>
+      intro hΓ; subst hΓ
+      rcases ih rfl with hval | ⟨M', hstep⟩
+      · -- Canonical: a value of type `and φ ψ` is a `pair` — and-Eₗ-β fires.
+        cases M with
+        | pair a b => exact Or.inr ⟨a, rfl⟩
+        | _ => first | exact False.elim hval | cases d
+      · exact Or.inr (cfst_steps hstep)
+  | @andER Γ φ ψ M d ih =>
+      intro hΓ; subst hΓ
+      rcases ih rfl with hval | ⟨M', hstep⟩
+      · cases M with
+        | pair a b => exact Or.inr ⟨b, rfl⟩
+        | _ => first | exact False.elim hval | cases d
+      · exact Or.inr (csnd_steps hstep)
   | @impE Γ Γ₁ Γ₂ φ ψ f x dM dN hj hdup ihM ihN =>
       intro hΓ; subst hΓ
       obtain ⟨rfl, rfl⟩ := cjoin_nil hj
@@ -2626,6 +2829,51 @@ noncomputable def subjectReduction_impBeta_example :
       (Term.app (Term.lam (Prop'.atom 0) (Term.var 0)) (Term.var 0))
       (Prop'.atom 0) := CDeriv.impE dLam dN hj hdup
   exact cderiv_subject_reduction' dApp (Term.var 0) rfl
+
+/-- **Anti-vacuity for `&` (additive conjunction), and the `⊗` CONTRAST.**
+A REAL, inhabited `&`-typed redex `π₁ ⟨x, x⟩` under `Γ = [(atom0, one)]` — the
+SAME live linear resource is used by BOTH components, which is exactly what
+additivity licenses and what the pre-CARVe `Deriv.andI` could not even state
+(it was restricted to `linear := []`). It `step`s to `var 0`, and
+`cderiv_subject_reduction'` delivers the reduced derivation. -/
+noncomputable def subjectReduction_andBeta_example :
+    CDeriv [(Prop'.atom 0, Mult.one)] (Term.var 0) (Prop'.atom 0) := by
+  have dv : CDeriv [(Prop'.atom 0, Mult.one)] (Term.var 0) (Prop'.atom 0) :=
+    CDeriv.var (i := 0) rfl (by decide)
+      (by intro j p hj hget; rcases j with _ | k
+          · exact (hj rfl).elim
+          · simp at hget)
+  exact cderiv_subject_reduction' (CDeriv.andEL (CDeriv.andI dv dv)) (Term.var 0) rfl
+
+/-- **The REFUTABLE half — `&` is not `⊗`.** The witness above would be worthless
+if the additive rule were silently multiplicative: `andI` sharing one context is
+only meaningful if the multiplicative rule genuinely REJECTS the same term. It
+does. `⟨x, x⟩` at `atom0 ⊗ atom0` under a single LINEAR `x` is UNINHABITED,
+because `tensorI` demands `CJoin Γ₁ Γ₂ Γ` and both premises need position 0
+live — and `MJoin` has NO constructor joining `one` with `one`. So the pair of
+witnesses is satisfiable-AND-refutable: `&` shares, `⊗` splits, and the
+difference is machine-checked rather than asserted in a comment. -/
+theorem tensorI_rejects_what_andI_shares :
+    ¬ Nonempty (CDeriv [(Prop'.atom 0, Mult.one)]
+        (Term.tensorIntro (Term.var 0) (Term.var 0))
+        (Prop'.tensor (Prop'.atom 0) (Prop'.atom 0))) := by
+  rintro ⟨d⟩
+  cases d with
+  | tensorI dM dN hj =>
+      -- Both components are `var 0`, so each demands a non-`zero` tag at
+      -- position 0 of its own context; the join of the two must be `one`.
+      cases dM with
+      | var hM hmM _ =>
+          cases dN with
+          | var hN hmN _ =>
+              cases hj with
+              | cons hmj _ =>
+                  simp only [List.getElem?_cons_zero, Option.some.injEq,
+                    Prod.mk.injEq] at hM hN
+                  obtain ⟨_, hmM'⟩ := hM
+                  obtain ⟨_, hmN'⟩ := hN
+                  subst hmM'; subst hmN'
+                  cases hmj <;> simp_all
 
 /-- **Anti-vacuity + the `⊸`-β CONTRAST (bite b).** A REAL, inhabited redex
 `(λ^one x:atom0. x) (var 0)` typed at the LINEAR arrow `atom0 ⊸ atom0` (via

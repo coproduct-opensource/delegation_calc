@@ -92,6 +92,11 @@ SCRIPT_FILE="$SCRIPT_DIR/PrintAll.lean"
   echo "import DLC.NonInterferenceEnv"
   echo "import DLC.NonInterferenceFundamental"
   echo "import DLC.CtxWellFormed"
+  # CARVe metatheory: the shift/substitution/subject-reduction line over
+  # `CDeriv`. These were documented as axiom-checked but were NOT tracked by
+  # any snapshot — a stated standard is not a gate until something exits
+  # non-zero, so they are tracked here now.
+  echo "import DLC.CarveJudgment"
   # Joint-admission arc: admit_joint lives here (AdmitFrag → DecideSquare, on the
   # dlc_core tree, so it co-elaborates with the main group).
   echo "import DLC.AdmitFrag"

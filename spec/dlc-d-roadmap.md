@@ -11,7 +11,9 @@ Rust runtime.
 
 ## 0. Status snapshot
 
-- **Branch:** `dlc-d/phase0-carve` — **not merged to main.** Latest `27168a2`.
+- **Branch:** `dlc-d/phase0-carve` — landing to main via PR #138 (2026-07-30; full linear
+  history, fast-forward on CI green). §2's R6.0 staging is CONSUMED: R6.0 designed, R6.1 built,
+  R6.2 built through inc4 (`spec/r6.2-agent-service-envelope.md` §6 is the live staging doc).
 - **Artifact:** 24 Lean libraries, 72 governed theorems, all footprints
   `[propext, Classical.choice, Quot.sound]`; Aeneas drift-gated; CI-gated.
 - The **verified model** (G1–G4) and the **machine-checked correspondence from the
@@ -169,14 +171,14 @@ proof-to-the-metal bridge already exists (R2), and the shell substrate is instal
   *pure* transition core, so R3 is now specifically for what Aeneas cannot touch:
   the **concurrent/async shell** (interior mutability, the event loop) refining the
   model. Feeds R6.1. Spike done; RefinedRust ratified; opam switch installed.
-- **R5 — IFC-refinement (reshaped by an impossibility finding).** The plan's
-  "refine NI into a 1-run SMT setting" assumed a faithful runtime-label decode —
-  which R2 proved *impossible* (finite lattice vs. unbounded labels; the NI-relevant
-  label is a type-layer artifact absent from executable state). What's realized:
-  NI-*preservation* over the Aeneas core (`rust_worldStep_preserves_high`). What's
-  open and needs **re-planning, not execution**: whether stronger runtime IFC is
-  even the right target, vs. accepting preservation + a typed-label surface (R6) as
-  the honest IFC story. **Decision needed before investing.**
+- **R5 — IFC-refinement: PARKED BY DECISION (2026-07-30, proxy ruling with async veto).**
+  The honest IFC story is NI-*preservation* over the Aeneas core
+  (`rust_worldStep_preserves_high`) + the typed-label surface (R6's `flow` axis, a real
+  E0277). Stronger runtime IFC is NOT pursued: R2 proved faithful label decode impossible
+  (finite hand lattice vs. unbounded runtime labels), so residual IFC value lives at the
+  type layer; a runtime label monitor would stand up a parallel mechanism whose green tells
+  you nothing about which check matters. A park, not a deletion — reopen if a consumer
+  needs dynamic labels.
 
 ## 4. R2 tails (opened this session)
 
@@ -238,9 +240,12 @@ proof-to-the-metal bridge already exists (R2), and the shell substrate is instal
 
 ## 7. Recommended next thrust
 
-**R6.0 (design + paper prototype of the failure-modes-as-types slice).** It is the
-single highest-leverage remaining move: it converts the proven artifact into
-something people can build with, it is where "easy AND rigorous" is won or lost
-(error ergonomics), and it pulls R3 (shell) and R4 (node) in behind a concrete
-goal instead of as abstract phases. R5 stays parked pending a re-plan decision;
-the R2 tails and backlog are opportunistic.
+~~R6.0~~ **CONSUMED** (R6.0→R6.2 built; see §0). Post-inc4 sequence (proxy ruling
+2026-07-30): **U2** — the `delegate = attenuate_only` axis emits an obligation that
+fails on a widening (premise-at-risk: `Term::Attenuate` is outside fragment F; the
+in-F fallback is grant-set subsumption — if both encodings fail, that is a genuine
+fork to return to the author). **U3** — `admit()` ↔ `decide_pure` equivalence on the
+same cap atom, closing the free-mint fence from the runtime end (fence B1). **U4** —
+the R6.3 killer demo, whose three compile-time rejections now all genuinely fire
+(inc4's `unauthorized_tool` fixture is its third variant, already built). The
+README/paper runtime-guarantee wording stays ledger-only until U3 (author's call).

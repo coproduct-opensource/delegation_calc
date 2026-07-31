@@ -245,12 +245,12 @@ before U2, with the dev-ergonomics batch): `Cap::admit` gated mint over the one
 `cap_atom(Tool::NAME)`, `Cap::unchecked` named free path, atom divergence guard,
 `#[derive(Tool)]` stable credential names, `IssuerGrants` routing, path grammar,
 onboarding diagnostics pinned (`spec/r6.2-agent-service-envelope.md` §6/§7).
-Remaining sequence: **U2** — the `delegate = attenuate_only` axis emits an
-obligation that fails on a widening (premise-at-risk: `Term::Attenuate` is outside
-fragment F; the in-F fallback is grant-set subsumption — if both encodings fail,
-that is a genuine fork to return to the author). **U4** — the R6.3 killer demo,
-whose three compile-time rejections all genuinely fire. **Production thrust after
-U4: DLC-D admission on nucleus's live path** (the integration design + facade are
-in-tree; the gated mint makes the deployed story one chain). The README/paper
-runtime-guarantee wording was gated on U3 — now unblocked, still the author's
-wording call.
+~~U2~~ **DONE 2026-07-31** via the in-F fallback (grant-set subsumption; the
+anticipated fork did not arise — `Term::Attenuate` wiring stays fenced as
+deferred metatheory). **The production thrust ALSO LANDED first** (nucleus
+#2121/#2123/#2124): verified admission on nucleus's live kernel path, pod-scoped
+provisioning over the workload API, per-call attested spans, and the ACTIVE
+scenario green inside a real Firecracker pod (`nucleus verify --tier2`).
+Remaining: **U4** — the R6.3 killer demo, whose rejection classes now all fire
+and which can point at a production deployment. The README/paper
+runtime-guarantee wording is fully unblocked — the author's call.

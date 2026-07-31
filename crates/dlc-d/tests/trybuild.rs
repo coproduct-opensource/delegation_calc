@@ -10,5 +10,7 @@ fn ui() {
     t.compile_fail("tests/ui/missing_cap.rs"); // admission: witness  (E0061)
     t.compile_fail("tests/ui/unauthorized_tool.rs"); // admission: grant    (E0277, demanded-vs-granted)
     t.compile_fail("tests/ui/no_grants_decl.rs"); // onboarding: no grants! at all (friendly E0277)
+    t.compile_fail("tests/ui/widening_delegation.rs"); // delegation: widening   (E0277 at the delegation site)
+    t.compile_fail("tests/ui/delegate_without_cap.rs"); // delegate axis needs cap (macro error)
     t.compile_fail("tests/ui/over_budget.rs"); // budget              (const-eval)
 }

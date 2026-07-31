@@ -1,0 +1,5 @@
+error: `delegate = attenuate_only` needs a `cap` axis: the delegation posture is about the issuer the cap axis names
+ --> tests/ui/delegate_without_cap.rs:6:28
+  |
+6 | #[agent_service(delegate = attenuate_only)]
+  |                            ^^^^^^^^^^^^^^

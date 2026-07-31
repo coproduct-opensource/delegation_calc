@@ -10,7 +10,8 @@ struct Admin;
 
 dlc_d::grants! { Admin: FileWrite }
 
-#[agent_service(cap = Invoke<FileWrite> @ Admin, flow = Public <= Secret, budget = Faults<1>)]
+#[agent_service(cap = Invoke<FileWrite> @ Admin, flow = Public <= Secret, budget = Faults<1>,
+                delegate = attenuate_only)]
 fn governed() -> u32 {
     1
 }

@@ -15,6 +15,18 @@ struct Admin;
 
 dlc_d::grants! { Admin: FileWrite }
 
+// A NARROWING delegation chain (U2): Intern receives a subset of Admin's authority (here,
+// all of it — one tool); the widening variant is a compile error (tests/ui/widening_delegation.rs).
+struct Intern;
+dlc_d::delegates! { Admin => Intern: FileWrite }
+
+// A service whose issuer is the DELEGATE, with the attenuate_only posture: the axis certifies
+// Intern's authority arrived exclusively through checked-narrowing declarations.
+#[agent_service(cap = Invoke<FileWrite> @ Intern, delegate = attenuate_only)]
+fn delegated_write() -> u32 {
+    9
+}
+
 // A fully-governed service: `Public ⊑ Secret` type-checks, and the macro appends a
 // `Cap<Invoke<FileWrite>, Admin>` parameter — callers must present the capability witness.
 #[agent_service(cap = Invoke<FileWrite> @ Admin, flow = Public <= Secret, budget = Faults<1>)]
@@ -40,6 +52,10 @@ fn governed_fns_run() {
     assert_eq!(
         governed_write(Cap::<Invoke<FileWrite>, Admin>::unchecked()),
         7
+    );
+    assert_eq!(
+        delegated_write(Cap::<Invoke<FileWrite>, Intern>::unchecked()),
+        9
     );
     assert_eq!(reflexive_flow(), 1);
     assert_eq!(ungoverned(), 0);

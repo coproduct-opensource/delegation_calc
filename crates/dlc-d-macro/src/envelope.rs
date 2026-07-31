@@ -186,6 +186,31 @@ pub fn lower(env: &Envelope) -> TokenStream {
         });
     }
 
+    // `delegate = attenuate_only` (U2): the service's issuer must have narrowing
+    // lineage — introduced by `grants!` (root) or `delegates!` (every grant
+    // passed the widening gate). Requires a `cap` axis to name the issuer;
+    // spanned at the axis keyword so the error lands on the declaration.
+    if let Some(delegate) = &env.delegate {
+        match &env.cap {
+            Some(cap) => {
+                let issuer = &cap.issuer;
+                out.extend(quote::quote_spanned! {delegate.span=>
+                    const _: () = ::dlc_d::assert_narrowing_lineage::<#issuer>();
+                });
+            }
+            None => {
+                out.extend(
+                    syn::Error::new(
+                        delegate.span,
+                        "`delegate = attenuate_only` needs a `cap` axis: the delegation \
+                     posture is about the issuer the cap axis names",
+                    )
+                    .to_compile_error(),
+                );
+            }
+        }
+    }
+
     out
 }
 

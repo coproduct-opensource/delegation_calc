@@ -119,6 +119,26 @@ mod cap_obligation {
         );
     }
 
+    /// U2: the checker-decided form of the delegation widening gate. Delegation is grant-set
+    /// subsumption in fragment F: each delegated tool must be demanded-vs-granted derivable
+    /// from the PARENT's list — the same `cap_problem` the build gate mirrors, so widening is
+    /// refused by the VERIFIED CHECKER too, not only by rustc's trait solver.
+    #[test]
+    fn delegation_widening_rejected_by_checker() {
+        let admin_grants: &[&str] = &["FileWrite"];
+        // Narrowing (delegating a held tool): derivable.
+        assert!(decide_pure(&cap_problem(
+            admin_grants,
+            "Admin",
+            "FileWrite"
+        )));
+        // Widening (delegating Delete, which Admin never held): the checker refuses.
+        assert!(
+            !decide_pure(&cap_problem(admin_grants, "Admin", "Delete")),
+            "a widening delegation must be rejected by the checker"
+        );
+    }
+
     /// ★ U3 divergence guard: the atom the certificate GOAL demands is the atom the runtime
     /// credential message signs over — extracted from the REAL emitted problem, not asserted
     /// about the source. If `cap_atom` is ever re-duplicated (the pre-inc4 state) and the copies

@@ -151,6 +151,66 @@ macro_rules! grants {
                 const GRANTS: &'static [&'static str] =
                     &[ $( <$tool as $crate::Tool>::NAME ),+ ];
             }
+            // A root issuer trivially has narrowing lineage (its grants ARE the ceiling).
+            impl $crate::NarrowingLineage for $issuer {}
+        )*
+    };
+}
+
+/// Marker: this issuer type was introduced by [`grants!`] (a root issuer) or by [`delegates!`]
+/// (a derived issuer whose every grant passed the narrowing gate). The
+/// `delegate = attenuate_only` envelope axis requires it, certifying the service's issuer
+/// acquired authority exclusively through checked-narrowing declarations — an issuer type
+/// fabricated outside the two declarations cannot satisfy the axis.
+#[diagnostic::on_unimplemented(
+    message = "issuer `{Self}` has no narrowing lineage",
+    label = "`delegate = attenuate_only` requires an issuer introduced by `grants!` or `delegates!`",
+    note = "declare the issuer as a root (`dlc_d::grants! {{ Issuer: Tool, … }}`) or as a delegate (`dlc_d::delegates! {{ Parent => Issuer: Tool, … }}`)"
+)]
+pub trait NarrowingLineage {}
+
+/// Compiles **only** when `I: NarrowingLineage` — the `delegate = attenuate_only` axis anchor.
+pub const fn assert_narrowing_lineage<I>()
+where
+    I: NarrowingLineage,
+{
+}
+
+/// Declare a NARROWING delegation: `Parent` hands `Delegate` a subset of its own authority.
+///
+/// ```ignore
+/// dlc_d::delegates! { Admin => Intern: FileWrite }
+/// ```
+///
+/// Expands, per delegated tool, to:
+/// 1. `assert_granted::<Parent, Invoke<Tool>>()` — **the widening gate**: delegating a tool the
+///    parent does not hold fails `cargo build` with the demanded-vs-granted `E0277` at the
+///    delegation site. Misdelegation can only narrow, by construction.
+/// 2. `impl Grants<Invoke<Tool>> for Delegate` — the delegate holds exactly the delegated tools,
+///    so downstream envelopes/delegations gate against the NARROWED set.
+///
+/// Plus [`IssuerGrants`] (the delegate's runtime-readable list, feeding the verified checker's
+/// demanded-vs-granted certificate exactly as for roots) and [`NarrowingLineage`].
+///
+/// **Claim ceiling:** this is delegation as *grant-set subsumption*, inside the verified
+/// fragment F — the same fact gated at build (`assert_granted`) and decided by the checker
+/// (`obligation::cap_problem` on the parent's list; see the golden suite). The calculus's full
+/// `attenuate` rule (`Term::Attenuate`, whose narrowing metatheorem is
+/// `lean/DLC/AttenuateNarrows.lean`) is OUTSIDE fragment F and therefore not wired to the
+/// checker here — wiring it is deferred metatheory, not silently claimed.
+#[macro_export]
+macro_rules! delegates {
+    ( $( $parent:ty => $delegate:ty : $( $tool:ty ),+ );* $(;)? ) => {
+        $(
+            $(
+                const _: () = $crate::assert_granted::<$parent, $crate::Invoke<$tool>>();
+                impl $crate::Grants<$crate::Invoke<$tool>> for $delegate {}
+            )+
+            impl $crate::IssuerGrants for $delegate {
+                const GRANTS: &'static [&'static str] =
+                    &[ $( <$tool as $crate::Tool>::NAME ),+ ];
+            }
+            impl $crate::NarrowingLineage for $delegate {}
         )*
     };
 }

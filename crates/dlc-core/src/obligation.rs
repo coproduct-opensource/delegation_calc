@@ -124,10 +124,7 @@ impl Discharged {
     /// the seal stays compilable.
     #[allow(dead_code)]
     pub(crate) fn new_sealed(obl: Obligation) -> Self {
-        Discharged {
-            obl,
-            _seal: Seal,
-        }
+        Discharged { obl, _seal: Seal }
     }
 
     /// Inspect the obligation that was discharged. Audit-only.

@@ -322,8 +322,22 @@ mod tests {
     #[test]
     fn two_replicas_converge_on_prefix() {
         let log = vec![dup()];
-        let r1 = deliver(&log, &Replica { id: 0, store: init(), applied: 0 });
-        let r2 = deliver(&log, &Replica { id: 1, store: init(), applied: 0 });
+        let r1 = deliver(
+            &log,
+            &Replica {
+                id: 0,
+                store: init(),
+                applied: 0,
+            },
+        );
+        let r2 = deliver(
+            &log,
+            &Replica {
+                id: 1,
+                store: init(),
+                applied: 0,
+            },
+        );
         assert_eq!(r1.store, r2.store);
         assert_eq!(r1.store, changed());
         assert_ne!(r1.store, init());
@@ -346,8 +360,16 @@ mod tests {
 
         let g0 = GlobalConfig {
             replicas: vec![
-                Replica { id: 0, store: init(), applied: 0 },
-                Replica { id: 1, store: init(), applied: 0 },
+                Replica {
+                    id: 0,
+                    store: init(),
+                    applied: 0,
+                },
+                Replica {
+                    id: 1,
+                    store: init(),
+                    applied: 0,
+                },
             ],
             log: vec![],
             budget: FailureBudget::zero(1),

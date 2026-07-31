@@ -61,7 +61,8 @@ for key, entry in status.items():
         if not wit:
             problems.append(f"{key}: status {st} requires a witness module")
             rec["status"] = "invalid"
-        elif not os.path.isfile(os.path.join("lean", wit)):
+        elif not all(os.path.isfile(os.path.join("lean", w))
+                     for w in wit.split(" + ")):
             problems.append(f"{key}: witness {wit} missing")
             rec["status"] = "invalid"
         else:
@@ -141,7 +142,7 @@ loc_status() {
 
 drift_status() {
   if [[ -x scripts/check-drift.sh ]]; then
-    scripts/check-drift.sh && echo '{"clean":true}' || echo '{"clean":false}'
+    scripts/check-drift.sh >&2 && echo '{"clean":true}' || echo '{"clean":false}'
   else
     echo '{"clean":null,"note":"drift check not yet wired"}'
   fi

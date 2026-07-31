@@ -32,6 +32,10 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@46268bd060767258de96ed93c1251119784f2ab6 # v1
         with:
           cache: true
+          # audit only reads Cargo.lock — it never builds the workspace, so it
+          # is exempt from the repo toolchain pin; latest cargo-audit needs a
+          # newer rustc than rust-toolchain.toml provides.
+          toolchain: stable
       - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

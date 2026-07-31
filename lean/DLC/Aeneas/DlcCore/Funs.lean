@@ -2648,13 +2648,13 @@ def obligation.Seal.Insts.CoreCmpEq : core.cmp.Eq obligation.Seal := {
 }
 
 /-- [dlc_core::obligation::{dlc_core::obligation::Discharged}::new_sealed]:
-    Source: 'crates/dlc-core/src/obligation.rs', lines 126:4-131:5 -/
+    Source: 'crates/dlc-core/src/obligation.rs', lines 126:4-128:5 -/
 def obligation.Discharged.new_sealed
   (obl : obligation.Obligation) : Result obligation.Discharged := do
   ok { obl, _seal := () }
 
 /-- [dlc_core::obligation::{dlc_core::obligation::Discharged}::obligation]:
-    Source: 'crates/dlc-core/src/obligation.rs', lines 134:4-136:5
+    Source: 'crates/dlc-core/src/obligation.rs', lines 131:4-133:5
     Visibility: public -/
 def obligation.Discharged.obligation
   (self : obligation.Discharged) : Result obligation.Obligation := do

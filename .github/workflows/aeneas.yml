@@ -46,31 +46,36 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
 
-      - uses: coproduct-opensource/aeneas-ci@v1.0.4
+      - uses: coproduct-opensource/aeneas-ci@v1.0.5
         id: aeneas
         with:
           rust-source-dir: crates/dlc-core
           lean-output-dir: lean/DLC/Aeneas/DlcCore
           # PINNED Charon ↔ Aeneas pair (NOT `main` — floating refs guarantee
-          # weekly drift). The pin is THE PAIR THAT GENERATED THE COMMITTED
-          # TREES — this gate checks rust ↔ committed-Lean freshness, so the
-          # generator must reproduce the committed output byte-for-byte:
-          # aeneas nightly-2026.07.12-d71d2e3 with charon 6bd9163 (the local
-          # symlinked-charon setup; aeneas's own charon-pin hash check is
-          # skipped for symlinks, in CI and locally alike).
-          # NOTE the deliberate split: the *Lean library* the trees BUILD
-          # against is `lean/lakefile.lean`'s `require aeneas @ ad905f5`
-          # (nightly-2026.07.23). Cross-version compatibility is not assumed —
-          # it is evidenced by `lake build DLC` green on the committed trees.
-          # First honest CI run of this gate (2026-07-30) proved the previous
-          # same-pin-as-lakefile setting wrong: ad905f5 regenerates a
-          # >200-line different tree, so pinning the generator to the library
-          # rev made the freshness gate fail on freshly-generated code.
-          # To bump: raise aeneas-version + charon-version AND the lakefile
-          # `require aeneas` rev together, regenerate BOTH trees with those
-          # binaries, repair any proof fallout, commit — all in ONE PR.
-          aeneas-version: nightly-2026.07.12-d71d2e3
-          charon-version: 6bd9163653707dcb07b0e78e8f694d0de448d69c
+          # weekly drift; coherent pair per aeneas's charon-pin; matches the
+          # lakefile's `require aeneas @ ad905f5` library rev AND the local
+          # cached binaries scripts/aeneas-translate.sh prefers).
+          # HISTORY (2026-07-30, first honest CI run of this gate): the gate
+          # RED'd and the pins were briefly blamed and swapped to the local
+          # fallback pair — wrongly. The actual delta was the five Charon
+          # `--opaque` flags below, which the local scripts always passed and
+          # this workflow never did: without them the regenerated tree carries
+          # the derived Debug/Hash impl bodies (~750 lines) the committed tree
+          # opacifies. Pins restored; flags now passed. The charon-extra-args /
+          # charon-toolchain lists MUST stay byte-identical to
+          # scripts/aeneas-translate.sh and scripts/check-drift.sh.
+          # To bump the pair: raise both + the lakefile rev together,
+          # regenerate BOTH trees, repair proof fallout, one PR.
+          aeneas-version: nightly-2026.07.23-ad905f5
+          charon-version: cb50ff16b9f1066b8a97dc06da704de2da2fa41c
+          charon-toolchain: nightly-2026-06-01
+          charon-extra-args: >-
+            --preset aeneas
+            --opaque 'dlc_core::principal::{impl core::fmt::Debug for dlc_core::principal::Principal}'
+            --opaque 'dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::Obligation}'
+            --opaque 'dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Prop}'
+            --opaque 'dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Term}'
+            --opaque 'dlc_core::principal::{impl core::hash::Hash for dlc_core::principal::Principal}'
           # Drift is a hard error (soundness gate): a non-clean diff means the
           # Lean we prove no longer corresponds to the Rust.
           fail-on-drift: 'true'
@@ -83,13 +88,24 @@ jobs:
       # must build against the one `require aeneas @ <rev>` in the lakefile).
       # R2.1 ships NO correspondence proof; this gate fixes the translated
       # artifact so the refinement (R2.2–R2.4) has a drift-stable target.
-      - uses: coproduct-opensource/aeneas-ci@v1.0.4
+      - uses: coproduct-opensource/aeneas-ci@v1.0.5
         id: aeneas-dlcd-rsm
         with:
           rust-source-dir: crates/dlc-d-rsm
           lean-output-dir: lean/DLCD/Aeneas/DlcDRsm
-          aeneas-version: nightly-2026.07.12-d71d2e3
-          charon-version: 6bd9163653707dcb07b0e78e8f694d0de448d69c
+          aeneas-version: nightly-2026.07.23-ad905f5
+          charon-version: cb50ff16b9f1066b8a97dc06da704de2da2fa41c
+          charon-toolchain: nightly-2026-06-01
+          # Same opaque list as target #1 (the dlc_d_rsm tree INLINES dlc_core,
+          # so the same Debug/Hash impls appear here) — keep byte-identical to
+          # scripts/aeneas-translate.sh / scripts/check-drift.sh.
+          charon-extra-args: >-
+            --preset aeneas
+            --opaque 'dlc_core::principal::{impl core::fmt::Debug for dlc_core::principal::Principal}'
+            --opaque 'dlc_core::obligation::{impl core::fmt::Debug for dlc_core::obligation::Obligation}'
+            --opaque 'dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Prop}'
+            --opaque 'dlc_core::syntax::{impl core::fmt::Debug for dlc_core::syntax::Term}'
+            --opaque 'dlc_core::principal::{impl core::hash::Hash for dlc_core::principal::Principal}'
           fail-on-drift: 'true'
 
       # Upload the regenerated Lean as artifacts so maintainers can download,

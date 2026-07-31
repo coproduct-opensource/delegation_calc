@@ -77,15 +77,16 @@ fn wrong_context_certificate_rejected() {
 /// not a test-only twin.
 mod cap_obligation {
     use dlc_core::decide::decide_pure;
-    use dlc_d::obligation::cap_problem;
+    use dlc_d::obligation::{cap_problem, demanded_atom};
 
-    const GRANTS: &[(&str, &str)] = &[("Ops", "SendEmail"), ("Ops", "NetRead")];
+    /// Ops' grant list as `IssuerGrants::GRANTS` would carry it.
+    const OPS_GRANTS: &[&str] = &["SendEmail", "NetRead"];
 
     #[test]
     fn granted_pair_accepted() {
         assert!(
-            decide_pure(&cap_problem(GRANTS, "Ops", "SendEmail")),
-            "a declared (issuer, tool) grant must discharge the demand"
+            decide_pure(&cap_problem(OPS_GRANTS, "Ops", "SendEmail")),
+            "a declared grant must discharge the demand"
         );
     }
 
@@ -94,7 +95,7 @@ mod cap_obligation {
     /// string comparison in test code — rejects the admission.
     #[test]
     fn one_byte_grant_perturbation_rejected() {
-        let typo: &[(&str, &str)] = &[("Ops", "SendEmajl"), ("Ops", "NetRead")];
+        let typo: &[&str] = &["SendEmajl", "NetRead"];
         assert!(
             !decide_pure(&cap_problem(typo, "Ops", "SendEmail")),
             "a one-byte perturbation of the granted tool must be rejected by the checker"
@@ -105,24 +106,32 @@ mod cap_obligation {
     #[test]
     fn ungranted_tool_rejected() {
         assert!(
-            !decide_pure(&cap_problem(GRANTS, "Ops", "DeleteAll")),
+            !decide_pure(&cap_problem(OPS_GRANTS, "Ops", "DeleteAll")),
             "demanding a tool the issuer never granted must be rejected"
         );
     }
 
     #[test]
-    fn unknown_issuer_rejected() {
+    fn empty_grants_list_rejected() {
         assert!(
-            !decide_pure(&cap_problem(GRANTS, "Admin", "SendEmail")),
-            "a demand naming an issuer with no grants must be rejected (no credential to present)"
+            !decide_pure(&cap_problem(&[], "Ops", "SendEmail")),
+            "an issuer with no grants must fail closed (no credential to present)"
         );
     }
 
+    /// ★ U3 divergence guard: the atom the certificate GOAL demands is the atom the runtime
+    /// credential message signs over — extracted from the REAL emitted problem, not asserted
+    /// about the source. If `cap_atom` is ever re-duplicated (the pre-inc4 state) and the copies
+    /// drift, this REDs.
     #[test]
-    fn empty_grants_table_rejected() {
-        assert!(
-            !decide_pure(&cap_problem(&[], "Ops", "SendEmail")),
-            "an empty grants table must fail closed"
-        );
+    fn same_atom_as_runtime() {
+        for name in ["SendEmail", "DeleteAll", "a", ""] {
+            let p = cap_problem(OPS_GRANTS, "Ops", name);
+            assert_eq!(
+                demanded_atom(&p),
+                Some(dlc_d::runtime::cap_atom(name)),
+                "certificate goal atom and runtime credential atom must be the same value"
+            );
+        }
     }
 }

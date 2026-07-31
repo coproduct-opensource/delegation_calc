@@ -3,11 +3,13 @@
 //!
 //! `#[dlc_d::agent_service]` proves the authority ENVELOPE is well-typed (admission is a `Cap<Invoke
 //! <Tool>, Issuer>` argument the caller must supply; the Tier-2 certificate discharges the transported
-//! `commit-I` typing — `admit_joint`, `lean/DLC/AdmitFrag.lean`). But the compile-time `Cap` is a
-//! phantom the caller mints freely; its RUNTIME validity is a genuine, issuer-signed capability
-//! credential. This module supplies that check: [`admit`] runs the real Ed25519
-//! [`verify_in_keyring`](dlc_crypto::signed_term::verify_in_keyring) over a credential BOUND to the
-//! tool, fail-closed.
+//! `commit-I` typing — `admit_joint`, `lean/DLC/AdmitFrag.lean`). The compile-time `Cap`'s RUNTIME
+//! validity is a genuine, issuer-signed capability credential, and since U3 the two are joined at the
+//! mint: [`Cap::admit`](crate::Cap::admit) produces the typed witness ONLY when [`admit`] verifies a
+//! real Ed25519 credential ([`verify_in_keyring`](dlc_crypto::signed_term::verify_in_keyring)) over a
+//! message BOUND to the tool's cap atom — the SAME `cap_atom(Tool::NAME)` the emitted certificate
+//! demands, by construction. ([`Cap::unchecked`](crate::Cap::unchecked) remains the free, named-only
+//! path for tests/bootstrap.) Fail-closed throughout.
 //!
 //! The two guarantees are **joined at the admission entry point, not collapsed**: the Lean side proves
 //! *typeability* (the envelope is a real `commit-I` derivation), `dlc-crypto` proves *signature
@@ -134,12 +136,50 @@ mod tests {
     }
 
     #[test]
-    fn cap_atom_is_fnv1a_matching_the_macro() {
-        // FNV-1a of the empty string is the offset basis — a spot-check that this is the same
-        // algorithm `dlc-d-macro/envelope.rs::atom_hash` uses (else the compile-time Cap and the
-        // runtime admit would name different atoms).
+    fn cap_atom_is_fnv1a() {
+        // FNV-1a of the empty string is the offset basis. `cap_atom` is the ONE atom function —
+        // the emitted certificate (via `obligation::cap_problem`) and this module's credential
+        // message both call it; `tests/certificate.rs::cap_obligation::same_atom_as_runtime`
+        // guards against it ever being re-duplicated.
         assert_eq!(cap_atom(""), 0x811c_9dc5);
         // And it is deterministic + tool-sensitive.
         assert_ne!(cap_atom("SendEmail"), cap_atom("DeleteAll"));
+    }
+
+    // ── U3: the gated mint ───────────────────────────────────────────────────────────────────
+
+    struct SendEmailTool;
+    impl crate::Tool for SendEmailTool {
+        const NAME: &'static str = "SendEmail";
+    }
+    struct DeleteAllTool;
+    impl crate::Tool for DeleteAllTool {
+        const NAME: &'static str = "DeleteAll";
+    }
+    struct Ops;
+
+    #[test]
+    fn gated_mint_succeeds_on_valid_credential() {
+        let (kr, issuer, sig) = signed_cap("SendEmail");
+        let cap = crate::Cap::<crate::Invoke<SendEmailTool>, Ops>::admit(&kr, &issuer, &sig);
+        assert!(cap.is_ok(), "a genuine issuer-signed credential must mint");
+    }
+
+    #[test]
+    fn gated_mint_rejects_wrong_tool_credential() {
+        // The compile/runtime mismatch bite: a credential signed for SendEmail's atom cannot
+        // mint a witness TYPED for DeleteAll — the type demands DeleteAll's atom, the signature
+        // covers SendEmail's, and admit() fails closed.
+        let (kr, issuer, sig) = signed_cap("SendEmail");
+        let cap = crate::Cap::<crate::Invoke<DeleteAllTool>, Ops>::admit(&kr, &issuer, &sig);
+        assert_eq!(cap.err(), Some(AdmitError::Unauthorized));
+    }
+
+    #[test]
+    fn gated_mint_rejects_unknown_issuer() {
+        let (_kr, issuer, sig) = signed_cap("SendEmail");
+        let empty = KeyRing { entries: vec![] };
+        let cap = crate::Cap::<crate::Invoke<SendEmailTool>, Ops>::admit(&empty, &issuer, &sig);
+        assert_eq!(cap.err(), Some(AdmitError::Unauthorized));
     }
 }

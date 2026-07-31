@@ -240,12 +240,17 @@ proof-to-the-metal bridge already exists (R2), and the shell substrate is instal
 
 ## 7. Recommended next thrust
 
-~~R6.0~~ **CONSUMED** (R6.0→R6.2 built; see §0). Post-inc4 sequence (proxy ruling
-2026-07-30): **U2** — the `delegate = attenuate_only` axis emits an obligation that
-fails on a widening (premise-at-risk: `Term::Attenuate` is outside fragment F; the
-in-F fallback is grant-set subsumption — if both encodings fail, that is a genuine
-fork to return to the author). **U3** — `admit()` ↔ `decide_pure` equivalence on the
-same cap atom, closing the free-mint fence from the runtime end (fence B1). **U4** —
-the R6.3 killer demo, whose three compile-time rejections now all genuinely fire
-(inc4's `unauthorized_tool` fixture is its third variant, already built). The
-README/paper runtime-guarantee wording stays ledger-only until U3 (author's call).
+~~R6.0~~ **CONSUMED** (R6.0→R6.2 built; see §0). ~~U3~~ **DONE 2026-07-31** (taken
+before U2, with the dev-ergonomics batch): `Cap::admit` gated mint over the one
+`cap_atom(Tool::NAME)`, `Cap::unchecked` named free path, atom divergence guard,
+`#[derive(Tool)]` stable credential names, `IssuerGrants` routing, path grammar,
+onboarding diagnostics pinned (`spec/r6.2-agent-service-envelope.md` §6/§7).
+Remaining sequence: **U2** — the `delegate = attenuate_only` axis emits an
+obligation that fails on a widening (premise-at-risk: `Term::Attenuate` is outside
+fragment F; the in-F fallback is grant-set subsumption — if both encodings fail,
+that is a genuine fork to return to the author). **U4** — the R6.3 killer demo,
+whose three compile-time rejections all genuinely fire. **Production thrust after
+U4: DLC-D admission on nucleus's live path** (the integration design + facade are
+in-tree; the gated mint makes the deployed story one chain). The README/paper
+runtime-guarantee wording was gated on U3 — now unblocked, still the author's
+wording call.

@@ -58,6 +58,27 @@ CHARON_OPAQUE=(
   --opaque 'dlc_core::principal::{impl core::hash::Hash for dlc_core::principal::Principal}'
 )
 
+# The list above exists in THREE copies that must stay byte-identical (here,
+# scripts/aeneas-translate.sh, and BOTH targets in .github/workflows/aeneas.yml)
+# — the 2026-07-30 drift outage was the workflow copy silently not existing.
+# Verify all copies agree before trusting any drift verdict.
+check_opaque_sync() {
+  local root here translate workflow n_targets
+  root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  here=$(printf '%s\n' "${CHARON_OPAQUE[@]}" | grep -v '^--opaque$' | sort)
+  translate=$(grep -o "'dlc_core::[^']*'" "$root/scripts/aeneas-translate.sh" | tr -d "'" | sort)
+  workflow=$(grep -o "'dlc_core::[^']*'" "$root/.github/workflows/aeneas.yml" | tr -d "'" | sort -u)
+  n_targets=$(grep -c "charon-extra-args:" "$root/.github/workflows/aeneas.yml")
+  if [ "$here" != "$translate" ] || [ "$here" != "$workflow" ] || [ "$n_targets" -ne 2 ]; then
+    echo "drift: ✗ the Charon --opaque lists have DIVERGED between check-drift.sh," >&2
+    echo "       scripts/aeneas-translate.sh, and .github/workflows/aeneas.yml" >&2
+    echo "       (or a workflow target lost its charon-extra-args). Reconcile all" >&2
+    echo "       three before trusting any drift verdict." >&2
+    exit 1
+  fi
+}
+check_opaque_sync
+
 # Target table: "<pkg-name>|<crate-dir>|<llbc-stem>|<committed-dir>".
 # The order matters only for reporting; both are independent.
 TARGETS=(

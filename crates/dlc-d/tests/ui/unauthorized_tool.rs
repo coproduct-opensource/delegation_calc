@@ -5,7 +5,9 @@
 //! granted twin.)
 use dlc_d::agent_service;
 
+#[derive(dlc_d::Tool)]
 struct FileWrite;
+#[derive(dlc_d::Tool)]
 struct Delete;
 struct Admin;
 

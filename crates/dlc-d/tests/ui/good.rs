@@ -4,6 +4,7 @@ use dlc_d::agent_service;
 use dlc_d::labels::{Public, Secret};
 use dlc_d::{Cap, Invoke};
 
+#[derive(dlc_d::Tool)]
 struct FileWrite;
 struct Admin;
 
@@ -15,5 +16,5 @@ fn governed() -> u32 {
 }
 
 fn main() {
-    assert_eq!(governed(Cap::<Invoke<FileWrite>, Admin>::new()), 1);
+    assert_eq!(governed(Cap::<Invoke<FileWrite>, Admin>::unchecked()), 1);
 }

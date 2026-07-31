@@ -13,7 +13,10 @@
 use dlc_d::{agent_service, Cap, FlowsInto, Invoke};
 
 // ── Capability vocabulary ────────────────────────────────────────────────────────────────────
-// The tool this service may invoke, and the issuer that may grant that authority.
+// The tool this service may invoke, and the issuer that may grant that authority. `Tool` gives
+// SendEmail its stable credential name (defaults to the ident; pin with #[tool(name = "…")] so
+// a Rust rename can never invalidate issued credentials).
+#[derive(dlc_d::Tool)]
 struct SendEmail;
 struct Ops;
 
@@ -48,21 +51,18 @@ fn send_email_tool(recipient: &str) -> String {
 }
 
 fn main() {
-    // Mint the capability witness. (For now `Cap::new()` is freely mintable; the witness's VALIDITY
-    // is separately backed by the Tier-2 certificate — a gated mint tying it to a verified
-    // credential is a planned follow-up.) The call below REQUIRES this witness — delete it and the
-    // program will not compile.
-    let cap = Cap::<Invoke<SendEmail>, Ops>::new();
-
-    // RUNTIME validity of that capability: a genuine, issuer-signed credential, checked by the
-    // verify-then-authorize PEP (`dlc_d::runtime::admit`, real Ed25519). This is what the phantom
-    // `Cap` above stands for at run time — the compile-time envelope proves TYPEABILITY, this proves
-    // the CREDENTIAL is signed for THIS tool. Fail-closed.
-    {
+    // ── The U3 gated mint: the capability witness comes FROM the verified credential ─────────
+    // Ops signs a real Ed25519 credential over SendEmail's cap atom, and `Cap::admit` mints the
+    // typed witness ONLY because that credential verifies (verify-then-authorize, fail-closed).
+    // The atom the signature covers is the SAME `cap_atom(SendEmail::NAME)` the emitted Tier-2
+    // certificate demands — one function, one name: compile-time and runtime verdicts are about
+    // the same fact. (`Cap::unchecked()` exists for tests/bootstrap, and is named for what it is.)
+    let cap = {
         use dlc_core::judgment::KeyRing;
         use dlc_core::principal::{KeyRecord, Principal, PrincipalId};
         use dlc_core::syntax::Signature;
         use dlc_d::runtime::{admit, cap_atom};
+        use dlc_d::Tool as _;
 
         // Ops issues a capability for the SendEmail tool (signs its cap atom).
         let seed = [5u8; 32];
@@ -76,17 +76,19 @@ fn main() {
             }],
         };
         let mut msg = b"dlc-d/cap-invoke:".to_vec();
-        msg.extend_from_slice(&cap_atom("SendEmail").to_le_bytes());
+        msg.extend_from_slice(&cap_atom(SendEmail::NAME).to_le_bytes());
         let sig = Signature {
             alg: 0,
             bytes: dlc_crypto::ed25519::sign(&seed, &msg).to_vec(),
         };
 
-        // The credential admits SendEmail — and is refused for any other tool (fail-closed).
-        assert!(admit(&keyring, &ops, "SendEmail", &sig).is_ok());
+        // The credential is refused for any OTHER tool (fail-closed tool-binding)…
         assert!(admit(&keyring, &ops, "DeleteAll", &sig).is_err());
-        println!("runtime admission — Ops-signed credential ADMITS SendEmail, REFUSES DeleteAll (Ed25519, fail-closed)\n");
-    }
+        println!("runtime admission — Ops-signed credential REFUSES DeleteAll, MINTS Cap<Invoke<SendEmail>, Ops> (Ed25519, fail-closed)\n");
+        // …and for SendEmail it mints the witness the governed call below requires.
+        Cap::<Invoke<SendEmail>, Ops>::admit(&keyring, &ops, &sig)
+            .expect("a genuine Ops-signed SendEmail credential must mint")
+    };
 
     let outcome = send_email_tool("alice@example.com", cap);
 

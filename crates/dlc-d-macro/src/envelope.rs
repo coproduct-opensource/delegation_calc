@@ -10,6 +10,24 @@ use quote::quote;
 use syn::parse::{Parse, ParseStream};
 use syn::{Ident, LitInt, Token};
 
+/// Last-segment ident of a path — the token that names the thing for humans (`tools::Send` →
+/// `Send`). Used for diagnostics spans and the issuer's display name.
+fn tail(p: &syn::Path) -> &Ident {
+    &p.segments
+        .last()
+        .expect("syn::Path always has ≥1 segment")
+        .ident
+}
+
+/// Clone a path with every segment respanned — lands a diagnostic's caret on `span`'s token.
+fn respan(p: &syn::Path, span: Span) -> syn::Path {
+    let mut p = p.clone();
+    for seg in p.segments.iter_mut() {
+        seg.ident.set_span(span);
+    }
+    p
+}
+
 mod kw {
     syn::custom_keyword!(cap);
     syn::custom_keyword!(flow);
@@ -23,20 +41,21 @@ mod kw {
 // Axis fields are read by the tests and will be consumed by the Tier-1 phantom-type and
 // Tier-2 certificate lowering (next increments); allow them to be write-only until then.
 
-/// `cap = Invoke<Tool> @ issuer` — the admission-control capability (commit-I).
+/// `cap = Invoke<Tool> @ issuer` — the admission-control capability (commit-I). Tool and issuer
+/// are full paths (`Invoke<tools::Send> @ auth::Ops`), so namespaced vocab needs no `use`.
 #[derive(Clone)]
 #[allow(dead_code)]
 pub struct CapAxis {
-    pub tool: Ident,
-    pub issuer: Ident,
+    pub tool: syn::Path,
+    pub issuer: syn::Path,
 }
 
 /// `flow = chi <= l_low` — the cross-agent isolation flow constraint (`FlowsInto`).
 #[derive(Clone)]
 #[allow(dead_code)]
 pub struct FlowAxis {
-    pub source: Ident,
-    pub sink: Ident,
+    pub source: syn::Path,
+    pub sink: syn::Path,
 }
 
 /// `budget = Faults<f>` — the failure envelope (tolerated fault count).
@@ -73,19 +92,19 @@ impl Parse for Envelope {
                 input.parse::<Token![=]>()?;
                 input.parse::<kw::Invoke>()?;
                 input.parse::<Token![<]>()?;
-                let tool: Ident = input.parse()?;
+                let tool: syn::Path = input.parse()?;
                 input.parse::<Token![>]>()?;
                 input.parse::<Token![@]>()?;
-                let issuer: Ident = input.parse()?;
+                let issuer: syn::Path = input.parse()?;
                 if env.cap.replace(CapAxis { tool, issuer }).is_some() {
                     return Err(syn::Error::new(key.span, "duplicate `cap` axis"));
                 }
             } else if lookahead.peek(kw::flow) {
                 let key: kw::flow = input.parse()?;
                 input.parse::<Token![=]>()?;
-                let source: Ident = input.parse()?;
+                let source: syn::Path = input.parse()?;
                 input.parse::<Token![<=]>()?;
-                let sink: Ident = input.parse()?;
+                let sink: syn::Path = input.parse()?;
                 if env.flow.replace(FlowAxis { source, sink }).is_some() {
                     return Err(syn::Error::new(key.span, "duplicate `flow` axis"));
                 }
@@ -139,12 +158,13 @@ pub fn lower(env: &Envelope) -> TokenStream {
     // tool ident so the E0277 caret lands on the offending tool name.
     if let Some(cap) = &env.cap {
         let tool = &cap.tool;
-        // Re-span the issuer ident onto the tool token: interpolated idents keep their own spans,
+        let tool_span = tail(tool).span();
+        // Re-span the issuer path onto the tool token: interpolated paths keep their own spans,
         // and rustc anchors the E0277 caret on the `I` type argument — respanning lands the caret
         // on the demanded tool name, the token the developer has to change
         // (tests/ui/unauthorized_tool.stderr pins this).
-        let issuer = Ident::new(&cap.issuer.to_string(), tool.span());
-        out.extend(quote::quote_spanned! {tool.span()=>
+        let issuer = respan(&cap.issuer, tool_span);
+        out.extend(quote::quote_spanned! {tool_span=>
             const _: () = ::dlc_d::assert_granted::<#issuer, ::dlc_d::Invoke<#tool>>();
         });
     }
@@ -186,8 +206,11 @@ pub fn certificate_test(env: &Envelope, fn_ident: &Ident) -> TokenStream {
     let Some(cap) = &env.cap else {
         return TokenStream::new();
     };
-    let tool_name = cap.tool.to_string();
-    let issuer_name = cap.issuer.to_string();
+    let (tool, issuer) = (&cap.tool, &cap.issuer);
+    // The issuer's display/principal name is its type name (last path segment); the TOOL's name
+    // is `Tool::NAME` — the stable credential name — so a `#[tool(name = "…")]` override flows
+    // into the checker obligation, not the Rust ident.
+    let issuer_name = tail(issuer).to_string();
     let test_name = quote::format_ident!("__dlc_d_cert_{}", fn_ident);
     quote! {
         // `#[cfg(test)]` so the certificate is validated at `cargo test` time and excluded from
@@ -197,20 +220,16 @@ pub fn certificate_test(env: &Envelope, fn_ident: &Ident) -> TokenStream {
         #[allow(non_snake_case)]
         fn #test_name() {
             let __problem = ::dlc_d::obligation::cap_problem(
-                crate::__DLC_D_GRANTS,
+                <#issuer as ::dlc_d::IssuerGrants>::GRANTS,
                 #issuer_name,
-                #tool_name,
+                <#tool as ::dlc_d::Tool>::NAME,
             );
             assert!(
                 ::dlc_d::__rt::decide_pure(&__problem),
-                concat!(
-                    "dlc_d::agent_service: the demanded capability `",
-                    #tool_name,
-                    "` @ `",
-                    #issuer_name,
-                    "` is not discharged by the crate's `grants!` table \
-                     (rejected by the verified checker)",
-                ),
+                "dlc_d::agent_service: the demanded capability `{}` @ `{}` is not discharged \
+                 by the issuer's `grants!` declaration (rejected by the verified checker)",
+                <#tool as ::dlc_d::Tool>::NAME,
+                #issuer_name,
             );
         }
     }
@@ -228,11 +247,11 @@ mod tests {
         )
         .expect("well-formed envelope should parse");
         let cap = env.cap.expect("cap present");
-        assert_eq!(cap.tool.to_string(), "FileWrite");
-        assert_eq!(cap.issuer.to_string(), "admin");
+        assert_eq!(tail(&cap.tool).to_string(), "FileWrite");
+        assert_eq!(tail(&cap.issuer).to_string(), "admin");
         let flow = env.flow.expect("flow present");
-        assert_eq!(flow.source.to_string(), "secret");
-        assert_eq!(flow.sink.to_string(), "public");
+        assert_eq!(tail(&flow.source).to_string(), "secret");
+        assert_eq!(tail(&flow.sink).to_string(), "public");
         assert_eq!(
             env.budget
                 .expect("budget present")
@@ -264,5 +283,18 @@ mod tests {
     fn rejects_malformed_cap() {
         // Missing the `@ issuer`.
         assert!(syn::parse_str::<Envelope>("cap = Invoke<Tool>").is_err());
+    }
+
+    #[test]
+    fn accepts_namespaced_paths() {
+        // Real crates namespace their vocab — no forced `use` imports.
+        let env: Envelope = syn::parse_str(
+            "cap = Invoke<tools::Send> @ auth::Ops, flow = labels::Lo <= labels::Hi",
+        )
+        .expect("path-qualified envelope should parse");
+        let cap = env.cap.expect("cap present");
+        assert_eq!(tail(&cap.tool).to_string(), "Send");
+        assert_eq!(tail(&cap.issuer).to_string(), "Ops");
+        assert_eq!(tail(&env.flow.expect("flow").sink).to_string(), "Hi");
     }
 }

@@ -1,7 +1,7 @@
 error[E0277]: unauthorized tool: issuer `Admin` has not granted the capability `Invoke<Delete>`
-  --> tests/ui/unauthorized_tool.rs:14:30
+  --> tests/ui/unauthorized_tool.rs:16:30
    |
-14 | #[agent_service(cap = Invoke<Delete> @ Admin)]
+16 | #[agent_service(cap = Invoke<Delete> @ Admin)]
    |                              ^^^^^^ this envelope demands a capability its issuer never granted
    |
    = note: declare the grant with `dlc_d::grants! { Issuer: Tool }`; the demanded-vs-granted obligation is re-decided by the verified checker (`decide_pure`) in the emitted certificate test

@@ -32,27 +32,65 @@ pub mod runtime;
 /// (`nucleus`/`portcullis-core`). See `spec/nucleus-admission-integration.md`.
 pub mod admission;
 
+/// A tool a governed service may invoke. `NAME` is the tool's **stable credential name** — the
+/// string every layer keys on: the `grants!` table, the emitted certificate's cap atom, and the
+/// runtime credential message ([`runtime::cap_atom`]`(NAME)`). Deriving decouples credential
+/// identity from the Rust identifier: `#[derive(Tool)]` defaults `NAME` to the type's ident, and
+/// `#[tool(name = "send-email")]` pins it so renaming the struct cannot silently invalidate
+/// issued credentials.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a dlc_d tool: it has no stable credential name",
+    label = "expected a type deriving `dlc_d::Tool`",
+    note = "add `#[derive(dlc_d::Tool)]` (optionally `#[tool(name = \"stable-name\")]`) to the tool type"
+)]
+pub trait Tool {
+    /// The stable credential name (defaults to the type ident under `#[derive(Tool)]`).
+    const NAME: &'static str;
+}
+
+/// Derive [`Tool`] for a unit struct; `#[tool(name = "…")]` overrides the default (the ident).
+pub use dlc_d_macro::Tool;
+
 /// The "invoke this tool" capability kind — the `C` in `Cap<C, I>`.
 pub struct Invoke<T>(PhantomData<T>);
 
-/// A capability witness: a value of `Cap<Invoke<Tool>, Issuer>` in scope proves the holder was
-/// granted `Invoke<Tool>` authority by `Issuer`. The macro requires such a witness at each
-/// governed write; its **absence** is a `rustc` type error (Tier-1 admission control). Minting a
-/// real witness is gated on a verified `says`-credential (Tier-2) — this constructor is the
-/// type-level anchor the certificate check backs.
+/// A capability witness: a value of `Cap<Invoke<Tool>, Issuer>` in scope proves the holder
+/// presented authority for `Invoke<Tool>` from `Issuer`. The macro requires such a witness at
+/// each governed write; its **absence** is a `rustc` type error (Tier-1 admission control).
+///
+/// Two mints exist, and the difference IS the U3 guarantee:
+/// - [`Cap::admit`] — the **gated** mint: succeeds only for a genuine issuer-signed Ed25519
+///   credential over this tool's cap atom (via [`runtime::admit`]). A `Cap` from this path
+///   carries runtime validity.
+/// - [`Cap::unchecked`] — the free mint, for tests/bootstrap/examples ONLY. It proves the
+///   caller *named* the authority, nothing more.
 pub struct Cap<C, I>(PhantomData<(C, I)>);
 
-impl<C, I> Cap<C, I> {
-    /// The type-level capability anchor. (Tier-2 binds minting to a verified credential.)
-    #[must_use]
-    pub const fn new() -> Self {
-        Self(PhantomData)
+impl<T: Tool, I> Cap<Invoke<T>, I> {
+    /// **The gated mint (U3).** Verify an issuer-signed credential for exactly this tool —
+    /// a real Ed25519 [`runtime::admit`] over `cap_atom(T::NAME)`, fail-closed — and mint the
+    /// typed witness only on success. The atom the credential must be signed over is the SAME
+    /// `cap_atom(T::NAME)` the emitted certificate demands, by construction (one function, one
+    /// name): the compile-time and runtime verdicts are about the same fact.
+    ///
+    /// # Errors
+    /// [`runtime::AdmitError::Unauthorized`] if the signature does not verify for this tool.
+    pub fn admit(
+        keyring: &dlc_core::judgment::KeyRing,
+        issuer: &dlc_core::principal::Principal,
+        sig: &dlc_core::syntax::Signature,
+    ) -> Result<Self, runtime::AdmitError> {
+        runtime::admit(keyring, issuer, T::NAME, sig)?;
+        Ok(Self(PhantomData))
     }
 }
 
-impl<C, I> Default for Cap<C, I> {
-    fn default() -> Self {
-        Self::new()
+impl<C, I> Cap<C, I> {
+    /// The **free** mint: a type-level anchor with no runtime validity. Tests, bootstrap, and
+    /// examples only — production call sites should obtain their witness via [`Cap::admit`].
+    #[must_use]
+    pub const fn unchecked() -> Self {
+        Self(PhantomData)
     }
 }
 
@@ -77,26 +115,43 @@ where
 {
 }
 
-/// Declare the crate's capability grants: which issuer granted which tools.
+/// The runtime-readable grant list of one issuer, produced by [`grants!`]. Type-routed (an
+/// associated const, not a crate-root item), so `grants!` may be invoked in any module and the
+/// emitted certificate finds the table through the issuer type. Names come from
+/// [`Tool::NAME`], so a `#[tool(name = "…")]` stable name flows into the checker obligation.
+#[diagnostic::on_unimplemented(
+    message = "no `dlc_d::grants!` declaration covers issuer `{Self}`",
+    label = "this envelope's issuer has no declared grants",
+    note = "declare the issuer's grants with `dlc_d::grants! {{ Issuer: Tool, … }}`"
+)]
+pub trait IssuerGrants {
+    /// The stable credential names ([`Tool::NAME`]) this issuer has granted.
+    const GRANTS: &'static [&'static str];
+}
+
+/// Declare capability grants: which issuer granted which tools.
 ///
 /// ```ignore
 /// dlc_d::grants! { Admin: FileWrite, NetRead; Ops: SendEmail }
 /// ```
 ///
-/// Expands to (1) `impl Grants<Invoke<Tool>> for Issuer` for each pair — the build-time gate the
-/// `cap` axis checks — and (2) the `__DLC_D_GRANTS` name table the emitted certificate test feeds
-/// to the verified checker. The two lowerings come from the SAME declaration, so they cannot
-/// disagree with each other; they can disagree with an envelope, which is exactly the misconfiguration
-/// the gates exist to catch. Invoke at crate root (the certificate test resolves
-/// `crate::__DLC_D_GRANTS`).
+/// Expands, per issuer, to (1) `impl Grants<Invoke<Tool>> for Issuer` for each granted tool —
+/// the build-time gate the `cap` axis checks — and (2) an [`IssuerGrants`] impl carrying the
+/// granted [`Tool::NAME`] list the emitted certificate test feeds to the verified checker. The
+/// two lowerings come from the SAME declaration, so they cannot disagree with each other; they
+/// can disagree with an envelope, which is exactly the misconfiguration the gates catch. Tools
+/// must derive [`Tool`]. May be invoked in any module; list each issuer once (a second
+/// `grants!` for the same issuer is a duplicate-impl error, by design).
 #[macro_export]
 macro_rules! grants {
-    ( $( $issuer:ident : $( $tool:ident ),+ );* $(;)? ) => {
-        $( $( impl $crate::Grants<$crate::Invoke<$tool>> for $issuer {} )+ )*
-        #[doc(hidden)]
-        #[allow(dead_code)]
-        pub const __DLC_D_GRANTS: &[(&str, &str)] =
-            &[ $( $( (stringify!($issuer), stringify!($tool)), )+ )* ];
+    ( $( $issuer:ty : $( $tool:ty ),+ );* $(;)? ) => {
+        $(
+            $( impl $crate::Grants<$crate::Invoke<$tool>> for $issuer {} )+
+            impl $crate::IssuerGrants for $issuer {
+                const GRANTS: &'static [&'static str] =
+                    &[ $( <$tool as $crate::Tool>::NAME ),+ ];
+            }
+        )*
     };
 }
 
@@ -164,29 +219,31 @@ pub mod obligation {
 
     /// Build the demanded-vs-granted admission problem for one `cap` axis.
     ///
-    /// The GOAL is the envelope's demand: `issuer says Atom(cap_atom(tool))`. The CONTEXT presents
-    /// the issuer's declared credential from the [`grants!`](crate::grants) table: the matching
-    /// grant if declared, else the issuer's first grant (a credential that cannot discharge this
-    /// demand), else nothing (an unbound `Var 0`, which the checker rejects). The term is `Var 0` —
-    /// fragment F, covered by `rust_infer_sound`.
+    /// The GOAL is the envelope's demand: `issuer says Atom(cap_atom(tool))`. The CONTEXT
+    /// presents the issuer's declared credential from its [`IssuerGrants::GRANTS`](crate::IssuerGrants)
+    /// list: the matching grant if declared, else the issuer's first grant (a credential that
+    /// cannot discharge this demand), else nothing (an unbound `Var 0`, which the checker
+    /// rejects — an issuer with no grants fails closed). The term is `Var 0` — fragment F,
+    /// covered by `rust_infer_sound`.
     ///
-    /// `decide_pure` on the result is therefore TRUE iff the grants table contains this
-    /// (issuer, tool) pair — a non-constant function of two independently declared facts. Perturb
-    /// either declaration by one byte and the verified checker goes RED
+    /// `decide_pure` on the result is therefore TRUE iff `granted` contains `tool` — a
+    /// non-constant function of two independently declared facts (envelope demand vs `grants!`
+    /// declaration). Perturb either by one byte and the verified checker goes RED
     /// (`tests/certificate.rs::cap_obligation_*`).
-    pub fn cap_problem(grants: &[(&str, &str)], issuer: &str, tool: &str) -> TypingProblem {
+    pub fn cap_problem(granted: &[&str], issuer: &str, tool: &str) -> TypingProblem {
         let demanded = Prop::Says(
             issuer_principal(issuer),
             Box::new(Prop::Atom(crate::runtime::cap_atom(tool))),
         );
-        let presented = grants
-            .iter()
-            .find(|(i, t)| *i == issuer && *t == tool)
-            .or_else(|| grants.iter().find(|(i, _)| *i == issuer));
+        let presented = if granted.contains(&tool) {
+            Some(tool)
+        } else {
+            granted.first().copied()
+        };
         let ctx = match presented {
-            Some((gi, gt)) => Ctx::empty().cons_a(Prop::Says(
-                issuer_principal(gi),
-                Box::new(Prop::Atom(crate::runtime::cap_atom(gt))),
+            Some(g) => Ctx::empty().cons_a(Prop::Says(
+                issuer_principal(issuer),
+                Box::new(Prop::Atom(crate::runtime::cap_atom(g))),
             )),
             None => Ctx::empty(),
         };
@@ -194,6 +251,21 @@ pub mod obligation {
             ctx,
             term: Term::Var(0),
             prop: demanded,
+        }
+    }
+
+    /// U3 divergence guard: the atom the certificate GOAL demands and the atom the runtime
+    /// credential must be signed over are the same value for the same name. Today this holds
+    /// because both sides call the one [`runtime::cap_atom`](crate::runtime::cap_atom) — this
+    /// extractor lets a test re-check the emitted problem itself, so a future re-duplication of
+    /// the hash (the pre-inc4 state) is caught by a RED, not a code review.
+    pub fn demanded_atom(problem: &TypingProblem) -> Option<u32> {
+        match &problem.prop {
+            Prop::Says(_, inner) => match **inner {
+                Prop::Atom(a) => Some(a),
+                _ => None,
+            },
+            _ => None,
         }
     }
 }
@@ -234,9 +306,9 @@ mod tests {
     }
 
     #[test]
-    fn capability_witness_constructs() {
-        let _cap: Cap<Invoke<u8>, ()> = Cap::new();
-        let _cap_default: Cap<Invoke<u8>, ()> = Cap::default();
+    fn capability_witness_constructs_unchecked() {
+        // The FREE mint — named for what it is; the gated mint is Cap::admit (runtime tests).
+        let _cap: Cap<Invoke<u8>, ()> = Cap::unchecked();
     }
 
     #[test]

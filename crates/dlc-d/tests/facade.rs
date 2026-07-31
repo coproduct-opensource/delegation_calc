@@ -9,6 +9,7 @@ use dlc_d::{Cap, Invoke};
 
 // Capability types the `cap` axis names, and the grant that authorizes the demand below
 // (the demanded-vs-granted gate rejects an ungranted pair at build — tests/ui/unauthorized_tool.rs).
+#[derive(dlc_d::Tool)]
 struct FileWrite;
 struct Admin;
 
@@ -36,7 +37,10 @@ fn ungoverned() -> u32 {
 #[test]
 fn governed_fns_run() {
     // `governed_write` requires the capability witness (Tier-1 admission).
-    assert_eq!(governed_write(Cap::<Invoke<FileWrite>, Admin>::new()), 7);
+    assert_eq!(
+        governed_write(Cap::<Invoke<FileWrite>, Admin>::unchecked()),
+        7
+    );
     assert_eq!(reflexive_flow(), 1);
     assert_eq!(ungoverned(), 0);
 }

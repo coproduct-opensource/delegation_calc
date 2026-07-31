@@ -1,0 +1,16 @@
+error[E0277]: unauthorized tool: issuer `Admin` has not granted the capability `Invoke<FileWrite>`
+  --> tests/ui/no_grants_decl.rs:13:30
+   |
+13 | #[agent_service(cap = Invoke<FileWrite> @ Admin)]
+   |                              ^^^^^^^^^ this envelope demands a capability its issuer never granted
+   |
+   = help: the trait `Grants<Invoke<FileWrite>>` is not implemented for `Admin`
+   = note: declare the grant with `dlc_d::grants! { Issuer: Tool }`; the demanded-vs-granted obligation is re-decided by the verified checker (`decide_pure`) in the emitted certificate test
+note: required by a bound in `assert_granted`
+  --> src/lib.rs
+   |
+   | pub const fn assert_granted<I, C>()
+   |              -------------- required by a bound in this function
+   | where
+   |     I: Grants<C>,
+   |        ^^^^^^^^^ required by this bound in `assert_granted`

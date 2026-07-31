@@ -3,6 +3,7 @@
 //! `rustc` type error — the macro's Tier-1 admission control.
 use dlc_d::agent_service;
 
+#[derive(dlc_d::Tool)]
 struct FileWrite;
 struct Admin;
 

@@ -1,6 +1,35 @@
 # DLC-D as the verified admission conjunct for nucleus / portcullis-core (integration design)
 
-**Status:** DESIGN. This document specifies how `dlc_d::runtime::admit` (the verify-then-authorize PEP,
+**Status: LANDED** (nucleus PR #2121, merged 2026-07-31, nucleus rev `0cae4fb3` — pinned in this
+workspace's `Cargo.toml`). The shipped integration follows this design with **two corrections
+discovered while wiring** (verified against the nucleus tree, not assumed):
+
+1. **The consult lands on the LIVE path, not the §3 `PolicyCheck`/`AllOf` composition.** The
+   `PolicyCheck` seam has no production constructors in nucleus — even `check_admission`'s one
+   caller (`ManifestRegistry`, load-time) has no in-tree consumers. Wiring there would have been a
+   gate nothing calls. The shipped consult sits in `Kernel::decide_term_with_flow` (the PEP both
+   the MCP and HTTP tool paths funnel through), following the Cedar-consult idiom: default-inert
+   until `Kernel::set_dlc_admission` provisions credentials, fail-closed after, deny-narrowing
+   only, with `DenyReason::DlcAdmissionDenied` flowing into the trace/receipt chain. A
+   `PolicyCheck` impl ships anyway (`portcullis::says_admission`) for composition-layer use.
+2. **Credentials bind to OPERATION names, not tool names.** §3's "`req.operation` IS the tool
+   name" was wrong: the kernel's vocabulary is the 13-variant `Operation` enum (canonical
+   snake_case `Display` names — `"web_fetch"`, `"run_bash"`); transport tool names never reach
+   the kernel. Shipped binding: `cap_atom(operation.to_string())` — credential granularity equals
+   enforcement granularity. Tool-name-level binding can ride the request context later.
+
+Six kernel-level bites landed with it (`portcullis/tests/kernel_dlc_admission.rs`): inert-by-
+default, valid-admits, missing-credential fail-closed, wrong-operation credential refused **by
+the signature** (the U3 one-atom binding), unknown issuer, deny-narrowing. Remaining follow-up:
+tool-proxy credential provisioning (env pattern) + positive-verdict attestation via
+`VerdictContext.extensions` + the pod-boot end-to-end.
+
+The original design follows, kept for the record; read §3's composition sketch and its
+"`req.operation` IS the tool name" claim against the corrections above.
+
+---
+
+This document specifies how `dlc_d::runtime::admit` (the verify-then-authorize PEP,
 committed `1b82a4b`) plugs into `nucleus`'s `portcullis-core` reference monitor as a *cryptographic,
 proof-carrying* admission check. It is a **PR proposal against nucleus, not an edit** — per `CLAUDE.md`,
 nucleus is an upstream library; DLC-D does not modify it. Nothing here changes nucleus; the DLC-D side

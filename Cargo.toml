@@ -54,7 +54,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 # Bench / fuzz
-criterion = "0.5"
+criterion = "0.8"
 libfuzzer-sys = "0.4"
 
 # Nucleus integration — GIT PINS (not path deps): a path dep to a sibling

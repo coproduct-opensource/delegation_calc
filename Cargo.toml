@@ -35,7 +35,7 @@ documentation = "https://docs.rs/dlc-core"
 ed25519-dalek = { version = "2", default-features = false }
 sha2 = { version = "0.11", default-features = false }
 ciborium = "0.2"
-coset = "0.3"
+coset = "0.4"
 
 # Diagnostics
 thiserror = "2"

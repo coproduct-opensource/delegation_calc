@@ -1,0 +1,15 @@
+error[E0061]: this function takes 2 arguments but 1 argument was supplied
+ --> tests/ui/missing_witness.rs:4:13
+  |
+4 |     let _ = dlc_d_ledger::credit(1);
+  |             ^^^^^^^^^^^^^^^^^^^^--- argument #2 of type `dlc_d::Cap<dlc_d::Invoke<Credit>, Treasury>` is missing
+  |
+note: function defined here
+ --> src/lib.rs
+  |
+  | pub fn credit(amount: u32) -> Command {
+  |        ^^^^^^
+help: provide the argument
+  |
+4 |     let _ = dlc_d_ledger::credit(1, /* dlc_d::Cap<dlc_d::Invoke<Credit>, Treasury> */);
+  |                                   +++++++++++++++++++++++++++++++++++++++++++++++++++

@@ -5,6 +5,7 @@ members = [
     "crates/dlc-d-node",
     "crates/dlc-d-macro",
     "crates/dlc-d",
+    "crates/dlc-d-ledger",
     "crates/dlc-interop",
     "crates/dlc-crypto",
     "crates/dlc-protocol",

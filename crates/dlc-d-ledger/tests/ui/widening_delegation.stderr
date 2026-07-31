@@ -1,0 +1,18 @@
+error[E0277]: unauthorized tool: issuer `Treasury` has not granted the capability `Invoke<Seize>`
+ --> tests/ui/widening_delegation.rs:7:21
+  |
+7 | dlc_d::delegates! { Treasury => Rogue: Seize }
+  |                     ^^^^^^^^ this envelope demands a capability its issuer never granted
+  |
+  = note: declare the grant with `dlc_d::grants! { Issuer: Tool }`; the demanded-vs-granted obligation is re-decided by the verified checker (`decide_pure`) in the emitted certificate test
+  = help: the trait `Grants<Invoke<Seize>>` is not implemented for `Treasury`
+          but trait `Grants<Invoke<Credit>>` is implemented for it
+  = help: for that trait implementation, expected `Credit`, found `Seize`
+note: required by a bound in `assert_granted`
+ --> $WORKSPACE/crates/dlc-d/src/lib.rs
+  |
+  | pub const fn assert_granted<I, C>()
+  |              -------------- required by a bound in this function
+  | where
+  |     I: Grants<C>,
+  |        ^^^^^^^^^ required by this bound in `assert_granted`

@@ -1,0 +1,17 @@
+error[E0277]: the trait bound `Audit: FlowsInto<Ledger>` is not satisfied
+ --> tests/ui/illegal_flow.rs:6:24
+  |
+6 | #[agent_service(flow = Audit <= Ledger)]
+  |                        ^^^^^ the trait `FlowsInto<Ledger>` is not implemented for `Audit`
+  |
+  = help: the following other types implement trait `FlowsInto<L>`:
+            `Ledger` implements `FlowsInto<Audit>`
+            `Public` implements `FlowsInto<Secret>`
+note: required by a bound in `assert_flows_into`
+ --> $WORKSPACE/crates/dlc-d/src/lib.rs
+  |
+  | pub const fn assert_flows_into<Src, Dst>()
+  |              ----------------- required by a bound in this function
+  | where
+  |     Src: FlowsInto<Dst>,
+  |          ^^^^^^^^^^^^^^ required by this bound in `assert_flows_into`

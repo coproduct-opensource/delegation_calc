@@ -251,6 +251,12 @@ deferred metatheory). **The production thrust ALSO LANDED first** (nucleus
 #2121/#2123/#2124): verified admission on nucleus's live kernel path, pod-scoped
 provisioning over the workload API, per-call attested spans, and the ACTIVE
 scenario green inside a real Firecracker pod (`nucleus verify --tier2`).
-Remaining: **U4** — the R6.3 killer demo, whose rejection classes now all fire
-and which can point at a production deployment. The README/paper
-runtime-guarantee wording is fully unblocked — the author's call.
+~~U4~~ **DONE 2026-07-31**: `crates/dlc-d-ledger`, the governed replicated
+ledger — envelope-as-a-type, running on the verified transition core, with all
+five violation classes pinned as compile errors
+(`spec/r6.2-agent-service-envelope.md` §6.5). **The ruled sequence is now
+COMPLETE** (inc4 → U3 → production thrust → U2 → U4). What remains is the
+author's: the README/paper runtime-guarantee wording (fully unblocked) and any
+crates.io/IETF identifier registration. Opportunistic engineering backlog: §4
+R2 tails, §5 carried-forward items, checker totality (fence B2), a build.rs
+route for the checker-decided certificate.

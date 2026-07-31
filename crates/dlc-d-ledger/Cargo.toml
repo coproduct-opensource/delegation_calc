@@ -1,0 +1,29 @@
+[package]
+name = "dlc-d-ledger"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "The DLC-D killer demo: a governed replicated ledger whose authority envelope is a type, running on the verified transition core"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "dlc-d-ledger"
+path = "src/main.rs"
+
+[dependencies]
+# The envelope surface (macro + Tier-1 vocabulary + the verified checker's certificate).
+dlc-d = { path = "../dlc-d", version = "1.5.0" }
+# The RUNNING node: the authenticated cluster over the R2-corresponded transition core.
+dlc-d-node = { path = "../dlc-d-node", version = "1.5.0" }
+dlc-core = { path = "../dlc-core", version = "1.5.0" }
+dlc-crypto = { path = "../dlc-crypto", version = "1.5.0" }
+tokio = { workspace = true, features = ["rt", "macros", "sync", "time"] }
+
+[dev-dependencies]
+trybuild = "1"

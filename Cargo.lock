@@ -475,6 +475,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "dlc-d-ledger"
+version = "1.5.0"
+dependencies = [
+ "dlc-core",
+ "dlc-crypto",
+ "dlc-d",
+ "dlc-d-node",
+ "tokio",
+ "trybuild",
+]
+
+[[package]]
 name = "dlc-d-macro"
 version = "1.5.0"
 dependencies = [

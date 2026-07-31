@@ -1,324 +1,328 @@
 {
- "_comment": "Single source of truth for headline-theorem statuses. scripts/ledger.sh VALIDATES every entry: a status of proven or proven_fragment requires (a) no sorry in the file, (b) the declared witness module to build, (c) the axiom snapshot to match. Docs (README/RELEASES/paper/draft-ietf) may not claim more than this file says — scripts/check-claims.sh enforces. Status vocabulary: proven | proven_fragment | stated | open | vacuous.",
- "T1_decidability": {
-  "status": "proven_fragment",
-  "fragment": "propositional (PropDeriv: 22 constructors, additive contexts, no linear splitting)",
-  "file": "DLC/Decidability.lean",
-  "theorems": [
-   "t1_propositional_soundness",
-   "t1_propositional_completeness",
-   "t1_propositional_decidability"
-  ],
-  "witness": "DLC/Witness/T1.lean",
-  "open": [
-   "full-calculus decidability (linear context splitting, modal/temporal/IFC constructors)",
-   "complexity bound O(|M| · log |Γ|) — unproven in any form, for any fragment"
-  ]
- },
- "T2_correspondence": {
-  "status": "stated",
-  "file": "DLC/Correspondence.lean",
-  "proven_content": "t2_propositional_correspondence — axiom-free symbolic characterization: crypto typing ⇔ logical typing ∧ allSigsVerify. Definitional-refinement strength (Aura 2008 class); NOT a cryptographic soundness theorem.",
-  "witness": "DLC/Witness/AxiomAudit.lean",
-  "history": "the former axiom Sig_EUF_CMA_propositional was refutable in-system (theory proved False); deleted 2026-07, refutation machine-checked in the witness",
-  "open": [
-   "attacker-based T2: verifier acceptance ⇒ derivation from uncompromised principals, vs explicit Dolev-Yao adversary with key compromise",
-   "wire-encoding injectivity for the real CBOR codec inside the theorem",
-   "EUF-CMA reduction (EasyCrypt/SSProve) — collaborator-gated"
-  ]
- },
- "T3_noninterference": {
-  "status": "proven_fragment",
-  "file": "DLC/NonInterference.lean",
-  "proven_content": "FUNDAMENTAL LEMMA proven (DLC/NonInterferenceFundamental.lean, fundamental): every core PropDeriv derivation maps LRel-related closed environments to LRel-related instances, over the redesigned relation LRel (DLC/NonInterferenceLR.lean) and congruent reduction. Corollary t3_two_run_general: an observable-typed core computation cannot distinguish two ARBITRARY closed instantiations of a high-labeled hypothesis — genuine two-run non-interference, the first mechanized NI for a says-logic in Lean. lrel_self gives reflexivity-on-well-typed (which the PER refused for free). Witness DLC/Witness/T3.lean: an ELIMINATION (fst) at an observable atom type concludes Joinable (non-vacuous), typing load-bearing. Ladder rungs 1,2,3a,3b-0,3b,3c all in spec/t3-two-run-design-2026-07.md.",
-  "witness": "DLC/Witness/T3.lean",
-  "open": [
-   "extend from PropDeriv (propositional fragment) to the full Deriv judgment with linear context splitting",
-   "declassify remains excluded by design (NI modulo declassification is the correct statement; unrestricted declassify falsifies NI)"
-  ],
-  "fragment": "propositional computational core (PropDeriv minus the frozen eliminations verify/attenuate/declassify/discharge; NI modulo declassification)"
- },
- "T4_obligation": {
-  "status": "proven_fragment",
-  "fragment": "non-introduction only (t4_no_new_obligation): reduction never invents an obligation absent from the redex. The full multiset accounting obligations(M') = obligations(M) - discharged + introduced is NOT proven; this is one inequality of it.",
-  "file": "DLC/ObligationSoundness.lean",
-  "theorems": [
-   "t4_no_new_obligation",
-   "pendingObligations_ne_nil"
-  ],
-  "witness": "DLC/Witness/T4.lean",
-  "proven_content": "NO LONGER VACUOUS as of the R0-R5 ladder (spec/t4-obligation-design-2026-07.md). Previously pendingObligations was provably the constant [] (pendingObligations_eq_nil), so the ~180-line induction quantified over an empty list. R1-R3 added Term.boxed, the obligation-carrying introduction form -- Deriv.boxI had concluded at Term.app, so obligations never inhabited syntax. R4 added discharge-beta, a redex that DESTROYS a box. R5 gave pendingObligations its base case, so a box contributes its own obligation. pendingObligations_eq_nil is now FALSE and deleted; pendingObligations_ne_nil refutes it. Witness DLC/Witness/T4.lean exhibits a term with obligation list [Ow] (impossible before this ladder), a discharge-beta step that REMOVES it, and T4 applied to that concrete step -- so the theorem is exercised on a rule that can fire and a list that can be non-empty.",
-  "history": "the deleted pendingObligations_eq_nil pre-registered its own refutation: 'When Phase 2 adds an obligation-carrying constructor, this lemma MUST break -- its deletion is the signal that T4 has acquired content.'",
-  "open": [
-   "multiset accounting: obligations(M') = obligations(M) - discharged + introduced (only the non-introduction inequality is proven)",
-   "label-ledger fusion: discharging an obligation cannot leak below its label",
-   "decideLean is FAIL-CLOSED on Term.boxed: decide.rs ignores obligation evidence while Deriv.boxI requires dN : Deriv Ctx.empty N (atom 0), so a faithful Lean arm must be STRICTER than the Rust. Unresolved -- the discharge arm already carries the same asymmetry",
-   "full-Deriv (non-propositional) content of discharge-beta"
-  ]
- },
- "protocol_correspondence": {
-  "status": "stated",
-  "file": "DLC/ProtocolCorrespondence.lean",
-  "proven_content": "l2_5_trace_lifting — restricted to the singleton [Says P φ] trace shape (the only shape liftToDeriv covers).",
-  "open": [
-   "total liftToDeriv over all Tamarin-model trace shapes with TraceWellFormed load-bearing",
-   "L2.3 wire round-trip + injectivity about the real CBOR encoder (former identity-serializer witness deleted 2026-07)"
-  ]
- },
- "substitution_lemma": {
-  "status": "open",
-  "file": "DLC/Subst.lean",
-  "proven_content": "substAt_substAt — THE composition law substAt (substAt M N j) P k = substAt (substAt M P (k+1)) (substAt N P (k-j)) j for j ≤ k, over the full 22-constructor Term, with supporting shift_shift_merge / shift_substAt_commute / substAt_shift_cancel (T3 rung 3a; unblocks the fundamental lemma's imp-I case). Typed substitution preservation for PropDeriv lives in DLC/Decidability.lean.",
-  "open": [
-   "substitution preservation for the full Deriv judgment (linear cases)"
-  ]
- },
- "subject_reduction": {
-  "status": "proven_fragment",
-  "fragment": "propositional (PropDeriv), INCLUDING the 2026-07 congruence (ξ) rules",
-  "file": "DLC/Decidability.lean",
-  "theorems": [
-   "propositional subject reduction via preservation lemmas"
-  ],
-  "witness": "DLC/Witness/T1.lean",
-  "open": [
-   "subject reduction for the full Deriv judgment"
-  ]
- },
- "progress": {
-  "status": "proven_fragment",
-  "fragment": "closed computational core (no frozen eliminations: verify/attenuate/declassify/discharge)",
-  "file": "DLC/Progress.lean",
-  "theorems": [
-   "progress"
-  ],
-  "witness": "DLC/Progress.lean",
-  "note": "FALSE before 2026-07: step was head-redex-only, so nested eliminations were stuck (spec/t3-two-run-design-2026-07.md FINDING). The congruence rules make it provable; this theorem is rung 3b-0's witness.",
-  "open": [
-   "progress for the full Deriv judgment / frozen forms are verifier-checked by design"
-  ]
- },
- "linear_lever_L1": {
-  "status": "proven_fragment",
-  "fragment": "L1 disambiguation: varL restricted to var(additive.length); CtxWellFormed holds by construction; ctxLookup agrees with the var rules and matches decide.rs on the additive + empty-additive-linear domains",
-  "file": "DLC/CtxWellFormed.lean",
-  "witness": "DLC/Witness/L1.lean",
-  "theorems": [
-   "CtxWellFormed_all",
-   "ctxLookup_agrees",
-   "ctxLookup_sound",
-   "ctxLookup_eq_checker_additive",
-   "linearSplitRoutes_holds",
-   "linearSplitRoutes_old_form_refuted"
-  ],
-  "finding": "ctxLookup_ne_checker_witness (machine-checked): disambiguated Deriv is STRICTLY MORE EXPRESSIVE than decide.rs — the shipped checker refuses a linear var under a nonempty additive context (consults linear only at index 0, shadowed by additive[0]). The checker is INCOMPLETE w.r.t. Deriv here, not unsound. Closing it is a decide.rs change, separate item. | L2 FINDING (2026-07-20): the deferred LinearSplitRoutes Prop was FALSE as stated, not merely unproven. It lacked the additive-miss hypothesis (ctxLookup consults additive first, so an additive hit leaves the linear halves unconstrained) AND mis-scoped the index claim by precedence (i = len ∧ A ∨ B parses as (i = len ∧ A) ∨ B). Its docstring had correctly certified it was not a sorry and not a tautology -- neither of which implies truth. Corrected, proven as linearSplitRoutes_holds, and the old form kept refuted as linearSplitRoutes_old_form_refuted.",
-  "open": [
-   "L3 additive substitution preservation over full Deriv (the easier half; reuses the PropDeriv induction shape)",
-   "L4 linear substitution preservation (the substructural core; needs L1+L2, multi-week)",
-   "L5 subject reduction over full Deriv, then T3-full / T1-full / progress-full",
-   "decide.rs completeness fix for nonempty-additive linear vars (separate, checker-side)"
-  ]
- },
- "_dlcd_comment": "DLC-D (distributed) headline guarantees. Each is a top-level, machine-checked DLCD.* theorem re-exported by DLCD/Summary.lean and axiom-snapshotted in lean/expected-axioms/dlcd-*.txt (all within [propext, Classical.choice, Quot.sound]). status=proven means the theorem is fully proved AS STATED about the DLC-D model; the notes record the SCOPE FENCES (what the model does and does not cover). The joint non-vacuity witness is DLCD/Witness.lean's SliceWitness.dlc_d_slice_witness — one inhabited bundle on a single real 2-replica execution simultaneously satisfying G1-G4.",
- "DLCD_capability_safety": {
-  "status": "proven",
-  "file": "DLCD/CapSafety.lean",
-  "witness": "DLCD/Witness.lean",
-  "proven_content": "capability_safety (G1, authority): every command in a WellFormedLog carries a genuine Deriv (issuer says writeCap) credential — authority enforced by construction, not audited after the fact.",
-  "note": "SCOPE FENCES: (1) model, not runtime — a guarantee about the Lean model, not dlc-verifier's Rust at run time; (2) saysI-on-CDeriv — the CARVe-migrated CDeriv judgment does not yet carry the signed says credential the capability layer uses.",
-  "open": [
-   "carry the signed says credential on CDeriv so the capability layer runs on the migrated judgment"
-  ]
- },
- "DLCD_capability_safety_by_inversion": {
-  "status": "proven",
-  "file": "DLCD/CapSafety.lean",
-  "witness": "DLCD/CapSafety.lean",
-  "proven_content": "capability_safety_by_inversion (G1, authority, TYPING-NATIVE twin of capability_safety): from the TYPE of a commit-I-typed Term.command M c l (DLC.Deriv.commitI), recover a genuine says-credential derivation for its credential subterm c. Authorization is EXTRACTED by inverting the command's own typing (a generation/inversion lemma, TAPL 13.5), not audited out-of-band. The generation lemma command_typing_inversion is proved by induction on the derivation over a generalized subject: the ~26 rigid-headed rules are discharged by Term.noConfusion, withinE by a type-shape contradiction from the IH (within != replicated), weakenA genuinely by re-applying weakening to the recovered premises. Bridges to the audited Authorized: authorized_of_command_typing (typing -> Authorized, credential TERM is the witness) and authorized_of_commandRealizes (CommandRealizes -> Authorized) proved clean; the realization builder commandRealizes_of_premises (credential + transformer in a shared linear-free context -> CommandRealizes) proved clean. Anti-vacuity: CapSafetyByInversionAntiVacuity builds a concrete commit-I-typed command from the real signed credential saysWitness + an identity transformer, and recovers its credential by inversion.",
-  "note": "SCOPE FENCES: (1) model, not runtime. (2) FENCED BRIDGE DIRECTION: the FULL converse Authorized rc issuer -> exists a realizing commit-I-typeable command does NOT close cleanly and is NOT claimed — Authorized's credential derivation lives in an ARBITRARY context (its linear part may be non-empty) whereas commit-I demands a shared linear-free context, AND Authorized carries no store transformer M : phi => phi (commit-I's second premise), neither synthesizable from the credential alone (the cap-prop <-> cred-term / representation gap). The converse is closed exactly when those two data are supplied (commandRealizes_of_premises). (3) issuer/capProp are recovered EXISTENTIALLY (commit-I's conclusion Replicated (phi=>phi) l omits them), matching the exists-issuer shape of capability_safety. Governed capability_safety (the audited WellFormedLog metatheorem) is UNCHANGED, byte-identical; this entry is the additive typing-native re-founding underneath it.",
-  "open": [
-   "close the full Authorized -> CommandRealizes converse (needs a canonical store-transformer choice + a linear-free-context normalization of the credential derivation)"
-  ]
- },
- "DLCD_capability_safety_linear": {
-  "status": "proven",
-  "file": "DLCD/CapSafetyLinear.lean",
-  "witness": "DLCD/CapSafetyLinear.lean",
-  "proven_content": "capability_safety_linear (G1, authority, LINEAR layer): every command in a WellFormedLogL carries a genuine CDerivS (issuer says capProp) linear signed credential — the CARVe/CDeriv-native twin of capability_safety.",
-  "note": "CDerivS is a SEAL over CDeriv (embed + saysI), NOT a CDeriv constructor: adding saysI to CDeriv breaks cderiv_subject_reduction' by a modality mismatch (saysE keeps the says modality while step strips it, consistent only while says is uninhabited). CDeriv is left untouched. SCOPE FENCES: model, not runtime; the additive (Deriv) <-> linear (CDerivS) functorial credential bridge is deferred (needs the open L4 Deriv->CARVe migration).",
-  "open": [
-   "prove the Deriv -> CDerivS credential embedding (blocked on full Deriv->CARVe L4 substitution migration)"
-  ]
- },
- "DLCD_byz_agreement": {
-  "status": "proven",
-  "file": "DLCD/ByzantineConsensus.lean",
-  "witness": "DLCD/ByzantineConsensus.lean",
-  "proven_content": "byz_agreement (fault-model extension): single-decree agreement under <= f BYZANTINE faults with n >= 3f+1 — a >2n/3 Byzantine quorum plus the honest-intersection lemma (any two Byzantine quorums share a non-faulty replica) forces at most one certified value. Consensus.lean (crash-fault) untouched.",
-  "note": "ByzDecided constrains only HONEST quorum members (Byzantine members equivocate, unconstrained) — the faithful Byzantine-quorum model, which is what makes the honest-intersection (the r-not-in-B) load-bearing. Right-reason bite: a crash-majority (2*card>n) quorum FAILS under Byzantine faults (two majorities can intersect only in the faulty node). SCOPE FENCES: single-decree SAFETY only.",
-  "open": [
-   "Byzantine LIVENESS (view-change / leader-election / partial-synchrony) and the multi-decree Byzantine lift — SOTA path: Bythos (CCS'24), TetraBFT (PODC'24)"
-  ]
- },
- "DLCD_budgeted_guarantee_voids_over_budget": {
-  "status": "proven",
-  "file": "DLCD/FaultGrade.lean",
-  "witness": "DLCD/FaultGrade.lean",
-  "proven_content": "budgeted_guarantee_voids_over_budget (R1 stageE-E1, the TYPE-LEVEL FAILURE-BUDGET CONTRACT via a graded comonad over the guarantee, design option c'): FaultGrade := Nat is the distilled 1-D consumable crash-fault grade (zero/saturatingAdd/le; grade laws identity+associativity+monotone, associativity DERIVED from Graded.lean's DLC.dp_budget_saturating_add_assoc through the toDpBudget monoid embedding = the delta=0 projection of Graded<DpBudget>). BudgetedGuarantee f b G : Prop delivers the raw guarantee G at grade b under the tolerated bound f, with charged : b <= f the graded counit's availability side and a counit extract : BudgetedGuarantee f b G -> G. THE HEADLINE: at the over-budget grade f (+) 1 the type is GENUINELY UNINHABITED for EVERY payload G (its charged field f+1 <= f is empty) — crossing the fault budget makes the guarantee TYPE void, not a Prop you merely fail to supply. This is the graded-comonad counit's unavailability off-budget (RBTT/Granule), NOT a Prop'/CDeriv term modality (options a/b, rejected as vacuous) and NOT a CARVe resource dimension: the calculus is untouched (no Prop'/CDeriv constructor, no redex, no LRel clause), so SR/NI/progress and the 49 axiom snapshots are byte-identical. Bridge (additive, FailureBudget unmodified): FailureBudget.toFaultGrade := consumed (the grade); FailureBudget.threshold := consumed <= maxFaults (the mislabeled FailureBudget.le clarified as the THRESHOLD guard, not the grade preorder — Atkey LICS'18 keeps them apart); withinContract_iff : withinContract = true <-> threshold /\\ fairDelivery; budgetedGuarantee_of_withinContract feeds a within-contract runtime budget into the graded guarantee's charged field. Anti-vacuity: (in-budget) budgeted_converge : BudgetedGuarantee 1 0 (r1.store = pair(var0,var0) /\\ r1.store != init) on the real RsmAntiVacuity 2-replica run whose extract FIRES and yields the genuinely CHANGED converged store (a non-trivial Prop, not True); (over-budget) over_budget_refutation : NOT BudgetedGuarantee 0 1 ConvergedPayload — the concrete f=0,b=1 void is REAL (not vacuously true the other way). budgeted_guarantee_voids_over_budget is axiom-free (does not depend on any axioms).",
-  "note": "SCOPE FENCES: (1) model, not runtime — a guarantee about the Lean model, not dlc-verifier's Rust. (2) PURELY ADDITIVE E1: touches only the new DLCD/FaultGrade.lean + governance + Summary re-export; NO existing guarantee/theorem is modified; Rsm.FailureBudget (withinContract/le/zero/saturatingAdd) is BYTE-IDENTICAL (the bridge toFaultGrade/threshold is an additive appendage in the same namespace, in FaultGrade.lean). (3) The 2 liveness re-foundings (command_eventually_written(_weakfair) delivered AT a grade, originals kept as extract corollaries) are the SEPARATE E2 increment — not this one. (4) 1-D grade with fairness kept SEPARATE (design ruling; the 2-D (faults,fairness) alternative was declined). (5) Aeneas untouched: FailureBudget/FaultGrade have no dlc-core Rust mirror (graded.rs mirrors DpBudget only); a Rust FaultGrade mirror is DEFERRED (model-side grade).",
-  "open": [
-   "optional Rust FaultGrade mirror in dlc-core (deferred; the grade is model-side and has no operational event charging it in dlc-core)"
-  ]
- },
- "DLCD_command_eventually_written_budgeted": {
-  "status": "proven",
-  "file": "DLCD/Liveness.lean",
-  "witness": "DLCD/Witness.lean",
-  "proven_content": "command_eventually_written_budgeted (R1 stageE-E2, the REAL liveness guarantee PACKAGED behind the fault-threshold): an ADDITIVE graded wrapper delivering the Phase-1.2c liveness metatheorem command_eventually_written's EXACT conclusion ((exists k, Decided (run k) c) AND (exists m, applied = i+1 AND store = applyCommand c (applyPrefix init (log.take i)) AND AppliedPrefix ...)) AT a fault grade as BudgetedGuarantee budget.maxFaults budget.consumed G. The original's withinContract = true hypothesis is SPLIT (via FailureBudget.withinContract_iff) into the THRESHOLD budget.consumed <= budget.maxFaults (the graded counit's availability side = the charged field, Atkey LICS'18 keeps threshold separate from the grade preorder) and FAIR DELIVERY budget.fairDelivery = true (the qualitative liveness premise). Over budget (consumed > maxFaults) the charged field consumed <= maxFaults is uninhabitable, so the whole BudgetedGuarantee type is EMPTY for the real liveness G — the eventual-decision guarantee is type-level-unavailable off-budget (the E1 headline budgeted_guarantee_voids_over_budget instantiated on the actual liveness payload). The ENGINE is the ORIGINAL command_eventually_written applied VERBATIM (byte-identical, not re-proved or weakened) after withinContract_iff re-assembles its withinContract premise from the split parts. command_eventually_written_budgeted_extract confirms the counit BudgetedGuarantee.extract recovers G_T exactly (the graded form loses nothing within budget). Boundary witness (DLCD/Witness.lean, on the real 2-replica run at budget = FailureBudget.zero 1, maxFaults=1/consumed=0): write_live_budgeted : BudgetedGuarantee 1 0 (write_live's conclusion) FIRES at grade 0 <= 1, write_live_budgeted_fires recovers write_live verbatim by extract, and write_live_over_budget_void : NOT BudgetedGuarantee 1 2 (write_live's conclusion) instantiates the void on the concrete liveness payload. Non-vacuous both ways.",
-  "note": "SCOPE FENCES: (1) model, not runtime — a guarantee about the Lean model, not dlc-verifier's Rust. (2) PURELY ADDITIVE E2: the original command_eventually_written statement AND proof are BYTE-IDENTICAL (git-diff shows only appended graded wrappers; 0 lines removed from its body); the wrapper only re-packages the conclusion. No core DLC calculus, Rsm.lean def, or other guarantee is modified; Rsm.FailureBudget is byte-identical. (3) The charged field genuinely gates on consumed <= maxFaults (unconstructible over budget), not a True/renamed hypothesis. (4) fairDelivery kept SEPARATE from the grade (design ruling; the FLP-forced fairness premise stays qualitative). (5) Aeneas untouched: no dlc-core Rust change.",
-  "open": []
- },
- "DLCD_command_eventually_written_weakfair_budgeted": {
-  "status": "proven",
-  "file": "DLCD/Termination.lean",
-  "witness": "DLCD/Witness.lean",
-  "proven_content": "command_eventually_written_weakfair_budgeted (R1 stageE-E2, the WeakFair-founded twin): the same graded packaging over command_eventually_written_weakfair (Phase-2.a, the WeakFair + MonotoneVotes route with no raw per-step rank-decrease assumption). Delivers the eventual-decision-and-application guarantee AT a grade as BudgetedGuarantee budget.maxFaults budget.consumed G, splitting withinContract = true into threshold (the charged field) and fair delivery (which unlocks WeakFair) via FailureBudget.withinContract_iff. The consensus engine weakfair_terminates and the top-level original command_eventually_written_weakfair are UNTOUCHED / applied verbatim. command_eventually_written_weakfair_budgeted_extract recovers G_T exactly. Boundary witness (DLCD/Witness.lean): write_live_weakfair_budgeted : BudgetedGuarantee 1 0 (write_live's conclusion) on the real run, with run_weakfair (WeakFair vacuously — all replicas already voted) and run_monotone (MonotoneVotes, constant run); the shared over-budget void write_live_over_budget_void : NOT BudgetedGuarantee 1 2 G applies. Over budget the weak-fair liveness guarantee TYPE is uninhabited. Non-vacuous.",
-  "note": "SCOPE FENCES: (1) model, not runtime. (2) PURELY ADDITIVE E2: the original command_eventually_written_weakfair statement AND proof are BYTE-IDENTICAL (git-diff shows only appended graded wrappers; 0 lines removed); weakfair_terminates byte-identical. No core calculus / Rsm.lean def / other guarantee modified. (3) charged field gates on consumed <= maxFaults, unconstructible over budget — not True/renamed. (4) fairDelivery kept separate from the grade. (5) Aeneas untouched.",
-  "open": []
- },
- "DLCD_log_noninterference": {
-  "status": "proven",
-  "file": "DLCD/LabelFlow.lean",
-  "witness": "DLCD/Witness.lean",
-  "proven_content": "log_noninterference (G1, semantic confidentiality): a labelled log's low-observable projection is independent of its high inputs.",
-  "note": "SCOPE FENCE: model, not runtime.",
-  "open": []
- },
- "DLCD_distributed_noninterference": {
-  "status": "proven",
-  "file": "DLCD/DistributedNI.lean",
-  "witness": "DLCD/Witness.lean",
-  "proven_content": "distributed_noninterference (G1, typed confidentiality across replicas): reuses DLC's fundamental-lemma non-interference (DLC.t3_two_run_general).",
-  "note": "SCOPE FENCES: (1) model, not runtime; (2) confidentiality strength INHERITS T3_noninterference's propositional-core fragment scope (it consumes DLC.t3_two_run_general, which is proven_fragment over the propositional computational core, NI modulo declassification).",
-  "open": [
-   "inherits T3's open items: extend from PropDeriv to the full Deriv judgment with linear context splitting"
-  ]
- },
- "DLCD_wellTypedLog_implies_htyped": {
-  "status": "proven",
-  "file": "DLCD/TypedLog.lean",
-  "witness": "DLCD/Witness.lean",
-  "proven_content": "wellTypedLog_implies_htyped (G1): a well-typed committed log discharges the host-typing premise that distributed_noninterference consumes, so the typed guarantee actually fires on real logs. worldStep_preserves_low_typed removes the raw htyped assumption via a WellTypedLog admission gate.",
-  "note": "SCOPE FENCE: model, not runtime; the admission gate is a modelled well-typedness check, not a running validator.",
-  "open": []
- },
- "DLCD_wellTypedCmd_of_command_typing": {
-  "status": "proven",
-  "file": "DLCD/TypedLog.lean",
-  "witness": "DLCD/TypedLog.lean",
-  "proven_content": "wellTypedCmd_of_command_typing (G1, TYPING-NATIVE re-founding of the 2.h typed-log invariant onto commit-I): from the TYPE of a commit-I-typed Term.command M c l (DLC.Deriv.commitI), recover that the payload M is a phi=>phi store-transformer and that the wrapper <M, some (issuer says capProp)> satisfies WellTypedCmd phi. The payload-type obligation WellTypedCmd demands IS commit-I's second (transformer) premise, extracted by inverting the command's own typing (command_typing_inversion, inc4a) rather than assumed as a separate predicate. The clean converse builder commandTyped_of_wellTypedCmd_premises shows the SAME PropDeriv transformer obligation a well-typed command carries builds commit-I's transformer premise (via propDeriv_to_deriv) and heads a commit-I-typeable command. The log bridge wellTypedLog_of_forall folds a log of WellTypedCmd entries into WellTypedLog, so a log of commit-I-typed commands discharges 2.d's htyped via wellTypedLog_implies_htyped. Anti-vacuity: CommitITypedLogWitness builds a concrete empty-context commit-I derivation (identity transformer guarded by a closed signed now-credential issuer says top), inverts its TYPE to a real WellTypedCmd, and closes the full chain commit-I typing -> WellTypedCmd -> WellTypedLog -> htyped on [wrapper].",
-  "note": "SCOPE FENCES: (1) model, not runtime. (2) FENCED FRAGMENT WITNESS: WellTypedCmd's payload obligation is a PropDeriv [] M (phi=>phi) (the propositional fragment, DLC.Decidability) whereas commit-I's transformer premise is a full Deriv [] M (phi=>phi). The embedding propDeriv_to_deriv : PropDeriv -> Deriv is ONE-DIRECTIONAL (Deriv has weakenA/varL/commitI/... with no PropDeriv image), so wellTypedCmd_of_command_typing takes the fragment witness dMfrag as a SUPPLIED input rather than converting it down from the inverted Deriv premise; the builder direction (commandTyped_of_wellTypedCmd_premises) needs no fence since PropDeriv -> Deriv is total. This mirrors inc4a's fenced converse (Authorized -> CommandRealizes needs data commit-I does not supply). (3) issuer/capProp are recovered EXISTENTIALLY (commit-I's conclusion Replicated (phi=>phi) l omits them). Governed wellTypedLog_implies_htyped / worldStep_preserves_low_typed (the 2.h admission gate) are UNCHANGED, byte-identical; this entry is the additive typing-native re-founding of their WellTypedCmd premise.",
-  "open": [
-   "convert a core empty-linear-context Deriv M : phi=>phi down to the PropDeriv fragment so wellTypedCmd_of_command_typing needs no supplied fragment witness"
-  ]
- },
- "DLCD_single_linearization": {
-  "status": "proven",
-  "file": "DLCD/Linearizable.lean",
-  "witness": "DLCD/Witness.lean",
-  "proven_content": "single_linearization (G2): all replicas' observed stores are samples of ONE sequential trajectory seqTrajectory init log at their own applied index — a single linearization order respected by all.",
-  "note": "SCOPE FENCES: (1) model, not runtime; (2) store-type change — the committed store is a fixed Term; a richer store type is future work.",
-  "open": [
-   "generalize the linearization result to a richer store type than the fixed Term"
-  ]
- },
- "DLCD_weakfair_terminates": {
-  "status": "proven",
-  "file": "DLCD/Termination.lean",
-  "witness": "DLCD/Witness.lean",
-  "proven_content": "weakfair_terminates (G3, single-decree progress): under weak fairness a single decree is eventually decided.",
-  "note": "SCOPE FENCES: (1) model, not runtime; (2) live-scheduling — the weak-fairness/delivery schedule feeding liveness is modelled, not tied to a running scheduler; (3) leader election — quorums are given, not elected. Uses Classical.choice (fair-schedule extraction).",
-  "open": [
-   "tie the modelled fairness schedule to a running scheduler / FailureBudget closure"
-  ]
- },
- "DLCD_log_grows_unbounded": {
-  "status": "proven",
-  "file": "DLCD/MultiDecreeLiveness.lean",
-  "witness": "DLCD/Witness.lean",
-  "proven_content": "log_grows_unbounded (G3, multi-decree liveness): under a fair slot schedule the multi-decree committed log grows without bound.",
-  "note": "SCOPE FENCES: (1) model, not runtime; (2) live-scheduling — the fair slot schedule is modelled, not tied to a running scheduler. Uses Classical.choice.",
-  "open": [
-   "tie the modelled fair slot schedule to a running scheduler / FailureBudget closure"
-  ]
- },
- "DLCD_replicas_converge_via_consensus": {
-  "status": "proven",
-  "file": "DLCD/Consensus.lean",
-  "witness": "DLCD/Witness.lean",
-  "proven_content": "replicas_converge_via_consensus (G4, coordination-based convergence): replicas that deliver a quorum-Decided value reach EQUAL stores.",
-  "note": "SCOPE FENCES: (1) model, not runtime; (2) leader election — quorums are given, not elected. Uses Classical.choice.",
-  "open": [
-   "leader election: derive the quorum rather than assuming it"
-  ]
- },
- "DLCD_coordination_free_convergence": {
-  "status": "proven",
-  "file": "DLCD/Calm.lean",
-  "witness": "DLCD/Witness.lean",
-  "proven_content": "Calm.coordination_free_convergence (G4, CALM route): monotone/commutative updates converge with NO coordination (robust to reordering AND duplication).",
-  "note": "SCOPE FENCE: model, not runtime.",
-  "open": []
- },
- "DLCD_log_agreement_eq": {
-  "status": "proven",
-  "file": "DLCD/MultiDecree.lean",
-  "witness": "DLCD/Witness.lean",
-  "proven_content": "log_agreement_eq (G4, multi-decree safety/agreement): two logs agreeing on the per-slot ballots are equal.",
-  "note": "SCOPE FENCE: model, not runtime. Uses Classical.choice.",
-  "open": []
- },
- "DLCD_slice_witness": {
-  "status": "proven",
-  "file": "DLCD/Witness.lean",
-  "witness": "DLCD/Summary.lean",
-  "proven_content": "SliceWitness.dlc_d_slice_witness (the seal, a def): one inhabited SliceWitnessBundle on a single real 2-replica execution that is simultaneously capability-authorized, consensus-committed, converging, linearizable, and live — THE demonstration that G1-G4 are jointly satisfiable, not vacuously true. Its existence is the non-vacuity witness the other DLCD entries point at; DLCD/Summary.lean re-exports it under a name-drift tripwire.",
-  "note": "SCOPE FENCES (inherited, joint): model not runtime; store-type change; live-scheduling; saysI-on-CDeriv; leader election; surface syntax (examples in abstract syntax, not the concrete surface language). def-shaped seal: an inhabited bundle IS a proof of joint satisfiability.",
-  "open": []
- },
- "DLCD_R2_correspondence": {
-  "status": "stated",
-  "file": "DLCD/Correspondence.lean",
-  "witness": "DLCD/Correspondence.lean",
-  "proven_content": "R2.2b + R2.3 + R2.3d: runtime-correspondence CORE, with the two reducer obligations DISCHARGED (proven theorems, partial-correctness). (1) The one-directional decode from the Aeneas-generated dlc_core.rsm state (real defs: apply_command / reduce_with_fuel / deliver / world_step / commit) into the hand DLCD.Rsm model. (2) reduce_with_fuel_corr (R2.3c) — the partial-correctness fuel-loop leaf: on a CLOSED payload, IF reduce_with_fuel returns ok (t',k) then t' decodes to the hand DLC.reduceWithFuel final term; value-correctness rides on CLOSEDNESS alone (heightB fence dropped). (3) AppCommandRefines_holds (R2.3d) — the per-command reducer correspondence, now a PROVEN THEOREM (no longer a def:Prop): closed store + closed payload + apply_command c s = ok t' → decTermC t' = DLCD.applyCommand (decCmd c) (decTermC s), via reduce_with_fuel_corr + the decode homomorphism decTermC(App a b)=app. (4) ApplyPreservesWS_holds (R2.3d) — the fold-threading fact, also a PROVEN THEOREM: apply_command preserves CLOSEDNESS (closed in → ok → closed out), via reduceWithFuel_preserves_closed (iterated step_preserves_closed). Both discharge theorems footprint [propext, Classical.choice, Quot.sound], pinned in expected-axioms. (5) appCommandRefines_witness / applyPreservesWS_witness: the CLOSED anti-vacuity witnesses inhabiting the partial-correctness obligations on the state-changing dup input — the conditioned ok-premise is SATISFIABLE (apply_command dup (now 0) = ok ⟨now 0,now 0⟩, machine-computed, no native_decide), the conclusion holds, and the transition changes state (≠ now 0). (6) termClone_id — the AST-WIDE CLONE-IDENTITY LINCHPIN (unchanged, pinned). (7) THE SIX SQUARES: the three REDUCER-ROUTED squares deliver_square / world_step_square (HEADLINE) / apply_prefix_square are now PARTIAL-CORRECTNESS (unconditional-modulo-ok): CONDITIONED on the generated RSM op returning ok (e.g. world_step g = ok g' → decGC g' = DLCD.worldStep (decGC g)), carrying NO hcmd/hpres hypothesis — they route every apply_command step through the PROVEN AppCommandRefines_holds and thread closedness via ApplyPreservesWS_holds; the loop specs invert the generated ok (the reduce_loop_spec inversion idiom). The three TOTAL squares commit_square + is_quorum_square + decided_square (DLCD/CorrespondenceConsensus.lean) are unchanged (pure/never-fail). The fence is CLOSEDNESS (ClosedTm); the heightB half of WellScopedTm is unnecessary (only load-bearing for the false no-fail claim) and not preserved by β regardless. All footprints EXACTLY [propext, Classical.choice, Quot.sound].",
-  "note": "SCOPE FENCE: the two reducer obligations are now PROVEN theorems (AppCommandRefines_holds, ApplyPreservesWS_holds) in PARTIAL-CORRECTNESS form — the value-refinement is CONDITIONED on the bounded reducer returning ok, and unconditional no-fail is explicitly NOT claimed (it is FALSE: β at-most-doubles binder depth per step, so an adversarial ≥2³¹-node closed payload overflows the U32 depth counter and reduce_with_fuel genuinely .fails — spec/r2-inc3c-fuelloop-analysis.md; no machine-checkable counterexample is buildable, the witness term has ≥2³² nodes). The three reducer-routed squares inherit the same conditioning (unconditional-modulo-ok). The transport therefore holds FOR EXECUTIONS IN WHICH THE BOUNDED REDUCER DOES NOT OVERFLOW (returns ok) — a class the anti-vacuity witnesses inhabit on the real dup store-transformer. STILL NO claim that the Rust core satisfies G1-G4 — that awaits R2.4 pulling G1-G4 back through world_step_square. Model/generated correspondence, not a runtime guarantee.",
-  "open": [
-   "OPTIONAL (fix iii, unconditional no-fail): restrict payloads to a typed class (CDeriv ⊢ payload : φ⊃φ) — substructural typing forbids the duplication that drives depth-explosion, recovering strong = ok on that class; large increment, layers on top of the partial-correctness form"
-  ]
- },
- "DLCD_R2_transport": {
-  "status": "proven",
-  "file": "DLCD/Transport.lean",
-  "witness": "DLCD/Transport.lean + DLCD/TransportConsensus.lean",
-  "proven_content": "R2.4a/b: the guarantee TRANSPORT — pulling the RSM guarantees back to the deployed Rust runtime (crates/dlc-core, Aeneas-translated) via the R2.3 partial-correctness squares. Each rust_* corollary is CONDITIONED on the generated RSM op returning ok and routes through a real square; all footprints [propext, Classical.choice, Quot.sound], pinned in expected-axioms. rust_world_step_correct (HEADLINE: world_step g = ok g' -> decGC g' = DLCD.worldStep (decGC g)); G2 rust_store_is_seqSpec / rust_single_linearization; G3 rust_deliver_correct; G4 rust_replicas_converge (convergence/CALM runtime content); capability-safety rust_capability_safety; consensus agreement rust_consensus_agreement (DLCD/TransportConsensus.lean, dlc_d_rsm-tree module, via decided_square + list-form quorum intersection) AND BYZANTINE agreement rust_byz_agreement (2026-07-24; via byz_decided_square + is_byz_quorum_square, threshold 3*card > 2n, list-form quorum intersection where one-vote-per-position is structural so the honest set is not threaded — the runtime image of DLCD.ByzantineConsensus.byz_agreement; byz_decided_witness inhabits the ok premise); G1 noninterference rust_worldStep_preserves_high (2-run: LowEquivG inputs -> LowEquivG outputs). Non-vacuous: the anti-vacuity witnesses inhabit the ok-conditioned premises on the real dup store-transformer.",
-  "note": "SCOPE (three honest conditions, kept prominent): (1) PARTIAL-CORRECTNESS -- every rust_* corollary is conditioned on the bounded reducer returning ok; unconditional no-fail is NOT claimed and is false (an adversarial >=2^31-node closed payload overflows the U32 binder-depth counter; physically unrealizable, no buildable counterexample -- spec/r2-inc3c-fuelloop-analysis.md). (2) G1 NONINTERFERENCE transports as PRESERVATION of the DECODED TYPED MODEL's noninterference (store type + observer as external typing parameters), NOT a claim that the runtime's own label bytes enforce IFC -- a faithful label decode is impossible (hand DLC.Label = CapabilityLattice 3^13 finite vs ifc.Label = Vec U32 infinite; and the NI-relevant label is the store-TYPE label, absent from the executable GlobalConfig). (3) Fair-scheduling liveness and the abstract CALM semilattice metatheorem are MODEL-LEVEL (a fairness/oracle assumption and abstract order-algebra, no executable RSM op); their runtime cores are rust_deliver_correct / rust_replicas_converge. NO public README/paper runtime claim yet (author deferred external wording 2026-07-23; ledger-only).",
-  "open": [
-   "PUBLIC CLAIM deferred by author (2026-07-23): README/paper runtime-guarantee wording -- ledger-only for now",
-   "OPTIONAL (fix iii): typed-payload class (CDeriv |- payload : phi>phi) -> unconditional no-fail, removing the U32 caveat for well-typed commands; large increment layering on the partial-correctness form",
-   "rust_log_agreement (multi-slot Raft log-matching at the runtime surface) -- single-decree rust_consensus_agreement is the load-bearing core; multi-slot wrapper is extra scope"
-  ]
- },
- "DLC_joint_admission": {
-  "status": "proven_fragment",
-  "file": "DLC/AdmitFrag.lean",
-  "witness": "DLC/AdmitFrag.lean",
-  "theorems": ["admit_joint", "admitFrag_propFrag", "admit_infer_var0", "admitFrag_witness"],
-  "fragment": "AdmitFrag -- the identity store-transformer Lam(Atom c)(Var 0) the #[dlc_d::agent_service] macro emits (a subset of DecideSquare.PropFrag). FORWARD/SAFETY direction only: accept => typable.",
-  "proven_content": "admit_joint (JOINT ADMISSION SOUNDNESS, forward/safety, UNCONDITIONAL on the fragment): if the deployed checker admits an admission term (decide.infer emptyCtx t = ok (some inferred)) then Nonempty (DLC.Deriv (decCtx emptyCtx) (decTerm t) (decProp inferred)) -- a real commit-I derivation in the verified calculus. NO FALSE ADMITS: the deployed kernel never grants a tool invocation the calculus would not type. Composes admitFrag_propFrag (AdmitFrag subset PropFrag) with rust_infer_sound. admit_infer_var0 (#16) proves the substantive lookup totality (decide.infer E (Var 0) = ok (some (Atom c)) at additive [Atom c]). admitFrag_witness is the non-vacuity inhabitant (the macro's shape at a representative cap atom is in the fragment). Axioms EXACTLY [propext, Classical.choice, Quot.sound], pinned in expected-axioms/admit_joint.txt. Runtime PEP: crates/dlc-d/src/runtime.rs::admit (real Ed25519, ~19.5us/call measured, spec/joint-admission.md benchmark) joins the signature conjunct at the entry point; the dlc_d::admission facade maps it into a host reference monitor (spec/nucleus-admission-integration.md).",
-  "note": "SCOPE FENCES (two, kept prominent): (1) TOTALITY HALF PENDING -- the converse (the checker ALWAYS admits, discharging the ok premise in-Lean without observation) rests on the Lam-wrapper Aeneas monadic plumbing fenced in #16; admit_infer_var0 proves the only substantive decision point (the context lookup), the surrounding clone/cons_a/branch has no logical failure mode but its raw ok-reduction is a deferred Aeneas.step discharge. So SAFETY (accept => typable) is UNCONDITIONAL; ALWAYS-ACCEPTS is pending. (2) admit() is NOT yet proved Lean-EQUIVALENT to the type-checker path -- admit_joint relates the CHECKER's verdict to a Deriv; relating the signed cap ATOM to that Deriv's cap prop is future metatheory. The runtime PEP is the signature-validity conjunct joined at the admission entry point (typeability AND signature validity), not collapsed into one theorem. Prior art: this is the Cedar/PCA 'if allowed, a permit derivation exists' safety direction (proof-carrying authorization, Garg 2007), carried to the Aeneas-translated deployed checker -- vs ACP's offline TLA+ model-check and IBCT's empirical 600-attack testing.",
-  "open": [
-   "TOTALITY (always-accepts): the Lam-wrapper Aeneas monadic reduction -- a deferred mechanical Aeneas.step discharge; admit_infer_var0 proves the substantive lookup",
-   "admit()<->type-checker Lean equivalence: relate the signed cap atom to the Deriv's cap prop (future metatheory); currently joined at the entry point, not one theorem"
-  ]
- }
+  "_comment": "Single source of truth for headline-theorem statuses. scripts/ledger.sh VALIDATES every entry: a status of proven or proven_fragment requires (a) no sorry in the file, (b) the declared witness module to build, (c) the axiom snapshot to match. Docs (README/RELEASES/paper/draft-ietf) may not claim more than this file says — scripts/check-claims.sh enforces. Status vocabulary: proven | proven_fragment | stated | open | vacuous.",
+  "T1_decidability": {
+    "status": "proven_fragment",
+    "fragment": "propositional (PropDeriv: 22 constructors, additive contexts, no linear splitting)",
+    "file": "DLC/Decidability.lean",
+    "theorems": [
+      "t1_propositional_soundness",
+      "t1_propositional_completeness",
+      "t1_propositional_decidability"
+    ],
+    "witness": "DLC/Witness/T1.lean",
+    "open": [
+      "full-calculus decidability (linear context splitting, modal/temporal/IFC constructors)",
+      "complexity bound O(|M| · log |Γ|) — unproven in any form, for any fragment"
+    ]
+  },
+  "T2_correspondence": {
+    "status": "stated",
+    "file": "DLC/Correspondence.lean",
+    "proven_content": "t2_propositional_correspondence — axiom-free symbolic characterization: crypto typing ⇔ logical typing ∧ allSigsVerify. Definitional-refinement strength (Aura 2008 class); NOT a cryptographic soundness theorem.",
+    "witness": "DLC/Witness/AxiomAudit.lean",
+    "history": "the former axiom Sig_EUF_CMA_propositional was refutable in-system (theory proved False); deleted 2026-07, refutation machine-checked in the witness",
+    "open": [
+      "attacker-based T2: verifier acceptance ⇒ derivation from uncompromised principals, vs explicit Dolev-Yao adversary with key compromise",
+      "wire-encoding injectivity for the real CBOR codec inside the theorem",
+      "EUF-CMA reduction (EasyCrypt/SSProve) — collaborator-gated"
+    ]
+  },
+  "T3_noninterference": {
+    "status": "proven_fragment",
+    "file": "DLC/NonInterference.lean",
+    "proven_content": "FUNDAMENTAL LEMMA proven (DLC/NonInterferenceFundamental.lean, fundamental): every core PropDeriv derivation maps LRel-related closed environments to LRel-related instances, over the redesigned relation LRel (DLC/NonInterferenceLR.lean) and congruent reduction. Corollary t3_two_run_general: an observable-typed core computation cannot distinguish two ARBITRARY closed instantiations of a high-labeled hypothesis — genuine two-run non-interference, the first mechanized NI for a says-logic in Lean. lrel_self gives reflexivity-on-well-typed (which the PER refused for free). Witness DLC/Witness/T3.lean: an ELIMINATION (fst) at an observable atom type concludes Joinable (non-vacuous), typing load-bearing. Ladder rungs 1,2,3a,3b-0,3b,3c all in spec/t3-two-run-design-2026-07.md.",
+    "witness": "DLC/Witness/T3.lean",
+    "open": [
+      "extend from PropDeriv (propositional fragment) to the full Deriv judgment with linear context splitting",
+      "declassify remains excluded by design (NI modulo declassification is the correct statement; unrestricted declassify falsifies NI)"
+    ],
+    "fragment": "propositional computational core (PropDeriv minus the frozen eliminations verify/attenuate/declassify/discharge; NI modulo declassification)"
+  },
+  "T4_obligation": {
+    "status": "proven_fragment",
+    "fragment": "non-introduction only (t4_no_new_obligation): reduction never invents an obligation absent from the redex. The full multiset accounting obligations(M') = obligations(M) - discharged + introduced is NOT proven; this is one inequality of it.",
+    "file": "DLC/ObligationSoundness.lean",
+    "theorems": [
+      "t4_no_new_obligation",
+      "pendingObligations_ne_nil"
+    ],
+    "witness": "DLC/Witness/T4.lean",
+    "proven_content": "NO LONGER VACUOUS as of the R0-R5 ladder (spec/t4-obligation-design-2026-07.md). Previously pendingObligations was provably the constant [] (pendingObligations_eq_nil), so the ~180-line induction quantified over an empty list. R1-R3 added Term.boxed, the obligation-carrying introduction form -- Deriv.boxI had concluded at Term.app, so obligations never inhabited syntax. R4 added discharge-beta, a redex that DESTROYS a box. R5 gave pendingObligations its base case, so a box contributes its own obligation. pendingObligations_eq_nil is now FALSE and deleted; pendingObligations_ne_nil refutes it. Witness DLC/Witness/T4.lean exhibits a term with obligation list [Ow] (impossible before this ladder), a discharge-beta step that REMOVES it, and T4 applied to that concrete step -- so the theorem is exercised on a rule that can fire and a list that can be non-empty.",
+    "history": "the deleted pendingObligations_eq_nil pre-registered its own refutation: 'When Phase 2 adds an obligation-carrying constructor, this lemma MUST break -- its deletion is the signal that T4 has acquired content.'",
+    "open": [
+      "multiset accounting: obligations(M') = obligations(M) - discharged + introduced (only the non-introduction inequality is proven)",
+      "label-ledger fusion: discharging an obligation cannot leak below its label",
+      "decideLean is FAIL-CLOSED on Term.boxed: decide.rs ignores obligation evidence while Deriv.boxI requires dN : Deriv Ctx.empty N (atom 0), so a faithful Lean arm must be STRICTER than the Rust. Unresolved -- the discharge arm already carries the same asymmetry",
+      "full-Deriv (non-propositional) content of discharge-beta"
+    ]
+  },
+  "protocol_correspondence": {
+    "status": "stated",
+    "file": "DLC/ProtocolCorrespondence.lean",
+    "proven_content": "l2_5_trace_lifting — restricted to the singleton [Says P φ] trace shape (the only shape liftToDeriv covers).",
+    "open": [
+      "total liftToDeriv over all Tamarin-model trace shapes with TraceWellFormed load-bearing",
+      "L2.3 wire round-trip + injectivity about the real CBOR encoder (former identity-serializer witness deleted 2026-07)"
+    ]
+  },
+  "substitution_lemma": {
+    "status": "open",
+    "file": "DLC/Subst.lean",
+    "proven_content": "substAt_substAt — THE composition law substAt (substAt M N j) P k = substAt (substAt M P (k+1)) (substAt N P (k-j)) j for j ≤ k, over the full 22-constructor Term, with supporting shift_shift_merge / shift_substAt_commute / substAt_shift_cancel (T3 rung 3a; unblocks the fundamental lemma's imp-I case). Typed substitution preservation for PropDeriv lives in DLC/Decidability.lean.",
+    "open": [
+      "substitution preservation for the full Deriv judgment (linear cases)"
+    ]
+  },
+  "subject_reduction": {
+    "status": "proven_fragment",
+    "fragment": "propositional (PropDeriv), INCLUDING the 2026-07 congruence (ξ) rules",
+    "file": "DLC/Decidability.lean",
+    "theorems": [
+      "propositional subject reduction via preservation lemmas"
+    ],
+    "witness": "DLC/Witness/T1.lean",
+    "open": [
+      "subject reduction for the full Deriv judgment"
+    ]
+  },
+  "progress": {
+    "status": "proven_fragment",
+    "fragment": "closed computational core (no frozen eliminations: verify/attenuate/declassify/discharge)",
+    "file": "DLC/Progress.lean",
+    "theorems": [
+      "progress"
+    ],
+    "witness": "DLC/Progress.lean",
+    "note": "FALSE before 2026-07: step was head-redex-only, so nested eliminations were stuck (spec/t3-two-run-design-2026-07.md FINDING). The congruence rules make it provable; this theorem is rung 3b-0's witness.",
+    "open": [
+      "progress for the full Deriv judgment / frozen forms are verifier-checked by design"
+    ]
+  },
+  "linear_lever_L1": {
+    "status": "proven_fragment",
+    "fragment": "L1 disambiguation: varL restricted to var(additive.length); CtxWellFormed holds by construction; ctxLookup agrees with the var rules and matches decide.rs on the additive + empty-additive-linear domains",
+    "file": "DLC/CtxWellFormed.lean",
+    "witness": "DLC/Witness/L1.lean",
+    "theorems": [
+      "CtxWellFormed_all",
+      "ctxLookup_agrees",
+      "ctxLookup_sound",
+      "ctxLookup_eq_checker_additive",
+      "linearSplitRoutes_holds",
+      "linearSplitRoutes_old_form_refuted"
+    ],
+    "finding": "ctxLookup_ne_checker_witness (machine-checked): disambiguated Deriv is STRICTLY MORE EXPRESSIVE than decide.rs — the shipped checker refuses a linear var under a nonempty additive context (consults linear only at index 0, shadowed by additive[0]). The checker is INCOMPLETE w.r.t. Deriv here, not unsound. Closing it is a decide.rs change, separate item. | L2 FINDING (2026-07-20): the deferred LinearSplitRoutes Prop was FALSE as stated, not merely unproven. It lacked the additive-miss hypothesis (ctxLookup consults additive first, so an additive hit leaves the linear halves unconstrained) AND mis-scoped the index claim by precedence (i = len ∧ A ∨ B parses as (i = len ∧ A) ∨ B). Its docstring had correctly certified it was not a sorry and not a tautology -- neither of which implies truth. Corrected, proven as linearSplitRoutes_holds, and the old form kept refuted as linearSplitRoutes_old_form_refuted.",
+    "open": [
+      "L3 additive substitution preservation over full Deriv (the easier half; reuses the PropDeriv induction shape)",
+      "L4 linear substitution preservation (the substructural core; needs L1+L2, multi-week)",
+      "L5 subject reduction over full Deriv, then T3-full / T1-full / progress-full",
+      "decide.rs completeness fix for nonempty-additive linear vars (separate, checker-side)"
+    ]
+  },
+  "_dlcd_comment": "DLC-D (distributed) headline guarantees. Each is a top-level, machine-checked DLCD.* theorem re-exported by DLCD/Summary.lean and axiom-snapshotted in lean/expected-axioms/dlcd-*.txt (all within [propext, Classical.choice, Quot.sound]). status=proven means the theorem is fully proved AS STATED about the DLC-D model; the notes record the SCOPE FENCES (what the model does and does not cover). The joint non-vacuity witness is DLCD/Witness.lean's SliceWitness.dlc_d_slice_witness — one inhabited bundle on a single real 2-replica execution simultaneously satisfying G1-G4.",
+  "DLCD_capability_safety": {
+    "status": "proven",
+    "file": "DLCD/CapSafety.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "capability_safety (G1, authority): every command in a WellFormedLog carries a genuine Deriv (issuer says writeCap) credential — authority enforced by construction, not audited after the fact.",
+    "note": "SCOPE FENCES: (1) model, not runtime — a guarantee about the Lean model, not dlc-verifier's Rust at run time; (2) saysI-on-CDeriv — the CARVe-migrated CDeriv judgment does not yet carry the signed says credential the capability layer uses.",
+    "open": [
+      "carry the signed says credential on CDeriv so the capability layer runs on the migrated judgment"
+    ]
+  },
+  "DLCD_capability_safety_by_inversion": {
+    "status": "proven",
+    "file": "DLCD/CapSafety.lean",
+    "witness": "DLCD/CapSafety.lean",
+    "proven_content": "capability_safety_by_inversion (G1, authority, TYPING-NATIVE twin of capability_safety): from the TYPE of a commit-I-typed Term.command M c l (DLC.Deriv.commitI), recover a genuine says-credential derivation for its credential subterm c. Authorization is EXTRACTED by inverting the command's own typing (a generation/inversion lemma, TAPL 13.5), not audited out-of-band. The generation lemma command_typing_inversion is proved by induction on the derivation over a generalized subject: the ~26 rigid-headed rules are discharged by Term.noConfusion, withinE by a type-shape contradiction from the IH (within != replicated), weakenA genuinely by re-applying weakening to the recovered premises. Bridges to the audited Authorized: authorized_of_command_typing (typing -> Authorized, credential TERM is the witness) and authorized_of_commandRealizes (CommandRealizes -> Authorized) proved clean; the realization builder commandRealizes_of_premises (credential + transformer in a shared linear-free context -> CommandRealizes) proved clean. Anti-vacuity: CapSafetyByInversionAntiVacuity builds a concrete commit-I-typed command from the real signed credential saysWitness + an identity transformer, and recovers its credential by inversion.",
+    "note": "SCOPE FENCES: (1) model, not runtime. (2) FENCED BRIDGE DIRECTION: the FULL converse Authorized rc issuer -> exists a realizing commit-I-typeable command does NOT close cleanly and is NOT claimed — Authorized's credential derivation lives in an ARBITRARY context (its linear part may be non-empty) whereas commit-I demands a shared linear-free context, AND Authorized carries no store transformer M : phi => phi (commit-I's second premise), neither synthesizable from the credential alone (the cap-prop <-> cred-term / representation gap). The converse is closed exactly when those two data are supplied (commandRealizes_of_premises). (3) issuer/capProp are recovered EXISTENTIALLY (commit-I's conclusion Replicated (phi=>phi) l omits them), matching the exists-issuer shape of capability_safety. Governed capability_safety (the audited WellFormedLog metatheorem) is UNCHANGED, byte-identical; this entry is the additive typing-native re-founding underneath it.",
+    "open": [
+      "close the full Authorized -> CommandRealizes converse (needs a canonical store-transformer choice + a linear-free-context normalization of the credential derivation)"
+    ]
+  },
+  "DLCD_capability_safety_linear": {
+    "status": "proven",
+    "file": "DLCD/CapSafetyLinear.lean",
+    "witness": "DLCD/CapSafetyLinear.lean",
+    "proven_content": "capability_safety_linear (G1, authority, LINEAR layer): every command in a WellFormedLogL carries a genuine CDerivS (issuer says capProp) linear signed credential — the CARVe/CDeriv-native twin of capability_safety.",
+    "note": "CDerivS is a SEAL over CDeriv (embed + saysI), NOT a CDeriv constructor: adding saysI to CDeriv breaks cderiv_subject_reduction' by a modality mismatch (saysE keeps the says modality while step strips it, consistent only while says is uninhabited). CDeriv is left untouched. SCOPE FENCES: model, not runtime; the additive (Deriv) <-> linear (CDerivS) functorial credential bridge is deferred (needs the open L4 Deriv->CARVe migration).",
+    "open": [
+      "prove the Deriv -> CDerivS credential embedding (blocked on full Deriv->CARVe L4 substitution migration)"
+    ]
+  },
+  "DLCD_byz_agreement": {
+    "status": "proven",
+    "file": "DLCD/ByzantineConsensus.lean",
+    "witness": "DLCD/ByzantineConsensus.lean",
+    "proven_content": "byz_agreement (fault-model extension): single-decree agreement under <= f BYZANTINE faults with n >= 3f+1 — a >2n/3 Byzantine quorum plus the honest-intersection lemma (any two Byzantine quorums share a non-faulty replica) forces at most one certified value. Consensus.lean (crash-fault) untouched.",
+    "note": "ByzDecided constrains only HONEST quorum members (Byzantine members equivocate, unconstrained) — the faithful Byzantine-quorum model, which is what makes the honest-intersection (the r-not-in-B) load-bearing. Right-reason bite: a crash-majority (2*card>n) quorum FAILS under Byzantine faults (two majorities can intersect only in the faulty node). SCOPE FENCES: single-decree SAFETY only.",
+    "open": [
+      "Byzantine LIVENESS (view-change / leader-election / partial-synchrony) and the multi-decree Byzantine lift — SOTA path: Bythos (CCS'24), TetraBFT (PODC'24)"
+    ]
+  },
+  "DLCD_budgeted_guarantee_voids_over_budget": {
+    "status": "proven",
+    "file": "DLCD/FaultGrade.lean",
+    "witness": "DLCD/FaultGrade.lean",
+    "proven_content": "budgeted_guarantee_voids_over_budget (R1 stageE-E1, the TYPE-LEVEL FAILURE-BUDGET CONTRACT via a graded comonad over the guarantee, design option c'): FaultGrade := Nat is the distilled 1-D consumable crash-fault grade (zero/saturatingAdd/le; grade laws identity+associativity+monotone, associativity DERIVED from Graded.lean's DLC.dp_budget_saturating_add_assoc through the toDpBudget monoid embedding = the delta=0 projection of Graded<DpBudget>). BudgetedGuarantee f b G : Prop delivers the raw guarantee G at grade b under the tolerated bound f, with charged : b <= f the graded counit's availability side and a counit extract : BudgetedGuarantee f b G -> G. THE HEADLINE: at the over-budget grade f (+) 1 the type is GENUINELY UNINHABITED for EVERY payload G (its charged field f+1 <= f is empty) — crossing the fault budget makes the guarantee TYPE void, not a Prop you merely fail to supply. This is the graded-comonad counit's unavailability off-budget (RBTT/Granule), NOT a Prop'/CDeriv term modality (options a/b, rejected as vacuous) and NOT a CARVe resource dimension: the calculus is untouched (no Prop'/CDeriv constructor, no redex, no LRel clause), so SR/NI/progress and the 49 axiom snapshots are byte-identical. Bridge (additive, FailureBudget unmodified): FailureBudget.toFaultGrade := consumed (the grade); FailureBudget.threshold := consumed <= maxFaults (the mislabeled FailureBudget.le clarified as the THRESHOLD guard, not the grade preorder — Atkey LICS'18 keeps them apart); withinContract_iff : withinContract = true <-> threshold /\\ fairDelivery; budgetedGuarantee_of_withinContract feeds a within-contract runtime budget into the graded guarantee's charged field. Anti-vacuity: (in-budget) budgeted_converge : BudgetedGuarantee 1 0 (r1.store = pair(var0,var0) /\\ r1.store != init) on the real RsmAntiVacuity 2-replica run whose extract FIRES and yields the genuinely CHANGED converged store (a non-trivial Prop, not True); (over-budget) over_budget_refutation : NOT BudgetedGuarantee 0 1 ConvergedPayload — the concrete f=0,b=1 void is REAL (not vacuously true the other way). budgeted_guarantee_voids_over_budget is axiom-free (does not depend on any axioms).",
+    "note": "SCOPE FENCES: (1) model, not runtime — a guarantee about the Lean model, not dlc-verifier's Rust. (2) PURELY ADDITIVE E1: touches only the new DLCD/FaultGrade.lean + governance + Summary re-export; NO existing guarantee/theorem is modified; Rsm.FailureBudget (withinContract/le/zero/saturatingAdd) is BYTE-IDENTICAL (the bridge toFaultGrade/threshold is an additive appendage in the same namespace, in FaultGrade.lean). (3) The 2 liveness re-foundings (command_eventually_written(_weakfair) delivered AT a grade, originals kept as extract corollaries) are the SEPARATE E2 increment — not this one. (4) 1-D grade with fairness kept SEPARATE (design ruling; the 2-D (faults,fairness) alternative was declined). (5) Aeneas untouched: FailureBudget/FaultGrade have no dlc-core Rust mirror (graded.rs mirrors DpBudget only); a Rust FaultGrade mirror is DEFERRED (model-side grade).",
+    "open": [
+      "optional Rust FaultGrade mirror in dlc-core (deferred; the grade is model-side and has no operational event charging it in dlc-core)"
+    ]
+  },
+  "DLCD_command_eventually_written_budgeted": {
+    "status": "proven",
+    "file": "DLCD/Liveness.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "command_eventually_written_budgeted (R1 stageE-E2, the REAL liveness guarantee PACKAGED behind the fault-threshold): an ADDITIVE graded wrapper delivering the Phase-1.2c liveness metatheorem command_eventually_written's EXACT conclusion ((exists k, Decided (run k) c) AND (exists m, applied = i+1 AND store = applyCommand c (applyPrefix init (log.take i)) AND AppliedPrefix ...)) AT a fault grade as BudgetedGuarantee budget.maxFaults budget.consumed G. The original's withinContract = true hypothesis is SPLIT (via FailureBudget.withinContract_iff) into the THRESHOLD budget.consumed <= budget.maxFaults (the graded counit's availability side = the charged field, Atkey LICS'18 keeps threshold separate from the grade preorder) and FAIR DELIVERY budget.fairDelivery = true (the qualitative liveness premise). Over budget (consumed > maxFaults) the charged field consumed <= maxFaults is uninhabitable, so the whole BudgetedGuarantee type is EMPTY for the real liveness G — the eventual-decision guarantee is type-level-unavailable off-budget (the E1 headline budgeted_guarantee_voids_over_budget instantiated on the actual liveness payload). The ENGINE is the ORIGINAL command_eventually_written applied VERBATIM (byte-identical, not re-proved or weakened) after withinContract_iff re-assembles its withinContract premise from the split parts. command_eventually_written_budgeted_extract confirms the counit BudgetedGuarantee.extract recovers G_T exactly (the graded form loses nothing within budget). Boundary witness (DLCD/Witness.lean, on the real 2-replica run at budget = FailureBudget.zero 1, maxFaults=1/consumed=0): write_live_budgeted : BudgetedGuarantee 1 0 (write_live's conclusion) FIRES at grade 0 <= 1, write_live_budgeted_fires recovers write_live verbatim by extract, and write_live_over_budget_void : NOT BudgetedGuarantee 1 2 (write_live's conclusion) instantiates the void on the concrete liveness payload. Non-vacuous both ways.",
+    "note": "SCOPE FENCES: (1) model, not runtime — a guarantee about the Lean model, not dlc-verifier's Rust. (2) PURELY ADDITIVE E2: the original command_eventually_written statement AND proof are BYTE-IDENTICAL (git-diff shows only appended graded wrappers; 0 lines removed from its body); the wrapper only re-packages the conclusion. No core DLC calculus, Rsm.lean def, or other guarantee is modified; Rsm.FailureBudget is byte-identical. (3) The charged field genuinely gates on consumed <= maxFaults (unconstructible over budget), not a True/renamed hypothesis. (4) fairDelivery kept SEPARATE from the grade (design ruling; the FLP-forced fairness premise stays qualitative). (5) Aeneas untouched: no dlc-core Rust change.",
+    "open": []
+  },
+  "DLCD_command_eventually_written_weakfair_budgeted": {
+    "status": "proven",
+    "file": "DLCD/Termination.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "command_eventually_written_weakfair_budgeted (R1 stageE-E2, the WeakFair-founded twin): the same graded packaging over command_eventually_written_weakfair (Phase-2.a, the WeakFair + MonotoneVotes route with no raw per-step rank-decrease assumption). Delivers the eventual-decision-and-application guarantee AT a grade as BudgetedGuarantee budget.maxFaults budget.consumed G, splitting withinContract = true into threshold (the charged field) and fair delivery (which unlocks WeakFair) via FailureBudget.withinContract_iff. The consensus engine weakfair_terminates and the top-level original command_eventually_written_weakfair are UNTOUCHED / applied verbatim. command_eventually_written_weakfair_budgeted_extract recovers G_T exactly. Boundary witness (DLCD/Witness.lean): write_live_weakfair_budgeted : BudgetedGuarantee 1 0 (write_live's conclusion) on the real run, with run_weakfair (WeakFair vacuously — all replicas already voted) and run_monotone (MonotoneVotes, constant run); the shared over-budget void write_live_over_budget_void : NOT BudgetedGuarantee 1 2 G applies. Over budget the weak-fair liveness guarantee TYPE is uninhabited. Non-vacuous.",
+    "note": "SCOPE FENCES: (1) model, not runtime. (2) PURELY ADDITIVE E2: the original command_eventually_written_weakfair statement AND proof are BYTE-IDENTICAL (git-diff shows only appended graded wrappers; 0 lines removed); weakfair_terminates byte-identical. No core calculus / Rsm.lean def / other guarantee modified. (3) charged field gates on consumed <= maxFaults, unconstructible over budget — not True/renamed. (4) fairDelivery kept separate from the grade. (5) Aeneas untouched.",
+    "open": []
+  },
+  "DLCD_log_noninterference": {
+    "status": "proven",
+    "file": "DLCD/LabelFlow.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "log_noninterference (G1, semantic confidentiality): a labelled log's low-observable projection is independent of its high inputs.",
+    "note": "SCOPE FENCE: model, not runtime.",
+    "open": []
+  },
+  "DLCD_distributed_noninterference": {
+    "status": "proven",
+    "file": "DLCD/DistributedNI.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "distributed_noninterference (G1, typed confidentiality across replicas): reuses DLC's fundamental-lemma non-interference (DLC.t3_two_run_general).",
+    "note": "SCOPE FENCES: (1) model, not runtime; (2) confidentiality strength INHERITS T3_noninterference's propositional-core fragment scope (it consumes DLC.t3_two_run_general, which is proven_fragment over the propositional computational core, NI modulo declassification).",
+    "open": [
+      "inherits T3's open items: extend from PropDeriv to the full Deriv judgment with linear context splitting"
+    ]
+  },
+  "DLCD_wellTypedLog_implies_htyped": {
+    "status": "proven",
+    "file": "DLCD/TypedLog.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "wellTypedLog_implies_htyped (G1): a well-typed committed log discharges the host-typing premise that distributed_noninterference consumes, so the typed guarantee actually fires on real logs. worldStep_preserves_low_typed removes the raw htyped assumption via a WellTypedLog admission gate.",
+    "note": "SCOPE FENCE: model, not runtime; the admission gate is a modelled well-typedness check, not a running validator.",
+    "open": []
+  },
+  "DLCD_wellTypedCmd_of_command_typing": {
+    "status": "proven",
+    "file": "DLCD/TypedLog.lean",
+    "witness": "DLCD/TypedLog.lean",
+    "proven_content": "wellTypedCmd_of_command_typing (G1, TYPING-NATIVE re-founding of the 2.h typed-log invariant onto commit-I): from the TYPE of a commit-I-typed Term.command M c l (DLC.Deriv.commitI), recover that the payload M is a phi=>phi store-transformer and that the wrapper <M, some (issuer says capProp)> satisfies WellTypedCmd phi. The payload-type obligation WellTypedCmd demands IS commit-I's second (transformer) premise, extracted by inverting the command's own typing (command_typing_inversion, inc4a) rather than assumed as a separate predicate. The clean converse builder commandTyped_of_wellTypedCmd_premises shows the SAME PropDeriv transformer obligation a well-typed command carries builds commit-I's transformer premise (via propDeriv_to_deriv) and heads a commit-I-typeable command. The log bridge wellTypedLog_of_forall folds a log of WellTypedCmd entries into WellTypedLog, so a log of commit-I-typed commands discharges 2.d's htyped via wellTypedLog_implies_htyped. Anti-vacuity: CommitITypedLogWitness builds a concrete empty-context commit-I derivation (identity transformer guarded by a closed signed now-credential issuer says top), inverts its TYPE to a real WellTypedCmd, and closes the full chain commit-I typing -> WellTypedCmd -> WellTypedLog -> htyped on [wrapper].",
+    "note": "SCOPE FENCES: (1) model, not runtime. (2) FENCED FRAGMENT WITNESS: WellTypedCmd's payload obligation is a PropDeriv [] M (phi=>phi) (the propositional fragment, DLC.Decidability) whereas commit-I's transformer premise is a full Deriv [] M (phi=>phi). The embedding propDeriv_to_deriv : PropDeriv -> Deriv is ONE-DIRECTIONAL (Deriv has weakenA/varL/commitI/... with no PropDeriv image), so wellTypedCmd_of_command_typing takes the fragment witness dMfrag as a SUPPLIED input rather than converting it down from the inverted Deriv premise; the builder direction (commandTyped_of_wellTypedCmd_premises) needs no fence since PropDeriv -> Deriv is total. This mirrors inc4a's fenced converse (Authorized -> CommandRealizes needs data commit-I does not supply). (3) issuer/capProp are recovered EXISTENTIALLY (commit-I's conclusion Replicated (phi=>phi) l omits them). Governed wellTypedLog_implies_htyped / worldStep_preserves_low_typed (the 2.h admission gate) are UNCHANGED, byte-identical; this entry is the additive typing-native re-founding of their WellTypedCmd premise.",
+    "open": [
+      "convert a core empty-linear-context Deriv M : phi=>phi down to the PropDeriv fragment so wellTypedCmd_of_command_typing needs no supplied fragment witness"
+    ]
+  },
+  "DLCD_single_linearization": {
+    "status": "proven",
+    "file": "DLCD/Linearizable.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "single_linearization (G2): all replicas' observed stores are samples of ONE sequential trajectory seqTrajectory init log at their own applied index — a single linearization order respected by all.",
+    "note": "SCOPE FENCES: (1) model, not runtime; (2) store-type change — the committed store is a fixed Term; a richer store type is future work.",
+    "open": [
+      "generalize the linearization result to a richer store type than the fixed Term"
+    ]
+  },
+  "DLCD_weakfair_terminates": {
+    "status": "proven",
+    "file": "DLCD/Termination.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "weakfair_terminates (G3, single-decree progress): under weak fairness a single decree is eventually decided.",
+    "note": "SCOPE FENCES: (1) model, not runtime; (2) live-scheduling — the weak-fairness/delivery schedule feeding liveness is modelled, not tied to a running scheduler; (3) leader election — quorums are given, not elected. Uses Classical.choice (fair-schedule extraction).",
+    "open": [
+      "tie the modelled fairness schedule to a running scheduler / FailureBudget closure"
+    ]
+  },
+  "DLCD_log_grows_unbounded": {
+    "status": "proven",
+    "file": "DLCD/MultiDecreeLiveness.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "log_grows_unbounded (G3, multi-decree liveness): under a fair slot schedule the multi-decree committed log grows without bound.",
+    "note": "SCOPE FENCES: (1) model, not runtime; (2) live-scheduling — the fair slot schedule is modelled, not tied to a running scheduler. Uses Classical.choice.",
+    "open": [
+      "tie the modelled fair slot schedule to a running scheduler / FailureBudget closure"
+    ]
+  },
+  "DLCD_replicas_converge_via_consensus": {
+    "status": "proven",
+    "file": "DLCD/Consensus.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "replicas_converge_via_consensus (G4, coordination-based convergence): replicas that deliver a quorum-Decided value reach EQUAL stores.",
+    "note": "SCOPE FENCES: (1) model, not runtime; (2) leader election — quorums are given, not elected. Uses Classical.choice.",
+    "open": [
+      "leader election: derive the quorum rather than assuming it"
+    ]
+  },
+  "DLCD_coordination_free_convergence": {
+    "status": "proven",
+    "file": "DLCD/Calm.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "Calm.coordination_free_convergence (G4, CALM route): monotone/commutative updates converge with NO coordination (robust to reordering AND duplication).",
+    "note": "SCOPE FENCE: model, not runtime.",
+    "open": []
+  },
+  "DLCD_log_agreement_eq": {
+    "status": "proven",
+    "file": "DLCD/MultiDecree.lean",
+    "witness": "DLCD/Witness.lean",
+    "proven_content": "log_agreement_eq (G4, multi-decree safety/agreement): two logs agreeing on the per-slot ballots are equal.",
+    "note": "SCOPE FENCE: model, not runtime. Uses Classical.choice.",
+    "open": []
+  },
+  "DLCD_slice_witness": {
+    "status": "proven",
+    "file": "DLCD/Witness.lean",
+    "witness": "DLCD/Summary.lean",
+    "proven_content": "SliceWitness.dlc_d_slice_witness (the seal, a def): one inhabited SliceWitnessBundle on a single real 2-replica execution that is simultaneously capability-authorized, consensus-committed, converging, linearizable, and live — THE demonstration that G1-G4 are jointly satisfiable, not vacuously true. Its existence is the non-vacuity witness the other DLCD entries point at; DLCD/Summary.lean re-exports it under a name-drift tripwire.",
+    "note": "SCOPE FENCES (inherited, joint): model not runtime; store-type change; live-scheduling; saysI-on-CDeriv; leader election; surface syntax (examples in abstract syntax, not the concrete surface language). def-shaped seal: an inhabited bundle IS a proof of joint satisfiability.",
+    "open": []
+  },
+  "DLCD_R2_correspondence": {
+    "status": "stated",
+    "file": "DLCD/Correspondence.lean",
+    "witness": "DLCD/Correspondence.lean",
+    "proven_content": "R2.2b + R2.3 + R2.3d: runtime-correspondence CORE, with the two reducer obligations DISCHARGED (proven theorems, partial-correctness). (1) The one-directional decode from the Aeneas-generated dlc_core.rsm state (real defs: apply_command / reduce_with_fuel / deliver / world_step / commit) into the hand DLCD.Rsm model. (2) reduce_with_fuel_corr (R2.3c) — the partial-correctness fuel-loop leaf: on a CLOSED payload, IF reduce_with_fuel returns ok (t',k) then t' decodes to the hand DLC.reduceWithFuel final term; value-correctness rides on CLOSEDNESS alone (heightB fence dropped). (3) AppCommandRefines_holds (R2.3d) — the per-command reducer correspondence, now a PROVEN THEOREM (no longer a def:Prop): closed store + closed payload + apply_command c s = ok t' → decTermC t' = DLCD.applyCommand (decCmd c) (decTermC s), via reduce_with_fuel_corr + the decode homomorphism decTermC(App a b)=app. (4) ApplyPreservesWS_holds (R2.3d) — the fold-threading fact, also a PROVEN THEOREM: apply_command preserves CLOSEDNESS (closed in → ok → closed out), via reduceWithFuel_preserves_closed (iterated step_preserves_closed). Both discharge theorems footprint [propext, Classical.choice, Quot.sound], pinned in expected-axioms. (5) appCommandRefines_witness / applyPreservesWS_witness: the CLOSED anti-vacuity witnesses inhabiting the partial-correctness obligations on the state-changing dup input — the conditioned ok-premise is SATISFIABLE (apply_command dup (now 0) = ok ⟨now 0,now 0⟩, machine-computed, no native_decide), the conclusion holds, and the transition changes state (≠ now 0). (6) termClone_id — the AST-WIDE CLONE-IDENTITY LINCHPIN (unchanged, pinned). (7) THE SIX SQUARES: the three REDUCER-ROUTED squares deliver_square / world_step_square (HEADLINE) / apply_prefix_square are now PARTIAL-CORRECTNESS (unconditional-modulo-ok): CONDITIONED on the generated RSM op returning ok (e.g. world_step g = ok g' → decGC g' = DLCD.worldStep (decGC g)), carrying NO hcmd/hpres hypothesis — they route every apply_command step through the PROVEN AppCommandRefines_holds and thread closedness via ApplyPreservesWS_holds; the loop specs invert the generated ok (the reduce_loop_spec inversion idiom). The three TOTAL squares commit_square + is_quorum_square + decided_square (DLCD/CorrespondenceConsensus.lean) are unchanged (pure/never-fail). The fence is CLOSEDNESS (ClosedTm); the heightB half of WellScopedTm is unnecessary (only load-bearing for the false no-fail claim) and not preserved by β regardless. All footprints EXACTLY [propext, Classical.choice, Quot.sound].",
+    "note": "SCOPE FENCE: the two reducer obligations are now PROVEN theorems (AppCommandRefines_holds, ApplyPreservesWS_holds) in PARTIAL-CORRECTNESS form — the value-refinement is CONDITIONED on the bounded reducer returning ok, and unconditional no-fail is explicitly NOT claimed (it is FALSE: β at-most-doubles binder depth per step, so an adversarial ≥2³¹-node closed payload overflows the U32 depth counter and reduce_with_fuel genuinely .fails — spec/r2-inc3c-fuelloop-analysis.md; no machine-checkable counterexample is buildable, the witness term has ≥2³² nodes). The three reducer-routed squares inherit the same conditioning (unconditional-modulo-ok). The transport therefore holds FOR EXECUTIONS IN WHICH THE BOUNDED REDUCER DOES NOT OVERFLOW (returns ok) — a class the anti-vacuity witnesses inhabit on the real dup store-transformer. STILL NO claim that the Rust core satisfies G1-G4 — that awaits R2.4 pulling G1-G4 back through world_step_square. Model/generated correspondence, not a runtime guarantee.",
+    "open": [
+      "OPTIONAL (fix iii, unconditional no-fail): restrict payloads to a typed class (CDeriv ⊢ payload : φ⊃φ) — substructural typing forbids the duplication that drives depth-explosion, recovering strong = ok on that class; large increment, layers on top of the partial-correctness form"
+    ]
+  },
+  "DLCD_R2_transport": {
+    "status": "proven",
+    "file": "DLCD/Transport.lean",
+    "witness": "DLCD/Transport.lean + DLCD/TransportConsensus.lean",
+    "proven_content": "R2.4a/b: the guarantee TRANSPORT — pulling the RSM guarantees back to the deployed Rust runtime (crates/dlc-core, Aeneas-translated) via the R2.3 partial-correctness squares. Each rust_* corollary is CONDITIONED on the generated RSM op returning ok and routes through a real square; all footprints [propext, Classical.choice, Quot.sound], pinned in expected-axioms. rust_world_step_correct (HEADLINE: world_step g = ok g' -> decGC g' = DLCD.worldStep (decGC g)); G2 rust_store_is_seqSpec / rust_single_linearization; G3 rust_deliver_correct; G4 rust_replicas_converge (convergence/CALM runtime content); capability-safety rust_capability_safety; consensus agreement rust_consensus_agreement (DLCD/TransportConsensus.lean, dlc_d_rsm-tree module, via decided_square + list-form quorum intersection) AND BYZANTINE agreement rust_byz_agreement (2026-07-24; via byz_decided_square + is_byz_quorum_square, threshold 3*card > 2n, list-form quorum intersection where one-vote-per-position is structural so the honest set is not threaded — the runtime image of DLCD.ByzantineConsensus.byz_agreement; byz_decided_witness inhabits the ok premise); G1 noninterference rust_worldStep_preserves_high (2-run: LowEquivG inputs -> LowEquivG outputs). Non-vacuous: the anti-vacuity witnesses inhabit the ok-conditioned premises on the real dup store-transformer.",
+    "note": "SCOPE (three honest conditions, kept prominent): (1) PARTIAL-CORRECTNESS -- every rust_* corollary is conditioned on the bounded reducer returning ok; unconditional no-fail is NOT claimed and is false (an adversarial >=2^31-node closed payload overflows the U32 binder-depth counter; physically unrealizable, no buildable counterexample -- spec/r2-inc3c-fuelloop-analysis.md). (2) G1 NONINTERFERENCE transports as PRESERVATION of the DECODED TYPED MODEL's noninterference (store type + observer as external typing parameters), NOT a claim that the runtime's own label bytes enforce IFC -- a faithful label decode is impossible (hand DLC.Label = CapabilityLattice 3^13 finite vs ifc.Label = Vec U32 infinite; and the NI-relevant label is the store-TYPE label, absent from the executable GlobalConfig). (3) Fair-scheduling liveness and the abstract CALM semilattice metatheorem are MODEL-LEVEL (a fairness/oracle assumption and abstract order-algebra, no executable RSM op); their runtime cores are rust_deliver_correct / rust_replicas_converge. NO public README/paper runtime claim yet (author deferred external wording 2026-07-23; ledger-only).",
+    "open": [
+      "PUBLIC CLAIM deferred by author (2026-07-23): README/paper runtime-guarantee wording -- ledger-only for now",
+      "OPTIONAL (fix iii): typed-payload class (CDeriv |- payload : phi>phi) -> unconditional no-fail, removing the U32 caveat for well-typed commands; large increment layering on the partial-correctness form",
+      "rust_log_agreement (multi-slot Raft log-matching at the runtime surface) -- single-decree rust_consensus_agreement is the load-bearing core; multi-slot wrapper is extra scope"
+    ]
+  },
+  "DLC_joint_admission": {
+    "status": "proven",
+    "file": "DLC/AdmitFrag.lean",
+    "witness": "DLC/AdmitFrag.lean",
+    "theorems": [
+      "admit_joint",
+      "admitFrag_propFrag",
+      "admit_infer_var0",
+      "admitFrag_witness"
+    ],
+    "fragment": "AdmitFrag -- the identity store-transformer Lam(Atom c)(Var 0) the #[dlc_d::agent_service] macro emits (a subset of DecideSquare.PropFrag). FORWARD/SAFETY direction only: accept => typable.",
+    "proven_content": "admit_joint (JOINT ADMISSION SOUNDNESS, forward/safety, UNCONDITIONAL on the fragment): if the deployed checker admits an admission term (decide.infer emptyCtx t = ok (some inferred)) then Nonempty (DLC.Deriv (decCtx emptyCtx) (decTerm t) (decProp inferred)) -- a real commit-I derivation in the verified calculus. NO FALSE ADMITS: the deployed kernel never grants a tool invocation the calculus would not type. Composes admitFrag_propFrag (AdmitFrag subset PropFrag) with rust_infer_sound. admit_infer_var0 (#16) proves the substantive lookup totality (decide.infer E (Var 0) = ok (some (Atom c)) at additive [Atom c]). admitFrag_witness is the non-vacuity inhabitant (the macro's shape at a representative cap atom is in the fragment). Axioms EXACTLY [propext, Classical.choice, Quot.sound], pinned in expected-axioms/admit_joint.txt. Runtime PEP: crates/dlc-d/src/runtime.rs::admit (real Ed25519, ~19.5us/call measured, spec/joint-admission.md benchmark) joins the signature conjunct at the entry point; the dlc_d::admission facade maps it into a host reference monitor (spec/nucleus-admission-integration.md). TOTALITY CLOSED 2026-07-31 (Tier-A): admit_total proves decide.infer always returns ok(some(Imp(Atom c)(Atom c))) on the admission fragment -- the Lam-wrapper reduction discharged forward (emptyCtx_clone + cons_a_empty_ok; both length guards concrete, no Usize.max hypothesis) -- and admit_joint_unconditional composes safety with totality, so the deployed admission decision needs no observed ok premise. This is the anti-vacuity leg: admit_joint alone permits a checker that refuses everything.",
+    "note": "SCOPE FENCES (two, kept prominent): (1) TOTALITY HALF PENDING -- the converse (the checker ALWAYS admits, discharging the ok premise in-Lean without observation) rests on the Lam-wrapper Aeneas monadic plumbing fenced in #16; admit_infer_var0 proves the only substantive decision point (the context lookup), the surrounding clone/cons_a/branch has no logical failure mode but its raw ok-reduction is a deferred Aeneas.step discharge. So SAFETY (accept => typable) is UNCONDITIONAL; ALWAYS-ACCEPTS is pending. (2) admit() is NOT yet proved Lean-EQUIVALENT to the type-checker path -- admit_joint relates the CHECKER's verdict to a Deriv; relating the signed cap ATOM to that Deriv's cap prop is future metatheory. The runtime PEP is the signature-validity conjunct joined at the admission entry point (typeability AND signature validity), not collapsed into one theorem. Prior art: this is the Cedar/PCA 'if allowed, a permit derivation exists' safety direction (proof-carrying authorization, Garg 2007), carried to the Aeneas-translated deployed checker -- vs ACP's offline TLA+ model-check and IBCT's empirical 600-attack testing.",
+    "open": [
+      "admit()<->type-checker Lean equivalence: relating the SIGNED cap atom to the Deriv's cap prop needs Ed25519 inside the verified fragment, which it is not -- genuinely future metatheory, not deferred effort. Today ONE cap_atom definition serves both the certificate and the credential message, guarded by cap_obligation::same_atom_as_runtime (test-guarded, not type-guarded). Relocating cap_atom into dlc-core was examined and declined: first wrapping arithmetic in the Aeneas fence, both trees regenerated, and the resulting fact is rfl-thin with no consuming theorem."
+    ]
+  }
 }

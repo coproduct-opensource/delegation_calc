@@ -82,17 +82,68 @@ Rust checker types the store `x : atom_cap` — the identity store-transformer's
 `Imp (Atom c) (Atom c)`. This is the ONLY substantive decision point in the admission check (a
 context lookup — the one place a checker could return `none`/fail on real input); it is total.
 
-**Honest fence (#16 partial):** the surrounding `Lam` wrapper of `decide.infer` (clone the ctx,
-`cons_a` the cap atom, `branch` on the `some` result) is pure Aeneas monadic PLUMBING with no
-logical failure mode — `clone` is identity, `cons_a` is `push`+`extend_from_slice` on a
-one-element vector (well under `Usize.max`), `branch (some _)` is `Continue`. Its raw `ok`-reduction
-is a mechanical `Aeneas.step`/`progress` discharge that fought the version-specific tactic here and
-is deferred; the SEMANTIC totality (the lookup above) is proved. So the `ok`-escape is discharged at
-the point it could actually fire; only the plumbing wrapper's totality is pending, not the logic. -/
+**Fence CLOSED (2026-07-31, Tier-A #1):** the surrounding `Lam` wrapper of `decide.infer` (clone
+the ctx, `cons_a` the cap atom, `branch` on the `some` result) is now discharged forward by
+`emptyCtx_clone` + `cons_a_empty_ok` + `branch_some`, composed in `admit_total` below. Both length
+guards are satisfied concretely (length 0 push, one-element append), so no `Usize.max` hypothesis
+is introduced. -/
 theorem admit_store_total (E : judgment.Ctx) (c : Std.U32)
     (hadd : E.additive.val = [syntax.Prop.Atom c]) :
     decide.infer E (syntax.Term.Var 0#u32) = ok (some (syntax.Prop.Atom c)) :=
   admit_infer_var0 E c hadd
+
+/-! ### Closing the `Lam`-wrapper fence (Tier-A #1)
+
+The three plumbing steps the wrapper takes before the (already-proved) lookup, each discharged
+forward rather than assumed: the context clone is identity, `cons_a` on the EMPTY context succeeds
+(its `push` and `extend_from_slice` guards are both satisfied at length 0/1, so no `Usize.max`
+hypothesis is needed), and the resulting context has exactly the singleton additive zone the lookup
+lemma wants. -/
+
+/-- The empty context clones to itself (both zones are empty vectors, and `Prop` is clone-identity). -/
+theorem emptyCtx_clone :
+    judgment.Ctx.Insts.CoreCloneClone.clone emptyCtx = ok emptyCtx := by
+  have hv : alloc.vec.CloneVec.clone syntax.Prop.Insts.CoreCloneClone
+      (alloc.vec.Vec.new syntax.Prop) = ok (alloc.vec.Vec.new syntax.Prop) :=
+    CloneId.vecClone_id syntax.Prop.Insts.CoreCloneClone _
+      (fun x _ => CloneId.propClone_id x)
+  rw [judgment.Ctx.Insts.CoreCloneClone.clone]
+  simp only [hv, bind_tc_ok, emptyCtx]
+
+/-- **`cons_a` on the empty context SUCCEEDS**, with the singleton additive zone. Forward twin of
+`decCtx_cons_a_ok`: that lemma reads a success off `= ok ext`; this one *produces* the success —
+which is exactly what totality needs. `push` onto the fresh vector and `extend_from_slice` with the
+empty additive slice both pass their length guards concretely, so nothing is assumed. -/
+theorem cons_a_empty_ok (phi : syntax.Prop) :
+    ∃ ext : judgment.Ctx,
+      judgment.Ctx.cons_a emptyCtx phi = ok ext ∧ ext.additive.val = [phi] := by
+  rw [judgment.Ctx.cons_a]
+  simp only [emptyCtx, alloc.vec.Vec.push, alloc.vec.Vec.new,
+    alloc.vec.Vec.deref, bind_tc_ok]
+  split
+  · rename_i hpush
+    simp only [alloc.vec.Vec.extend_from_slice, sliceClone_id_prop, bind_tc_ok]
+    split
+    · exact ⟨_, rfl, by simp⟩
+    · -- the length guard cannot fail: one element appended to the empty slice.
+      rename_i hlen; exact absurd hlen (by simp [alloc.vec.Vec.length, Slice.length]; scalar_tac)
+  · -- the push guard cannot fail on the fresh vector.
+    rename_i hpush; exact absurd hpush (by simp; scalar_tac)
+
+/-- **★ TOTALITY on the admission fragment (#16 closed).** The deployed checker ALWAYS returns a
+verdict on an admission term: `decide.infer emptyCtx (Lam (Atom c) (Var 0)) =
+ok (some (Imp (Atom c) (Atom c)))`. No `ok`-escape, no fuel exhaustion, no overflow hypothesis.
+
+This is the ANTI-VACUITY leg of the admission claim: soundness alone (`admit_joint`) is satisfied by
+a checker that refuses everything, which would be safe and useless — and, since `nucleus` now gates
+live tool calls on this decision, would deny production traffic. Totality is what rules that out. -/
+theorem admit_total (c : Std.U32) :
+    decide.infer emptyCtx (syntax.Term.Lam (syntax.Prop.Atom c) (syntax.Term.Var 0#u32))
+      = ok (some (syntax.Prop.Imp (syntax.Prop.Atom c) (syntax.Prop.Atom c))) := by
+  obtain ⟨ext, hcons, hadd⟩ := cons_a_empty_ok (syntax.Prop.Atom c)
+  rw [decide.infer]
+  simp only [emptyCtx_clone, CloneId.propClone_id, hcons, bind_tc_ok,
+    admit_infer_var0 ext c hadd, branch_some]
 
 /-! ## #17 — the JOINT admission = commit-I theorem (forward / safety direction, unconditional). -/
 
@@ -105,16 +156,27 @@ kernel never grants a tool invocation the calculus would not type. Composes `adm
 (`AdmitFrag ⊆ PropFrag`) with `rust_infer_sound`, so it is UNCONDITIONAL in `inferred` and in the
 observed `ok` (which the deployed path always has, by the macro's `assert!(decide_pure …)`).
 
-**Honest fence (carries #16):** the CONVERSE totality half — that the checker ALWAYS admits, so the
-`ok` premise is discharged in-Lean without observation — rests on the `Lam`-wrapper totality fenced in
-`#16` (`admit_infer_var0` proves the substantive lookup; the plumbing wrapper is a deferred
-`Aeneas.step` reduction). So the *safety* direction (accept ⟹ typable) is proved unconditionally;
-the *totality* direction (always accepts) is honestly pending on that mechanical wrapper step. At the
-deployed site the `ok` premise is not an assumption but a fact the macro's compile-time assertion
-enforces. -/
+**Both directions now proved (2026-07-31).** The *safety* direction (accept ⟹ typable) is this
+theorem, unconditional. The *totality* direction (the checker always admits, so the `ok` premise is
+discharged in-Lean rather than observed) is `admit_total` above — so the deployed admission decision
+is backed by the model AND cannot spuriously refuse. `admit_joint_unconditional` composes them. -/
 theorem admit_joint {t : syntax.Term} (h : AdmitFrag t) (inferred : syntax.Prop)
     (hd : decide.infer emptyCtx t = ok (some inferred)) :
     Nonempty (DLC.Deriv (decCtx emptyCtx) (decTerm t) (decProp inferred)) :=
   rust_infer_sound emptyCtx t inferred (admitFrag_propFrag h) rfl hd
+
+/-- **★ JOINT ADMISSION, UNCONDITIONAL (safety ∧ totality).** For EVERY admission term the macro
+emits, the deployed checker returns a verdict *and* that verdict is backed by a real derivation —
+no `ok` hypothesis to observe, no fragment side-condition to discharge at the call site.
+
+This is the form the deployment actually needs. `admit_joint` alone permits a checker that refuses
+everything (safe, useless, and — since `nucleus` gates live tool calls on this decision — a
+production outage); `admit_total` rules that out. Together: the admission gate accepts exactly the
+macro's certificate, and every acceptance is a theorem. -/
+theorem admit_joint_unconditional (c : Std.U32) :
+    Nonempty (DLC.Deriv (decCtx emptyCtx)
+      (decTerm (syntax.Term.Lam (syntax.Prop.Atom c) (syntax.Term.Var 0#u32)))
+      (decProp (syntax.Prop.Imp (syntax.Prop.Atom c) (syntax.Prop.Atom c)))) :=
+  admit_joint (AdmitFrag.idStore c) _ (admit_total c)
 
 end DLC.Admit

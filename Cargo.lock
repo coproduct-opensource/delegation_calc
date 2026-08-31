@@ -455,6 +455,14 @@ name = "dlc-core"
 version = "1.5.0"
 
 [[package]]
+name = "dlc-coverage"
+version = "1.5.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "dlc-crypto"
 version = "1.5.0"
 dependencies = [

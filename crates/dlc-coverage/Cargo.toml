@@ -1,0 +1,20 @@
+[package]
+name = "dlc-coverage"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Decide-coverage ratchet: what fraction of the Term constructors decide_pure implements are inside PropFrag, the fragment rust_infer_sound is proved over. Both sets are derived from source, never declared."
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "dlc-coverage"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

@@ -14,6 +14,7 @@ members = [
     "crates/dlc-cli",
     "crates/dlc-bench",
     "crates/dlc-fuzz",
+    "crates/dlc-coverage",
 ]
 # Depends on the PRIVATE `coproduct-algebra` — kept OUT of the public workspace so
 # `cargo --workspace` (and public CI) never resolves that path. Build it standalone

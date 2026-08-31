@@ -110,6 +110,19 @@ model_status() {
 # reports BOTH the line count and whether an actual implementation exists
 # (no unconditional `Err`/`todo!`/"not implemented" in the verify path).
 
+# decide-coverage: the fraction of Term constructors inside PropFrag, the fragment
+# rust_infer_sound is proved over. Derived from source by `dlc-coverage`; an
+# unmeasurable result is recorded as such and NEVER as full coverage.
+coverage_status() {
+  local out
+  out="$(cargo run -q -p dlc-coverage -- --json 2>/dev/null || true)"
+  if [[ -z "$out" ]] || ! printf '%s' "$out" | python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null; then
+    echo '{"total":0,"proven":0,"percent":0.0,"status":"unmeasurable"}'
+    return
+  fi
+  printf '%s' "$out"
+}
+
 loc_status() {
   local src="crates/dlc-verifier/src"
   if [[ ! -d "$src" ]]; then
@@ -215,6 +228,7 @@ cat > ledger.json <<EOF
   },
   "aeneas_drift":  $(drift_status),
   "verifier_loc":  $(loc_status),
+  "decide_coverage": $(coverage_status),
   "rust_tests":    $(rust_tests_status),
   "phase_gates": {
     "phase0_truth_reconciliation": $phase0_ok,
